@@ -63,18 +63,30 @@ function(ofs_add_test)
         set(labels unit)
     endif()
 
+    # An empty ENVIRONMENT_MODIFICATION would swallow the next keyword, so pass it only when set.
+    string(REPLACE ";" "\;" labels_esc "${labels}")
+    string(REPLACE ";" "\;" env_esc "${env}")
+    string(REPLACE ";" "\;" envmod_esc "${envmod}")
+    set(props LABELS "${labels_esc}" ENVIRONMENT "${env_esc}")
+    if(envmod)
+        list(APPEND props ENVIRONMENT_MODIFICATION "${envmod_esc}")
+    endif()
+
     if(ARG_CATCH2)
         include(Catch)
+        set(dlpaths "")
+        if(OFS_RUNTIME_DIRS)
+            set(dlpaths DL_PATHS ${OFS_RUNTIME_DIRS})
+        endif()
         catch_discover_tests(${target}
             WORKING_DIRECTORY "${OFS_OUTPUT_DIR}"
             TEST_PREFIX "${ARG_NAME}:"
-            PROPERTIES LABELS "${labels}" ENVIRONMENT "${env}" ENVIRONMENT_MODIFICATION "${envmod}"
+            PROPERTIES ${props}
             DISCOVERY_MODE PRE_TEST
-            DL_PATHS ${OFS_RUNTIME_DIRS})
+            ${dlpaths})
     else()
         add_test(NAME ${ARG_NAME} COMMAND ${target} WORKING_DIRECTORY "${OFS_OUTPUT_DIR}")
-        set_tests_properties(${ARG_NAME} PROPERTIES
-            LABELS "${labels}" ENVIRONMENT "${env}" ENVIRONMENT_MODIFICATION "${envmod}")
+        set_tests_properties(${ARG_NAME} PROPERTIES ${props})
     endif()
 endfunction()
 
