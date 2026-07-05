@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: clang-format
+        run: |
+          pip install -q clang-format==18.1.8
+          git ls-files '*.cpp' '*.h' '*.hpp' | xargs clang-format --dry-run --Werror
+      - name: Third-party notices
+        run: python tools/check_third_party.py
+
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows (MSVC)
+            os: windows-2022
+            preset: win-msvc
+            qt-arch: win64_msvc2022_64
+          - name: Linux (GCC)
+            os: ubuntu-24.04
+            preset: linux
+            qt-arch: linux_gcc_64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/build
+        with:
+          preset: ${{ matrix.preset }}
+          qt-arch: ${{ matrix.qt-arch }}
+
+  # Other platforms only run for release tags and on demand, to save CI minutes.
+  build-extra:
+    name: ${{ matrix.name }}
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows (llvm-mingw)
+            os: windows-2022
+            preset: win-llvm-mingw
+            qt-arch: win64_llvm_mingw
+            qt-tools: tools_llvm_mingw1706,qt.tools.win64_llvm_mingw1706
+          - name: macOS
+            os: macos-14
+            preset: macos
+            qt-arch: clang_64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/build
+        with:
+          preset: ${{ matrix.preset }}
+          qt-arch: ${{ matrix.qt-arch }}
+          qt-tools: ${{ matrix.qt-tools }}

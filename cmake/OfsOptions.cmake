@@ -1,0 +1,10 @@
+option(OFS_BUILD_TESTS "Build the unit and GUI tests" ON)
+option(OFS_BUILD_TOOLS "Build developer command-line tools" ON)
+option(OFS_WITH_RAR "Build the RAR archive extension (libarchive)" OFF)
+option(OFS_WERROR "Treat compiler warnings as errors" OFF)
+option(OFS_SANITIZERS "Enable address/undefined sanitizers (clang/gcc only)" OFF)
+option(OFS_USE_SYSTEM_DEPS "Prefer system packages over fetched dependencies when available" OFF)
+
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
+endif()

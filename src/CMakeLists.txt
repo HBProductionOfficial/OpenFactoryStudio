@@ -1,0 +1,5 @@
+add_subdirectory(formats)
+add_subdirectory(core)
+add_subdirectory(shell)
+add_subdirectory(engines)
+add_subdirectory(app)

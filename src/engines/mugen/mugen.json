@@ -1,0 +1,6 @@
+{
+  "name": "mugen",
+  "displayName": "M.U.G.E.N",
+  "apiVersion": 1,
+  "extensions": ["def", "sff", "air", "cns", "st", "cmd", "snd", "fnt", "act"]
+}

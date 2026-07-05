@@ -1,0 +1,27 @@
+# Build output
+/build/
+/out/
+/install/
+CMakeUserPresets.json
+compile_commands.json
+.cache/
+
+# IDEs
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Tool logs
+aqtinstall.log

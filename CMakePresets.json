@@ -1,0 +1,113 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 26, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "win-llvm-mingw",
+      "displayName": "Windows, llvm-mingw (Debug)",
+      "description": "Qt's win64_llvm_mingw build. Set OFS_QT_DIR to <Qt>/6.8.3/llvm-mingw_64 and OFS_LLVM_MINGW to <Qt>/Tools/llvm-mingw1706_64.",
+      "inherits": "base",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_PREFIX_PATH": "$env{OFS_QT_DIR}",
+        "CMAKE_C_COMPILER": "$env{OFS_LLVM_MINGW}/bin/clang.exe",
+        "CMAKE_CXX_COMPILER": "$env{OFS_LLVM_MINGW}/bin/clang++.exe",
+        "CMAKE_RC_COMPILER": "$env{OFS_LLVM_MINGW}/bin/llvm-rc.exe"
+      }
+    },
+    {
+      "name": "win-llvm-mingw-release",
+      "displayName": "Windows, llvm-mingw (Release)",
+      "inherits": "win-llvm-mingw",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
+    },
+    {
+      "name": "win-msvc",
+      "displayName": "Windows, MSVC (Debug)",
+      "description": "Run from a Visual Studio developer prompt. Set OFS_QT_DIR to <Qt>/6.8.3/msvc2022_64.",
+      "inherits": "base",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_PREFIX_PATH": "$env{OFS_QT_DIR}",
+        "CMAKE_C_COMPILER": "cl",
+        "CMAKE_CXX_COMPILER": "cl"
+      }
+    },
+    {
+      "name": "win-msvc-release",
+      "displayName": "Windows, MSVC (Release)",
+      "inherits": "win-msvc",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "linux",
+      "displayName": "Linux (Debug)",
+      "inherits": "base",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_PREFIX_PATH": "$env{OFS_QT_DIR}"
+      }
+    },
+    {
+      "name": "linux-release",
+      "displayName": "Linux (Release)",
+      "inherits": "linux",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "macos",
+      "displayName": "macOS (Debug)",
+      "inherits": "base",
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin" },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_PREFIX_PATH": "$env{OFS_QT_DIR}"
+      }
+    },
+    {
+      "name": "macos-release",
+      "displayName": "macOS (Release)",
+      "inherits": "macos",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "win-llvm-mingw", "configurePreset": "win-llvm-mingw" },
+    { "name": "win-llvm-mingw-release", "configurePreset": "win-llvm-mingw-release" },
+    { "name": "win-msvc", "configurePreset": "win-msvc" },
+    { "name": "win-msvc-release", "configurePreset": "win-msvc-release" },
+    { "name": "linux", "configurePreset": "linux" },
+    { "name": "linux-release", "configurePreset": "linux-release" },
+    { "name": "macos", "configurePreset": "macos" },
+    { "name": "macos-release", "configurePreset": "macos-release" }
+  ],
+  "testPresets": [
+    {
+      "name": "test-base",
+      "hidden": true,
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error", "timeout": 300 },
+      "filter": { "include": { "label": "unit|gui" } }
+    },
+    { "name": "win-llvm-mingw", "inherits": "test-base", "configurePreset": "win-llvm-mingw" },
+    { "name": "win-llvm-mingw-release", "inherits": "test-base", "configurePreset": "win-llvm-mingw-release" },
+    { "name": "win-msvc", "inherits": "test-base", "configurePreset": "win-msvc" },
+    { "name": "win-msvc-release", "inherits": "test-base", "configurePreset": "win-msvc-release" },
+    { "name": "linux", "inherits": "test-base", "configurePreset": "linux" },
+    { "name": "linux-release", "inherits": "test-base", "configurePreset": "linux-release" },
+    { "name": "macos", "inherits": "test-base", "configurePreset": "macos" },
+    { "name": "macos-release", "inherits": "test-base", "configurePreset": "macos-release" }
+  ]
+}
