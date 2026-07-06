@@ -50,7 +50,8 @@ function(ofs_add_test)
         target_link_libraries(${target} PRIVATE Qt6::Test)
     endif()
 
-    set(env "OFS_CONFIG_DIR=${CMAKE_BINARY_DIR}/test-config/${ARG_NAME}")
+    # Without a console, QtTest on Windows logs to the debugger. Keep it in the test output.
+    set(env "OFS_CONFIG_DIR=${CMAKE_BINARY_DIR}/test-config/${ARG_NAME}" "QT_FORCE_STDERR_LOGGING=1")
     set(envmod "")
     foreach(dir IN LISTS OFS_RUNTIME_DIRS)
         list(APPEND envmod "PATH=path_list_prepend:${dir}")

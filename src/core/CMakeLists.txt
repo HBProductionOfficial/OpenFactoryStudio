@@ -10,6 +10,23 @@ add_library(ofscore SHARED
     engine/Engine.cpp
     engine/EngineManager.h
     engine/EngineManager.cpp
+    preset/PresetModel.h
+    preset/PresetEngine.h
+    preset/PresetEngine.cpp
+    settings/Config.h
+    settings/Config.cpp
+    settings/History.h
+    settings/History.cpp
+    settings/ShortcutSettings.h
+    settings/ShortcutSettings.cpp
+    settings/XmlRecordFile.h
+    settings/XmlRecordFile.cpp
+    theme/ColorSet.h
+    theme/ColorSet.cpp
+    theme/IconSet.h
+    theme/IconSet.cpp
+    theme/StyleSheet.h
+    theme/StyleSheet.cpp
 )
 add_library(OFS::core ALIAS ofscore)
 ofs_target_defaults(ofscore)

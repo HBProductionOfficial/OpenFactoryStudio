@@ -12,6 +12,18 @@ ofs_add_test(NAME core_engines
     SOURCES core/EngineManagerTest.cpp
     LIBS OFS::core)
 
+ofs_add_test(NAME core_settings
+    SOURCES core/SettingsTest.cpp
+    LIBS OFS::core)
+
+ofs_add_test(NAME core_theme GUI
+    SOURCES core/ThemeTest.cpp
+    LIBS OFS::core)
+
+ofs_add_test(NAME core_preset
+    SOURCES core/PresetEngineTest.cpp
+    LIBS OFS::core)
+
 ofs_add_test(NAME gui_mainwindow GUI LABELS gui
     SOURCES gui/MainWindowTest.cpp
     LIBS OFS::shell)
