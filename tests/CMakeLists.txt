@@ -24,6 +24,10 @@ ofs_add_test(NAME core_preset
     SOURCES core/PresetEngineTest.cpp
     LIBS OFS::core)
 
+ofs_add_test(NAME core_actions_preset GUI
+    SOURCES core/ActionsPresetTest.cpp
+    LIBS OFS::core)
+
 ofs_add_test(NAME gui_mainwindow GUI LABELS gui
     SOURCES gui/MainWindowTest.cpp
     LIBS OFS::shell)

@@ -6,10 +6,16 @@ add_library(ofscore SHARED
     "${PROJECT_BINARY_DIR}/src/core/Version.h"
     app/Paths.h
     app/Paths.cpp
+    actions/ActionRegistry.h
+    actions/ActionRegistry.cpp
     engine/Engine.h
     engine/Engine.cpp
     engine/EngineManager.h
     engine/EngineManager.cpp
+    preset/ControlRegistry.h
+    preset/ControlRegistry.cpp
+    preset/PresetBuilder.h
+    preset/PresetBuilder.cpp
     preset/PresetModel.h
     preset/PresetEngine.h
     preset/PresetEngine.cpp
