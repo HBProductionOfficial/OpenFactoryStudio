@@ -1,6 +1,7 @@
 #include "core/theme/ColorSet.h"
 #include "core/theme/IconSet.h"
 #include "core/theme/StyleSheet.h"
+#include "core/theme/ThemeManager.h"
 
 #include <QDir>
 #include <QFile>
@@ -120,6 +121,43 @@ private Q_SLOTS:
         QVERIFY(set.icon("unknown").isNull());
         QCOMPARE(set.filePath("file_new"), QDir::cleanPath(global + "/files/open.png"));
         QCOMPARE(IconSet::available({dir.path()}), QStringList{"Test"});
+    }
+
+    void themeManagerFindsAndAppliesResources()
+    {
+        QTemporaryDir userDir;
+        QTemporaryDir dataDir;
+        writeText(dataDir.filePath("presets/Neo.lua"), "iconset = 'Flat'");
+        writeText(userDir.filePath("presets/Mine.lua"), "iconset = 'Flat'");
+        writeText(dataDir.filePath("styles/Dark/stylesheet.css"), "QWidget { border: [2]px; image: url(a.png); }");
+        writeText(dataDir.filePath("colorsets/Dark.xml"),
+                  "<colors><color name=\"background\" value=\"1,2,3\"/></colors>");
+        writePng(dataDir.filePath("iconsets/Flat/x.png"));
+        writeText(dataDir.filePath("iconsets/Flat/iconset.xml"),
+                  "<iconset><icon name=\"file_new\" file=\"x.png\"/></iconset>");
+        writePng(dataDir.filePath("engines/mugen/iconsets/Flat/st.png"));
+        writeText(dataDir.filePath("engines/mugen/iconsets/Flat/iconset.xml"),
+                  "<iconset><icon name=\"st_state\" file=\"st.png\"/></iconset>");
+
+        ThemeManager theme;
+        theme.setSearchDirs({userDir.path(), dataDir.path()});
+        theme.setEngineDataDirs({dataDir.filePath("engines/mugen")});
+        QCOMPARE(theme.availablePresets(), (QStringList{"Mine", "Neo"}));
+        QCOMPARE(theme.availableStyles(), QStringList{"Dark"});
+        QCOMPARE(theme.availableColorSets(), QStringList{"Dark"});
+        QCOMPARE(theme.availableIconSets(), QStringList{"Flat"});
+
+        theme.setScale(2.0);
+        QVERIFY(theme.setStyle("Dark"));
+        QVERIFY(theme.styleSheet().contains(QStringLiteral("border: 4px")));
+        QVERIFY(theme.styleSheet().contains(QStringLiteral("/styles/Dark/a.png")));
+        QVERIFY(theme.setColorSet("Dark"));
+        QCOMPARE(theme.colorSet().color("background"), QColor(1, 2, 3));
+        QVERIFY(theme.setIconSet("Flat"));
+        QVERIFY(theme.iconSet().contains("file_new"));
+        QVERIFY(theme.iconSet().contains("st_state"));
+        QVERIFY(!theme.setIconSet("Missing"));
+        QCOMPARE(theme.iconSetName(), QStringLiteral("Flat"));
     }
 };
 

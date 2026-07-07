@@ -4,6 +4,8 @@ configure_file(Version.h.in "${PROJECT_BINARY_DIR}/src/core/Version.h" @ONLY)
 add_library(ofscore SHARED
     CoreExport.h
     "${PROJECT_BINARY_DIR}/src/core/Version.h"
+    app/AppContext.h
+    app/AppContext.cpp
     app/Paths.h
     app/Paths.cpp
     actions/ActionRegistry.h
@@ -33,6 +35,8 @@ add_library(ofscore SHARED
     theme/IconSet.cpp
     theme/StyleSheet.h
     theme/StyleSheet.cpp
+    theme/ThemeManager.h
+    theme/ThemeManager.cpp
 )
 add_library(OFS::core ALIAS ofscore)
 ofs_target_defaults(ofscore)
