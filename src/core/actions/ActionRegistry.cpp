@@ -37,19 +37,29 @@ QAction* ActionRegistry::add(const Spec& spec)
     action->setObjectName(spec.id);
     action->setCheckable(spec.checkable);
     action->setShortcutContext(isWindowScope(spec.scope) ? Qt::WindowShortcut : Qt::ApplicationShortcut);
+    if (!spec.description.isEmpty())
+        action->setStatusTip(spec.description);
 
     Entry entry;
     entry.action = action;
+    entry.caption = spec.text;
+    entry.description = spec.description.isEmpty() ? spec.text : spec.description;
     entry.scope = spec.scope;
     entry.iconName = spec.iconName.isEmpty() ? spec.id : spec.iconName;
     m_actions.insert(spec.id, entry);
     m_order << spec.id;
+    refreshText(spec.id);
     return action;
 }
 
 QAction* ActionRegistry::add(const QString& id, const QString& text, const QString& scope, bool checkable)
 {
-    return add(Spec{id, text, scope, checkable, {}});
+    Spec spec;
+    spec.id = id;
+    spec.text = text;
+    spec.scope = scope;
+    spec.checkable = checkable;
+    return add(spec);
 }
 
 QAction* ActionRegistry::action(const QString& id) const
@@ -68,6 +78,16 @@ QString ActionRegistry::scope(const QString& id) const
     return m_actions.value(id).scope;
 }
 
+QString ActionRegistry::caption(const QString& id) const
+{
+    return m_actions.value(id).caption;
+}
+
+QString ActionRegistry::description(const QString& id) const
+{
+    return m_actions.value(id).description;
+}
+
 QList<QAction*> ActionRegistry::actionsInScope(const QString& scope) const
 {
     QList<QAction*> list;
@@ -77,6 +97,25 @@ QList<QAction*> ActionRegistry::actionsInScope(const QString& scope) const
             list << e.action;
     }
     return list;
+}
+
+QString ActionRegistry::displayText(const QString& caption, const QKeySequence& keys)
+{
+    if (keys.isEmpty())
+        return caption;
+    return caption + QLatin1Char('\t') + QStringLiteral(" (") + keys.toString(QKeySequence::NativeText) +
+           QLatin1Char(')');
+}
+
+QString ActionRegistry::toolTipText(const QString& caption, const QKeySequence& keys)
+{
+    QString text = caption;
+    text.remove(QLatin1Char('&'));
+    if (text.endsWith(QLatin1String("...")))
+        text.chop(3);
+    if (keys.isEmpty())
+        return text;
+    return text + QStringLiteral("  (") + keys.toString(QKeySequence::NativeText) + QLatin1Char(')');
 }
 
 QKeySequence ActionRegistry::keys(const QString& id) const
@@ -91,6 +130,7 @@ void ActionRegistry::setKeys(const QString& id, const QKeySequence& keys)
         return;
     it->keys = keys;
     refreshShortcut(id);
+    refreshText(id);
 }
 
 void ActionRegistry::applyShortcuts(const ShortcutSettings& shortcuts)
@@ -129,6 +169,13 @@ void ActionRegistry::refreshShortcut(const QString& id)
 {
     const Entry& e = m_actions[id];
     e.action->setShortcut(isScopeActive(e.scope) ? e.keys : QKeySequence());
+}
+
+void ActionRegistry::refreshText(const QString& id)
+{
+    const Entry& e = m_actions[id];
+    e.action->setText(displayText(e.caption, e.keys));
+    e.action->setToolTip(toolTipText(e.caption, e.keys));
 }
 
 QStringList ActionRegistry::conflicts() const

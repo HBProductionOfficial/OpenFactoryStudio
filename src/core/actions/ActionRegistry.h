@@ -35,6 +35,7 @@ public:
     {
         QString id;
         QString text;
+        QString description;
         QString scope;
         bool checkable = false;
         QString iconName;
@@ -47,7 +48,13 @@ public:
     bool contains(const QString& id) const { return m_actions.contains(id); }
     QStringList ids() const;
     QString scope(const QString& id) const;
+    QString caption(const QString& id) const;
+    QString description(const QString& id) const;
     QList<QAction*> actionsInScope(const QString& scope) const;
+
+    // Menus show the shortcut in parentheses in the shortcut column: "Open...", tab, " (Ctrl+O)".
+    static QString displayText(const QString& caption, const QKeySequence& keys);
+    static QString toolTipText(const QString& caption, const QKeySequence& keys);
 
     QKeySequence keys(const QString& id) const;
     void setKeys(const QString& id, const QKeySequence& keys);
@@ -62,10 +69,13 @@ public:
 private:
     bool isScopeActive(const QString& scope) const;
     void refreshShortcut(const QString& id);
+    void refreshText(const QString& id);
 
     struct Entry
     {
         QAction* action = nullptr;
+        QString caption;
+        QString description;
         QString scope;
         QString iconName;
         QKeySequence keys;
