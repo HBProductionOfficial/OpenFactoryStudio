@@ -38,7 +38,10 @@ QString StyleSheet::preprocess(const QString& source, double scale, const QStrin
         const auto m = it.next();
         result += QStringView(out).mid(last, m.capturedStart() - last);
         QString path = m.captured(2).trimmed();
-        const bool absolute = path.startsWith(QLatin1Char(':')) || path.startsWith(QLatin1Char('/')) ||
+        // Drive-letter paths ("C:/...") count as absolute on every platform.
+        const bool driveLetter = path.size() > 2 && path.at(0).isLetter() && path.at(1) == QLatin1Char(':') &&
+                                 (path.at(2) == QLatin1Char('/') || path.at(2) == QLatin1Char('\\'));
+        const bool absolute = path.startsWith(QLatin1Char(':')) || path.startsWith(QLatin1Char('/')) || driveLetter ||
                               QDir::isAbsolutePath(path) || path.contains(QLatin1String("://"));
         if (!absolute && !base.isEmpty())
             path = base + QLatin1Char('/') + path;
