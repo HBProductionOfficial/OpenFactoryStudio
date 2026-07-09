@@ -17,6 +17,7 @@
 #include "shell/MenuBuilder.h"
 #include "shell/ProjectView.h"
 #include "shell/StatusBar.h"
+#include "shell/UpdateChecker.h"
 #include "shell/WelcomePage.h"
 
 #include <QAction>
@@ -257,8 +258,24 @@ void MainWindow::connectActions()
     }
 
     on("ref_docs", [] { QDesktopServices::openUrl(QUrl(QStringLiteral(OFS_HOMEPAGE))); });
-    on("check_updates",
-       [] { QDesktopServices::openUrl(QUrl(QStringLiteral(OFS_HOMEPAGE) + QStringLiteral("/releases"))); });
+    m_updates = new UpdateChecker(this);
+    on("check_updates", [this] { m_updates->check(true); });
+    connect(m_updates, &UpdateChecker::updateAvailable, this,
+            [this](const QString& version, const QString& url, const QString&) {
+                const auto answer = QMessageBox::information(
+                    this, tr("Check updates"),
+                    tr("Version %1 is available. Do you want to open the download page?").arg(version),
+                    QMessageBox::Yes | QMessageBox::No);
+                if (answer == QMessageBox::Yes)
+                    QDesktopServices::openUrl(QUrl(url));
+            });
+    connect(m_updates, &UpdateChecker::upToDate, this,
+            [this] { QMessageBox::information(this, tr("Check updates"), tr("You are using the latest version.")); });
+    connect(m_updates, &UpdateChecker::failed, this, [this](const QString& message) {
+        QMessageBox::warning(this, tr("Check updates"), tr("Could not check for updates: %1").arg(message));
+    });
+    if (config.boolValue(QStringLiteral("auto_update"), false))
+        m_updates->check(false);
     connect(m_welcome, &WelcomePage::getStartedRequested, actions.action(QStringLiteral("ref_docs")),
             &QAction::trigger);
 }

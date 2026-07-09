@@ -45,3 +45,7 @@ get_property(_ofs_plugins GLOBAL PROPERTY OFS_ENGINE_PLUGINS)
 add_dependencies(test_core_engines ofs_data ${_ofs_plugins})
 add_dependencies(test_gui_mainwindow ofs_data ${_ofs_plugins})
 add_dependencies(test_core_preset_coverage ofs_data ${_ofs_plugins})
+
+ofs_add_test(NAME shell_update_checker
+    SOURCES gui/UpdateCheckerTest.cpp
+    LIBS OFS::shell)

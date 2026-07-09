@@ -23,6 +23,7 @@ class BottomDock;
 class MenuBuilder;
 class ProjectView;
 class StatusBar;
+class UpdateChecker;
 class WelcomePage;
 
 class MainWindow : public QMainWindow
@@ -92,6 +93,7 @@ private:
     QActionGroup* m_editorGroup = nullptr;
     QDockWidget* m_actionListDock = nullptr;
     QListWidget* m_actionList = nullptr;
+    UpdateChecker* m_updates = nullptr;
     bool m_welcomeTab = false;
 };
 

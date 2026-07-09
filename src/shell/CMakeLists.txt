@@ -10,9 +10,11 @@ add_library(ofsshell STATIC
     ProjectView.cpp
     StatusBar.h
     StatusBar.cpp
+    UpdateChecker.h
+    UpdateChecker.cpp
     WelcomePage.h
     WelcomePage.cpp
 )
 add_library(OFS::shell ALIAS ofsshell)
 ofs_target_defaults(ofsshell)
-target_link_libraries(ofsshell PUBLIC OFS::core Qt6::Widgets)
+target_link_libraries(ofsshell PUBLIC OFS::core Qt6::Widgets Qt6::Network)
