@@ -1,18 +1,27 @@
+# The engine code is a static library so the tests can link it; the plugin wraps it.
+add_library(ofs_mugen_lib STATIC
+    DefFile.h
+    DefFile.cpp
+    MugenActions.h
+    MugenActions.cpp
+    MugenControls.h
+    MugenControls.cpp
+    MugenEngine.h
+    MugenEngine.cpp
+    MugenMenus.h
+    MugenMenus.cpp
+    MugenProject.h
+    MugenProject.cpp
+)
+add_library(OFS::mugen ALIAS ofs_mugen_lib)
+ofs_target_defaults(ofs_mugen_lib)
+target_link_libraries(ofs_mugen_lib PUBLIC OFS::core)
+
 ofs_add_engine_plugin(mugen
     SOURCES
         mugen.json
-        DefFile.h
-        DefFile.cpp
-        MugenActions.h
-        MugenActions.cpp
-        MugenControls.h
-        MugenControls.cpp
-        MugenEngine.h
-        MugenEngine.cpp
-        MugenMenus.h
-        MugenMenus.cpp
         MugenPlugin.h
         MugenPlugin.cpp
-        MugenProject.h
-        MugenProject.cpp
+    LIBS
+        OFS::mugen
 )

@@ -28,6 +28,14 @@ ofs_add_test(NAME core_actions_preset GUI
     SOURCES core/ActionsPresetTest.cpp
     LIBS OFS::core)
 
+ofs_add_test(NAME core_preset_coverage GUI
+    SOURCES core/PresetCoverageTest.cpp
+    LIBS OFS::core)
+
+ofs_add_test(NAME mugen_project
+    SOURCES mugen/MugenProjectTest.cpp
+    LIBS OFS::mugen)
+
 ofs_add_test(NAME gui_mainwindow GUI LABELS gui
     SOURCES gui/MainWindowTest.cpp
     LIBS OFS::shell)
@@ -36,3 +44,4 @@ ofs_add_test(NAME gui_mainwindow GUI LABELS gui
 get_property(_ofs_plugins GLOBAL PROPERTY OFS_ENGINE_PLUGINS)
 add_dependencies(test_core_engines ofs_data ${_ofs_plugins})
 add_dependencies(test_gui_mainwindow ofs_data ${_ofs_plugins})
+add_dependencies(test_core_preset_coverage ofs_data ${_ofs_plugins})
