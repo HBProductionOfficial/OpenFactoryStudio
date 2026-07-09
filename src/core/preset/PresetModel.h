@@ -16,17 +16,19 @@ namespace OFS::Preset {
 // The interface a preset script describes. It holds only names, so it can be built and tested
 // without a GUI. PresetBuilder turns it into widgets.
 
+struct Layout;
+
 struct Control
 {
     QString name;
     int iconSize = 0;
     bool flat = false;
+    bool wordWrap = false;
     std::optional<Qt::Orientation> orientation;
     Qt::Alignment alignment;
     QSize size;
+    std::shared_ptr<Layout> content;
 };
-
-struct Layout;
 
 struct LayoutItem
 {
@@ -47,6 +49,7 @@ struct LayoutItem
     int rowSpan = 1;
     int columnSpan = 1;
     int spacing = 0;
+    int stretch = 0;
     std::shared_ptr<Control> control;
     std::shared_ptr<Layout> layout;
 };

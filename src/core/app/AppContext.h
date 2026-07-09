@@ -28,6 +28,8 @@ public:
     void loadSettings();
     bool saveSettings(QString* error = nullptr) const;
 
+    void initializeEngines(const QStringList& engineSearchDirs = {});
+
     Config& config() const { return *m_config; }
     ShortcutSettings& shortcuts() const { return *m_shortcuts; }
     History& history() const { return *m_history; }

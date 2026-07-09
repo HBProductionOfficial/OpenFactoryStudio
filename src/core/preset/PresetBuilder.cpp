@@ -69,6 +69,12 @@ QLayout* PresetBuilder::buildLayout(const Preset::Layout& layout, QWidget* paren
             if (!m_controls.isKnown(item.control->name))
                 m_warnings << QStringLiteral("unknown control '%1'").arg(item.control->name);
             widget = m_controls.create(*item.control, parent, defaultIconSize);
+            if (item.control->content) {
+                QLayout* inner = buildLayout(*item.control->content, widget, defaultIconSize);
+                if (QLayout* old = widget->layout())
+                    delete old;
+                widget->setLayout(inner);
+            }
             break;
         case Kind::Layout:
             if (!item.layout)
@@ -106,7 +112,7 @@ QLayout* PresetBuilder::buildLayout(const Preset::Layout& layout, QWidget* paren
             if (widget)
                 box->addWidget(widget);
             else if (child)
-                box->addLayout(child);
+                box->addLayout(child, item.stretch);
             else if (spacer)
                 box->addItem(spacer);
         }

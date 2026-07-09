@@ -1,21 +1,98 @@
 #pragma once
 
+#include "core/preset/PresetModel.h"
+
+#include <QHash>
 #include <QMainWindow>
+#include <QPointer>
+
+#include <memory>
+
+class QActionGroup;
+class QDockWidget;
+class QListWidget;
+class QMenu;
+class QStackedWidget;
+class QTabBar;
+class QToolBar;
 
 namespace OFS {
 
-class EngineManager;
+class AppContext;
+class BottomDock;
+class MenuBuilder;
+class ProjectView;
+class StatusBar;
+class WelcomePage;
 
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    explicit MainWindow(EngineManager* engines, QWidget* parent = nullptr);
+    explicit MainWindow(AppContext& context, QWidget* parent = nullptr);
     ~MainWindow() override;
 
+    // Returns false, after telling the user, when no engine can open the file.
+    bool openProject(const QString& filePath);
+
+    ProjectView* currentProjectView() const;
+    QList<ProjectView*> projectViews() const;
+    bool isWelcomeCurrent() const;
+
+    void applyInterface();
+
+    const Preset::Model& presetModel() const { return m_preset; }
+    BottomDock* bottomDock() const { return m_dock; }
+    StatusBar* ofsStatusBar() const { return m_status; }
+    QToolBar* mainToolBar() const { return m_mainBar; }
+    QToolBar* extraToolBar() const { return m_extraBar; }
+
+public Q_SLOTS:
+    void openProjectDialog();
+    void closeProject(int tabIndex);
+    void closeCurrentProject();
+    void closeAllProjects();
+    void closeOtherProjects();
+    void showWelcomeTab();
+    void switchEditor(const QString& editorId);
+
+protected:
+    void closeEvent(QCloseEvent* event) override;
+
 private:
-    EngineManager* m_engines;
+    void buildMenus();
+    void buildToolBars();
+    void buildCentralArea();
+    void connectActions();
+    void restoreWindowGeometry();
+    void saveWindowGeometry();
+
+    void onCurrentTabChanged(int index);
+    void refreshForCurrent();
+    void refreshToolBars();
+    void refreshActionStates();
+    void refreshTitle();
+    void refreshStatusBar();
+    void refreshActionList();
+    void populateRecentProjects(QMenu* menu, QAction* before, QList<QAction*>& created);
+
+    AppContext& m_context;
+    std::unique_ptr<MenuBuilder> m_menus;
+    Preset::Model m_preset;
+    QList<QMenu*> m_engineMenus;
+
+    QToolBar* m_mainBar = nullptr;
+    QToolBar* m_extraBar = nullptr;
+    QTabBar* m_projectTabs = nullptr;
+    QStackedWidget* m_stack = nullptr;
+    WelcomePage* m_welcome = nullptr;
+    BottomDock* m_dock = nullptr;
+    StatusBar* m_status = nullptr;
+    QActionGroup* m_editorGroup = nullptr;
+    QDockWidget* m_actionListDock = nullptr;
+    QListWidget* m_actionList = nullptr;
+    bool m_welcomeTab = false;
 };
 
 } // namespace OFS

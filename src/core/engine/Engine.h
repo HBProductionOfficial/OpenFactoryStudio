@@ -1,6 +1,8 @@
 #pragma once
 
 #include "core/CoreExport.h"
+#include "core/actions/MenuSpec.h"
+#include "core/editors/EditorInfo.h"
 
 #include <QList>
 #include <QObject>
@@ -9,6 +11,9 @@
 #include <QtPlugin>
 
 namespace OFS {
+
+class AppContext;
+class Project;
 
 struct EngineVersion
 {
@@ -39,6 +44,21 @@ public:
     virtual QList<ProjectTypeInfo> projectTypes() const = 0;
 
     virtual QStringList projectExtensions() const = 0;
+
+    virtual void initialize(AppContext& context);
+
+    virtual QList<EditorInfo> editors() const { return {}; }
+    EditorInfo editor(const QString& id) const;
+
+    virtual QList<MenuSpec> menus() const { return {}; }
+    virtual QList<MenuItemSpec> toolsMenuItems() const { return {}; }
+
+    virtual QString projectFileFilter() const;
+
+    virtual bool canOpen(const QString& filePath) const;
+
+    // The caller owns the project.
+    virtual Project* openProject(const QString& filePath, QString* error) = 0;
 
     QString dataDir() const;
     QString userDataDir() const;

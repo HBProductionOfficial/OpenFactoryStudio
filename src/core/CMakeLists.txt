@@ -8,19 +8,28 @@ add_library(ofscore SHARED
     app/AppContext.cpp
     app/Paths.h
     app/Paths.cpp
+    actions/ActionCatalog.h
+    actions/ActionCatalog.cpp
     actions/ActionRegistry.h
     actions/ActionRegistry.cpp
+    actions/MenuSpec.h
+    actions/MenuSpec.cpp
     engine/Engine.h
     engine/Engine.cpp
     engine/EngineManager.h
     engine/EngineManager.cpp
+    editors/EditorInfo.h
     preset/ControlRegistry.h
     preset/ControlRegistry.cpp
+    preset/ControlTable.h
+    preset/ControlTable.cpp
     preset/PresetBuilder.h
     preset/PresetBuilder.cpp
     preset/PresetModel.h
     preset/PresetEngine.h
     preset/PresetEngine.cpp
+    project/Project.h
+    project/Project.cpp
     settings/Config.h
     settings/Config.cpp
     settings/History.h
@@ -37,6 +46,8 @@ add_library(ofscore SHARED
     theme/StyleSheet.cpp
     theme/ThemeManager.h
     theme/ThemeManager.cpp
+    widgets/EPanelWidget.h
+    widgets/EPanelWidget.cpp
 )
 add_library(OFS::core ALIAS ofscore)
 ofs_target_defaults(ofscore)

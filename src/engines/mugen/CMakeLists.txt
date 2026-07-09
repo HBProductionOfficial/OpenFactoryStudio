@@ -1,8 +1,18 @@
 ofs_add_engine_plugin(mugen
     SOURCES
         mugen.json
-        MugenPlugin.h
-        MugenPlugin.cpp
+        DefFile.h
+        DefFile.cpp
+        MugenActions.h
+        MugenActions.cpp
+        MugenControls.h
+        MugenControls.cpp
         MugenEngine.h
         MugenEngine.cpp
+        MugenMenus.h
+        MugenMenus.cpp
+        MugenPlugin.h
+        MugenPlugin.cpp
+        MugenProject.h
+        MugenProject.cpp
 )

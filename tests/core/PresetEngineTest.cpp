@@ -122,6 +122,41 @@ private Q_SLOTS:
         QCOMPARE(syntax.errors.size(), 1);
     }
 
+    void observedApiExtensions()
+    {
+        Model model;
+        QVERIFY(PresetEngine::runString(QStringLiteral(R"(
+            -- engine presets run top to bottom, without apply()
+            local root = FF.verticalLayout(FF.panel("sounds"))
+            root.margin = 8
+            local top = FF.gridLayout()
+            root:addLayout(top, 1)
+            local box = top:addControl("snd_selection", 0, 0)
+            local inner = FF.gridLayout(box)
+            inner:addControl("snd_sel_start", 0, 0)
+            top:addControl("spr_info_lb", 1, 0):wordwrap()
+            local other = FF.gridLayout()
+            other:addControl("bgs_x", 0, 0)
+            top:addControl("bgs_start", 2, 0):layout(other)
+        )"),
+                                        QStringLiteral("engine"), model));
+        QVERIFY2(model.errors.isEmpty(), qPrintable(model.errors.join('\n')));
+        const auto& root = model.panels["sounds"].layout;
+        QVERIFY(root);
+        QCOMPARE(root->type, Layout::Type::Vertical);
+        QCOMPARE(root->margin, 8);
+        QCOMPARE(root->items.size(), 1);
+        QCOMPARE(root->items[0].stretch, 1);
+        const auto& top = root->items[0].layout;
+        QCOMPARE(top->items.size(), 3);
+        QVERIFY(top->items[0].control->content);
+        QCOMPARE(top->items[0].control->content->items[0].control->name, QStringLiteral("snd_sel_start"));
+        QVERIFY(top->items[1].control->wordWrap);
+        QCOMPARE(top->items[2].control->content->items[0].control->name, QStringLiteral("bgs_x"));
+        QVERIFY(model.referencedNames().contains(QStringLiteral("snd_sel_start")));
+        QVERIFY(model.referencedNames().contains(QStringLiteral("bgs_x")));
+    }
+
     void noFileSystemAccess()
     {
         Model model;

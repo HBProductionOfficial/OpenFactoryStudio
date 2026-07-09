@@ -10,9 +10,18 @@ namespace {
 
 // Lua-side handles. They point into the model being built so chained calls modify it in place.
 
+struct LayoutHandle;
+
 struct ControlHandle
 {
     std::shared_ptr<Control> control;
+
+    ControlHandle& wordwrap()
+    {
+        control->wordWrap = true;
+        return *this;
+    }
+    ControlHandle& setContent(const LayoutHandle& layout);
 
     ControlHandle& size(int w, int h)
     {
@@ -85,12 +94,18 @@ struct LayoutHandle
         return ControlHandle{item.control};
     }
 
+    // Grid layouts: addLayout(layout, row, column[, rowSpan, columnSpan]).
+    // Box layouts:  addLayout(layout[, stretch]).
     LayoutHandle& addLayout(const LayoutHandle& child, sol::variadic_args args)
     {
         LayoutItem item;
         item.kind = LayoutItem::Kind::Layout;
         item.layout = child.layout;
-        place(item, args, 0);
+        if (layout->type == Layout::Type::Grid) {
+            place(item, args, 0);
+        } else if (args.size() > 0 && args[0].get_type() == sol::type::number) {
+            item.stretch = args[0].get<int>();
+        }
         layout->items.append(item);
         return *this;
     }
@@ -124,6 +139,12 @@ struct LayoutHandle
     LayoutHandle& addSeparator(sol::variadic_args args) { return addSpacer(LayoutItem::Kind::Separator, args); }
 };
 
+ControlHandle& ControlHandle::setContent(const LayoutHandle& layout)
+{
+    control->content = layout.layout;
+    return *this;
+}
+
 struct ToolBarHandle
 {
     Model* model;
@@ -154,11 +175,21 @@ struct PanelHandle
     void setLayout(const LayoutHandle& l) { panel().layout = l.layout; }
 };
 
-LayoutHandle newLayout(Layout::Type type)
+// FF.gridLayout([parent]) and friends: a panel or a container control given as parent receives
+// the new layout as its content.
+LayoutHandle newLayout(Layout::Type type, sol::variadic_args args)
 {
     auto layout = std::make_shared<Layout>();
     layout->type = type;
-    return LayoutHandle{layout};
+    LayoutHandle handle{layout};
+    if (args.size() > 0) {
+        sol::object parent = args[0];
+        if (parent.is<PanelHandle>())
+            parent.as<PanelHandle>().setLayout(handle);
+        else if (parent.is<ControlHandle>())
+            parent.as<ControlHandle>().setContent(handle);
+    }
+    return handle;
 }
 
 void registerApi(sol::state& lua, Model& model)
@@ -169,7 +200,9 @@ void registerApi(sol::state& lua, Model& model)
                                     "flat", &ControlHandle::flat,             //
                                     "horizontal", &ControlHandle::horizontal, //
                                     "vertical", &ControlHandle::vertical,     //
-                                    "align", &ControlHandle::align);
+                                    "align", &ControlHandle::align,           //
+                                    "wordwrap", &ControlHandle::wordwrap,     //
+                                    "layout", &ControlHandle::setContent);
 
     lua.new_usertype<LayoutHandle>("OFSLayout", sol::no_constructor,                                            //
                                    "margin", sol::property(&LayoutHandle::margin, &LayoutHandle::setMargin),    //
@@ -216,9 +249,9 @@ void registerApi(sol::state& lua, Model& model)
         }
         return PanelHandle{m, n, true};
     });
-    api.set_function("gridLayout", [] { return newLayout(Layout::Type::Grid); });
-    api.set_function("horizontalLayout", [] { return newLayout(Layout::Type::Horizontal); });
-    api.set_function("verticalLayout", [] { return newLayout(Layout::Type::Vertical); });
+    api.set_function("gridLayout", [](sol::variadic_args a) { return newLayout(Layout::Type::Grid, a); });
+    api.set_function("horizontalLayout", [](sol::variadic_args a) { return newLayout(Layout::Type::Horizontal, a); });
+    api.set_function("verticalLayout", [](sol::variadic_args a) { return newLayout(Layout::Type::Vertical, a); });
     api.set_function("translate", [](const std::string& text) { return text; });
 
     sol::table align = lua.create_table();
@@ -305,9 +338,11 @@ QStringList Model::referencedNames() const
     }
     std::function<void(const Layout&)> walk = [&](const Layout& layout) {
         for (const LayoutItem& item : layout.items) {
-            if (item.kind == LayoutItem::Kind::Control && item.control)
+            if (item.kind == LayoutItem::Kind::Control && item.control) {
                 names << item.control->name;
-            else if (item.kind == LayoutItem::Kind::Layout && item.layout)
+                if (item.control->content)
+                    walk(*item.control->content);
+            } else if (item.kind == LayoutItem::Kind::Layout && item.layout)
                 walk(*item.layout);
         }
     };

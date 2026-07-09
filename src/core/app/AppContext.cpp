@@ -1,7 +1,9 @@
 #include "core/app/AppContext.h"
 
+#include "core/actions/ActionCatalog.h"
 #include "core/actions/ActionRegistry.h"
 #include "core/app/Paths.h"
+#include "core/engine/Engine.h"
 #include "core/engine/EngineManager.h"
 #include "core/preset/ControlRegistry.h"
 #include "core/settings/Config.h"
@@ -50,6 +52,22 @@ void AppContext::loadSettings()
     m_history->setMaxEntries(m_config->intValue(QStringLiteral("max_history"), 10));
     m_history->load(user + QStringLiteral("/history.xml"));
     m_theme->setSearchDirs({user, data});
+}
+
+void AppContext::initializeEngines(const QStringList& engineSearchDirs)
+{
+    registerApplicationActions(*m_actions);
+    if (engineSearchDirs.isEmpty())
+        m_engines->loadPlugins();
+    else
+        m_engines->loadPlugins(engineSearchDirs);
+    QStringList dataDirs;
+    for (Engine* engine : m_engines->engines()) {
+        engine->initialize(*this);
+        dataDirs << engine->dataDir();
+    }
+    m_theme->setEngineDataDirs(dataDirs);
+    m_actions->applyShortcuts(*m_shortcuts);
 }
 
 bool AppContext::saveSettings(QString* error) const

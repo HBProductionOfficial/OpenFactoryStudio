@@ -176,6 +176,11 @@ void ActionRegistry::refreshText(const QString& id)
     const Entry& e = m_actions[id];
     e.action->setText(displayText(e.caption, e.keys));
     e.action->setToolTip(toolTipText(e.caption, e.keys));
+    QString iconText = e.caption;
+    iconText.remove(QLatin1Char('&'));
+    if (iconText.endsWith(QLatin1String("...")))
+        iconText.chop(3);
+    e.action->setIconText(iconText);
 }
 
 QStringList ActionRegistry::conflicts() const

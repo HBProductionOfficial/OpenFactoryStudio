@@ -76,6 +76,10 @@ QWidget* ControlRegistry::create(const Preset::Control& control, QWidget* parent
         if (auto* label = qobject_cast<QLabel*>(widget))
             label->setAlignment(control.alignment);
     }
+    if (control.wordWrap) {
+        if (auto* label = qobject_cast<QLabel*>(widget))
+            label->setWordWrap(true);
+    }
     if (control.iconSize > 0) {
         if (auto* button = qobject_cast<QToolButton*>(widget))
             button->setIconSize(QSize(control.iconSize, control.iconSize));

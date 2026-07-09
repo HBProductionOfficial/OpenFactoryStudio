@@ -1,27 +1,734 @@
 #include "shell/MainWindow.h"
 
 #include "core/Version.h"
+#include "core/actions/ActionRegistry.h"
+#include "core/actions/MenuSpec.h"
+#include "core/app/AppContext.h"
+#include "core/app/Paths.h"
 #include "core/engine/Engine.h"
 #include "core/engine/EngineManager.h"
+#include "core/preset/PresetBuilder.h"
+#include "core/preset/PresetEngine.h"
+#include "core/project/Project.h"
+#include "core/settings/Config.h"
+#include "core/settings/History.h"
+#include "core/theme/ThemeManager.h"
+#include "shell/BottomDock.h"
+#include "shell/MenuBuilder.h"
+#include "shell/ProjectView.h"
+#include "shell/StatusBar.h"
+#include "shell/WelcomePage.h"
 
-#include <QStatusBar>
+#include <QAction>
+#include <QActionGroup>
+#include <QApplication>
+#include <QCloseEvent>
+#include <QDesktopServices>
+#include <QDir>
+#include <QDockWidget>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QListWidget>
+#include <QMenuBar>
+#include <QMessageBox>
+#include <QPlainTextEdit>
+#include <QScreen>
+#include <QStackedWidget>
+#include <QTabBar>
+#include <QTabWidget>
+#include <QToolBar>
+#include <QUrl>
+#include <QVBoxLayout>
 
 namespace OFS {
 
-MainWindow::MainWindow(EngineManager* engines, QWidget* parent)
+namespace {
+
+const QString kWelcomeTab = QStringLiteral("welcome");
+
+QString workspaceToolBarName(WorkspaceType type)
+{
+    switch (type) {
+    case WorkspaceType::Code:
+        return QStringLiteral("code");
+    case WorkspaceType::Sound:
+        return QStringLiteral("sound");
+    case WorkspaceType::Graphics:
+    case WorkspaceType::Emulator:
+        return QStringLiteral("graphics");
+    }
+    return {};
+}
+
+} // namespace
+
+MainWindow::MainWindow(AppContext& context, QWidget* parent)
     : QMainWindow(parent)
-    , m_engines(engines)
+    , m_context(context)
+    , m_menus(std::make_unique<MenuBuilder>(context.actions()))
 {
     setObjectName(QStringLiteral("MainWindow"));
-    setWindowTitle(QStringLiteral(OFS_DISPLAY_NAME));
-    resize(1280, 800);
+    setWindowIcon(QIcon(Paths::dataDir() + QStringLiteral("/icons/ofs.png")));
 
-    QStringList names;
-    for (const Engine* engine : m_engines->engines())
-        names << engine->displayName();
-    statusBar()->showMessage(names.isEmpty() ? tr("No engine plugins found") : names.join(QStringLiteral(", ")));
+    // Add every action to the window so its shortcut works even outside menus and toolbars.
+    for (const QString& id : m_context.actions().ids())
+        addAction(m_context.actions().action(id));
+
+    buildMenus();
+    buildToolBars();
+    buildCentralArea();
+    m_status = new StatusBar(this);
+    setStatusBar(m_status);
+    connectActions();
+
+    applyInterface();
+    restoreWindowGeometry();
+    refreshForCurrent();
 }
 
 MainWindow::~MainWindow() = default;
+
+// ---------------------------------------------------------------------------------------------
+// Construction
+
+void MainWindow::buildMenus()
+{
+    m_menus->setDynamic(QStringLiteral("recent_projects"),
+                        [this](QMenu* menu, QAction* before, QList<QAction*>& created) {
+                            populateRecentProjects(menu, before, created);
+                        });
+    m_menus->setDynamic(QStringLiteral("engine_tools"), [this](QMenu* menu, QAction* before, QList<QAction*>& created) {
+        ProjectView* view = currentProjectView();
+        if (!view)
+            return;
+        for (const MenuItemSpec& item : view->engine()->toolsMenuItems()) {
+            if (QAction* a = m_context.actions().action(item.id)) {
+                menu->insertAction(before, a);
+                created << a;
+            }
+        }
+    });
+
+    for (const MenuSpec& spec : applicationMenusBeforeEngine())
+        menuBar()->addMenu(m_menus->build(spec, this));
+    for (Engine* engine : m_context.engines().engines()) {
+        for (const MenuSpec& spec : engine->menus()) {
+            QMenu* menu = m_menus->build(spec, this);
+            menu->setProperty("engine", engine->name());
+            menu->setProperty("hiddenMenu", spec.hidden);
+            menuBar()->addMenu(menu);
+            menu->menuAction()->setVisible(false);
+            m_engineMenus << menu;
+        }
+    }
+    for (const MenuSpec& spec : applicationMenusAfterEngine())
+        menuBar()->addMenu(m_menus->build(spec, this));
+}
+
+void MainWindow::buildToolBars()
+{
+    m_mainBar = new QToolBar(tr("Main"), this);
+    m_mainBar->setObjectName(QStringLiteral("mainToolBar"));
+    m_mainBar->setIconSize(QSize(32, 32));
+    addToolBar(Qt::TopToolBarArea, m_mainBar);
+    addToolBarBreak(Qt::TopToolBarArea);
+    m_extraBar = new QToolBar(tr("Extra"), this);
+    m_extraBar->setObjectName(QStringLiteral("extraToolBar"));
+    m_extraBar->setIconSize(QSize(22, 22));
+    addToolBar(Qt::TopToolBarArea, m_extraBar);
+
+    m_editorGroup = new QActionGroup(this);
+    m_editorGroup->setExclusive(true);
+}
+
+void MainWindow::buildCentralArea()
+{
+    auto* central = new QWidget(this);
+    central->setObjectName(QStringLiteral("centralArea"));
+    m_projectTabs = new QTabBar(central);
+    m_projectTabs->setObjectName(QStringLiteral("projectTabs"));
+    m_projectTabs->setTabsClosable(true);
+    m_projectTabs->setMovable(true);
+    m_projectTabs->setExpanding(false);
+    m_projectTabs->setDocumentMode(true);
+    m_stack = new QStackedWidget(central);
+    m_welcome = new WelcomePage(m_context.history(), m_stack);
+    m_stack->addWidget(m_welcome);
+
+    auto* layout = new QVBoxLayout(central);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
+    layout->addWidget(m_projectTabs);
+    layout->addWidget(m_stack, 1);
+    setCentralWidget(central);
+
+    m_dock = new BottomDock(this);
+    m_dock->hide();
+
+    m_actionList = new QListWidget;
+    m_actionList->setObjectName(QStringLiteral("actionList"));
+    m_actionListDock = new QDockWidget(tr("Action list"), this);
+    m_actionListDock->setObjectName(QStringLiteral("actionListDock"));
+    m_actionListDock->setWidget(m_actionList);
+    addDockWidget(Qt::RightDockWidgetArea, m_actionListDock);
+    m_actionListDock->hide();
+    connect(m_actionList, &QListWidget::itemClicked, this, [this](QListWidgetItem* item) {
+        if (QAction* a = m_context.actions().action(item->data(Qt::UserRole).toString()))
+            a->trigger();
+    });
+
+    connect(m_projectTabs, &QTabBar::currentChanged, this, &MainWindow::onCurrentTabChanged);
+    connect(m_projectTabs, &QTabBar::tabCloseRequested, this, &MainWindow::closeProject);
+    connect(m_projectTabs, &QTabBar::tabMoved, this, [this] { refreshForCurrent(); });
+    connect(m_welcome, &WelcomePage::openProjectRequested, this, &MainWindow::openProject);
+    connect(m_welcome, &WelcomePage::contributeRequested, this,
+            [] { QDesktopServices::openUrl(QUrl(QStringLiteral(OFS_HOMEPAGE))); });
+}
+
+void MainWindow::connectActions()
+{
+    ActionRegistry& actions = m_context.actions();
+    Config& config = m_context.config();
+    auto on = [&actions, this](const char* id, auto slot) {
+        if (QAction* a = actions.action(QString::fromLatin1(id)))
+            connect(a, &QAction::triggered, this, slot);
+    };
+
+    on("file_open", [this] { openProjectDialog(); });
+    on("file_close", [this] { closeCurrentProject(); });
+    on("file_close_all", [this] { closeAllProjects(); });
+    on("file_close_others", [this] { closeOtherProjects(); });
+    on("file_welcome", [this] { showWelcomeTab(); });
+    on("file_exit", [this] { close(); });
+
+    struct Toggle
+    {
+        const char* action;
+        const char* key;
+        bool fallback;
+    };
+    const Toggle toggles[] = {
+        {"view_left_panel", "show_left_panel", true},       {"view_right_panel", "show_right_panel", true},
+        {"view_organizer", "show_organizer", false},        {"view_actions", "show_action_list", false},
+        {"view_code_bar", "show_code_bar", true},           {"view_rulers", "show_rulers", true},
+        {"view_guide_lines", "show_guides", false},         {"view_attack_box", "show_attack_box", true},
+        {"view_collision_box", "show_collision_box", true},
+    };
+    for (const Toggle& t : toggles) {
+        QAction* a = actions.action(QString::fromLatin1(t.action));
+        if (!a)
+            continue;
+        a->setChecked(config.boolValue(QString::fromLatin1(t.key), t.fallback));
+        const QString key = QString::fromLatin1(t.key);
+        connect(a, &QAction::toggled, this, [this, key](bool checked) {
+            m_context.config().setValue(key, checked);
+            for (ProjectView* view : projectViews()) {
+                view->setLeftPanelVisible(m_context.config().boolValue(QStringLiteral("show_left_panel"), true));
+                view->setRightPanelVisible(m_context.config().boolValue(QStringLiteral("show_right_panel"), true));
+                view->setOrganizerVisible(m_context.config().boolValue(QStringLiteral("show_organizer"), false));
+            }
+            m_actionListDock->setVisible(m_context.config().boolValue(QStringLiteral("show_action_list"), false));
+        });
+    }
+
+    const struct
+    {
+        const char* action;
+        int page;
+    } panels[] = {{"view_issues", BottomDock::Issues},
+                  {"view_advanced_search", BottomDock::AdvancedSearch},
+                  {"view_engine_output", BottomDock::EngineOutput},
+                  {"view_debugger", BottomDock::Debugger},
+                  {"view_watch", BottomDock::Watch}};
+    for (const auto& p : panels) {
+        const int page = p.page;
+        on(p.action, [this, page] { m_dock->showPage(page); });
+    }
+
+    for (Engine* engine : m_context.engines().engines()) {
+        for (const EditorInfo& info : engine->editors()) {
+            QAction* a = actions.action(info.switchAction);
+            if (!a)
+                continue;
+            m_editorGroup->addAction(a);
+            const QString id = info.id;
+            connect(a, &QAction::triggered, this, [this, id] { switchEditor(id); });
+        }
+    }
+
+    on("ref_docs", [] { QDesktopServices::openUrl(QUrl(QStringLiteral(OFS_HOMEPAGE))); });
+    on("check_updates",
+       [] { QDesktopServices::openUrl(QUrl(QStringLiteral(OFS_HOMEPAGE) + QStringLiteral("/releases"))); });
+    connect(m_welcome, &WelcomePage::getStartedRequested, actions.action(QStringLiteral("ref_docs")),
+            &QAction::trigger);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Interface (presets and themes)
+
+void MainWindow::applyInterface()
+{
+    Config& config = m_context.config();
+    ThemeManager& theme = m_context.theme();
+
+    QStringList engineDirs;
+    for (Engine* engine : m_context.engines().engines())
+        engineDirs << engine->dataDir();
+    theme.setEngineDataDirs(engineDirs);
+
+    const QString presetName = config.value(QStringLiteral("preset"), QStringLiteral("Neo"));
+    Preset::Model model;
+    const QString globalPreset = theme.presetPath(presetName);
+    if (!globalPreset.isEmpty())
+        Preset::PresetEngine::runFile(globalPreset, model);
+    for (Engine* engine : m_context.engines().engines()) {
+        QString path = engine->userDataDir() + QStringLiteral("/presets/") + presetName + QStringLiteral(".lua");
+        if (!QFileInfo::exists(path))
+            path = engine->dataDir() + QStringLiteral("/presets/") + presetName + QStringLiteral(".lua");
+        if (QFileInfo::exists(path))
+            Preset::PresetEngine::runFile(path, model);
+    }
+    for (const QString& error : std::as_const(model.errors))
+        qWarning("preset: %s", qPrintable(error));
+
+    auto choose = [&config](const char* key, const QString& fromPreset, const char* fallback) {
+        QString v = config.value(QString::fromLatin1(key));
+        if (v.isEmpty())
+            v = fromPreset;
+        return v.isEmpty() ? QString::fromLatin1(fallback) : v;
+    };
+    theme.setIconSet(choose("iconset", model.iconset, "Nuvola"));
+    if (theme.setStyle(choose("stylesheet", model.stylesheet, "Dark")))
+        qApp->setStyleSheet(theme.styleSheet());
+    theme.setColorSet(choose("colorset", model.colorset, "Dark"));
+    m_context.actions().applyIcons(theme.iconSet());
+    m_dock->setArrowIcons(theme.iconSet().icon(QStringLiteral("bottom_up")),
+                          theme.iconSet().icon(QStringLiteral("bottom_down")));
+
+    m_preset = model;
+    for (ProjectView* view : projectViews())
+        view->applyPreset(m_preset);
+    refreshToolBars();
+}
+
+// ---------------------------------------------------------------------------------------------
+// Projects
+
+ProjectView* MainWindow::currentProjectView() const
+{
+    if (m_projectTabs->count() == 0)
+        return nullptr;
+    const QVariant data = m_projectTabs->tabData(m_projectTabs->currentIndex());
+    if (data.toString() == kWelcomeTab)
+        return nullptr;
+    return qobject_cast<ProjectView*>(data.value<QObject*>());
+}
+
+QList<ProjectView*> MainWindow::projectViews() const
+{
+    QList<ProjectView*> views;
+    for (int i = 0; i < m_projectTabs->count(); ++i) {
+        if (auto* view = qobject_cast<ProjectView*>(m_projectTabs->tabData(i).value<QObject*>()))
+            views << view;
+    }
+    return views;
+}
+
+bool MainWindow::isWelcomeCurrent() const
+{
+    return currentProjectView() == nullptr;
+}
+
+void MainWindow::openProjectDialog()
+{
+    Config& config = m_context.config();
+    QStringList filters;
+    for (Engine* engine : m_context.engines().engines())
+        filters << engine->projectFileFilter();
+    QFileDialog::Options options;
+    if (!config.boolValue(QStringLiteral("use_native_open"), true))
+        options |= QFileDialog::DontUseNativeDialog;
+    const QString file =
+        QFileDialog::getOpenFileName(this, tr("Open project"), config.value(QStringLiteral("proj_open_path")),
+                                     filters.join(QStringLiteral(";;")), nullptr, options);
+    if (file.isEmpty())
+        return;
+    config.setValue(QStringLiteral("proj_open_path"), QFileInfo(file).absolutePath());
+    openProject(file);
+}
+
+bool MainWindow::openProject(const QString& filePath)
+{
+    const QString path = QDir::fromNativeSeparators(QFileInfo(filePath).absoluteFilePath());
+    for (int i = 0; i < m_projectTabs->count(); ++i) {
+        auto* view = qobject_cast<ProjectView*>(m_projectTabs->tabData(i).value<QObject*>());
+        if (view && view->project()->filePath().compare(path, Qt::CaseInsensitive) == 0) {
+            m_projectTabs->setCurrentIndex(i);
+            return true;
+        }
+    }
+
+    Engine* engine = nullptr;
+    for (Engine* e : m_context.engines().engines()) {
+        if (e->canOpen(path)) {
+            engine = e;
+            break;
+        }
+    }
+    if (!engine) {
+        QMessageBox::warning(this, tr("Open project"),
+                             tr("'%1' is not a project of any supported engine.").arg(QDir::toNativeSeparators(path)));
+        return false;
+    }
+    QString error;
+    Project* project = engine->openProject(path, &error);
+    if (!project) {
+        QMessageBox::warning(this, tr("Open project"), error);
+        m_context.history().remove(path);
+        return false;
+    }
+
+    auto* view = new ProjectView(project, m_context, m_stack);
+    view->applyPreset(m_preset);
+    view->setLeftPanelVisible(m_context.config().boolValue(QStringLiteral("show_left_panel"), true));
+    view->setRightPanelVisible(m_context.config().boolValue(QStringLiteral("show_right_panel"), true));
+    view->setOrganizerVisible(m_context.config().boolValue(QStringLiteral("show_organizer"), false));
+    const QString lastEditor = m_context.config().value(QStringLiteral("lastEditor"));
+    if (view->editorIds().contains(lastEditor))
+        view->setCurrentEditor(lastEditor);
+    connect(view, &ProjectView::currentEditorChanged, this, [this, view](const QString& id) {
+        m_context.config().setValue(QStringLiteral("lastEditor"), id);
+        if (view == currentProjectView())
+            refreshForCurrent();
+    });
+    m_stack->addWidget(view);
+
+    const int index = m_projectTabs->addTab(project->name());
+    m_projectTabs->setTabData(index, QVariant::fromValue<QObject*>(view));
+    m_projectTabs->setTabToolTip(index, QDir::toNativeSeparators(path));
+    m_context.history().add(project->name(), path);
+    m_projectTabs->setCurrentIndex(index);
+    refreshForCurrent();
+    return true;
+}
+
+void MainWindow::closeProject(int tabIndex)
+{
+    if (tabIndex < 0 || tabIndex >= m_projectTabs->count())
+        return;
+    const QVariant data = m_projectTabs->tabData(tabIndex);
+    auto* view = qobject_cast<ProjectView*>(data.value<QObject*>());
+    if (view && m_dock->parentWidget() && view->isAncestorOf(m_dock)) {
+        m_dock->hide();
+        m_dock->setParent(this);
+    }
+    if (data.toString() == kWelcomeTab)
+        m_welcomeTab = false;
+    m_projectTabs->removeTab(tabIndex);
+    if (view) {
+        m_stack->removeWidget(view);
+        view->deleteLater();
+    }
+    refreshForCurrent();
+}
+
+void MainWindow::closeCurrentProject()
+{
+    if (currentProjectView())
+        closeProject(m_projectTabs->currentIndex());
+}
+
+void MainWindow::closeAllProjects()
+{
+    for (int i = m_projectTabs->count() - 1; i >= 0; --i) {
+        if (m_projectTabs->tabData(i).toString() != kWelcomeTab)
+            closeProject(i);
+    }
+}
+
+void MainWindow::closeOtherProjects()
+{
+    ProjectView* keep = currentProjectView();
+    for (int i = m_projectTabs->count() - 1; i >= 0; --i) {
+        auto* view = qobject_cast<ProjectView*>(m_projectTabs->tabData(i).value<QObject*>());
+        if (view && view != keep)
+            closeProject(i);
+    }
+}
+
+void MainWindow::showWelcomeTab()
+{
+    if (projectViews().isEmpty()) {
+        refreshForCurrent();
+        return;
+    }
+    if (!m_welcomeTab) {
+        m_projectTabs->insertTab(0, tr("Welcome"));
+        m_projectTabs->setTabData(0, kWelcomeTab);
+        m_welcomeTab = true;
+    }
+    m_projectTabs->setCurrentIndex(0);
+    refreshForCurrent();
+}
+
+void MainWindow::switchEditor(const QString& editorId)
+{
+    if (ProjectView* view = currentProjectView())
+        view->setCurrentEditor(editorId);
+}
+
+void MainWindow::onCurrentTabChanged(int)
+{
+    refreshForCurrent();
+}
+
+// ---------------------------------------------------------------------------------------------
+// Refreshing the interface for the current project and editor
+
+void MainWindow::refreshForCurrent()
+{
+    ProjectView* view = currentProjectView();
+    m_projectTabs->setVisible(m_projectTabs->count() > 0);
+    if (view) {
+        m_stack->setCurrentWidget(view);
+        view->adoptBottomDock(m_dock);
+        m_context.actions().setActiveEditorScope(view->currentEditorInfo().scope());
+        if (QAction* a = m_context.actions().action(view->currentEditorInfo().switchAction))
+            a->setChecked(true);
+    } else {
+        m_stack->setCurrentWidget(m_welcome);
+        m_context.actions().setActiveEditorScope(QString());
+    }
+    for (QMenu* menu : std::as_const(m_engineMenus)) {
+        const bool visible = view && !menu->property("hiddenMenu").toBool() &&
+                             menu->property("engine").toString() == view->engine()->name();
+        menu->menuAction()->setVisible(visible);
+    }
+    refreshToolBars();
+    refreshActionStates();
+    refreshTitle();
+    refreshStatusBar();
+    refreshActionList();
+}
+
+void MainWindow::refreshToolBars()
+{
+    if (!m_mainBar)
+        return;
+    ProjectView* view = currentProjectView();
+    PresetBuilder builder(m_context.controls(), m_context.actions());
+
+    builder.buildToolBar(m_preset.toolBars.value(view ? QStringLiteral("main") : QStringLiteral("start")), m_mainBar);
+    if (m_mainBar->iconSize().width() <= 0)
+        m_mainBar->setIconSize(QSize(32, 32));
+
+    for (Engine* engine : m_context.engines().engines()) {
+        for (const EditorInfo& info : engine->editors()) {
+            if (QAction* a = m_context.actions().action(info.switchAction))
+                a->setVisible(view && view->engine() == engine && view->editorIds().contains(info.id));
+        }
+    }
+
+    if (!view) {
+        m_extraBar->hide();
+        return;
+    }
+    const EditorInfo info = view->currentEditorInfo();
+    Preset::ToolBar extra = m_preset.toolBars.value(QStringLiteral("extra"));
+    extra.name = QStringLiteral("extra");
+    for (const QString& name : {workspaceToolBarName(info.workspace), info.id}) {
+        const auto it = m_preset.toolBars.constFind(name);
+        if (it != m_preset.toolBars.cend())
+            extra.actions += it->actions;
+    }
+    builder.buildToolBar(extra, m_extraBar);
+    m_extraBar->setIconSize(QSize(22, 22));
+    m_extraBar->setVisible(!extra.actions.isEmpty());
+}
+
+void MainWindow::refreshActionStates()
+{
+    ActionRegistry& actions = m_context.actions();
+    ProjectView* view = currentProjectView();
+    const bool project = view != nullptr;
+    const bool code = project && view->currentEditorInfo().workspace == WorkspaceType::Code;
+    auto enable = [&actions](const QString& id, bool on) {
+        if (QAction* a = actions.action(id))
+            a->setEnabled(on);
+    };
+    auto enableAll = [&](std::initializer_list<const char*> ids, bool on) {
+        for (const char* id : ids)
+            enable(QString::fromLatin1(id), on);
+    };
+
+    enableAll({"file_save",          "file_saveas",       "file_close",       "file_close_all",
+               "file_close_others",  "file_backup",       "file_load_backup", "file_run",
+               "edit_undo",          "edit_redo",         "edit_cut",         "edit_copy",
+               "edit_paste",         "edit_find_replace", "view_issues",      "view_advanced_search",
+               "view_engine_output", "view_debugger",     "view_watch",       "debug_start_engine",
+               "debug_start_emul",   "debug_breakpoint",  "editor_new",       "editor_open",
+               "editor_save",        "editor_saveas",     "tools_export_html"},
+              project);
+    enableAll({"debug_interrupt", "debug_continue", "debug_stop", "debug_restart", "debug_step_over", "debug_step_into",
+               "debug_step_out", "debug_step_frame"},
+              false);
+    enableAll({"code_goto", "code_prev_error", "code_next_error", "code_prev_deprecation", "code_next_deprecation",
+               "code_comment", "code_fold_all", "code_unfold_all", "code_autoindent", "code_autoformat",
+               "view_code_bar"},
+              code);
+    if (QMenu* m = m_menus->submenu(QStringLiteral("menu_code")))
+        m->menuAction()->setEnabled(code);
+    if (QMenu* m = m_menus->submenu(QStringLiteral("menu_encoding")))
+        m->menuAction()->setEnabled(code);
+
+    for (Engine* engine : m_context.engines().engines()) {
+        for (const EditorInfo& info : engine->editors()) {
+            const bool available = view && view->engine() == engine && view->editorIds().contains(info.id);
+            for (QAction* a : actions.actionsInScope(info.scope()))
+                a->setEnabled(available);
+        }
+    }
+    enableAll({"spr_saveimg", "spr_layer_add", "spr_layer_delete", "spr_layer_duplicate", "spr_layer_mergevis",
+               "spr_layer_mergeall", "spr_layer_save", "spr_layer_play", "spr_view_original", "spr_image_properties",
+               "spr_select_all", "spr_select_none", "spr_select_invert", "spr_image_rotate", "spr_image_fliph",
+               "spr_image_flipv", "spr_explorer"},
+              false);
+}
+
+void MainWindow::refreshTitle()
+{
+    ProjectView* view = currentProjectView();
+    const QString app = QStringLiteral(OFS_DISPLAY_NAME);
+    setWindowTitle(view ? QStringLiteral("%1 - %2").arg(view->project()->name(), app) : app);
+}
+
+void MainWindow::refreshStatusBar()
+{
+    ProjectView* view = currentProjectView();
+    if (!view) {
+        m_status->clearSections();
+        return;
+    }
+    const EditorInfo info = view->currentEditorInfo();
+    switch (info.workspace) {
+    case WorkspaceType::Code: {
+        int lines = 0;
+        if (auto* tabs = view->findChild<QTabWidget*>(QStringLiteral("fileTabs_") + info.id)) {
+            if (auto* code = qobject_cast<QPlainTextEdit*>(tabs->currentWidget()))
+                lines = code->blockCount();
+        }
+        m_status->setSection(0, tr("Line: %1, Column: %2, Line count: %3").arg(1).arg(1).arg(lines));
+        m_status->setSection(1, tr("Syntax error count: %1").arg(0));
+        m_status->setSection(2, tr("Encoding: %1").arg(QStringLiteral("UTF-8")));
+        break;
+    }
+    case WorkspaceType::Graphics:
+    case WorkspaceType::Emulator:
+        m_status->setSection(0, tr("Position: %1, %2").arg(0).arg(0));
+        m_status->setSection(2, tr("Renderer: %1").arg(QStringLiteral("OpenGL")));
+        break;
+    case WorkspaceType::Sound:
+        m_status->setSection(0, tr("Sample: %1/%2, Selection: %3/%4").arg(0).arg(0).arg(0).arg(0));
+        m_status->setSection(1, tr("Time: %1/%2s, Selection: %3/%4s")
+                                    .arg(0.0, 0, 'f', 3)
+                                    .arg(0.0, 0, 'f', 3)
+                                    .arg(0.0, 0, 'f', 3)
+                                    .arg(0.0, 0, 'f', 3));
+        m_status->setSection(2, tr("Status: %1").arg(tr("Stopped")));
+        break;
+    }
+    m_status->setSection(3, tr("Project: %1, %2").arg(view->project()->typeName(), view->project()->versionName()));
+}
+
+void MainWindow::refreshActionList()
+{
+    m_actionList->clear();
+    ProjectView* view = currentProjectView();
+    if (!view)
+        return;
+    for (QAction* a : m_context.actions().actionsInScope(view->currentEditorInfo().scope())) {
+        auto* item = new QListWidgetItem(a->icon(), m_context.actions().caption(a->objectName()), m_actionList);
+        item->setData(Qt::UserRole, a->objectName());
+        item->setToolTip(m_context.actions().description(a->objectName()));
+    }
+}
+
+void MainWindow::populateRecentProjects(QMenu* menu, QAction* before, QList<QAction*>& created)
+{
+    const auto& entries = m_context.history().entries();
+    for (const History::Entry& e : entries) {
+        auto* a = new QAction(e.name + QLatin1Char('\t') + QDir::toNativeSeparators(e.file), menu);
+        const QString file = e.file;
+        connect(a, &QAction::triggered, this, [this, file] { openProject(file); });
+        menu->insertAction(before, a);
+        created << a;
+    }
+    auto* sep = new QAction(menu);
+    sep->setSeparator(true);
+    menu->insertAction(before, sep);
+    created << sep;
+
+    auto* openAll = new QAction(tr("Open all"), menu);
+    openAll->setEnabled(!entries.isEmpty());
+    connect(openAll, &QAction::triggered, this, [this] {
+        const auto list = m_context.history().entries();
+        for (auto it = list.crbegin(); it != list.crend(); ++it)
+            openProject(it->file);
+    });
+    menu->insertAction(before, openAll);
+    created << openAll;
+
+    auto* clear = new QAction(tr("Clear"), menu);
+    connect(clear, &QAction::triggered, this, [this] { m_context.history().clear(); });
+    menu->insertAction(before, clear);
+    created << clear;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Window state
+
+void MainWindow::restoreWindowGeometry()
+{
+    Config& config = m_context.config();
+    const int w = config.intValue(QStringLiteral("window_width"), 0);
+    const int h = config.intValue(QStringLiteral("window_height"), 0);
+    if (w > 0 && h > 0) {
+        QRect rect(config.intValue(QStringLiteral("window_left"), 0), config.intValue(QStringLiteral("window_top"), 0),
+                   w, h);
+        const QScreen* screen = QGuiApplication::screenAt(rect.center());
+        if (!screen)
+            screen = QGuiApplication::primaryScreen();
+        const QRect avail = screen->availableGeometry();
+        rect.setSize(rect.size().boundedTo(avail.size()));
+        if (!avail.contains(rect.topLeft()))
+            rect.moveTopLeft(avail.topLeft());
+        setGeometry(rect);
+    } else {
+        resize(1280, 800);
+    }
+    const int state = config.intValue(QStringLiteral("window_state"), Qt::WindowMaximized);
+    if (state & Qt::WindowMaximized)
+        setWindowState(windowState() | Qt::WindowMaximized);
+}
+
+void MainWindow::saveWindowGeometry()
+{
+    Config& config = m_context.config();
+    const QRect normal = normalGeometry();
+    config.setValue(QStringLiteral("window_left"), normal.x());
+    config.setValue(QStringLiteral("window_top"), normal.y());
+    config.setValue(QStringLiteral("window_width"), normal.width());
+    config.setValue(QStringLiteral("window_height"), normal.height());
+    config.setValue(QStringLiteral("window_state"), int(windowState() & Qt::WindowMaximized) | int(Qt::WindowActive));
+}
+
+void MainWindow::closeEvent(QCloseEvent* event)
+{
+    saveWindowGeometry();
+    QString error;
+    if (!m_context.saveSettings(&error))
+        qWarning("could not save the settings: %s", qPrintable(error));
+    event->accept();
+}
 
 } // namespace OFS

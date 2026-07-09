@@ -1,0 +1,203 @@
+#include "shell/BottomDock.h"
+
+#include <QCheckBox>
+#include <QComboBox>
+#include <QGridLayout>
+#include <QHBoxLayout>
+#include <QHeaderView>
+#include <QLabel>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QStackedWidget>
+#include <QStandardItemModel>
+#include <QTabBar>
+#include <QTableView>
+#include <QTextEdit>
+#include <QToolButton>
+#include <QTreeView>
+#include <QVBoxLayout>
+
+namespace OFS {
+
+BottomDock::BottomDock(QWidget* parent)
+    : QWidget(parent)
+    , m_tabs(new QTabBar(this))
+    , m_arrow(new QToolButton(this))
+    , m_pages(new QStackedWidget(this))
+{
+    setObjectName(QStringLiteral("bottomDock"));
+
+    m_tabs->setObjectName(QStringLiteral("bottomTabs"));
+    m_tabs->setExpanding(false);
+    m_tabs->setDrawBase(false);
+    m_tabs->addTab(tr("Issues"));
+    m_tabs->addTab(tr("Advanced Search"));
+    m_tabs->addTab(tr("Engine Output"));
+    m_tabs->addTab(tr("Debugger"));
+    m_tabs->addTab(tr("Watch"));
+
+    m_arrow->setObjectName(QStringLiteral("bottomArrow"));
+    m_arrow->setAutoRaise(true);
+    connect(m_arrow, &QToolButton::clicked, this, [this] { setExpanded(!m_expanded); });
+
+    // Issues: message (with severity icon) | file | line
+    m_issues = new QTableView(this);
+    m_issues->setObjectName(QStringLiteral("issuesView"));
+    auto* issuesModel = new QStandardItemModel(0, 3, m_issues);
+    issuesModel->setHorizontalHeaderLabels({tr("Description"), tr("File"), tr("Line")});
+    m_issues->setModel(issuesModel);
+    m_issues->horizontalHeader()->setStretchLastSection(false);
+    m_issues->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+    m_issues->verticalHeader()->hide();
+    m_issues->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_issues->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_issues->setShowGrid(false);
+
+    m_engineOutput = new QTextEdit(this);
+    m_engineOutput->setObjectName(QStringLiteral("engineOutput"));
+    m_engineOutput->setReadOnly(true);
+
+    m_pages->addWidget(m_issues);
+    m_pages->addWidget(createAdvancedSearchPage());
+    m_pages->addWidget(m_engineOutput);
+    m_pages->addWidget(createTwoTreesPage(
+        {tr("Level"), tr("Function"), tr("File"), tr("Line")},
+        {tr("Number"), tr("Function"), tr("File"), tr("Line"), tr("Address"), tr("Condition"), tr("Ignore")}));
+    m_pages->addWidget(
+        createTwoTreesPage({tr("Name"), tr("Value"), tr("Type")}, {tr("Name"), tr("Value"), tr("Type")}));
+    m_pages->hide();
+
+    auto* bar = new QHBoxLayout;
+    bar->setContentsMargins(0, 0, 0, 0);
+    bar->setSpacing(0);
+    bar->addWidget(m_tabs);
+    bar->addStretch(1);
+    bar->addWidget(m_arrow);
+
+    auto* layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
+    layout->addLayout(bar);
+    layout->addWidget(m_pages, 1);
+
+    connect(m_tabs, &QTabBar::tabBarClicked, this, &BottomDock::onTabClicked);
+    connect(m_tabs, &QTabBar::currentChanged, m_pages, &QStackedWidget::setCurrentIndex);
+    updateArrow();
+}
+
+QWidget* BottomDock::createAdvancedSearchPage()
+{
+    auto* page = new QWidget(this);
+    page->setObjectName(QStringLiteral("advancedSearch"));
+    auto* grid = new QGridLayout(page);
+
+    auto* scope = new QComboBox(page);
+    scope->setObjectName(QStringLiteral("advsearch_scope"));
+    scope->addItems({tr("All projects"), tr("Current project"), tr("Current file"), tr("Opened files"),
+                     tr("Files in File system")});
+    auto* type = new QComboBox(page);
+    type->setObjectName(QStringLiteral("advsearch_type"));
+    type->addItems({tr("By string"), tr("Lazy syntax fix")});
+    auto* text = new QLineEdit(page);
+    text->setObjectName(QStringLiteral("advsearch_text"));
+    auto* filePattern = new QComboBox(page);
+    filePattern->setObjectName(QStringLiteral("advsearch_pattern"));
+    filePattern->setEditable(true);
+    filePattern->addItems({QStringLiteral("*.def, *.cmd, *.cns, *.st"),
+                           QStringLiteral("*.def *.sff *.snd *.air *.cns *.st *.* *.cmd *.*"), QStringLiteral("*")});
+    auto* exclusion = new QComboBox(page);
+    exclusion->setObjectName(QStringLiteral("advsearch_exclusion"));
+    exclusion->setEditable(true);
+
+    grid->addWidget(new QLabel(tr("Scope:"), page), 0, 0);
+    grid->addWidget(scope, 0, 1);
+    grid->addWidget(new QLabel(tr("Type:"), page), 0, 2);
+    grid->addWidget(type, 0, 3);
+    grid->addWidget(new QLabel(tr("Search for:"), page), 1, 0);
+    grid->addWidget(text, 1, 1, 1, 3);
+    grid->addWidget(new QCheckBox(tr("Case sensitive"), page), 2, 1);
+    grid->addWidget(new QCheckBox(tr("Whole words only"), page), 2, 2);
+    grid->addWidget(new QCheckBox(tr("Use Regular expression"), page), 2, 3);
+    grid->addWidget(new QLabel(tr("File pattern:"), page), 3, 0, 1, 2, Qt::AlignRight);
+    grid->addWidget(filePattern, 3, 2, 1, 2);
+    grid->addWidget(new QLabel(tr("Exclusion pattern:"), page), 4, 0, 1, 2, Qt::AlignRight);
+    grid->addWidget(exclusion, 4, 2, 1, 2);
+    grid->setRowStretch(5, 1);
+    auto* search = new QPushButton(tr("Search"), page);
+    auto* replace = new QPushButton(tr("Search && Replace"), page);
+    grid->addWidget(search, 6, 2);
+    grid->addWidget(replace, 6, 3);
+    grid->setColumnStretch(4, 1);
+    return page;
+}
+
+QWidget* BottomDock::createTwoTreesPage(const QStringList& left, const QStringList& right)
+{
+    auto* page = new QWidget(this);
+    auto* layout = new QHBoxLayout(page);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
+    for (const QStringList& headers : {left, right}) {
+        auto* tree = new QTreeView(page);
+        auto* model = new QStandardItemModel(0, int(headers.size()), tree);
+        model->setHorizontalHeaderLabels(headers);
+        tree->setModel(model);
+        tree->setRootIsDecorated(false);
+        layout->addWidget(tree);
+    }
+    return page;
+}
+
+void BottomDock::setExpanded(bool expanded)
+{
+    if (m_expanded == expanded)
+        return;
+    m_expanded = expanded;
+    m_pages->setVisible(expanded);
+    updateArrow();
+    Q_EMIT expandedChanged(expanded);
+}
+
+int BottomDock::currentPage() const
+{
+    return m_tabs->currentIndex();
+}
+
+void BottomDock::showPage(int page)
+{
+    m_tabs->setCurrentIndex(page);
+    setExpanded(true);
+}
+
+void BottomDock::onTabClicked(int index)
+{
+    if (index < 0)
+        return;
+    if (index != m_tabs->currentIndex()) {
+        setExpanded(true);
+    } else if (m_expanded) {
+        setExpanded(false);
+    }
+}
+
+void BottomDock::setArrowIcons(const QIcon& up, const QIcon& down)
+{
+    m_up = up;
+    m_down = down;
+    updateArrow();
+}
+
+void BottomDock::updateArrow()
+{
+    const QIcon& icon = m_expanded ? m_down : m_up;
+    if (icon.isNull()) {
+        m_arrow->setIcon(QIcon());
+        m_arrow->setText(m_expanded ? QStringLiteral("⇩") : QStringLiteral("⇧"));
+    } else {
+        m_arrow->setIcon(icon);
+        m_arrow->setText(QString());
+    }
+    m_arrow->setToolTip(m_expanded ? tr("Collapse") : tr("Expand"));
+}
+
+} // namespace OFS
