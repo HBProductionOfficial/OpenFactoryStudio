@@ -1,6 +1,8 @@
 #include "engines/mugen/MugenEngine.h"
 
 #include "core/app/AppContext.h"
+#include "core/project/Project.h"
+#include "core/syntax/SyntaxDatabase.h"
 #include "engines/mugen/MugenActions.h"
 #include "engines/mugen/MugenControls.h"
 #include "engines/mugen/MugenMenus.h"
@@ -11,6 +13,8 @@ namespace OFS::Mugen {
 MugenEngine::MugenEngine(QObject* parent)
     : Engine(parent)
 {}
+
+MugenEngine::~MugenEngine() = default;
 
 QString MugenEngine::name() const
 {
@@ -92,6 +96,34 @@ Project* MugenEngine::openProject(const QString& filePath, QString* error)
         return nullptr;
     }
     return project;
+}
+
+const SyntaxDatabase* MugenEngine::syntax() const
+{
+    if (!m_syntax) {
+        m_syntax = std::make_unique<SyntaxDatabase>();
+        QString error;
+        const QString path = dataDir() + QStringLiteral("/syntax.xml");
+        if (!m_syntax->load(path, &error))
+            qWarning("could not load %s: %s", qPrintable(path), qPrintable(error));
+    }
+    return m_syntax.get();
+}
+
+QString MugenEngine::syntaxFileType(const Project& project, const QString& editorId) const
+{
+    if (editorId == QLatin1String("commands"))
+        return QStringLiteral("command");
+    if (editorId == QLatin1String("states"))
+        return QStringLiteral("state");
+    if (editorId == QLatin1String("definitions")) {
+        const QString type = project.typeId();
+        if (type == QLatin1String("char") || type == QLatin1String("stage") || type == QLatin1String("motif") ||
+            type == QLatin1String("fight") || type == QLatin1String("select") || type == QLatin1String("font") ||
+            type == QLatin1String("storyboard"))
+            return type;
+    }
+    return {};
 }
 
 } // namespace OFS::Mugen

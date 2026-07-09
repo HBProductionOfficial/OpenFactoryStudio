@@ -8,6 +8,14 @@ add_library(ofscore SHARED
     app/AppContext.cpp
     app/Paths.h
     app/Paths.cpp
+    code/CodeBlockData.h
+    code/CodeBlockData.cpp
+    code/CodeEditor.h
+    code/CodeEditor.cpp
+    code/CodeHighlighter.h
+    code/CodeHighlighter.cpp
+    code/CodeLine.h
+    code/CodeLine.cpp
     actions/ActionCatalog.h
     actions/ActionCatalog.cpp
     actions/ActionRegistry.h
@@ -30,6 +38,8 @@ add_library(ofscore SHARED
     preset/PresetEngine.cpp
     project/Project.h
     project/Project.cpp
+    project/ProjectFile.h
+    project/ProjectFile.cpp
     settings/Config.h
     settings/Config.cpp
     settings/History.h
@@ -38,6 +48,8 @@ add_library(ofscore SHARED
     settings/ShortcutSettings.cpp
     settings/XmlRecordFile.h
     settings/XmlRecordFile.cpp
+    syntax/SyntaxDatabase.h
+    syntax/SyntaxDatabase.cpp
     theme/ColorSet.h
     theme/ColorSet.cpp
     theme/IconSet.h

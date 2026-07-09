@@ -14,6 +14,7 @@ namespace OFS {
 
 class AppContext;
 class Project;
+class SyntaxDatabase;
 
 struct EngineVersion
 {
@@ -59,6 +60,9 @@ public:
 
     // The caller owns the project.
     virtual Project* openProject(const QString& filePath, QString* error) = 0;
+
+    virtual const SyntaxDatabase* syntax() const { return nullptr; }
+    virtual QString syntaxFileType(const Project& project, const QString& editorId) const;
 
     QString dataDir() const;
     QString userDataDir() const;

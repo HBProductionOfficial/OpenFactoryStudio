@@ -2,20 +2,20 @@
 
 #include "core/actions/ActionRegistry.h"
 #include "core/app/AppContext.h"
+#include "core/code/CodeEditor.h"
 #include "core/engine/Engine.h"
 #include "core/preset/ControlRegistry.h"
 #include "core/preset/PresetBuilder.h"
 #include "core/project/Project.h"
+#include "core/project/ProjectFile.h"
+#include "core/settings/Config.h"
 #include "core/theme/ThemeManager.h"
 #include "core/widgets/EPanelWidget.h"
 #include "shell/BottomDock.h"
 
 #include <QDir>
-#include <QFile>
 #include <QFileInfo>
-#include <QFontDatabase>
 #include <QHBoxLayout>
-#include <QPlainTextEdit>
 #include <QScrollArea>
 #include <QStackedWidget>
 #include <QStandardItemModel>
@@ -122,13 +122,20 @@ ProjectView::ProjectView(Project* project, AppContext& context, QWidget* parent)
     for (const QString& id : m_project->editorIds())
         createEditor(engine()->editor(id));
     fillProjectExplorer();
+    connect(this, &ProjectView::modifiedChanged, this, &ProjectView::updateTabTitles);
 
     const QStringList ids = editorIds();
     if (!ids.isEmpty())
         setCurrentEditor(ids.first());
 }
 
-ProjectView::~ProjectView() = default;
+ProjectView::~ProjectView()
+{
+    disconnect(m_project, nullptr, this, nullptr);
+    delete m_center;
+    m_center = nullptr;
+    m_fileTabs.clear();
+}
 
 Engine* ProjectView::engine() const
 {
@@ -166,6 +173,10 @@ void ProjectView::createEditor(const EditorInfo& info)
         const int index = tabs->addTab(createFilePage(info, file), QFileInfo(file).fileName());
         tabs->setTabToolTip(index, QDir::toNativeSeparators(file));
     }
+    connect(tabs, &QTabWidget::currentChanged, this, [this, tabs] {
+        if (tabs == m_center->currentWidget())
+            Q_EMIT currentFileChanged();
+    });
     if (tabs->count() == 0) {
         auto* empty = new QWidget(tabs);
         empty->setObjectName(QStringLiteral("workspace_") + info.id);
@@ -186,22 +197,105 @@ void ProjectView::createEditor(const EditorInfo& info)
 QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& filePath)
 {
     if (info.workspace == WorkspaceType::Code) {
-        auto* view = new QPlainTextEdit;
-        view->setObjectName(QStringLiteral("codeView"));
-        view->setReadOnly(true);
-        view->setLineWrapMode(QPlainTextEdit::NoWrap);
-        QFont font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
-        font.setFamily(QStringLiteral("Courier New"));
-        font.setPointSize(10);
-        view->setFont(font);
-        QFile file(filePath);
-        if (file.open(QIODevice::ReadOnly))
-            view->setPlainText(QString::fromLocal8Bit(file.readAll()));
-        return view;
+        QString error;
+        CodeFile* file = QFileInfo::exists(filePath) ? m_project->codeFile(filePath, info.id, &error) : nullptr;
+        auto* editor = new CodeEditor;
+        editor->setProperty("filePath", filePath);
+        if (file) {
+            editor->setCodeDocument(file->document());
+            connect(file, &ProjectFile::modifiedChanged, this, [this] { Q_EMIT modifiedChanged(); });
+        } else {
+            editor->setReadOnly(true);
+        }
+        configureCodeEditor(editor, info.id);
+        return editor;
     }
     auto* workspace = new QWidget;
     workspace->setObjectName(QStringLiteral("workspace_") + info.id);
     return workspace;
+}
+
+void ProjectView::configureCodeEditor(CodeEditor* editor, const QString& editorId)
+{
+    const Config& config = m_context.config();
+    QFont font(config.value(QStringLiteral("font_name"), QStringLiteral("Courier New")),
+               config.intValue(QStringLiteral("font_size"), 10));
+    font.setStyleHint(QFont::Monospace);
+    editor->setFont(font);
+    editor->setTabStopDistance(editor->fontMetrics().horizontalAdvance(QLatin1Char(' ')) * 4);
+    CodeEditor::Options options;
+    options.lineNumbers = config.boolValue(QStringLiteral("code_line_numbers"), true);
+    options.foldingMarkers = config.boolValue(QStringLiteral("code_folding_markers"), true);
+    options.highlightLine = config.boolValue(QStringLiteral("code_highlight_line"), true);
+    options.parenMatching = config.boolValue(QStringLiteral("code_paren_matching"), true);
+    editor->setOptions(options);
+    editor->setSyntax(engine()->syntax(), engine()->syntaxFileType(*m_project, editorId));
+    editor->setColorSet(m_context.theme().colorSet());
+    connect(editor, &CodeEditor::cursorPositionChanged, this, [this, editor] {
+        if (editor == currentCodeEditor())
+            Q_EMIT currentFileChanged();
+    });
+}
+
+void ProjectView::reconfigureEditors()
+{
+    for (auto it = m_fileTabs.cbegin(); it != m_fileTabs.cend(); ++it) {
+        for (int i = 0; i < it.value()->count(); ++i) {
+            if (auto* editor = qobject_cast<CodeEditor*>(it.value()->widget(i)))
+                configureCodeEditor(editor, it.key());
+        }
+    }
+}
+
+CodeEditor* ProjectView::currentCodeEditor() const
+{
+    QTabWidget* tabs = m_fileTabs.value(m_currentEditor);
+    return tabs ? qobject_cast<CodeEditor*>(tabs->currentWidget()) : nullptr;
+}
+
+ProjectFile* ProjectView::currentFile() const
+{
+    QTabWidget* tabs = m_fileTabs.value(m_currentEditor);
+    if (!tabs || !tabs->currentWidget())
+        return nullptr;
+    return m_project->file(tabs->currentWidget()->property("filePath").toString());
+}
+
+QList<ProjectFile*> ProjectView::editorFiles(const QString& editorId) const
+{
+    QList<ProjectFile*> files;
+    if (QTabWidget* tabs = m_fileTabs.value(editorId)) {
+        for (int i = 0; i < tabs->count(); ++i) {
+            if (ProjectFile* f = m_project->file(tabs->widget(i)->property("filePath").toString()))
+                files << f;
+        }
+    }
+    return files;
+}
+
+QList<CodeEditor*> ProjectView::codeEditors() const
+{
+    QList<CodeEditor*> editors;
+    for (QTabWidget* tabs : m_fileTabs) {
+        for (int i = 0; i < tabs->count(); ++i) {
+            if (auto* e = qobject_cast<CodeEditor*>(tabs->widget(i)))
+                editors << e;
+        }
+    }
+    return editors;
+}
+
+void ProjectView::updateTabTitles()
+{
+    for (QTabWidget* tabs : std::as_const(m_fileTabs)) {
+        for (int i = 0; i < tabs->count(); ++i) {
+            const QString path = tabs->widget(i)->property("filePath").toString();
+            if (path.isEmpty())
+                continue;
+            const ProjectFile* f = m_project->file(path);
+            tabs->setTabText(i, QFileInfo(path).fileName() + (f && f->isModified() ? QStringLiteral("*") : QString()));
+        }
+    }
 }
 
 void ProjectView::fillProjectExplorer()
@@ -241,8 +335,10 @@ void ProjectView::setCurrentEditor(const QString& id)
         m_leftStack->setCurrentWidget(m_editorPanels.value(id));
     m_center->setCurrentWidget(m_fileTabs.value(id));
     updateRightPanel();
-    if (changed)
+    if (changed) {
         Q_EMIT currentEditorChanged(id);
+        Q_EMIT currentFileChanged();
+    }
 }
 
 void ProjectView::applyPreset(const Preset::Model& model)

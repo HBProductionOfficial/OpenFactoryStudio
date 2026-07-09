@@ -9,7 +9,9 @@
 
 namespace OFS {
 
+class CodeFile;
 class Engine;
+class ProjectFile;
 
 // An open project: a .def file and the files it refers to. Engines subclass it for their format.
 class OFS_CORE_EXPORT Project : public QObject
@@ -38,7 +40,12 @@ public:
 
     QStringList editorFiles(const QString& editorId) const;
 
-    virtual bool isModified() const { return false; }
+    const QList<ProjectFile*>& files() const { return m_files; }
+    ProjectFile* file(const QString& path) const;
+    CodeFile* codeFile(const QString& path, const QString& editorId, QString* error = nullptr);
+
+    bool isModified() const;
+    bool save(QString* error = nullptr);
 
 Q_SIGNALS:
     void nameChanged();
@@ -58,6 +65,7 @@ private:
     QString m_versionId;
     QStringList m_editorIds;
     QHash<QString, QStringList> m_editorFiles;
+    QList<ProjectFile*> m_files;
 };
 
 } // namespace OFS

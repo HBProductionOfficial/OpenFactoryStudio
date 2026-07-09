@@ -28,6 +28,10 @@ ofs_add_test(NAME core_actions_preset GUI
     SOURCES core/ActionsPresetTest.cpp
     LIBS OFS::core)
 
+ofs_add_test(NAME core_code GUI
+    SOURCES core/CodeTest.cpp
+    LIBS OFS::core)
+
 ofs_add_test(NAME core_preset_coverage GUI
     SOURCES core/PresetCoverageTest.cpp
     LIBS OFS::core)

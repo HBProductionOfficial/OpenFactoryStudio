@@ -21,6 +21,7 @@ namespace OFS {
 class AppContext;
 class BottomDock;
 class MenuBuilder;
+class ProjectFile;
 class ProjectView;
 class StatusBar;
 class UpdateChecker;
@@ -77,6 +78,11 @@ private:
     void refreshStatusBar();
     void refreshActionList();
     void populateRecentProjects(QMenu* menu, QAction* before, QList<QAction*>& created);
+    void connectEditActions();
+    void updateProjectTab(ProjectView* view);
+    bool confirmClose(ProjectView* view);
+    void saveFile(ProjectFile* file, bool asUtf8);
+    void saveEditorFile(const QString& editorId, bool asUtf8);
 
     AppContext& m_context;
     std::unique_ptr<MenuBuilder> m_menus;

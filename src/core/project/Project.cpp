@@ -1,6 +1,7 @@
 #include "core/project/Project.h"
 
 #include "core/engine/Engine.h"
+#include "core/project/ProjectFile.h"
 
 #include <QDir>
 #include <QFileInfo>
@@ -14,7 +15,13 @@ Project::Project(Engine* engine, const QString& filePath, QObject* parent)
     , m_name(QFileInfo(filePath).completeBaseName())
 {}
 
-Project::~Project() = default;
+Project::~Project()
+{
+    for (ProjectFile* f : std::as_const(m_files))
+        disconnect(f, nullptr, this, nullptr);
+    qDeleteAll(m_files);
+    m_files.clear();
+}
 
 QString Project::directory() const
 {
@@ -51,6 +58,48 @@ QString Project::versionName() const
 QStringList Project::editorFiles(const QString& editorId) const
 {
     return m_editorFiles.value(editorId);
+}
+
+ProjectFile* Project::file(const QString& path) const
+{
+    const QString p = QDir::fromNativeSeparators(path);
+    for (ProjectFile* f : m_files) {
+        if (f->path().compare(p, Qt::CaseInsensitive) == 0)
+            return f;
+    }
+    return nullptr;
+}
+
+CodeFile* Project::codeFile(const QString& path, const QString& editorId, QString* error)
+{
+    if (auto* existing = qobject_cast<CodeFile*>(file(path)))
+        return existing;
+    auto* f = new CodeFile(path, editorId, this);
+    if (!f->load(error)) {
+        delete f;
+        return nullptr;
+    }
+    connect(f, &ProjectFile::modifiedChanged, this, [this] { Q_EMIT modifiedChanged(isModified()); });
+    m_files << f;
+    return f;
+}
+
+bool Project::isModified() const
+{
+    for (const ProjectFile* f : m_files) {
+        if (f->isModified())
+            return true;
+    }
+    return false;
+}
+
+bool Project::save(QString* error)
+{
+    for (ProjectFile* f : m_files) {
+        if (f->isModified() && !f->save(error))
+            return false;
+    }
+    return true;
 }
 
 void Project::setEditorFiles(const QString& editorId, const QStringList& files)

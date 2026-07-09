@@ -2,6 +2,12 @@
 
 #include "core/engine/Engine.h"
 
+#include <memory>
+
+namespace OFS {
+class SyntaxDatabase;
+}
+
 namespace OFS::Mugen {
 
 class MugenEngine : public Engine
@@ -10,6 +16,7 @@ class MugenEngine : public Engine
 
 public:
     explicit MugenEngine(QObject* parent = nullptr);
+    ~MugenEngine() override;
 
     QString name() const override;
     QString displayName() const override;
@@ -22,6 +29,11 @@ public:
     QList<MenuSpec> menus() const override;
     QList<MenuItemSpec> toolsMenuItems() const override;
     Project* openProject(const QString& filePath, QString* error) override;
+    const SyntaxDatabase* syntax() const override;
+    QString syntaxFileType(const Project& project, const QString& editorId) const override;
+
+private:
+    mutable std::unique_ptr<SyntaxDatabase> m_syntax;
 };
 
 } // namespace OFS::Mugen

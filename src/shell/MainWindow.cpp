@@ -5,11 +5,13 @@
 #include "core/actions/MenuSpec.h"
 #include "core/app/AppContext.h"
 #include "core/app/Paths.h"
+#include "core/code/CodeEditor.h"
 #include "core/engine/Engine.h"
 #include "core/engine/EngineManager.h"
 #include "core/preset/PresetBuilder.h"
 #include "core/preset/PresetEngine.h"
 #include "core/project/Project.h"
+#include "core/project/ProjectFile.h"
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
 #include "core/theme/ThemeManager.h"
@@ -29,6 +31,8 @@
 #include <QDockWidget>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QInputDialog>
+#include <QLineEdit>
 #include <QListWidget>
 #include <QMenuBar>
 #include <QMessageBox>
@@ -278,6 +282,160 @@ void MainWindow::connectActions()
         m_updates->check(false);
     connect(m_welcome, &WelcomePage::getStartedRequested, actions.action(QStringLiteral("ref_docs")),
             &QAction::trigger);
+    connectEditActions();
+}
+void MainWindow::connectEditActions()
+{
+    ActionRegistry& actions = m_context.actions();
+    auto on = [&actions, this](const char* id, auto slot) {
+        if (QAction* a = actions.action(QString::fromLatin1(id)))
+            connect(a, &QAction::triggered, this, slot);
+    };
+    auto textTarget = [this]() -> QWidget* {
+        QWidget* focus = QApplication::focusWidget();
+        if (qobject_cast<QPlainTextEdit*>(focus) || qobject_cast<QLineEdit*>(focus))
+            return focus;
+        ProjectView* view = currentProjectView();
+        return view ? view->currentCodeEditor() : nullptr;
+    };
+    auto forText = [textTarget](auto plain, auto line) {
+        return [textTarget, plain, line] {
+            QWidget* w = textTarget();
+            if (auto* p = qobject_cast<QPlainTextEdit*>(w))
+                (p->*plain)();
+            else if (auto* l = qobject_cast<QLineEdit*>(w))
+                (l->*line)();
+        };
+    };
+    on("edit_undo", forText(&QPlainTextEdit::undo, &QLineEdit::undo));
+    on("edit_redo", forText(&QPlainTextEdit::redo, &QLineEdit::redo));
+    on("edit_cut", forText(&QPlainTextEdit::cut, &QLineEdit::cut));
+    on("edit_copy", forText(&QPlainTextEdit::copy, &QLineEdit::copy));
+    on("edit_paste", forText(&QPlainTextEdit::paste, &QLineEdit::paste));
+
+    auto withCode = [this](auto fn) {
+        return [this, fn] {
+            if (ProjectView* view = currentProjectView()) {
+                if (CodeEditor* editor = view->currentCodeEditor())
+                    fn(editor);
+            }
+        };
+    };
+    on("code_comment", withCode([](CodeEditor* e) { e->toggleComment(); }));
+    on("code_fold_all", withCode([](CodeEditor* e) { e->foldAll(); }));
+    on("code_unfold_all", withCode([](CodeEditor* e) { e->unfoldAll(); }));
+    on("code_goto", withCode([this](CodeEditor* e) {
+           bool ok = false;
+           const int line = QInputDialog::getInt(this, tr("Go to line"), tr("Line number:"), e->cursorLine(), 1,
+                                                 e->blockCount(), 1, &ok);
+           if (ok)
+               e->goToLine(line);
+       }));
+    on("view_zoomin", withCode([](CodeEditor* e) { e->zoomIn(); }));
+    on("view_zoomout", withCode([](CodeEditor* e) { e->zoomOut(); }));
+    on("view_zoomreset", withCode([](CodeEditor* e) { e->resetZoom(); }));
+
+    // Saving
+    on("file_save", [this] {
+        ProjectView* view = currentProjectView();
+        if (!view)
+            return;
+        QString error;
+        if (!view->project()->save(&error))
+            QMessageBox::warning(this, tr("Save"), error);
+    });
+    on("editor_save", [this] {
+        if (ProjectView* view = currentProjectView())
+            saveFile(view->currentFile(), false);
+    });
+    on("editor_saveas", [this] {
+        ProjectView* view = currentProjectView();
+        ProjectFile* file = view ? view->currentFile() : nullptr;
+        if (!file)
+            return;
+        const QString target = QFileDialog::getSaveFileName(this, tr("Save as"), file->path());
+        if (target.isEmpty())
+            return;
+        QString error;
+        if (!file->saveAs(target, &error))
+            QMessageBox::warning(this, tr("Save as"), error);
+    });
+    const struct
+    {
+        const char* save;
+        const char* utf8;
+        const char* editor;
+    } perEditor[] = {{"def_save", "def_saveas_utf8", "definitions"},
+                     {"cmd_save", "cmd_saveas_utf8", "commands"},
+                     {"st_save", "st_saveas_utf8", "states"},
+                     {"anim_save", "anim_saveas_utf8", "animations"},
+                     {"spr_save", nullptr, "sprites"},
+                     {"snd_save", nullptr, "sounds"}};
+    for (const auto& e : perEditor) {
+        const QString editor = QString::fromLatin1(e.editor);
+        on(e.save, [this, editor] { saveEditorFile(editor, false); });
+        if (e.utf8)
+            on(e.utf8, [this, editor] { saveEditorFile(editor, true); });
+    }
+}
+
+void MainWindow::saveFile(ProjectFile* file, bool asUtf8)
+{
+    if (!file)
+        return;
+    QString error;
+    bool ok = false;
+    if (auto* code = qobject_cast<CodeFile*>(file); code && asUtf8)
+        ok = code->saveAsUtf8(&error);
+    else
+        ok = file->save(&error);
+    if (!ok)
+        QMessageBox::warning(this, tr("Save"), error);
+}
+
+void MainWindow::saveEditorFile(const QString& editorId, bool asUtf8)
+{
+    ProjectView* view = currentProjectView();
+    if (!view)
+        return;
+    if (view->currentEditor() == editorId) {
+        saveFile(view->currentFile(), asUtf8);
+        return;
+    }
+    const QList<ProjectFile*> files = view->editorFiles(editorId);
+    if (!files.isEmpty())
+        saveFile(files.first(), asUtf8);
+}
+
+void MainWindow::updateProjectTab(ProjectView* view)
+{
+    for (int i = 0; i < m_projectTabs->count(); ++i) {
+        if (m_projectTabs->tabData(i).value<QObject*>() == view) {
+            const QString marker = view->project()->isModified() ? QStringLiteral("*") : QString();
+            m_projectTabs->setTabText(i, view->project()->name() + marker);
+            break;
+        }
+    }
+}
+
+bool MainWindow::confirmClose(ProjectView* view)
+{
+    if (!view->project()->isModified())
+        return true;
+    const auto answer = QMessageBox::question(
+        this, tr("Close project"),
+        tr("The project '%1' has unsaved changes. Do you want to save them?").arg(view->project()->name()),
+        QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel, QMessageBox::Save);
+    if (answer == QMessageBox::Cancel)
+        return false;
+    if (answer == QMessageBox::Save) {
+        QString error;
+        if (!view->project()->save(&error)) {
+            QMessageBox::warning(this, tr("Save"), error);
+            return false;
+        }
+    }
+    return true;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -413,6 +571,11 @@ bool MainWindow::openProject(const QString& filePath)
     const QString lastEditor = m_context.config().value(QStringLiteral("lastEditor"));
     if (view->editorIds().contains(lastEditor))
         view->setCurrentEditor(lastEditor);
+    connect(view, &ProjectView::currentFileChanged, this, [this, view] {
+        if (view == currentProjectView())
+            refreshStatusBar();
+    });
+    connect(view, &ProjectView::modifiedChanged, this, [this, view] { updateProjectTab(view); });
     connect(view, &ProjectView::currentEditorChanged, this, [this, view](const QString& id) {
         m_context.config().setValue(QStringLiteral("lastEditor"), id);
         if (view == currentProjectView())
@@ -435,6 +598,8 @@ void MainWindow::closeProject(int tabIndex)
         return;
     const QVariant data = m_projectTabs->tabData(tabIndex);
     auto* view = qobject_cast<ProjectView*>(data.value<QObject*>());
+    if (view && !confirmClose(view))
+        return;
     if (view && m_dock->parentWidget() && view->isAncestorOf(m_dock)) {
         m_dock->hide();
         m_dock->setParent(this);
@@ -629,14 +794,18 @@ void MainWindow::refreshStatusBar()
     const EditorInfo info = view->currentEditorInfo();
     switch (info.workspace) {
     case WorkspaceType::Code: {
-        int lines = 0;
-        if (auto* tabs = view->findChild<QTabWidget*>(QStringLiteral("fileTabs_") + info.id)) {
-            if (auto* code = qobject_cast<QPlainTextEdit*>(tabs->currentWidget()))
-                lines = code->blockCount();
+        int line = 1, column = 1, lines = 0;
+        if (CodeEditor* editor = view->currentCodeEditor()) {
+            line = editor->cursorLine();
+            column = editor->cursorColumn();
+            lines = editor->blockCount();
         }
-        m_status->setSection(0, tr("Line: %1, Column: %2, Line count: %3").arg(1).arg(1).arg(lines));
+        QString encoding = QStringLiteral("UTF-8");
+        if (auto* file = qobject_cast<CodeFile*>(view->currentFile()))
+            encoding = file->encoding();
+        m_status->setSection(0, tr("Line: %1, Column: %2, Line count: %3").arg(line).arg(column).arg(lines));
         m_status->setSection(1, tr("Syntax error count: %1").arg(0));
-        m_status->setSection(2, tr("Encoding: %1").arg(QStringLiteral("UTF-8")));
+        m_status->setSection(2, tr("Encoding: %1").arg(encoding));
         break;
     }
     case WorkspaceType::Graphics:
@@ -741,6 +910,12 @@ void MainWindow::saveWindowGeometry()
 
 void MainWindow::closeEvent(QCloseEvent* event)
 {
+    for (ProjectView* view : projectViews()) {
+        if (!confirmClose(view)) {
+            event->ignore();
+            return;
+        }
+    }
     saveWindowGeometry();
     QString error;
     if (!m_context.saveSettings(&error))

@@ -36,6 +36,11 @@ bool Engine::canOpen(const QString& filePath) const
     return projectExtensions().contains(QFileInfo(filePath).suffix(), Qt::CaseInsensitive);
 }
 
+QString Engine::syntaxFileType(const Project&, const QString&) const
+{
+    return {};
+}
+
 QString Engine::dataDir() const
 {
     return Paths::engineDataDir(name());

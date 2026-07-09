@@ -19,8 +19,10 @@ namespace OFS {
 
 class AppContext;
 class BottomDock;
+class CodeEditor;
 class Engine;
 class Project;
+class ProjectFile;
 
 // Everything below the project tab bar for one open project.
 class ProjectView : public QWidget
@@ -49,12 +51,22 @@ public:
 
     static QString extraPanelTitle(const QString& name);
 
+    CodeEditor* currentCodeEditor() const;
+    ProjectFile* currentFile() const;
+    QList<ProjectFile*> editorFiles(const QString& editorId) const;
+    QList<CodeEditor*> codeEditors() const;
+    void reconfigureEditors();
+
 Q_SIGNALS:
     void currentEditorChanged(const QString& editorId);
+    void currentFileChanged();
+    void modifiedChanged();
 
 private:
     void createEditor(const EditorInfo& info);
     QWidget* createFilePage(const EditorInfo& info, const QString& filePath);
+    void configureCodeEditor(CodeEditor* editor, const QString& editorId);
+    void updateTabTitles();
     void fillProjectExplorer();
     void updateRightPanel();
     void updateDockStretch();
