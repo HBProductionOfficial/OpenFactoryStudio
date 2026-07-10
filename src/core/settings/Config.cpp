@@ -50,9 +50,7 @@ bool Config::save(QString* error) const
 bool Config::saveAs(const QString& path, QString* error) const
 {
     // The user file holds the whole configuration, defaults included, same as Fighter Factory.
-    QMap<QString, QString> all = m_defaults;
-    for (auto it = m_values.cbegin(); it != m_values.cend(); ++it)
-        all.insert(it.key(), it.value());
+    const QMap<QString, QString> all = allValues();
 
     QList<XmlRecord> records;
     records.reserve(all.size());
@@ -71,12 +69,22 @@ bool Config::isDefault(const QString& key) const
     return !m_values.contains(key) || m_values.value(key) == m_defaults.value(key);
 }
 
+bool Config::hasDefault(const QString& key) const
+{
+    return m_defaults.contains(key);
+}
+
 QStringList Config::keys() const
+{
+    return allValues().keys();
+}
+
+QMap<QString, QString> Config::allValues() const
 {
     QMap<QString, QString> all = m_defaults;
     for (auto it = m_values.cbegin(); it != m_values.cend(); ++it)
         all.insert(it.key(), it.value());
-    return all.keys();
+    return all;
 }
 
 QString Config::value(const QString& key, const QString& fallback) const

@@ -6,6 +6,8 @@ add_library(ofscore SHARED
     "${PROJECT_BINARY_DIR}/src/core/Version.h"
     app/AppContext.h
     app/AppContext.cpp
+    app/Languages.h
+    app/Languages.cpp
     app/Paths.h
     app/Paths.cpp
     actions/ActionRegistry.h
@@ -14,6 +16,10 @@ add_library(ofscore SHARED
     engine/Engine.cpp
     engine/EngineManager.h
     engine/EngineManager.cpp
+    engine/RunConfiguration.h
+    engine/RunConfiguration.cpp
+    options/OptionsPage.h
+    options/OptionsPage.cpp
     preset/ControlRegistry.h
     preset/ControlRegistry.cpp
     preset/PresetBuilder.h
@@ -25,10 +31,18 @@ add_library(ofscore SHARED
     settings/Config.cpp
     settings/History.h
     settings/History.cpp
+    settings/SettingsBundle.h
+    settings/SettingsBundle.cpp
+    settings/SettingsImporter.h
+    settings/SettingsImporter.cpp
     settings/ShortcutSettings.h
     settings/ShortcutSettings.cpp
     settings/XmlRecordFile.h
     settings/XmlRecordFile.cpp
+    text/Encodings.h
+    text/Encodings.cpp
+    theme/ColorRoles.h
+    theme/ColorRoles.cpp
     theme/ColorSet.h
     theme/ColorSet.cpp
     theme/IconSet.h
@@ -37,6 +51,10 @@ add_library(ofscore SHARED
     theme/StyleSheet.cpp
     theme/ThemeManager.h
     theme/ThemeManager.cpp
+    tools/Calculator.h
+    tools/Calculator.cpp
+    tools/ClipboardStore.h
+    tools/ClipboardStore.cpp
 )
 add_library(OFS::core ALIAS ofscore)
 ofs_target_defaults(ofscore)

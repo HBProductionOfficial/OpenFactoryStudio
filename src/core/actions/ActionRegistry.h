@@ -66,6 +66,9 @@ public:
 
     QStringList conflicts() const;
 
+    // The same scope, or a global and an editor scope. A window scope only overlaps itself.
+    static bool scopesOverlap(const QString& a, const QString& b);
+
 private:
     bool isScopeActive(const QString& scope) const;
     void refreshShortcut(const QString& id);

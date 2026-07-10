@@ -28,6 +28,14 @@ ofs_add_test(NAME core_actions_preset GUI
     SOURCES core/ActionsPresetTest.cpp
     LIBS OFS::core)
 
+ofs_add_test(NAME core_settings_importer
+    SOURCES core/SettingsImporterTest.cpp
+    LIBS OFS::core)
+
+ofs_add_test(NAME core_tools GUI
+    SOURCES core/ToolsTest.cpp
+    LIBS OFS::core)
+
 ofs_add_test(NAME gui_mainwindow GUI LABELS gui
     SOURCES gui/MainWindowTest.cpp
     LIBS OFS::shell)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/CoreExport.h"
+#include "core/settings/XmlRecordFile.h"
 
 #include <QColor>
 #include <QMap>
@@ -32,6 +33,9 @@ public:
 
     bool load(const QString& path, QString* error = nullptr);
     bool save(const QString& path, QString* error = nullptr) const;
+
+    QList<XmlRecord> toRecords() const;
+    void setRecords(const QList<XmlRecord>& records);
 
     bool contains(const QString& role) const { return m_entries.contains(role); }
     Entry entry(const QString& role) const { return m_entries.value(role); }
