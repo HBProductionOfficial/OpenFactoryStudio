@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <config name="clsn_default_attack" value="255,128,0"/>
+    <config name="clsn_default_collision" value="0,255,255"/>
+    <config name="p1_a" value="F"/>
+    <config name="p1_b" value="G"/>
+    <config name="p1_c" value="H"/>
+    <config name="p1_down" value="S"/>
+    <config name="p1_left" value="A"/>
+    <config name="p1_right" value="D"/>
+    <config name="p1_start" value="U"/>
+    <config name="p1_up" value="W"/>
+    <config name="p1_x" value="R"/>
+    <config name="p1_y" value="T"/>
+    <config name="p1_z" value="Y"/>
+    <config name="p2_a" value="4"/>
+    <config name="p2_b" value="5"/>
+    <config name="p2_c" value="6"/>
+    <config name="p2_down" value="Down"/>
+    <config name="p2_left" value="Left"/>
+    <config name="p2_right" value="Right"/>
+    <config name="p2_start" value="0"/>
+    <config name="p2_up" value="Up"/>
+    <config name="p2_x" value="7"/>
+    <config name="p2_y" value="8"/>
+    <config name="p2_z" value="9"/>
+    <config name="run_count" value="0"/>
+</configuration>
