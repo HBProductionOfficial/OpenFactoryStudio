@@ -7,6 +7,7 @@
 #include "engines/mugen/MugenControls.h"
 #include "engines/mugen/MugenMenus.h"
 #include "engines/mugen/MugenProject.h"
+#include "engines/mugen/MugenSyntax.h"
 
 namespace OFS::Mugen {
 
@@ -124,6 +125,15 @@ QString MugenEngine::syntaxFileType(const Project& project, const QString& edito
             return type;
     }
     return {};
+}
+
+IssueList MugenEngine::validate(const Project& project, const QString& editorId, const QString& text) const
+{
+    const QString fileType = syntaxFileType(project, editorId);
+    const SyntaxDatabase* db = syntax();
+    if (fileType.isEmpty() || !db || db->isEmpty())
+        return {};
+    return validateMugenCode(*db, fileType, project.versionId(), text);
 }
 
 } // namespace OFS::Mugen

@@ -12,6 +12,10 @@ add_library(ofs_mugen_lib STATIC
     MugenMenus.cpp
     MugenProject.h
     MugenProject.cpp
+    MugenSyntax.h
+    MugenSyntax.cpp
+    expr/Expression.h
+    expr/Expression.cpp
 )
 add_library(OFS::mugen ALIAS ofs_mugen_lib)
 ofs_target_defaults(ofs_mugen_lib)

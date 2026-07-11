@@ -3,6 +3,7 @@
 #include "core/CoreExport.h"
 #include "core/actions/MenuSpec.h"
 #include "core/editors/EditorInfo.h"
+#include "core/syntax/Issue.h"
 
 #include <QList>
 #include <QObject>
@@ -63,6 +64,8 @@ public:
 
     virtual const SyntaxDatabase* syntax() const { return nullptr; }
     virtual QString syntaxFileType(const Project& project, const QString& editorId) const;
+
+    virtual IssueList validate(const Project& project, const QString& editorId, const QString& text) const;
 
     QString dataDir() const;
     QString userDataDir() const;

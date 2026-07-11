@@ -58,8 +58,11 @@ add_library(ofscore SHARED
     settings/ShortcutSettings.cpp
     settings/XmlRecordFile.h
     settings/XmlRecordFile.cpp
+    syntax/Issue.h
     syntax/SyntaxDatabase.h
     syntax/SyntaxDatabase.cpp
+    syntax/SyntaxValidator.h
+    syntax/SyntaxValidator.cpp
     text/Encodings.h
     text/Encodings.cpp
     theme/ColorRoles.h

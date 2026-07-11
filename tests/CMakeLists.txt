@@ -75,3 +75,7 @@ ofs_add_test(NAME gui_first_run GUI LABELS gui
     SOURCES gui/FirstRunDialogTest.cpp
     LIBS OFS::shell)
 add_dependencies(test_gui_first_run ofs_data)
+
+ofs_add_test(NAME mugen_syntax
+    SOURCES mugen/MugenSyntaxTest.cpp
+    LIBS OFS::mugen)

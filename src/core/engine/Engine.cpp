@@ -41,6 +41,11 @@ QString Engine::syntaxFileType(const Project&, const QString&) const
     return {};
 }
 
+IssueList Engine::validate(const Project&, const QString&, const QString&) const
+{
+    return {};
+}
+
 QString Engine::dataDir() const
 {
     return Paths::engineDataDir(name());
