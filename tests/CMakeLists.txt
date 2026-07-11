@@ -40,8 +40,24 @@ ofs_add_test(NAME mugen_project
     SOURCES mugen/MugenProjectTest.cpp
     LIBS OFS::mugen)
 
+ofs_add_test(NAME core_settings_importer
+    SOURCES core/SettingsImporterTest.cpp
+    LIBS OFS::core)
+
+ofs_add_test(NAME core_tools GUI
+    SOURCES core/ToolsTest.cpp
+    LIBS OFS::core)
+
 ofs_add_test(NAME gui_mainwindow GUI LABELS gui
     SOURCES gui/MainWindowTest.cpp
+    LIBS OFS::shell)
+
+ofs_add_test(NAME gui_options GUI LABELS gui
+    SOURCES gui/OptionsDialogTest.cpp
+    LIBS OFS::shell)
+
+ofs_add_test(NAME gui_dialogs GUI LABELS gui
+    SOURCES gui/DialogsTest.cpp
     LIBS OFS::shell)
 
 # The engine-loading tests need the plugins next to the test executables.
@@ -53,3 +69,4 @@ add_dependencies(test_core_preset_coverage ofs_data ${_ofs_plugins})
 ofs_add_test(NAME shell_update_checker
     SOURCES gui/UpdateCheckerTest.cpp
     LIBS OFS::shell)
+add_dependencies(test_gui_options ofs_data)

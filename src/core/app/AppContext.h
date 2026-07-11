@@ -2,6 +2,7 @@
 
 #include "core/CoreExport.h"
 
+#include <QHash>
 #include <QObject>
 
 namespace OFS {
@@ -38,6 +39,9 @@ public:
     EngineManager& engines() const { return *m_engines; }
     ThemeManager& theme() const { return *m_theme; }
 
+    // <userDir>/<engine>_config.xml over <dataDir>/engines/<engine>/config.xml, loaded on first use.
+    Config& engineConfig(const QString& engine) const;
+
 private:
     Config* m_config;
     ShortcutSettings* m_shortcuts;
@@ -46,6 +50,7 @@ private:
     ControlRegistry* m_controls;
     EngineManager* m_engines;
     ThemeManager* m_theme;
+    mutable QHash<QString, Config*> m_engineConfigs;
 };
 
 } // namespace OFS

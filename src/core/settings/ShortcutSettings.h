@@ -24,6 +24,8 @@ public:
     bool save(QString* error = nullptr) const;
     bool saveAs(const QString& path, QString* error = nullptr) const;
 
+    QString userPath() const { return m_userPath; }
+
     QKeySequence keys(const QString& action) const;
     QKeySequence defaultKeys(const QString& action) const;
     bool hasEntry(const QString& action) const;

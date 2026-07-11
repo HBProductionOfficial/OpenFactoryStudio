@@ -183,6 +183,13 @@ void ActionRegistry::refreshText(const QString& id)
     e.action->setIconText(iconText);
 }
 
+bool ActionRegistry::scopesOverlap(const QString& a, const QString& b)
+{
+    if (isWindowScope(a) || isWindowScope(b))
+        return a == b;
+    return a == b || a.isEmpty() || b.isEmpty();
+}
+
 QStringList ActionRegistry::conflicts() const
 {
     QMap<QString, QStringList> byKeys;
@@ -195,12 +202,7 @@ QStringList ActionRegistry::conflicts() const
     for (const QStringList& ids : std::as_const(byKeys)) {
         for (qsizetype i = 0; i < ids.size(); ++i) {
             for (qsizetype j = i + 1; j < ids.size(); ++j) {
-                const QString& a = m_actions[ids[i]].scope;
-                const QString& b = m_actions[ids[j]].scope;
-                if (isWindowScope(a) != isWindowScope(b))
-                    continue;
-                const bool clash = a == b || a.isEmpty() || b.isEmpty();
-                if (clash) {
+                if (scopesOverlap(m_actions[ids[i]].scope, m_actions[ids[j]].scope)) {
                     if (!result.contains(ids[i]))
                         result << ids[i];
                     if (!result.contains(ids[j]))

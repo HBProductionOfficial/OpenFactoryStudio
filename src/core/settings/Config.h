@@ -30,6 +30,7 @@ public:
 
     bool contains(const QString& key) const;
     bool isDefault(const QString& key) const;
+    bool hasDefault(const QString& key) const;
     QStringList keys() const;
 
     QString value(const QString& key, const QString& fallback = {}) const;
@@ -51,6 +52,8 @@ public:
     void merge(const QMap<QString, QString>& values);
 
     const QMap<QString, QString>& userValues() const { return m_values; }
+    const QMap<QString, QString>& defaultValues() const { return m_defaults; }
+    QMap<QString, QString> allValues() const;
 
     static QString encodeBool(bool value);
     static QString encodeRect(const QRect& rect);

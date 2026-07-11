@@ -45,23 +45,17 @@ bool ColorSet::load(const QString& path, QString* error)
             *error = result.error;
         return false;
     }
-    m_entries.clear();
     m_name = QFileInfo(path).completeBaseName();
-    for (const XmlRecord& record : result.records) {
-        const QString role = record.value(QStringLiteral("name"));
-        const QColor color = parseRgb(record.value(QStringLiteral("value")));
-        if (role.isEmpty() || !color.isValid())
-            continue;
-        Entry entry;
-        entry.color = color;
-        entry.bold = Config::decodeBool(record.value(QStringLiteral("bold")), false);
-        entry.italic = Config::decodeBool(record.value(QStringLiteral("italic")), false);
-        m_entries.insert(role, entry);
-    }
+    setRecords(result.records);
     return true;
 }
 
 bool ColorSet::save(const QString& path, QString* error) const
+{
+    return XmlRecordFile::write(path, kRoot, kElement, toRecords(), error);
+}
+
+QList<XmlRecord> ColorSet::toRecords() const
 {
     QList<XmlRecord> records;
     for (auto it = m_entries.cbegin(); it != m_entries.cend(); ++it) {
@@ -72,7 +66,23 @@ bool ColorSet::save(const QString& path, QString* error) const
             record.set(QStringLiteral("italic"), QStringLiteral("true"));
         records.append(record);
     }
-    return XmlRecordFile::write(path, kRoot, kElement, records, error);
+    return records;
+}
+
+void ColorSet::setRecords(const QList<XmlRecord>& records)
+{
+    m_entries.clear();
+    for (const XmlRecord& record : records) {
+        const QString role = record.value(QStringLiteral("name"));
+        const QColor color = parseRgb(record.value(QStringLiteral("value")));
+        if (role.isEmpty() || !color.isValid())
+            continue;
+        Entry entry;
+        entry.color = color;
+        entry.bold = Config::decodeBool(record.value(QStringLiteral("bold")), false);
+        entry.italic = Config::decodeBool(record.value(QStringLiteral("italic")), false);
+        m_entries.insert(role, entry);
+    }
 }
 
 QColor ColorSet::color(const QString& role, const QColor& fallback) const
