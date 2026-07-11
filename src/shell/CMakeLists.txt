@@ -20,6 +20,8 @@ add_library(ofsshell STATIC
     dialogs/CalculatorDialog.cpp
     dialogs/ClipboardContainer.h
     dialogs/ClipboardContainer.cpp
+    dialogs/FirstRunDialog.h
+    dialogs/FirstRunDialog.cpp
     dialogs/ColorsPage.h
     dialogs/ColorsPage.cpp
     dialogs/MugenOptionsPage.h

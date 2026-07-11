@@ -21,6 +21,10 @@
 #include "shell/StatusBar.h"
 #include "shell/UpdateChecker.h"
 #include "shell/WelcomePage.h"
+#include "shell/dialogs/AboutDialog.h"
+#include "shell/dialogs/CalculatorDialog.h"
+#include "shell/dialogs/ClipboardContainer.h"
+#include "shell/dialogs/OptionsDialog.h"
 
 #include <QAction>
 #include <QActionGroup>
@@ -261,6 +265,16 @@ void MainWindow::connectActions()
         }
     }
 
+    on("tools_options", [this] {
+        OptionsDialog::showOptions(this, [this] {
+            applyInterface();
+            for (ProjectView* view : projectViews())
+                view->reconfigureEditors();
+        });
+    });
+    on("help_about", [this] { AboutDialog::showAbout(this); });
+    on("view_calculator", [this] { CalculatorDialog::showCalculator(this); });
+    on("view_clipboard", [this] { ClipboardContainer::showClipboard(this); });
     on("ref_docs", [] { QDesktopServices::openUrl(QUrl(QStringLiteral(OFS_HOMEPAGE))); });
     m_updates = new UpdateChecker(this);
     on("check_updates", [this] { m_updates->check(true); });

@@ -2,6 +2,7 @@
 #include "core/app/AppContext.h"
 #include "core/settings/Config.h"
 #include "shell/MainWindow.h"
+#include "shell/dialogs/FirstRunDialog.h"
 
 #include <QApplication>
 #include <QStringList>
@@ -25,6 +26,12 @@ int main(int argc, char* argv[])
     OFS::AppContext context;
     context.loadSettings();
     context.initializeEngines();
+
+    if (OFS::FirstRunDialog::isNeeded(context)) {
+        OFS::FirstRunDialog firstRun(context);
+        firstRun.exec();
+        firstRun.applySelection();
+    }
 
     OFS::MainWindow window(context);
     window.show();
