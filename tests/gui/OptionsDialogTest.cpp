@@ -409,6 +409,17 @@ private Q_SLOTS:
         QVERIFY(asked.isEmpty());
         QCOMPARE(editor->conflictsWith("spr_add", QKeySequence("Ctrl+O")), QStringList{"file_open"});
 
+        const QModelIndex penKeys = model->index(4, 1);
+        editor->view()->setCurrentIndex(penKeys);
+        editor->view()->edit(penKeys);
+        auto* keyEdit = editor->view()->findChild<QKeySequenceEdit*>();
+        QVERIFY(keyEdit);
+        QCOMPARE(keyEdit->keySequence(), QKeySequence("Ctrl+O"));
+        keyEdit->setKeySequence(QKeySequence("Ctrl+Shift+K"));
+        Q_EMIT keyEdit->editingFinished();
+        QTRY_COMPARE(editor->keys("spr_tool_pen"), QKeySequence("Ctrl+Shift+K"));
+        QCOMPARE(model->index(4, 1).data().toString(), QKeySequence("Ctrl+Shift+K").toString(QKeySequence::NativeText));
+
         editor->view()->setCurrentIndex(model->index(0, 0));
         QTest::keyClick(editor->view(), Qt::Key_Delete);
         QVERIFY(editor->keys("file_open").isEmpty());

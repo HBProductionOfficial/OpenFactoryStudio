@@ -41,8 +41,8 @@ LanguageInfo LanguageInfo::read(const QString& dir)
 QList<LanguageInfo> LanguageInfo::available(const QStringList& searchDirs)
 {
     QList<LanguageInfo> list;
-    auto has = [&list](const QString& code) {
-        return std::any_of(list.cbegin(), list.cend(), [&code](const LanguageInfo& l) { return l.code == code; });
+    auto has = [&list](const QString& wanted) {
+        return std::any_of(list.cbegin(), list.cend(), [&wanted](const LanguageInfo& l) { return l.code == wanted; });
     };
     for (const QString& root : searchDirs) {
         const QDir dir(root + QStringLiteral("/languages"));

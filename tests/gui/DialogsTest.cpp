@@ -131,14 +131,12 @@ private Q_SLOTS:
             QCOMPARE(visible.count(), 2);
             QCOMPARE(visible.last().first().toBool(), false);
         }
-        const QPoint stored(config.intValue("calculator_x"), config.intValue("calculator_y"));
 
         config.setValue("calculator_x", 50000);
         CalculatorDialog far(&config);
         far.show();
         QVERIFY(QTest::qWaitForWindowExposed(&far));
         QVERIFY(QGuiApplication::primaryScreen()->availableGeometry().contains(far.pos()));
-        Q_UNUSED(stored);
     }
 
     void calculatorSingleton()

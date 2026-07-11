@@ -21,7 +21,7 @@ struct OFS_CORE_EXPORT ColorRole
     QString displayName() const;
 
     static const QList<ColorRole>& all();
-    static const ColorRole* find(const QString& key);
+    static const ColorRole* find(const QString& roleKey);
 
     static ColorSet complete(const ColorSet& set);
 };

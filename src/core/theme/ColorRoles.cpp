@@ -47,10 +47,10 @@ const QList<ColorRole>& ColorRole::all()
     return roles;
 }
 
-const ColorRole* ColorRole::find(const QString& key)
+const ColorRole* ColorRole::find(const QString& roleKey)
 {
     for (const ColorRole& role : all()) {
-        if (role.key == key)
+        if (role.key == roleKey)
             return &role;
     }
     return nullptr;
