@@ -4,7 +4,7 @@
  * Same layout as the Dark style with a light palette.  Qt style sheet with two program
  * extensions:
  *   [N]px / [N]  sizes multiplied by the interface scale before the sheet is applied;
- *   url(x)       resolved against this folder.
+ *   url()        relative image paths are resolved against this folder.
  * The images in the sub-folders are produced by tools/styles/build_style_images.py.
  *
  * Program widgets: EPanelWidget (side panel frame) holding QLabel#panelTitle above its
