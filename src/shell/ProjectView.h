@@ -2,6 +2,7 @@
 
 #include "core/editors/EditorInfo.h"
 #include "core/preset/PresetModel.h"
+#include "core/syntax/Issue.h"
 
 #include <QHash>
 #include <QPointer>
@@ -20,6 +21,7 @@ namespace OFS {
 class AppContext;
 class BottomDock;
 class CodeEditor;
+class CodePage;
 class Engine;
 class Project;
 class ProjectFile;
@@ -52,6 +54,13 @@ public:
     static QString extraPanelTitle(const QString& name);
 
     CodeEditor* currentCodeEditor() const;
+    CodePage* currentCodePage() const;
+    QList<CodePage*> codePages() const;
+    // `line` is 1-based, 0 keeps the cursor where it is.
+    bool showFileLine(const QString& filePath, int line);
+    void setCodeToolBarsVisible(bool visible);
+    const QHash<QString, IssueList>& issues() const { return m_issues; }
+    void validateAll();
     ProjectFile* currentFile() const;
     QList<ProjectFile*> editorFiles(const QString& editorId) const;
     QList<CodeEditor*> codeEditors() const;
@@ -61,11 +70,13 @@ Q_SIGNALS:
     void currentEditorChanged(const QString& editorId);
     void currentFileChanged();
     void modifiedChanged();
+    void issuesChanged();
 
 private:
     void createEditor(const EditorInfo& info);
     QWidget* createFilePage(const EditorInfo& info, const QString& filePath);
     void configureCodeEditor(CodeEditor* editor, const QString& editorId);
+    void validate(CodePage* page);
     void updateTabTitles();
     void fillProjectExplorer();
     void updateRightPanel();
@@ -90,6 +101,7 @@ private:
     QHash<QString, QScrollArea*> m_editorPanels;
     QHash<QString, QTabWidget*> m_fileTabs;
     QHash<QString, QScrollArea*> m_extraPanels;
+    QHash<QString, IssueList> m_issues;
 };
 
 } // namespace OFS

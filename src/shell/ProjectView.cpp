@@ -12,6 +12,7 @@
 #include "core/theme/ThemeManager.h"
 #include "core/widgets/EPanelWidget.h"
 #include "shell/BottomDock.h"
+#include "shell/CodePage.h"
 
 #include <QDir>
 #include <QFileInfo>
@@ -21,6 +22,7 @@
 #include <QStandardItemModel>
 #include <QTabBar>
 #include <QTabWidget>
+#include <QTimer>
 #include <QTreeView>
 #include <QVBoxLayout>
 
@@ -199,16 +201,25 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
     if (info.workspace == WorkspaceType::Code) {
         QString error;
         CodeFile* file = QFileInfo::exists(filePath) ? m_project->codeFile(filePath, info.id, &error) : nullptr;
-        auto* editor = new CodeEditor;
-        editor->setProperty("filePath", filePath);
+        auto* page = new CodePage(m_context.actions());
+        page->setProperty("filePath", filePath);
+        page->setProperty("editorId", info.id);
+        CodeEditor* editor = page->editor();
         if (file) {
             editor->setCodeDocument(file->document());
             connect(file, &ProjectFile::modifiedChanged, this, [this] { Q_EMIT modifiedChanged(); });
+            auto* timer = new QTimer(page);
+            timer->setSingleShot(true);
+            timer->setInterval(300);
+            connect(timer, &QTimer::timeout, this, [this, page] { validate(page); });
+            connect(file->document(), &QTextDocument::contentsChanged, timer, qOverload<>(&QTimer::start));
+            QTimer::singleShot(0, this, [this, page] { validate(page); });
         } else {
             editor->setReadOnly(true);
         }
+        page->setToolBarVisible(m_context.config().boolValue(QStringLiteral("show_code_bar"), true));
         configureCodeEditor(editor, info.id);
-        return editor;
+        return page;
     }
     auto* workspace = new QWidget;
     workspace->setObjectName(QStringLiteral("workspace_") + info.id);
@@ -241,16 +252,80 @@ void ProjectView::reconfigureEditors()
 {
     for (auto it = m_fileTabs.cbegin(); it != m_fileTabs.cend(); ++it) {
         for (int i = 0; i < it.value()->count(); ++i) {
-            if (auto* editor = qobject_cast<CodeEditor*>(it.value()->widget(i)))
-                configureCodeEditor(editor, it.key());
+            if (auto* page = qobject_cast<CodePage*>(it.value()->widget(i)))
+                configureCodeEditor(page->editor(), it.key());
         }
     }
 }
 
 CodeEditor* ProjectView::currentCodeEditor() const
 {
+    CodePage* page = currentCodePage();
+    return page ? page->editor() : nullptr;
+}
+
+CodePage* ProjectView::currentCodePage() const
+{
     QTabWidget* tabs = m_fileTabs.value(m_currentEditor);
-    return tabs ? qobject_cast<CodeEditor*>(tabs->currentWidget()) : nullptr;
+    return tabs ? qobject_cast<CodePage*>(tabs->currentWidget()) : nullptr;
+}
+
+QList<CodePage*> ProjectView::codePages() const
+{
+    QList<CodePage*> pages;
+    for (QTabWidget* tabs : m_fileTabs) {
+        for (int i = 0; i < tabs->count(); ++i) {
+            if (auto* page = qobject_cast<CodePage*>(tabs->widget(i)))
+                pages << page;
+        }
+    }
+    return pages;
+}
+
+void ProjectView::setCodeToolBarsVisible(bool visible)
+{
+    for (CodePage* page : codePages())
+        page->setToolBarVisible(visible);
+}
+
+void ProjectView::validate(CodePage* page)
+{
+    const QString path = page->property("filePath").toString();
+    auto* file = qobject_cast<CodeFile*>(m_project->file(path));
+    if (!file)
+        return;
+    IssueList issues =
+        engine()->validate(*m_project, page->property("editorId").toString(), file->document()->toPlainText());
+    for (Issue& issue : issues)
+        issue.file = path;
+    page->setIssues(issues, m_context.theme().iconSet());
+    m_issues.insert(path, issues);
+    Q_EMIT issuesChanged();
+}
+
+void ProjectView::validateAll()
+{
+    for (CodePage* page : codePages())
+        validate(page);
+}
+
+bool ProjectView::showFileLine(const QString& filePath, int line)
+{
+    for (auto it = m_fileTabs.cbegin(); it != m_fileTabs.cend(); ++it) {
+        QTabWidget* tabs = it.value();
+        for (int i = 0; i < tabs->count(); ++i) {
+            if (tabs->widget(i)->property("filePath").toString().compare(filePath, Qt::CaseInsensitive) != 0)
+                continue;
+            setCurrentEditor(it.key());
+            tabs->setCurrentIndex(i);
+            if (auto* page = qobject_cast<CodePage*>(tabs->widget(i))) {
+                page->editor()->goToLine(line);
+                page->editor()->setFocus();
+            }
+            return true;
+        }
+    }
+    return false;
 }
 
 ProjectFile* ProjectView::currentFile() const
@@ -276,12 +351,8 @@ QList<ProjectFile*> ProjectView::editorFiles(const QString& editorId) const
 QList<CodeEditor*> ProjectView::codeEditors() const
 {
     QList<CodeEditor*> editors;
-    for (QTabWidget* tabs : m_fileTabs) {
-        for (int i = 0; i < tabs->count(); ++i) {
-            if (auto* e = qobject_cast<CodeEditor*>(tabs->widget(i)))
-                editors << e;
-        }
-    }
+    for (CodePage* page : codePages())
+        editors << page->editor();
     return editors;
 }
 

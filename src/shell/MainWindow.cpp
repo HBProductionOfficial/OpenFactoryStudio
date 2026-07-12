@@ -16,6 +16,7 @@
 #include "core/settings/History.h"
 #include "core/theme/ThemeManager.h"
 #include "shell/BottomDock.h"
+#include "shell/CodePage.h"
 #include "shell/MenuBuilder.h"
 #include "shell/ProjectView.h"
 #include "shell/StatusBar.h"
@@ -43,8 +44,11 @@
 #include <QPlainTextEdit>
 #include <QScreen>
 #include <QStackedWidget>
+#include <QStandardItemModel>
 #include <QTabBar>
 #include <QTabWidget>
+#include <QTableView>
+#include <QTimer>
 #include <QToolBar>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -345,6 +349,35 @@ void MainWindow::connectEditActions()
            if (ok)
                e->goToLine(line);
        }));
+    auto withPage = [this](bool forward, bool deprecations) {
+        return [this, forward, deprecations] {
+            if (ProjectView* view = currentProjectView()) {
+                if (CodePage* page = view->currentCodePage())
+                    page->goToIssue(forward, deprecations);
+            }
+        };
+    };
+    on("code_next_error", withPage(true, false));
+    on("code_prev_error", withPage(false, false));
+    on("code_next_deprecation", withPage(true, true));
+    on("code_prev_deprecation", withPage(false, true));
+    if (QAction* codeBar = actions.action(QStringLiteral("view_code_bar"))) {
+        connect(codeBar, &QAction::toggled, this, [this](bool visible) {
+            for (ProjectView* view : projectViews())
+                view->setCodeToolBarsVisible(visible);
+        });
+    }
+    connect(m_dock->issuesView(), &QTableView::doubleClicked, this, [this](const QModelIndex& index) {
+        const QModelIndex first = index.siblingAtColumn(0);
+        auto* view = qobject_cast<ProjectView*>(first.data(Qt::UserRole + 1).value<QObject*>());
+        if (!view)
+            return;
+        for (int i = 0; i < m_projectTabs->count(); ++i) {
+            if (m_projectTabs->tabData(i).value<QObject*>() == view)
+                m_projectTabs->setCurrentIndex(i);
+        }
+        view->showFileLine(first.data(Qt::UserRole).toString(), first.data(Qt::UserRole + 2).toInt() + 1);
+    });
     on("view_zoomin", withCode([](CodeEditor* e) { e->zoomIn(); }));
     on("view_zoomout", withCode([](CodeEditor* e) { e->zoomOut(); }));
     on("view_zoomreset", withCode([](CodeEditor* e) { e->resetZoom(); }));
@@ -390,6 +423,35 @@ void MainWindow::connectEditActions()
         on(e.save, [this, editor] { saveEditorFile(editor, false); });
         if (e.utf8)
             on(e.utf8, [this, editor] { saveEditorFile(editor, true); });
+    }
+}
+
+void MainWindow::refreshIssues()
+{
+    auto* model = qobject_cast<QStandardItemModel*>(m_dock->issuesView()->model());
+    if (!model)
+        return;
+    model->removeRows(0, model->rowCount());
+    const IconSet& icons = m_context.theme().iconSet();
+    for (ProjectView* view : projectViews()) {
+        const auto& all = view->issues();
+        for (auto it = all.cbegin(); it != all.cend(); ++it) {
+            for (const Issue& issue : it.value()) {
+                QString icon = QStringLiteral("error");
+                if (issue.severity == Issue::Severity::Warning || issue.severity == Issue::Severity::Deprecation)
+                    icon = QStringLiteral("warning");
+                else if (issue.severity == Issue::Severity::Information)
+                    icon = QStringLiteral("information");
+                auto* message = new QStandardItem(icons.icon(icon), issue.message);
+                message->setData(it.key(), Qt::UserRole);
+                message->setData(QVariant::fromValue<QObject*>(view), Qt::UserRole + 1);
+                message->setData(issue.line, Qt::UserRole + 2);
+                auto* file = new QStandardItem(QFileInfo(it.key()).fileName());
+                file->setToolTip(QDir::toNativeSeparators(it.key()));
+                auto* line = new QStandardItem(QString::number(issue.line + 1));
+                model->appendRow({message, file, line});
+            }
+        }
     }
 }
 
@@ -590,6 +652,10 @@ bool MainWindow::openProject(const QString& filePath)
             refreshStatusBar();
     });
     connect(view, &ProjectView::modifiedChanged, this, [this, view] { updateProjectTab(view); });
+    connect(view, &ProjectView::issuesChanged, this, [this] {
+        refreshIssues();
+        refreshStatusBar();
+    });
     connect(view, &ProjectView::currentEditorChanged, this, [this, view](const QString& id) {
         m_context.config().setValue(QStringLiteral("lastEditor"), id);
         if (view == currentProjectView())
@@ -626,6 +692,7 @@ void MainWindow::closeProject(int tabIndex)
         view->deleteLater();
     }
     refreshForCurrent();
+    QTimer::singleShot(0, this, &MainWindow::refreshIssues);
 }
 
 void MainWindow::closeCurrentProject()
@@ -818,7 +885,14 @@ void MainWindow::refreshStatusBar()
         if (auto* file = qobject_cast<CodeFile*>(view->currentFile()))
             encoding = file->encoding();
         m_status->setSection(0, tr("Line: %1, Column: %2, Line count: %3").arg(line).arg(column).arg(lines));
-        m_status->setSection(1, tr("Syntax error count: %1").arg(0));
+        int errors = 0;
+        if (CodePage* page = view->currentCodePage()) {
+            for (const Issue& issue : page->issues()) {
+                if (issue.isError())
+                    ++errors;
+            }
+        }
+        m_status->setSection(1, tr("Syntax error count: %1").arg(errors));
         m_status->setSection(2, tr("Encoding: %1").arg(encoding));
         break;
     }

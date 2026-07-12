@@ -79,6 +79,7 @@ private:
     void refreshActionList();
     void populateRecentProjects(QMenu* menu, QAction* before, QList<QAction*>& created);
     void connectEditActions();
+    void refreshIssues();
     void updateProjectTab(ProjectView* view);
     bool confirmClose(ProjectView* view);
     void saveFile(ProjectFile* file, bool asUtf8);
