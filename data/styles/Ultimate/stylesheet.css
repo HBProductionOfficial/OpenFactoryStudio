@@ -1,0 +1,33 @@
+/*
+ * Open Factory Studio - "Ultimate" interface style.
+ *
+ * Only the program's own widgets are styled; everything else keeps the native look of the
+ * operating system.  [N]px / [N] sizes are multiplied by the interface scale.
+ *
+ * EPanelWidget is the side panel frame; it holds QLabel#panelTitle above its content.
+ */
+
+EPanelWidget
+{
+    background-color: #c3ccfa;
+    border: [1]px solid #97a3e0;
+}
+
+EPanelWidget > QLabel#panelTitle
+{
+    background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 0, stop: 0 #ffffff, stop: 1 #a9b8ef);
+    color: #000000;
+    border: none;
+    border-bottom: [1]px solid #97a3e0;
+    margin: 0;
+    min-height: [28]px;
+    padding: 0 [8]px;
+    font-weight: bold;
+    font-size: [14]px;
+    qproperty-alignment: AlignCenter;
+}
+
+EImageWidget
+{
+    background-color: transparent;
+}
