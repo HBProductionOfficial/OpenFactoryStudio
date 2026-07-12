@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<colors>
+    <color name="back_start" value="85,85,85"/>
+    <color name="back_end" value="51,51,51"/>
+    <color name="background" value="34,34,34"/>
+    <color name="foreground" value="204,204,204"/>
+    <color name="attackbox" value="255,0,0"/>
+    <color name="collisionbox" value="0,0,255"/>
+    <color name="sound_wave" value="185,175,55"/>
+    <color name="block_range" value="25,25,25"/>
+    <color name="line" value="10,10,10"/>
+    <color name="paren" value="255,0,0"/>
+    <color name="paren_range" value="25,25,25"/>
+    <color name="comment" value="128,128,128" italic="true"/>
+    <color name="block" value="0,255,0" bold="true"/>
+    <color name="number" value="255,0,0"/>
+    <color name="string" value="0,255,255"/>
+    <color name="keyword" value="255,255,255" bold="true"/>
+    <color name="keyword_value" value="255,0,255"/>
+    <color name="block_type" value="255,85,0" bold="true"/>
+    <color name="function" value="255,255,0" bold="true"/>
+    <color name="const" value="255,0,128"/>
+    <color name="symbol" value="204,204,204"/>
+</colors>
