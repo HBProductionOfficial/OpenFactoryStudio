@@ -28,6 +28,10 @@ jobs:
           git ls-files '*.cpp' '*.h' '*.hpp' | xargs clang-format --dry-run --Werror
       - name: Third-party notices
         run: python tools/check_third_party.py
+      - name: Theme data
+        run: |
+          python tools/iconsets/check_iconsets.py --all
+          python tools/styles/build_style_images.py --check
 
   build:
     name: ${{ matrix.name }}
