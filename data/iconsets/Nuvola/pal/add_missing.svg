@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+<defs>
+<radialGradient id="r1" cx="24.5" cy="25.8" r="17.5" fx="24.5" fy="25.8" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffc4b4"/><stop offset="0.55" stop-color="#e8341f"/><stop offset="1" stop-color="#760b04"/></radialGradient>
+<linearGradient id="l2" x1="0" y1="17.12" x2="0" y2="30.7" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffffff" stop-opacity="0.902"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+<radialGradient id="r3" cx="14" cy="14" r="12" fx="14" fy="14" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fffde0"/><stop offset="0.35" stop-color="#ffe23a"/><stop offset="1" stop-color="#ff7a00"/></radialGradient>
+</defs>
+<circle cx="28" cy="30" r="14" fill="url(#r1)" stroke="#760b04" stroke-width="0.98"/>
+<ellipse cx="28" cy="23.7" rx="9.52" ry="6.3" fill="url(#l2)"/>
+<polygon points="14,2 15.929,9.344 20.109,7.891 18.213,12.255 26,14 18.656,15.929 20.109,20.109 15.745,18.213 14,26 12.071,18.656 7.891,20.109 9.787,15.745 2,14 9.344,12.071 7.891,7.891 12.255,9.787" fill="url(#r3)" stroke="#c84c00" stroke-width="0.84" stroke-linejoin="round"/>
+<circle cx="14" cy="14" r="2.64" fill="#ffffff"/>
+</svg>

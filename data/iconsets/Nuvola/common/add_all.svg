@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+<defs>
+<radialGradient id="r1" cx="16" cy="16" r="14" fx="16" fy="16" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fffde0"/><stop offset="0.35" stop-color="#ffe23a"/><stop offset="1" stop-color="#ff7a00"/></radialGradient>
+<radialGradient id="r2" cx="32" cy="32" r="15" fx="32" fy="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fffde0"/><stop offset="0.35" stop-color="#ffe23a"/><stop offset="1" stop-color="#ff7a00"/></radialGradient>
+</defs>
+<polygon points="16,2 18.25,10.568 23.128,8.872 20.915,13.964 30,16 21.432,18.25 23.128,23.128 18.036,20.915 16,30 13.75,21.432 8.872,23.128 11.085,18.036 2,16 10.568,13.75 8.872,8.872 13.964,11.085" fill="url(#r1)" stroke="#c84c00" stroke-width="0.98" stroke-linejoin="round"/>
+<circle cx="16" cy="16" r="3.08" fill="#ffffff"/>
+<polygon points="32,17 34.411,26.18 39.637,24.363 37.266,29.819 47,32 37.82,34.411 39.637,39.637 34.181,37.266 32,47 29.589,37.82 24.363,39.637 26.734,34.181 17,32 26.18,29.589 24.363,24.363 29.819,26.734" fill="url(#r2)" stroke="#c84c00" stroke-width="1.05" stroke-linejoin="round"/>
+<circle cx="32" cy="32" r="3.3" fill="#ffffff"/>
+</svg>

@@ -4,7 +4,7 @@ if(WIN32)
     find_program(OFS_WINDEPLOYQT windeployqt)
     if(OFS_WINDEPLOYQT)
         set(_ofs_deploy_cmds
-            COMMAND "${OFS_WINDEPLOYQT}" --no-translations --no-system-d3d-compiler --no-compiler-runtime
+            COMMAND "${OFS_WINDEPLOYQT}" --no-translations --no-system-d3d-compiler --no-compiler-runtime --svg
                     --dir "${OFS_OUTPUT_DIR}" "$<TARGET_FILE:ofs>"
             # the tests run with the offscreen platform plugin
             COMMAND "${CMAKE_COMMAND}" -E copy_if_different
