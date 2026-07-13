@@ -56,6 +56,25 @@ void collectWarnings(QtMsgType type, const QMessageLogContext&, const QString& m
 
 } // namespace
 
+// Stand-in with the class name and properties the style sheets set on side panels.
+class EPanelWidget : public QFrame
+{
+    Q_OBJECT
+    Q_PROPERTY(int leftMargin MEMBER m_left)
+    Q_PROPERTY(int topMargin MEMBER m_top)
+    Q_PROPERTY(int rightMargin MEMBER m_right)
+    Q_PROPERTY(int bottomMargin MEMBER m_bottom)
+
+public:
+    using QFrame::QFrame;
+
+private:
+    int m_left = 0;
+    int m_top = 0;
+    int m_right = 0;
+    int m_bottom = 0;
+};
+
 class ThemeDataTest : public QObject
 {
     Q_OBJECT
@@ -227,10 +246,12 @@ private Q_SLOTS:
             QMainWindow win;
             auto* central = new QWidget;
             auto* layout = new QVBoxLayout(central);
-            auto* panel = new QFrame;
-            panel->setObjectName(QStringLiteral("panel"));
-            auto* title = new QLabel(QStringLiteral("Definitions"), panel);
+            auto* panel = new EPanelWidget;
+            auto* panelLayout = new QVBoxLayout(panel);
+            auto* title = new QLabel(QStringLiteral("Definitions"));
             title->setObjectName(QStringLiteral("panelTitle"));
+            panelLayout->addWidget(title);
+            panelLayout->addWidget(new QCheckBox(QStringLiteral("Decompress on load")));
             layout->addWidget(panel);
             layout->addWidget(new QTreeWidget);
             layout->addWidget(new QSpinBox);
