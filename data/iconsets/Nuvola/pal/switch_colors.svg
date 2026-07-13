@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+<defs>
+<radialGradient id="r1" cx="11.5" cy="11" r="12.5" fx="11.5" fy="11" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffc4b4"/><stop offset="0.55" stop-color="#e8341f"/><stop offset="1" stop-color="#760b04"/></radialGradient>
+<linearGradient id="l2" x1="0" y1="4.8" x2="0" y2="14.5" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffffff" stop-opacity="0.902"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+<radialGradient id="r3" cx="31.5" cy="31" r="12.5" fx="31.5" fy="31" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffe0b0"/><stop offset="0.55" stop-color="#f5821e"/><stop offset="1" stop-color="#8c3504"/></radialGradient>
+<linearGradient id="l4" x1="0" y1="24.8" x2="0" y2="34.5" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffffff" stop-opacity="0.902"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+<linearGradient id="l5" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="0.45" stop-color="#a4a4a4"/><stop offset="1" stop-color="#454545"/></linearGradient>
+<linearGradient id="l6" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="0.45" stop-color="#a4a4a4"/><stop offset="1" stop-color="#454545"/></linearGradient>
+</defs>
+<circle cx="14" cy="14" r="10" fill="url(#r1)" stroke="#760b04" stroke-width="0.7"/>
+<ellipse cx="14" cy="9.5" rx="6.8" ry="4.5" fill="url(#l2)"/>
+<circle cx="34" cy="34" r="10" fill="url(#r3)" stroke="#8c3504" stroke-width="0.7"/>
+<ellipse cx="34" cy="29.5" rx="6.8" ry="4.5" fill="url(#l4)"/>
+<polygon points="26.054,3.901 27.666,3.943 29.255,4.073 30.768,4.293 32.205,4.607 33.565,5.017 34.846,5.527 36.045,6.141 37.155,6.862 38.17,7.688 39.08,8.617 39.881,9.644 40.567,10.76 41.136,11.958 41.589,13.23 41.931,14.572 42.152,15.897 46.064,16.673 39.892,23.496 34.096,15.807 38.008,16.583 37.819,15.428 37.571,14.45 37.254,13.562 36.873,12.76 36.429,12.036 35.92,11.383 35.34,10.792 34.685,10.258 33.945,9.779 33.114,9.353 32.185,8.983 31.155,8.673 30.022,8.427 28.785,8.247 27.444,8.137 25.946,8.099" fill="url(#l5)" stroke="#454545" stroke-width="1.3" stroke-linejoin="round"/>
+<polygon points="21.946,44.099 20.334,44.057 18.745,43.927 17.232,43.707 15.795,43.393 14.435,42.983 13.154,42.473 11.955,41.859 10.845,41.138 9.83,40.312 8.92,39.383 8.119,38.356 7.433,37.24 6.864,36.042 6.411,34.77 6.069,33.428 5.848,32.103 1.936,31.327 8.108,24.504 13.904,32.193 9.992,31.417 10.181,32.572 10.429,33.55 10.746,34.438 11.127,35.24 11.571,35.964 12.08,36.617 12.66,37.208 13.315,37.742 14.055,38.221 14.886,38.647 15.815,39.017 16.845,39.327 17.978,39.573 19.215,39.753 20.556,39.863 22.054,39.901" fill="url(#l6)" stroke="#454545" stroke-width="1.3" stroke-linejoin="round"/>
+</svg>

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+<defs>
+<radialGradient id="r1" cx="14" cy="18.4" r="15" fx="14" fy="18.4" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fffbc4"/><stop offset="0.55" stop-color="#f6cf1e"/><stop offset="1" stop-color="#8c6604"/></radialGradient>
+<linearGradient id="l2" x1="0" y1="10.96" x2="0" y2="22.6" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffffff" stop-opacity="0.902"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+<radialGradient id="r3" cx="28" cy="18.4" r="15" fx="28" fy="18.4" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fffbc4"/><stop offset="0.55" stop-color="#f6cf1e"/><stop offset="1" stop-color="#8c6604"/></radialGradient>
+<linearGradient id="l4" x1="0" y1="10.96" x2="0" y2="22.6" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffffff" stop-opacity="0.902"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+<linearGradient id="l5" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff7a6a"/><stop offset="0.5" stop-color="#e01e10"/><stop offset="1" stop-color="#9a0800"/></linearGradient>
+</defs>
+<circle cx="17" cy="22" r="12" fill="url(#r1)" stroke="#8c6604" stroke-width="0.84"/>
+<ellipse cx="17" cy="16.6" rx="8.16" ry="5.4" fill="url(#l2)"/>
+<circle cx="31" cy="22" r="12" fill="url(#r3)" stroke="#8c6604" stroke-width="0.84"/>
+<ellipse cx="31" cy="16.6" rx="8.16" ry="5.4" fill="url(#l4)"/>
+<path d="M23 28.2l4.2 -4.2l5.8 5.8l5.8 -5.8l4.2 4.2l-5.8 5.8l5.8 5.8l-4.2 4.2l-5.8 -5.8l-5.8 5.8l-4.2 -4.2l5.8 -5.8z" fill="url(#l5)" stroke="#6a0400" stroke-width="0.9" stroke-linejoin="round"/>
+</svg>

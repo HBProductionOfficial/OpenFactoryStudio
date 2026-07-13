@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+<g transform="translate(24,25) skewX(-10) scale(1.917) translate(-11.866,-12)" fill="none" stroke="#104d7e" stroke-width="2.921" stroke-linecap="round" stroke-linejoin="round">
+<path d="M3 16v-6a2 2 0 1 1 4 0v6"/>
+<path d="M3 13h4"/>
+<path d="M10 8v6a2 2 0 1 0 4 0v-1a2 2 0 1 0 -4 0v1"/>
+<path d="M20.732 12a2 2 0 0 0 -3.732 1v1a2 2 0 0 0 3.726 1.01"/>
+</g>
+<g transform="translate(24,25) skewX(-10) scale(1.917) translate(-11.866,-12)" fill="none" stroke="#1e8ce6" stroke-width="2.086" stroke-linecap="round" stroke-linejoin="round">
+<path d="M3 16v-6a2 2 0 1 1 4 0v6"/>
+<path d="M3 13h4"/>
+<path d="M10 8v6a2 2 0 1 0 4 0v-1a2 2 0 1 0 -4 0v1"/>
+<path d="M20.732 12a2 2 0 0 0 -3.732 1v1a2 2 0 0 0 3.726 1.01"/>
+</g>
+<path d="M4.6 7.5l-1.6 4.5" fill="none" stroke="#104d7e" stroke-width="3.6" stroke-linecap="round"/>
+<path d="M4.6 7.5l-1.6 4.5" fill="none" stroke="#1e8ce6" stroke-width="2.2" stroke-linecap="round"/>
+<path d="M9.0 7.5l-1.6 4.5" fill="none" stroke="#104d7e" stroke-width="3.6" stroke-linecap="round"/>
+<path d="M9.0 7.5l-1.6 4.5" fill="none" stroke="#1e8ce6" stroke-width="2.2" stroke-linecap="round"/>
+<path d="M38.599999999999994 37.5l-1.6 4.5" fill="none" stroke="#104d7e" stroke-width="3.6" stroke-linecap="round"/>
+<path d="M38.599999999999994 37.5l-1.6 4.5" fill="none" stroke="#1e8ce6" stroke-width="2.2" stroke-linecap="round"/>
+<path d="M43.0 37.5l-1.6 4.5" fill="none" stroke="#104d7e" stroke-width="3.6" stroke-linecap="round"/>
+<path d="M43.0 37.5l-1.6 4.5" fill="none" stroke="#1e8ce6" stroke-width="2.2" stroke-linecap="round"/>
+</svg>
