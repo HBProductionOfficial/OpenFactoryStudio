@@ -1,7 +1,13 @@
 add_library(ofsformats SHARED
     FormatsExport.h
+    util/ByteReader.h
+    util/ByteWriter.h
+    util/Bytes.h
     util/Crc.h
     util/Crc.cpp
+    util/FileIo.h
+    util/FileIo.cpp
+    util/Result.h
 )
 add_library(OFS::formats ALIAS ofsformats)
 ofs_target_defaults(ofsformats)

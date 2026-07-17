@@ -8,6 +8,10 @@ ofs_add_test(NAME formats_crc CATCH2
     SOURCES formats/CrcTest.cpp
     LIBS OFS::formats)
 
+ofs_add_test(NAME formats_util CATCH2
+    SOURCES formats/UtilTest.cpp
+    LIBS OFS::formats)
+
 ofs_add_test(NAME core_engines
     SOURCES core/EngineManagerTest.cpp
     LIBS OFS::core)
