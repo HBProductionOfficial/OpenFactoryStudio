@@ -8,6 +8,11 @@ add_library(ofsformats SHARED
     util/FileIo.h
     util/FileIo.cpp
     util/Result.h
+    image/Color.h
+    image/Image.h
+    image/Image.cpp
+    image/ImageOps.h
+    image/ImageOps.cpp
 )
 add_library(OFS::formats ALIAS ofsformats)
 ofs_target_defaults(ofsformats)

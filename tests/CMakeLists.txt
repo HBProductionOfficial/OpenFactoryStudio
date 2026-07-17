@@ -8,9 +8,15 @@ ofs_add_test(NAME formats_crc CATCH2
     SOURCES formats/CrcTest.cpp
     LIBS OFS::formats)
 
+set(OFS_FORMATS_FIXTURES fixtures/FixtureFactory.h fixtures/FixtureFactory.cpp)
+
 ofs_add_test(NAME formats_util CATCH2
-    SOURCES formats/UtilTest.cpp
+    SOURCES formats/UtilTest.cpp formats/ImageTest.cpp ${OFS_FORMATS_FIXTURES}
     LIBS OFS::formats)
+
+foreach(test IN ITEMS formats_util)
+    target_include_directories(test_${test} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+endforeach()
 
 ofs_add_test(NAME core_engines
     SOURCES core/EngineManagerTest.cpp
