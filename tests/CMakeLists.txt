@@ -14,7 +14,11 @@ ofs_add_test(NAME formats_util CATCH2
     SOURCES formats/UtilTest.cpp formats/ImageTest.cpp ${OFS_FORMATS_FIXTURES}
     LIBS OFS::formats)
 
-foreach(test IN ITEMS formats_util)
+ofs_add_test(NAME formats_codecs CATCH2
+    SOURCES formats/CodecTest.cpp ${OFS_FORMATS_FIXTURES}
+    LIBS OFS::formats)
+
+foreach(test IN ITEMS formats_util formats_codecs)
     target_include_directories(test_${test} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 endforeach()
 
