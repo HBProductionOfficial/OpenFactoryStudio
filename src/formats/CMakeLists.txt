@@ -24,6 +24,8 @@ add_library(ofsformats SHARED
     codecs/Rle5.cpp
     codecs/Rle8.h
     codecs/Rle8.cpp
+    palette/PaletteFormats.h
+    palette/PaletteFormats.cpp
 )
 add_library(OFS::formats ALIAS ofsformats)
 ofs_target_defaults(ofsformats)
