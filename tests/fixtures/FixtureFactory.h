@@ -3,6 +3,7 @@
 // Generated test data for the formats library. Nothing here reads files.
 
 #include "formats/image/Image.h"
+#include "formats/palette/PaletteFormats.h"
 #include "formats/sff/SffDocument.h"
 #include "formats/snd/SndDocument.h"
 #include "formats/util/Bytes.h"
@@ -77,6 +78,8 @@ public:
     SndDocument snd(int soundCount);
     WavFile wav(std::uint16_t channels, std::uint32_t sampleRate, std::uint16_t bitsPerSample, std::size_t frames,
                 bool floatingPoint = false);
+
+    Bytes act(ActOrder order = ActOrder::Reversed);
 
 private:
     SplitMix64 m_rng;

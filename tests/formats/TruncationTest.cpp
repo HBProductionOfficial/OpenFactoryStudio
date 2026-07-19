@@ -105,7 +105,7 @@ TEST_CASE("truncated images and palettes are rejected", "[truncation]")
     requireTruncationsRejected(*encodePng(f.rgbaImage(6, 5)), [](ByteSpan d) { return decodePng(d).ok(); });
 
     const Palette palette = f.palette(256);
-    requireTruncationsRejected(writeAct(palette, ActOrder::Reversed),
+    requireTruncationsRejected(f.act(ActOrder::Reversed),
                                [](ByteSpan d) { return readAct(d, ActOrder::Reversed).ok(); });
     requireTruncationsRejected(writeRiffPal(palette), [](ByteSpan d) { return readRiffPal(d).ok(); });
 

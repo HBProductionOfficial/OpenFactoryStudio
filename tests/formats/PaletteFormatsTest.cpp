@@ -43,6 +43,14 @@ TEST_CASE("ACT files store M.U.G.E.N palettes in reverse", "[palette][act]")
     const Bytes small = writeAct(Palette{rgb(1, 2, 3)}, ActOrder::Natural);
     CHECK(small.size() == 768);
     CHECK(static_cast<std::uint8_t>(small[3]) == 0);
+
+    for (ActOrder order : {ActOrder::Reversed, ActOrder::Natural}) {
+        const Bytes file = f.act(order);
+        auto colors = readAct(file, order);
+        REQUIRE(colors.ok());
+        CHECK(writeAct(*colors, order) == file);
+        CHECK(readPaletteFile(file, order).value() == *colors);
+    }
 }
 
 TEST_CASE("RIFF PAL round-trips", "[palette][riff]")

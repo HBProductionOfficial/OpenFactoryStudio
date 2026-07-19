@@ -268,4 +268,9 @@ WavFile FixtureFactory::wav(std::uint16_t channels, std::uint32_t sampleRate, st
     return result;
 }
 
+Bytes FixtureFactory::act(ActOrder order)
+{
+    return writeAct(palette(256), order);
+}
+
 } // namespace OFS::Formats::Test
