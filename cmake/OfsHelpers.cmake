@@ -38,8 +38,9 @@ function(ofs_add_engine_plugin name)
     set_property(GLOBAL APPEND PROPERTY OFS_ENGINE_PLUGINS ${target})
 endfunction()
 
+# ofs_add_test(NAME <name> SOURCES ... [LIBS ...] [LABELS ...] [TIMEOUT <seconds>] [GUI] [CATCH2])
 function(ofs_add_test)
-    cmake_parse_arguments(ARG "GUI;CATCH2" "NAME" "SOURCES;LIBS;LABELS" ${ARGN})
+    cmake_parse_arguments(ARG "GUI;CATCH2" "NAME;TIMEOUT" "SOURCES;LIBS;LABELS" ${ARGN})
     set(target test_${ARG_NAME})
     add_executable(${target} ${ARG_SOURCES})
     ofs_target_defaults(${target})
@@ -62,19 +63,30 @@ function(ofs_add_test)
     if(NOT labels)
         set(labels unit)
     endif()
+    set(extra_properties "")
+    if(ARG_TIMEOUT)
+        list(APPEND extra_properties TIMEOUT ${ARG_TIMEOUT})
+    endif()
 
     if(ARG_CATCH2)
+        # catch_discover_tests() flattens PROPERTIES into one list, so a value with several items
+        # would shift the rest and break SKIP_RETURN_CODE.
+        list(LENGTH env env_items)
+        list(LENGTH labels label_items)
+        if(env_items GREATER 1 OR label_items GREATER 1)
+            message(FATAL_ERROR "ofs_add_test(${ARG_NAME}): Catch2 tests take one label and no GUI flag")
+        endif()
         include(Catch)
         catch_discover_tests(${target}
             WORKING_DIRECTORY "${OFS_OUTPUT_DIR}"
             TEST_PREFIX "${ARG_NAME}:"
-            PROPERTIES LABELS "${labels}" ENVIRONMENT "${env}" ENVIRONMENT_MODIFICATION "${envmod}"
+            PROPERTIES LABELS "${labels}" ENVIRONMENT "${env}" ${extra_properties}
             DISCOVERY_MODE PRE_TEST
             DL_PATHS ${OFS_RUNTIME_DIRS})
     else()
         add_test(NAME ${ARG_NAME} COMMAND ${target} WORKING_DIRECTORY "${OFS_OUTPUT_DIR}")
         set_tests_properties(${ARG_NAME} PROPERTIES
-            LABELS "${labels}" ENVIRONMENT "${env}" ENVIRONMENT_MODIFICATION "${envmod}")
+            LABELS "${labels}" ENVIRONMENT "${env}" ENVIRONMENT_MODIFICATION "${envmod}" ${extra_properties})
     endif()
 endfunction()
 
