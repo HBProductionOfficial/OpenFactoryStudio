@@ -182,6 +182,9 @@ Result<Image> SffDocument::decodeSprite(std::size_t index, DecodeMode mode) cons
         return withPalette(std::move(*image));
     }
     case SffCompression::Raw:
+        // SprMaker2 can't make raw true-color data, so its byte order is unknown.
+        if (s.colorDepth > 8)
+            return Error{"raw true-color sprites are not supported"};
         if (data.size() < pixelCount && mode == DecodeMode::Strict)
             return Error{"raw sprite data is too short"};
         {

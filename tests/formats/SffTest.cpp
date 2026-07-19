@@ -466,6 +466,22 @@ TEST_CASE("SFF sprite lookup and replacement", "[sff]")
     CHECK(rgbaImage->colorAt(0, 0).r == 255);
 }
 
+TEST_CASE("raw true-color sprites are refused instead of guessed", "[sff]")
+{
+    SffDocument doc(SffVersion::V201);
+    SffSprite s;
+    s.width = 2;
+    s.height = 1;
+    s.compression = SffCompression::Raw;
+    s.colorDepth = 32;
+    s.data = Bytes(8, std::byte{0x7F});
+    doc.sprites.push_back(s);
+    CHECK_FALSE(doc.decodeSprite(0).ok());
+    doc.sprites[0].colorDepth = 8;
+    doc.sprites[0].data.resize(2);
+    CHECK(doc.decodeSprite(0).ok());
+}
+
 TEST_CASE("SFF reader rejects malformed files", "[sff]")
 {
     CHECK_FALSE(SffDocument::read(Bytes(100)).ok());
