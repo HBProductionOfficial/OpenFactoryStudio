@@ -31,7 +31,11 @@ ofs_add_test(NAME formats_corpus CATCH2 LABELS corpus TIMEOUT 3600
     SOURCES formats/CorpusTest.cpp formats/TestEnv.h
     LIBS OFS::formats)
 
-foreach(test IN ITEMS formats_util formats_codecs formats_documents formats_corpus)
+ofs_add_test(NAME formats_oracle CATCH2 LABELS oracle TIMEOUT 900
+    SOURCES formats/OracleTest.cpp formats/TestEnv.h ${OFS_FORMATS_FIXTURES}
+    LIBS OFS::formats)
+
+foreach(test IN ITEMS formats_util formats_codecs formats_documents formats_corpus formats_oracle)
     target_include_directories(test_${test} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 endforeach()
 
