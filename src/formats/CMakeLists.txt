@@ -26,6 +26,11 @@ add_library(ofsformats SHARED
     codecs/Rle8.cpp
     palette/PaletteFormats.h
     palette/PaletteFormats.cpp
+    sff/SffDocument.h
+    sff/SffDocument.cpp
+    sff/SffInternal.h
+    sff/SffRead.cpp
+    sff/SffWrite.cpp
 )
 add_library(OFS::formats ALIAS ofsformats)
 ofs_target_defaults(ofsformats)

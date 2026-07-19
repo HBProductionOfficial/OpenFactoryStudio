@@ -3,6 +3,8 @@
 // Generated test data for the formats library. Nothing here reads files.
 
 #include "formats/image/Image.h"
+#include "formats/sff/SffDocument.h"
+#include "formats/util/Bytes.h"
 
 #include <cstdint>
 #include <vector>
@@ -67,6 +69,8 @@ public:
     Image indexedImage(int width, int height, int colors, PixelPattern pattern);
     Image randomIndexedImage(int maxSide, int colors);
     Image rgbaImage(int width, int height);
+
+    SffDocument sff(SffVersion version, int spriteCount, int maxSide = 48);
 
 private:
     SplitMix64 m_rng;

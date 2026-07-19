@@ -21,6 +21,7 @@ ofs_add_test(NAME formats_codecs CATCH2
 ofs_add_test(NAME formats_documents CATCH2
     SOURCES
         formats/PaletteFormatsTest.cpp
+        formats/SffTest.cpp
         ${OFS_FORMATS_FIXTURES}
     LIBS OFS::formats)
 
