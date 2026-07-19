@@ -38,8 +38,9 @@ function(ofs_add_engine_plugin name)
     set_property(GLOBAL APPEND PROPERTY OFS_ENGINE_PLUGINS ${target})
 endfunction()
 
+# ofs_add_test(NAME <name> SOURCES ... [LIBS ...] [LABELS ...] [TIMEOUT <seconds>] [GUI] [CATCH2])
 function(ofs_add_test)
-    cmake_parse_arguments(ARG "GUI;CATCH2" "NAME" "SOURCES;LIBS;LABELS" ${ARGN})
+    cmake_parse_arguments(ARG "GUI;CATCH2" "NAME;TIMEOUT" "SOURCES;LIBS;LABELS" ${ARGN})
     set(target test_${ARG_NAME})
     add_executable(${target} ${ARG_SOURCES})
     ofs_target_defaults(${target})
@@ -50,8 +51,11 @@ function(ofs_add_test)
         target_link_libraries(${target} PRIVATE Qt6::Test)
     endif()
 
-    # Without a console, QtTest on Windows logs to the debugger. Keep it in the test output.
-    set(env "OFS_CONFIG_DIR=${CMAKE_BINARY_DIR}/test-config/${ARG_NAME}" "QT_FORCE_STDERR_LOGGING=1")
+    set(env "OFS_CONFIG_DIR=${CMAKE_BINARY_DIR}/test-config/${ARG_NAME}")
+    if(NOT ARG_CATCH2)
+        # Without a console, QtTest on Windows logs to the debugger. Keep it in the test output.
+        list(APPEND env "QT_FORCE_STDERR_LOGGING=1")
+    endif()
     set(envmod "")
     foreach(dir IN LISTS OFS_RUNTIME_DIRS)
         list(APPEND envmod "PATH=path_list_prepend:${dir}")
@@ -62,6 +66,10 @@ function(ofs_add_test)
     set(labels ${ARG_LABELS})
     if(NOT labels)
         set(labels unit)
+    endif()
+    set(extra_properties "")
+    if(ARG_TIMEOUT)
+        list(APPEND extra_properties TIMEOUT ${ARG_TIMEOUT})
     endif()
 
     # An empty ENVIRONMENT_MODIFICATION would swallow the next keyword, so pass it only when set.
@@ -74,6 +82,13 @@ function(ofs_add_test)
     endif()
 
     if(ARG_CATCH2)
+        # catch_discover_tests() flattens PROPERTIES into one list, so a value with several items
+        # would shift the rest and break SKIP_RETURN_CODE.
+        list(LENGTH env env_items)
+        list(LENGTH labels label_items)
+        if(env_items GREATER 1 OR label_items GREATER 1)
+            message(FATAL_ERROR "ofs_add_test(${ARG_NAME}): Catch2 tests take one label and no GUI flag")
+        endif()
         include(Catch)
         set(dlpaths "")
         if(OFS_RUNTIME_DIRS)
@@ -82,12 +97,12 @@ function(ofs_add_test)
         catch_discover_tests(${target}
             WORKING_DIRECTORY "${OFS_OUTPUT_DIR}"
             TEST_PREFIX "${ARG_NAME}:"
-            PROPERTIES ${props}
+            PROPERTIES LABELS "${labels}" ENVIRONMENT "${env}" ${extra_properties}
             DISCOVERY_MODE PRE_TEST
             ${dlpaths})
     else()
         add_test(NAME ${ARG_NAME} COMMAND ${target} WORKING_DIRECTORY "${OFS_OUTPUT_DIR}")
-        set_tests_properties(${ARG_NAME} PROPERTIES ${props})
+        set_tests_properties(${ARG_NAME} PROPERTIES ${props} ${extra_properties})
     endif()
 endfunction()
 

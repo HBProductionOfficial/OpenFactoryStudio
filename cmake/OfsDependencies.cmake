@@ -47,6 +47,16 @@ target_include_directories(ofs_sol2 SYSTEM INTERFACE "$<BUILD_INTERFACE:${sol2_S
 target_compile_definitions(ofs_sol2 INTERFACE SOL_ALL_SAFETIES_ON=1)
 target_link_libraries(ofs_sol2 INTERFACE ofslua)
 
+# --- LodePNG (zlib license), vendored in third_party/lodepng ----------------------------------
+add_library(ofs_lodepng STATIC "${PROJECT_SOURCE_DIR}/third_party/lodepng/lodepng.cpp")
+target_include_directories(ofs_lodepng SYSTEM PUBLIC "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/third_party/lodepng>")
+target_compile_definitions(ofs_lodepng PUBLIC LODEPNG_NO_COMPILE_DISK LODEPNG_NO_COMPILE_CPP)
+if(MSVC)
+    target_compile_options(ofs_lodepng PRIVATE /W0)
+else()
+    target_compile_options(ofs_lodepng PRIVATE -w)
+endif()
+
 # --- Catch2 v3 (BSL-1.0), unit tests -----------------------------------------------------------
 if(OFS_BUILD_TESTS)
     FetchContent_Declare(Catch2
