@@ -3,6 +3,7 @@
 #include "core/code/CodeLine.h"
 #include "core/project/ProjectFile.h"
 #include "core/syntax/SyntaxDatabase.h"
+#include "core/text/Encodings.h"
 
 #include <QFile>
 #include <QTemporaryDir>
@@ -209,6 +210,61 @@ private Q_SLOTS:
         QVERIFY(reloaded.document()->toPlainText().endsWith(QStringLiteral("; added")));
         if (bytes.contains("\r\n"))
             QVERIFY(readBytes(path).contains("\r\n; added"));
+    }
+
+    void encodings()
+    {
+#ifdef Q_OS_WIN
+        // Qt with ICU lacks ISCII, TSCII and WINSAMI2, so this only holds on Windows.
+        for (const TextEncoding& e : TextEncoding::all())
+            QVERIFY2(TextEncoding::isAvailable(e.codecName()), qPrintable(e.codecName()));
+#endif
+        for (const char* name : {"System", "UTF-8", "UTF-16LE", "windows-1252", "Shift_JIS", "GBK", "Big5", "EUC-KR",
+                                 "KOI8-R", "ISO-8859-2"})
+            QVERIFY2(TextEncoding::isAvailable(QLatin1String(name)), name);
+        QCOMPARE(TextEncoding::indexOf("System"), 0);
+        QCOMPARE(TextEncoding::indexOf("cp1252"), TextEncoding::indexOf("windows-1252"));
+        QCOMPARE(TextEncoding::indexOf("nonsense"), -1);
+
+        bool ok = false;
+        const QByteArray sjis("\x83\x65\x83\x58\x83\x67", 6); // "テスト"
+        QCOMPARE(TextEncoding::decode(sjis, "Shift_JIS", &ok), QStringLiteral(u"テスト"));
+        QVERIFY(ok);
+        QCOMPARE(TextEncoding::encode(QStringLiteral(u"テスト"), "SJIS"), sjis);
+        QCOMPARE(TextEncoding::decode("caf\xE9", "windows-1252"), QStringLiteral(u"café"));
+        QCOMPARE(TextEncoding::encode(QStringLiteral(u"привет"), "KOI8-R"), QByteArray("\xD0\xD2\xC9\xD7\xC5\xD4"));
+        TextEncoding::decode("x", "no-such-codec", &ok);
+        QVERIFY(!ok);
+    }
+
+    void codeFileEncodingChanges()
+    {
+        QTemporaryDir dir;
+        const QString path = dir.filePath("f.def");
+        const QByteArray sjis("name = \"\x83\x65\x83\x58\x83\x67\"\r\n", 16);
+        writeBytes(path, sjis);
+
+        CodeFile::setFallbackEncoding("Shift_JIS");
+        CodeFile file(path, "definitions");
+        QString error;
+        QVERIFY(file.load(&error));
+        CodeFile::setFallbackEncoding("System");
+        QCOMPARE(file.encoding(), QStringLiteral("Shift_JIS"));
+        QCOMPARE(file.document()->toPlainText(), QStringLiteral(u"name = \"テスト\"\n"));
+
+        QVERIFY(file.reloadWithEncoding("windows-1252", &error));
+        QCOMPARE(file.encoding(), QStringLiteral("windows-1252"));
+        QVERIFY(!file.isModified());
+        QVERIFY(file.document()->toPlainText().startsWith(QStringLiteral(u"name = \"ƒeƒXƒg\"")));
+        QVERIFY(file.reloadWithEncoding("Shift_JIS", &error));
+        QCOMPARE(file.document()->toPlainText(), QStringLiteral(u"name = \"テスト\"\n"));
+
+        QVERIFY(file.setEncoding("UTF-8", &error));
+        QVERIFY(file.isModified());
+        QVERIFY(file.save(&error));
+        QCOMPARE(readBytes(path), QByteArray("name = \"\xE3\x83\x86\xE3\x82\xB9\xE3\x83\x88\"\r\n"));
+        QVERIFY(!file.setEncoding("no-such-codec", &error));
+        QVERIFY(!file.reloadWithEncoding("no-such-codec", &error));
     }
 
     void editorCommentToggle()

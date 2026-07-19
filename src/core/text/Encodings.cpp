@@ -1,6 +1,10 @@
 #include "core/text/Encodings.h"
 
 #include <QCoreApplication>
+#include <QStringConverter>
+#include <QTextCodec>
+
+#include <optional>
 
 #define OFS_GROUP(text) QT_TRANSLATE_NOOP("OFS::TextEncoding", text)
 
@@ -102,6 +106,77 @@ int TextEncoding::indexOf(const QString& name)
         }
     }
     return -1;
+}
+
+namespace {
+
+QStringList candidateNames(const QString& name)
+{
+    QStringList names{name.trimmed()};
+    const int index = TextEncoding::indexOf(name);
+    if (index >= 0) {
+        for (const QString& alias : TextEncoding::all().at(index).names.split(QLatin1Char(',')))
+            names << alias.trimmed();
+    }
+    names.removeDuplicates();
+    return names;
+}
+
+std::optional<QStringConverter::Encoding> converterFor(const QString& name)
+{
+    if (name.compare(QLatin1String("System"), Qt::CaseInsensitive) == 0)
+        return QStringConverter::System;
+    for (const QString& candidate : candidateNames(name)) {
+        if (auto e = QStringConverter::encodingForName(candidate.toLatin1()))
+            return e;
+    }
+    return std::nullopt;
+}
+
+QTextCodec* codecFor(const QString& name)
+{
+    for (const QString& candidate : candidateNames(name)) {
+        if (QTextCodec* codec = QTextCodec::codecForName(candidate.toLatin1()))
+            return codec;
+    }
+    return nullptr;
+}
+
+} // namespace
+
+QString TextEncoding::decode(const QByteArray& data, const QString& name, bool* ok)
+{
+    if (ok)
+        *ok = true;
+    if (auto e = converterFor(name)) {
+        QStringDecoder decoder(*e);
+        return decoder(data);
+    }
+    if (QTextCodec* codec = codecFor(name))
+        return codec->toUnicode(data);
+    if (ok)
+        *ok = false;
+    return QString::fromLocal8Bit(data);
+}
+
+QByteArray TextEncoding::encode(const QString& text, const QString& name, bool* ok)
+{
+    if (ok)
+        *ok = true;
+    if (auto e = converterFor(name)) {
+        QStringEncoder encoder(*e);
+        return encoder(text);
+    }
+    if (QTextCodec* codec = codecFor(name))
+        return codec->fromUnicode(text);
+    if (ok)
+        *ok = false;
+    return text.toLocal8Bit();
+}
+
+bool TextEncoding::isAvailable(const QString& name)
+{
+    return converterFor(name) || codecFor(name);
 }
 
 } // namespace OFS

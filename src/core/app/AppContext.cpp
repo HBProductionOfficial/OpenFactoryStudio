@@ -6,9 +6,11 @@
 #include "core/engine/Engine.h"
 #include "core/engine/EngineManager.h"
 #include "core/preset/ControlRegistry.h"
+#include "core/project/ProjectFile.h"
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
 #include "core/settings/ShortcutSettings.h"
+#include "core/text/Encodings.h"
 #include "core/theme/ThemeManager.h"
 
 namespace OFS {
@@ -66,6 +68,15 @@ void AppContext::loadSettings()
     m_theme->setSearchDirs({user, data});
     for (auto it = m_engineConfigs.cbegin(); it != m_engineConfigs.cend(); ++it)
         it.value()->load(engineConfigDefaultsPath(it.key()), engineConfigUserPath(it.key()));
+    applySettings();
+}
+
+void AppContext::applySettings()
+{
+    const QList<TextEncoding>& encodings = TextEncoding::all();
+    const int codePage = m_config->intValue(QStringLiteral("default_codepage"), 0);
+    CodeFile::setFallbackEncoding(codePage > 0 && codePage < int(encodings.size()) ? encodings[codePage].codecName()
+                                                                                   : QStringLiteral("System"));
 }
 
 void AppContext::initializeEngines(const QStringList& engineSearchDirs)

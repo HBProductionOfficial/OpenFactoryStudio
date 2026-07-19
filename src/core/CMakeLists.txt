@@ -6,6 +6,8 @@ add_library(ofscore SHARED
     "${PROJECT_BINARY_DIR}/src/core/Version.h"
     app/AppContext.h
     app/AppContext.cpp
+    app/Messages.h
+    app/Messages.cpp
     app/Languages.h
     app/Languages.cpp
     app/Paths.h
@@ -91,4 +93,4 @@ target_link_libraries(ofscore
         Qt6::Core Qt6::Gui Qt6::Widgets
         OFS::formats
     PRIVATE
-        OFS::sol2)
+        OFS::sol2 Qt6::Core5Compat)

@@ -2,6 +2,7 @@
 #include "core/actions/ActionRegistry.h"
 #include "core/app/AppContext.h"
 #include "core/project/Project.h"
+#include "core/settings/Config.h"
 #include "core/settings/History.h"
 #include "core/widgets/EPanelWidget.h"
 #include "shell/ProjectView.h"
@@ -193,6 +194,52 @@ private Q_SLOTS:
         QVERIFY(actions.action("bgs_add")->isEnabled());
         QVERIFY(!actions.action("st_throw")->isEnabled());
         QCOMPARE(window.ofsStatusBar()->section(3), QStringLiteral("Project: Stage, DOS M.U.G.E.N beta"));
+    }
+
+    void encodingMenu()
+    {
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(m_dir.filePath("fighter.def")));
+        m_context->actions().action("editor_def")->trigger();
+        QMenu* encodings = menu(window, "menu_encoding");
+        QVERIFY(encodings);
+        QVERIFY(encodings->menuAction()->isEnabled());
+        auto find = [encodings](const QString& text) -> QAction* {
+            Q_EMIT encodings->aboutToShow();
+            for (QAction* a : encodings->actions()) {
+                if (a->text() == text)
+                    return a;
+            }
+            return nullptr;
+        };
+        QAction* utf8 = find("Unicode\tUTF-8");
+        QVERIFY(utf8);
+        QVERIFY(utf8->isChecked());
+        const auto listed = encodings->actions();
+        QCOMPARE(std::count_if(listed.begin(), listed.end(), [](QAction* a) { return a->isVisible(); }), 60);
+
+        Config& config = m_context->config();
+        config.setValue("showmsg_enc_reload", "1"); // Always
+        find("Latin/Western European\twindows-1252, CP1252")->trigger();
+        QCOMPARE(window.ofsStatusBar()->section(2), QStringLiteral("Encoding: windows-1252"));
+        QVERIFY(find("Latin/Western European\twindows-1252, CP1252")->isChecked());
+        QVERIFY(!window.currentProjectView()->project()->isModified());
+
+        config.setValue("showmsg_enc_reload", "2"); // Never
+        find("Unicode\tUTF-8")->trigger();
+        QCOMPARE(window.ofsStatusBar()->section(2), QStringLiteral("Encoding: UTF-8"));
+        QVERIFY(window.currentProjectView()->project()->isModified());
+
+        config.setValue("showmsg_enc_reload", "1");
+        find("Unicode\tUTF-8")->trigger();
+        QVERIFY(window.currentProjectView()->project()->isModified());
+        find("System default\tSystem")->trigger();
+        QVERIFY(!window.currentProjectView()->project()->isModified());
+        config.setValue("showmsg_enc_reload", "");
+
+        m_context->actions().action("editor_spr")->trigger();
+        QVERIFY(!encodings->menuAction()->isEnabled());
     }
 
     void welcomeTabAndHistory()

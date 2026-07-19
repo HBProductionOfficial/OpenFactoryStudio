@@ -4,6 +4,7 @@
 #include "core/actions/ActionRegistry.h"
 #include "core/actions/MenuSpec.h"
 #include "core/app/AppContext.h"
+#include "core/app/Messages.h"
 #include "core/app/Paths.h"
 #include "core/code/CodeEditor.h"
 #include "core/engine/Engine.h"
@@ -14,6 +15,7 @@
 #include "core/project/ProjectFile.h"
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
+#include "core/text/Encodings.h"
 #include "core/theme/ThemeManager.h"
 #include "shell/BottomDock.h"
 #include "shell/CodePage.h"
@@ -110,6 +112,9 @@ void MainWindow::buildMenus()
                         [this](QMenu* menu, QAction* before, QList<QAction*>& created) {
                             populateRecentProjects(menu, before, created);
                         });
+    m_menus->setDynamic(QStringLiteral("encodings"), [this](QMenu* menu, QAction* before, QList<QAction*>& created) {
+        populateEncodings(menu, before, created);
+    });
     m_menus->setDynamic(QStringLiteral("engine_tools"), [this](QMenu* menu, QAction* before, QList<QAction*>& created) {
         ProjectView* view = currentProjectView();
         if (!view)
@@ -271,6 +276,7 @@ void MainWindow::connectActions()
 
     on("tools_options", [this] {
         OptionsDialog::showOptions(this, [this] {
+            m_context.applySettings();
             applyInterface();
             for (ProjectView* view : projectViews())
                 view->reconfigureEditors();
@@ -925,6 +931,43 @@ void MainWindow::refreshActionList()
         item->setData(Qt::UserRole, a->objectName());
         item->setToolTip(m_context.actions().description(a->objectName()));
     }
+}
+
+void MainWindow::populateEncodings(QMenu* menu, QAction* before, QList<QAction*>& created)
+{
+    ProjectView* view = currentProjectView();
+    auto* file = view ? qobject_cast<CodeFile*>(view->currentFile()) : nullptr;
+    const int current = file ? TextEncoding::indexOf(file->encoding()) : -1;
+    const QList<TextEncoding>& encodings = TextEncoding::all();
+    for (int i = 0; i < int(encodings.size()); ++i) {
+        const TextEncoding& encoding = encodings[i];
+        // Caption in the text column, the codec names in the shortcut column.
+        auto* action = new QAction(encoding.groupName() + QLatin1Char('\t') + encoding.names, menu);
+        action->setCheckable(true);
+        action->setChecked(i == current);
+        action->setEnabled(file && TextEncoding::isAvailable(encoding.codecName()));
+        const QString name = encoding.codecName();
+        connect(action, &QAction::triggered, this, [this, name] { changeEncoding(name); });
+        menu->insertAction(before, action);
+        created << action;
+    }
+}
+
+void MainWindow::changeEncoding(const QString& encoding)
+{
+    ProjectView* view = currentProjectView();
+    auto* file = view ? qobject_cast<CodeFile*>(view->currentFile()) : nullptr;
+    if (!file || TextEncoding::indexOf(file->encoding()) == TextEncoding::indexOf(encoding))
+        return;
+    const bool reload = askQuestion(this, m_context.config(), QStringLiteral("showmsg_enc_reload"),
+                                    tr("Reload the document with the new encoding?\n"
+                                       "Unsaved changes will be lost; otherwise the text is converted when saved."));
+    QString error;
+    const bool ok = reload ? file->reloadWithEncoding(encoding, &error) : file->setEncoding(encoding, &error);
+    if (!ok)
+        QMessageBox::warning(this, QApplication::applicationDisplayName(), error);
+    updateProjectTab(view);
+    refreshStatusBar();
 }
 
 void MainWindow::populateRecentProjects(QMenu* menu, QAction* before, QList<QAction*>& created)

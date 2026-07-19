@@ -1,5 +1,7 @@
 #include "core/project/ProjectFile.h"
 
+#include "core/text/Encodings.h"
+
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -9,6 +11,10 @@
 #include <QTextDocument>
 
 namespace OFS {
+
+namespace {
+QString s_fallbackEncoding = QStringLiteral("System");
+} // namespace
 
 ProjectFile::ProjectFile(const QString& path, const QString& editorId, QObject* parent)
     : QObject(parent)
@@ -80,19 +86,31 @@ QString CodeFile::decode(const QByteArray& data, QString* encoding, QByteArray* 
         *encoding = QStringLiteral("UTF-8");
         return text;
     }
-    *encoding = QStringLiteral("System");
-    return QString::fromLocal8Bit(data);
+    bool ok = false;
+    const QString decoded = TextEncoding::decode(data, s_fallbackEncoding, &ok);
+    if (!ok) {
+        *encoding = QStringLiteral("System");
+        return QString::fromLocal8Bit(data);
+    }
+    *encoding = s_fallbackEncoding;
+    return decoded;
 }
 
 QByteArray CodeFile::encode(const QString& text, const QString& encoding)
 {
-    if (encoding == QLatin1String("System"))
-        return text.toLocal8Bit();
-    if (auto e = QStringConverter::encodingForName(encoding.toLatin1())) {
-        QStringEncoder enc(*e);
-        return enc(text);
-    }
-    return text.toUtf8();
+    bool ok = false;
+    const QByteArray bytes = TextEncoding::encode(text, encoding, &ok);
+    return ok ? bytes : text.toUtf8();
+}
+
+QString CodeFile::fallbackEncoding()
+{
+    return s_fallbackEncoding;
+}
+
+void CodeFile::setFallbackEncoding(const QString& encoding)
+{
+    s_fallbackEncoding = TextEncoding::isAvailable(encoding) ? encoding : QStringLiteral("System");
 }
 
 bool CodeFile::load(QString* error)
@@ -146,21 +164,40 @@ bool CodeFile::saveAs(const QString& target, QString* error)
 
 bool CodeFile::reloadWithEncoding(const QString& encoding, QString* error)
 {
-    QString text;
-    if (encoding == QLatin1String("System")) {
-        text = QString::fromLocal8Bit(m_original.mid(m_bom.size()));
-    } else if (auto e = QStringConverter::encodingForName(encoding.toLatin1())) {
-        QStringDecoder d(*e);
-        text = d(m_original.mid(m_bom.size()));
-    } else {
+    // The byte order mark of the saved bytes is kept only when reading them as Unicode again.
+    QString detected;
+    QByteArray bom;
+    decode(m_original, &detected, &bom);
+    if (!encoding.startsWith(QLatin1String("UTF-"), Qt::CaseInsensitive))
+        bom.clear();
+    bool ok = false;
+    QString text = TextEncoding::decode(m_original.mid(bom.size()), encoding, &ok);
+    if (!ok) {
         if (error)
             *error = tr("The encoding '%1' is not supported.").arg(encoding);
         return false;
     }
     m_encoding = encoding;
+    m_bom = bom;
     text.replace(QLatin1String("\r\n"), QLatin1String("\n"));
     m_document->setPlainText(text);
     m_document->setModified(false);
+    return true;
+}
+
+bool CodeFile::setEncoding(const QString& encoding, QString* error)
+{
+    if (!TextEncoding::isAvailable(encoding)) {
+        if (error)
+            *error = tr("The encoding '%1' is not supported.").arg(encoding);
+        return false;
+    }
+    if (encoding == m_encoding)
+        return true;
+    m_encoding = encoding;
+    // A byte order mark belongs to the Unicode encoding it was read with.
+    m_bom.clear();
+    m_document->setModified(true);
     return true;
 }
 

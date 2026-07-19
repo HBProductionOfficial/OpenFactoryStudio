@@ -58,12 +58,17 @@ public:
 
     QString encoding() const { return m_encoding; }
     bool reloadWithEncoding(const QString& encoding, QString* error);
+    bool setEncoding(const QString& encoding, QString* error);
     bool saveAsUtf8(QString* error);
 
     // Tries byte order marks, then UTF-8 when the bytes are valid UTF-8, then the encoding
     // detector, else the fallback encoding. Sets *encoding and *bom.
     static QString decode(const QByteArray& data, QString* encoding, QByteArray* bom);
     static QByteArray encode(const QString& text, const QString& encoding);
+
+    // For files that are neither Unicode nor valid UTF-8. "System" by default.
+    static QString fallbackEncoding();
+    static void setFallbackEncoding(const QString& encoding);
 
 private:
     QTextDocument* m_document;

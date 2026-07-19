@@ -78,6 +78,8 @@ private:
     void refreshStatusBar();
     void refreshActionList();
     void populateRecentProjects(QMenu* menu, QAction* before, QList<QAction*>& created);
+    void populateEncodings(QMenu* menu, QAction* before, QList<QAction*>& created);
+    void changeEncoding(const QString& encoding);
     void connectEditActions();
     void refreshIssues();
     void updateProjectTab(ProjectView* view);

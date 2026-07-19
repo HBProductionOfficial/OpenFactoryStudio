@@ -2,6 +2,7 @@
 
 #include "core/CoreExport.h"
 
+#include <QByteArray>
 #include <QList>
 #include <QString>
 
@@ -20,6 +21,11 @@ struct OFS_CORE_EXPORT TextEncoding
 
     static const QList<TextEncoding>& all();
     static int indexOf(const QString& name);
+
+    // name can also be "System" for the system code page.
+    static QString decode(const QByteArray& data, const QString& name, bool* ok = nullptr);
+    static QByteArray encode(const QString& text, const QString& name, bool* ok = nullptr);
+    static bool isAvailable(const QString& name);
 };
 
 } // namespace OFS

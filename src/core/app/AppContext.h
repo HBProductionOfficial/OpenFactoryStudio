@@ -28,6 +28,7 @@ public:
     // Loads config, shortcuts and history. Engine plugins load in initializeEngines().
     void loadSettings();
     bool saveSettings(QString* error = nullptr) const;
+    void applySettings();
 
     void initializeEngines(const QStringList& engineSearchDirs = {});
 
