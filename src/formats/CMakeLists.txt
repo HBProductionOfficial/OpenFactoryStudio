@@ -31,6 +31,12 @@ add_library(ofsformats SHARED
     sff/SffInternal.h
     sff/SffRead.cpp
     sff/SffWrite.cpp
+    snd/SndDocument.h
+    snd/SndDocument.cpp
+    wav/WavFile.h
+    wav/WavFile.cpp
+    fnt/FntDocument.h
+    fnt/FntDocument.cpp
 )
 add_library(OFS::formats ALIAS ofsformats)
 ofs_target_defaults(ofsformats)

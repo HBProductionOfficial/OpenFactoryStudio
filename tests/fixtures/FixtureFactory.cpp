@@ -237,4 +237,35 @@ SffDocument FixtureFactory::sff(SffVersion version, int spriteCount, int maxSide
     return doc;
 }
 
+SndDocument FixtureFactory::snd(int soundCount)
+{
+    SndDocument doc;
+    for (std::size_t i = 0; i < doc.comment.size(); ++i)
+        doc.comment[i] = i < 20 ? static_cast<std::uint8_t>('a' + i) : 0;
+    for (int i = 0; i < soundCount; ++i) {
+        SndSound s;
+        s.group = static_cast<std::int32_t>(m_rng.below(100));
+        s.number = static_cast<std::int32_t>(m_rng.below(10));
+        const auto bits = static_cast<std::uint16_t>(m_rng.chance(50) ? 8 : 16);
+        s.data = wav(static_cast<std::uint16_t>(1 + m_rng.below(2)), 11025, bits, 1 + m_rng.below(300)).write();
+        doc.sounds.push_back(std::move(s));
+    }
+    return doc;
+}
+
+WavFile FixtureFactory::wav(std::uint16_t channels, std::uint32_t sampleRate, std::uint16_t bitsPerSample,
+                            std::size_t frames, bool floatingPoint)
+{
+    std::vector<double> samples(frames * channels);
+    for (double& v : samples)
+        v = static_cast<double>(m_rng.range(-1000, 1000)) / 1000.0;
+    auto wav = WavFile::fromSamples(samples, channels, sampleRate, bitsPerSample, floatingPoint);
+    WavFile result = wav ? std::move(*wav) : WavFile{};
+    WavChunk list;
+    list.id = {'L', 'I', 'S', 'T'};
+    list.data = toBytes(std::string_view("INFOISFT\x05\x00\x00\x00test\x00", 17)); // odd size: needs a pad byte
+    result.chunks = {WavChunk{{'f', 'm', 't', ' '}, {}}, WavChunk{{'d', 'a', 't', 'a'}, {}}, list};
+    return result;
+}
+
 } // namespace OFS::Formats::Test

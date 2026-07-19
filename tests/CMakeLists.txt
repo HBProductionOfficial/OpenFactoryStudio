@@ -22,6 +22,7 @@ ofs_add_test(NAME formats_documents CATCH2
     SOURCES
         formats/PaletteFormatsTest.cpp
         formats/SffTest.cpp
+        formats/SndWavFntTest.cpp
         ${OFS_FORMATS_FIXTURES}
     LIBS OFS::formats)
 

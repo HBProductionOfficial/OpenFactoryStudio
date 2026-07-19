@@ -4,7 +4,9 @@
 
 #include "formats/image/Image.h"
 #include "formats/sff/SffDocument.h"
+#include "formats/snd/SndDocument.h"
 #include "formats/util/Bytes.h"
+#include "formats/wav/WavFile.h"
 
 #include <cstdint>
 #include <vector>
@@ -71,6 +73,10 @@ public:
     Image rgbaImage(int width, int height);
 
     SffDocument sff(SffVersion version, int spriteCount, int maxSide = 48);
+
+    SndDocument snd(int soundCount);
+    WavFile wav(std::uint16_t channels, std::uint32_t sampleRate, std::uint16_t bitsPerSample, std::size_t frames,
+                bool floatingPoint = false);
 
 private:
     SplitMix64 m_rng;
