@@ -15,7 +15,7 @@ class ByteWriter
 {
 public:
     ByteWriter() = default;
-    explicit ByteWriter(std::size_t reserve) { m_buffer.reserve(reserve); }
+    explicit ByteWriter(std::size_t capacity) { m_buffer.reserve(capacity); }
 
     std::size_t size() const noexcept { return m_buffer.size(); }
     const Bytes& data() const noexcept { return m_buffer; }
@@ -55,17 +55,17 @@ public:
         u8(static_cast<std::uint8_t>(v & 0xFF));
     }
 
-    void bytes(ByteSpan data) { m_buffer.insert(m_buffer.end(), data.begin(), data.end()); }
-    void bytes(std::span<const std::uint8_t> data) { bytes(std::as_bytes(data)); }
-    void text(std::string_view text) { bytes(asBytes(text)); }
+    void bytes(ByteSpan source) { m_buffer.insert(m_buffer.end(), source.begin(), source.end()); }
+    void bytes(std::span<const std::uint8_t> source) { bytes(std::as_bytes(source)); }
+    void text(std::string_view value) { bytes(asBytes(value)); }
 
     void fill(std::size_t count, std::uint8_t value) { m_buffer.insert(m_buffer.end(), count, std::byte{value}); }
     void zeros(std::size_t count) { fill(count, 0); }
 
-    void padTo(std::size_t size)
+    void padTo(std::size_t target)
     {
-        if (m_buffer.size() < size)
-            zeros(size - m_buffer.size());
+        if (m_buffer.size() < target)
+            zeros(target - m_buffer.size());
     }
 
     void patchU8(std::size_t at, std::uint8_t v)

@@ -128,9 +128,9 @@ TEST_CASE("an unmodified SFF is written back byte for byte", "[sff][lossless]")
             doc.header[100 + i] = static_cast<std::uint8_t>(comment[i]);
         auto first = doc.write();
         REQUIRE(first.ok());
-        auto read = SffDocument::read(*first);
-        REQUIRE(read.ok());
-        auto second = read->write();
+        auto reread = SffDocument::read(*first);
+        REQUIRE(reread.ok());
+        auto second = reread->write();
         REQUIRE(second.ok());
         CHECK(*second == *first);
         CHECK(toText(ByteSpan(*second).subspan(100, sizeof comment - 1)) == "made by a test");
@@ -162,10 +162,10 @@ TEST_CASE("SFF v1 quirks are preserved and tolerated", "[sff][v1]")
     REQUIRE(patched != 0);
     // Some files have a wrong group count too.
     data[16] = std::byte{0};
-    auto read = SffDocument::read(data);
-    REQUIRE(read.ok());
-    requireSameSprites(doc, *read);
-    auto again = read->write();
+    auto reread = SffDocument::read(data);
+    REQUIRE(reread.ok());
+    requireSameSprites(doc, *reread);
+    auto again = reread->write();
     REQUIRE(again.ok());
     CHECK(*again == data);
 }

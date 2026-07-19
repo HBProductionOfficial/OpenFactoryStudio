@@ -63,11 +63,11 @@ Rgba fromLab(double l, double a, double b)
     const double rl = 3.1338561 * x - 1.6168667 * y - 0.4906146 * z;
     const double gl = -0.9787684 * x + 1.9161415 * y + 0.0334540 * z;
     const double bl = 0.0719453 * x - 0.2289914 * y + 1.4052427 * z;
-    auto gamma = [](double c) {
+    auto encode = [](double c) {
         c = std::clamp(c, 0.0, 1.0);
         return c <= 0.0031308 ? 12.92 * c : 1.055 * std::pow(c, 1.0 / 2.4) - 0.055;
     };
-    return rgb(toByte(gamma(rl)), toByte(gamma(gl)), toByte(gamma(bl)));
+    return rgb(toByte(encode(rl)), toByte(encode(gl)), toByte(encode(bl)));
 }
 
 std::vector<std::string_view> splitLines(std::string_view text)

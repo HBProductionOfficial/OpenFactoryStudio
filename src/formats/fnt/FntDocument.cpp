@@ -94,8 +94,9 @@ FntInfo parseFntText(const std::string& text)
 
         const std::string_view trimmed = trim(line);
         if (!trimmed.empty() && trimmed.front() == '[') {
-            const std::size_t close = trimmed.find(']');
-            section = lower(trimmed.substr(1, close == std::string_view::npos ? std::string_view::npos : close - 1));
+            const std::size_t closing = trimmed.find(']');
+            section =
+                lower(trimmed.substr(1, closing == std::string_view::npos ? std::string_view::npos : closing - 1));
             continue;
         }
 
@@ -192,8 +193,8 @@ Result<FntDocument> FntDocument::read(ByteSpan data)
         return Error{"FNT text lies outside the file"};
     const ByteSpan padding = data.subspan(kHeaderSize, pcxOffset - kHeaderSize);
     doc.headerPadding.assign(padding.begin(), padding.end());
-    const ByteSpan image = data.subspan(pcxOffset, pcxSize);
-    doc.pcx.assign(image.begin(), image.end());
+    const ByteSpan imageBytes = data.subspan(pcxOffset, pcxSize);
+    doc.pcx.assign(imageBytes.begin(), imageBytes.end());
     doc.text = toText(data.subspan(textOffset, textSize));
     return doc;
 }

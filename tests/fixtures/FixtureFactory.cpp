@@ -259,8 +259,8 @@ WavFile FixtureFactory::wav(std::uint16_t channels, std::uint32_t sampleRate, st
     std::vector<double> samples(frames * channels);
     for (double& v : samples)
         v = static_cast<double>(m_rng.range(-1000, 1000)) / 1000.0;
-    auto wav = WavFile::fromSamples(samples, channels, sampleRate, bitsPerSample, floatingPoint);
-    WavFile result = wav ? std::move(*wav) : WavFile{};
+    auto made = WavFile::fromSamples(samples, channels, sampleRate, bitsPerSample, floatingPoint);
+    WavFile result = made ? std::move(*made) : WavFile{};
     WavChunk list;
     list.id = {'L', 'I', 'S', 'T'};
     list.data = toBytes(std::string_view("INFOISFT\x05\x00\x00\x00test\x00", 17)); // odd size: needs a pad byte

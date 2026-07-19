@@ -10,8 +10,10 @@ namespace {
 
 std::string describe(const std::filesystem::path& path)
 {
-    const std::u8string text = path.u8string();
-    return std::string(text.begin(), text.end());
+    std::string text;
+    for (const char8_t c : path.u8string())
+        text.push_back(static_cast<char>(c));
+    return text;
 }
 
 } // namespace

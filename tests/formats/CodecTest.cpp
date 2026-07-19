@@ -126,8 +126,10 @@ Lz5Stats analyzeLz5(ByteSpan data, std::size_t pixelCount)
                 }
                 ++st.shortCopies;
             }
-            st.farCopies += distance > 256;
-            st.overlappingCopies += distance < length;
+            if (distance > 256)
+                ++st.farCopies;
+            if (distance < length)
+                ++st.overlappingCopies;
             produced += length;
         } else if ((b & 0xE0) == 0) {
             produced += std::size_t{in[pos++]} + 8;

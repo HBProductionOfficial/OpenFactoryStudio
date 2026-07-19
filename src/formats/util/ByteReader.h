@@ -14,8 +14,8 @@ class ByteReader
 {
 public:
     ByteReader() = default;
-    explicit ByteReader(ByteSpan data) noexcept
-        : m_data(data)
+    explicit ByteReader(ByteSpan buffer) noexcept
+        : m_data(buffer)
     {}
 
     ByteSpan data() const noexcept { return m_data; }
@@ -29,13 +29,13 @@ public:
 
     bool canRead(std::size_t count) const noexcept { return count <= remaining(); }
 
-    bool seek(std::size_t position) noexcept
+    bool seek(std::size_t offset) noexcept
     {
-        if (position > m_data.size()) {
+        if (offset > m_data.size()) {
             m_overflow = true;
             return false;
         }
-        m_pos = position;
+        m_pos = offset;
         return true;
     }
 

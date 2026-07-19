@@ -23,10 +23,10 @@ class OFS_FORMATS_EXPORT Image
 {
 public:
     Image() = default;
-    Image(int width, int height, PixelFormat format);
+    Image(int w, int h, PixelFormat pixelFormat);
 
-    static Image indexed(int width, int height, std::vector<std::uint8_t> pixels, Palette palette = {});
-    static Image rgba(int width, int height, std::vector<std::uint8_t> pixels);
+    static Image indexed(int w, int h, std::vector<std::uint8_t> data, Palette colors = {});
+    static Image rgba(int w, int h, std::vector<std::uint8_t> data);
 
     int width() const noexcept { return m_width; }
     int height() const noexcept { return m_height; }
@@ -44,7 +44,7 @@ public:
 
     const Palette& palette() const noexcept { return m_palette; }
     Palette& palette() noexcept { return m_palette; }
-    void setPalette(Palette palette) { m_palette = std::move(palette); }
+    void setPalette(Palette colors) { m_palette = std::move(colors); }
 
     bool contains(int x, int y) const noexcept { return x >= 0 && y >= 0 && x < m_width && y < m_height; }
 

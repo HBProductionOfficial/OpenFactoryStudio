@@ -52,7 +52,7 @@ bool parseSff(ByteSpan data)
 
 void mutate(const Bytes& original, SplitMix64& rng, int rounds, const std::function<void(ByteSpan)>& exercise)
 {
-    for (int round = 0; round < rounds; ++round) {
+    for (int iteration = 0; iteration < rounds; ++iteration) {
         Bytes data = original;
         const int flips = 1 + static_cast<int>(rng.below(8));
         for (int k = 0; k < flips; ++k)

@@ -30,14 +30,14 @@ template <typename T>
 class [[nodiscard]] Result
 {
 public:
-    Result(const T& value)
-        : m_data(std::in_place_index<0>, value)
+    Result(const T& v)
+        : m_data(std::in_place_index<0>, v)
     {}
-    Result(T&& value)
-        : m_data(std::in_place_index<0>, std::move(value))
+    Result(T&& v)
+        : m_data(std::in_place_index<0>, std::move(v))
     {}
-    Result(Error error)
-        : m_data(std::in_place_index<1>, std::move(error))
+    Result(Error e)
+        : m_data(std::in_place_index<1>, std::move(e))
     {}
 
     bool ok() const noexcept { return m_data.index() == 0; }
@@ -92,8 +92,8 @@ class [[nodiscard]] Result<void>
 {
 public:
     Result() = default;
-    Result(Error error)
-        : m_error(std::move(error))
+    Result(Error e)
+        : m_error(std::move(e))
     {}
 
     bool ok() const noexcept { return !m_error.has_value(); }

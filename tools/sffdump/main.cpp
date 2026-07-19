@@ -96,11 +96,14 @@ int info(const std::string& file)
             ++linked;
         else
             ++formats[std::string(sffCompressionName(s.compression))];
-        translated += (s.flags & 1) != 0;
+        if (s.flags & 1)
+            ++translated;
     }
     std::size_t linkedPalettes = 0;
-    for (const SffPalette& p : doc->palettes)
-        linkedPalettes += p.linkedIndex >= 0;
+    for (const SffPalette& p : doc->palettes) {
+        if (p.linkedIndex >= 0)
+            ++linkedPalettes;
+    }
 
     std::cout << "file:      " << file << '\n'
               << "version:   " << sffVersionString(doc->versionBytes) << " (" << sffVersionName(doc->version) << ")\n";

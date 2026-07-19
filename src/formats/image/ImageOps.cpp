@@ -58,16 +58,16 @@ Rect contentBounds(const Image& image, std::uint8_t transparentIndex)
 
 Image crop(const Image& image, Rect rect)
 {
-    const int x0 = std::clamp(rect.x, 0, image.width());
-    const int y0 = std::clamp(rect.y, 0, image.height());
-    const int x1 = std::clamp(rect.x + std::max(0, rect.width), 0, image.width());
-    const int y1 = std::clamp(rect.y + std::max(0, rect.height), 0, image.height());
-    Image out = blankLike(image, x1 - x0, y1 - y0);
+    const int left = std::clamp(rect.x, 0, image.width());
+    const int top = std::clamp(rect.y, 0, image.height());
+    const int right = std::clamp(rect.x + std::max(0, rect.width), 0, image.width());
+    const int bottom = std::clamp(rect.y + std::max(0, rect.height), 0, image.height());
+    Image out = blankLike(image, right - left, bottom - top);
     const auto rowBytes = static_cast<std::size_t>(out.width()) * static_cast<std::size_t>(image.bytesPerPixel());
     for (int y = 0; y < out.height(); ++y) {
         if (rowBytes == 0)
             break;
-        std::memcpy(out.pixels().data() + at(out, 0, y), image.pixels().data() + at(image, x0, y0 + y), rowBytes);
+        std::memcpy(out.pixels().data() + at(out, 0, y), image.pixels().data() + at(image, left, top + y), rowBytes);
     }
     return out;
 }
@@ -164,18 +164,18 @@ Image resizeBilinear(const Image& image, int width, int height)
 
     for (int y = 0; y < out.height(); ++y) {
         const float fy = std::clamp((static_cast<float>(y) + 0.5f) * scaleY - 0.5f, 0.0f, static_cast<float>(maxY));
-        const int y0 = static_cast<int>(fy);
-        const int y1 = std::min(y0 + 1, maxY);
-        const float ty = fy - static_cast<float>(y0);
+        const int row0 = static_cast<int>(fy);
+        const int row1 = std::min(row0 + 1, maxY);
+        const float ty = fy - static_cast<float>(row0);
         for (int x = 0; x < out.width(); ++x) {
             const float fx = std::clamp((static_cast<float>(x) + 0.5f) * scaleX - 0.5f, 0.0f, static_cast<float>(maxX));
-            const int x0 = static_cast<int>(fx);
-            const int x1 = std::min(x0 + 1, maxX);
-            const float tx = fx - static_cast<float>(x0);
+            const int col0 = static_cast<int>(fx);
+            const int col1 = std::min(col0 + 1, maxX);
+            const float tx = fx - static_cast<float>(col0);
             float v[4];
             for (int c = 0; c < 4; ++c) {
-                const float top = texel(x0, y0, c) + (texel(x1, y0, c) - texel(x0, y0, c)) * tx;
-                const float bottom = texel(x0, y1, c) + (texel(x1, y1, c) - texel(x0, y1, c)) * tx;
+                const float top = texel(col0, row0, c) + (texel(col1, row0, c) - texel(col0, row0, c)) * tx;
+                const float bottom = texel(col0, row1, c) + (texel(col1, row1, c) - texel(col0, row1, c)) * tx;
                 v[c] = top + (bottom - top) * ty;
             }
             Rgba color = rgb(0, 0, 0, 0);

@@ -65,8 +65,8 @@ int run(const fs::path& dir, const fs::path& exe, const std::string& args)
 
 std::string readLog(const fs::path& dir)
 {
-    auto log = readFile(dir / "log.txt");
-    return log ? toText(*log) : std::string();
+    auto text = readFile(dir / "log.txt");
+    return text ? toText(*text) : std::string();
 }
 
 std::string trim(const std::string& s)
@@ -189,9 +189,9 @@ void checkWithSff2png(SffVersion version, std::uint64_t seed)
     REQUIRE(ours.ok());
     fs::create_directories(dir / "out");
 
-    const int exit = run(dir, *sff2png, "ours.sff out/x");
+    const int exitCode = run(dir, *sff2png, "ours.sff out/x");
     INFO("sff2png log:\n" << readLog(dir));
-    REQUIRE(exit == 0);
+    REQUIRE(exitCode == 0);
     const std::vector<DefSprite> exported = readDefSprites(dir / "out" / "x-sff.def");
     REQUIRE(exported.size() == ours->sprites.size());
 
@@ -308,9 +308,9 @@ std::set<SffCompression> checkWithSprmake2(const SffDocument& source, const std:
         out << def.str();
     }
 
-    const int exit = run(dir, *sprmake2, "sprites.def");
+    const int exitCode = run(dir, *sprmake2, "sprites.def");
     INFO("sprmake2 log:\n" << readLog(dir));
-    REQUIRE(exit == 0);
+    REQUIRE(exitCode == 0);
     auto bytes = readFile(dir / "out.sff");
     REQUIRE(bytes.ok());
     auto built = SffDocument::read(*bytes);

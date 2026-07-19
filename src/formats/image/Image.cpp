@@ -4,33 +4,33 @@
 
 namespace OFS::Formats {
 
-Image::Image(int width, int height, PixelFormat format)
-    : m_width(std::max(0, width))
-    , m_height(std::max(0, height))
-    , m_format(format)
+Image::Image(int w, int h, PixelFormat pixelFormat)
+    : m_width(std::max(0, w))
+    , m_height(std::max(0, h))
+    , m_format(pixelFormat)
 {
     m_pixels.assign(pixelCount() * static_cast<std::size_t>(bytesPerPixel()), 0);
 }
 
-Image Image::indexed(int width, int height, std::vector<std::uint8_t> pixels, Palette palette)
+Image Image::indexed(int w, int h, std::vector<std::uint8_t> data, Palette colors)
 {
     Image image;
-    image.m_width = std::max(0, width);
-    image.m_height = std::max(0, height);
+    image.m_width = std::max(0, w);
+    image.m_height = std::max(0, h);
     image.m_format = PixelFormat::Indexed8;
-    image.m_pixels = std::move(pixels);
+    image.m_pixels = std::move(data);
     image.m_pixels.resize(image.pixelCount());
-    image.m_palette = std::move(palette);
+    image.m_palette = std::move(colors);
     return image;
 }
 
-Image Image::rgba(int width, int height, std::vector<std::uint8_t> pixels)
+Image Image::rgba(int w, int h, std::vector<std::uint8_t> data)
 {
     Image image;
-    image.m_width = std::max(0, width);
-    image.m_height = std::max(0, height);
+    image.m_width = std::max(0, w);
+    image.m_height = std::max(0, h);
     image.m_format = PixelFormat::Rgba32;
-    image.m_pixels = std::move(pixels);
+    image.m_pixels = std::move(data);
     image.m_pixels.resize(image.pixelCount() * 4);
     return image;
 }

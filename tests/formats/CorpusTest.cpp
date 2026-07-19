@@ -44,8 +44,10 @@ std::vector<std::filesystem::path> filesWithExtension(const std::filesystem::pat
 
 std::string display(const std::filesystem::path& path)
 {
-    const std::u8string text = path.u8string();
-    return std::string(text.begin(), text.end());
+    std::string text;
+    for (const char8_t c : path.u8string())
+        text.push_back(static_cast<char>(c));
+    return text;
 }
 
 struct SffStats
@@ -249,7 +251,8 @@ TEST_CASE("MUGEN: every SND file reads and re-saves identically", "[corpus][muge
             auto wav = WavFile::parse(s.data);
             if (wav) {
                 ++wavOk;
-                wavUnsupported += !wav->isSupported();
+                if (!wav->isSupported())
+                    ++wavUnsupported;
             } else {
                 problems.push_back(display(file) + " sound " + std::to_string(s.group) + "," +
                                    std::to_string(s.number) + ": " + wav.error().message);
