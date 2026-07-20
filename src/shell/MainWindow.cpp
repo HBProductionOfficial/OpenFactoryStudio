@@ -7,6 +7,7 @@
 #include "core/app/Messages.h"
 #include "core/app/Paths.h"
 #include "core/code/CodeEditor.h"
+#include "core/code/TextSearch.h"
 #include "core/engine/Engine.h"
 #include "core/engine/EngineManager.h"
 #include "core/preset/PresetBuilder.h"
@@ -21,6 +22,7 @@
 #include "shell/CodePage.h"
 #include "shell/MenuBuilder.h"
 #include "shell/ProjectView.h"
+#include "shell/QuickFindBar.h"
 #include "shell/StatusBar.h"
 #include "shell/UpdateChecker.h"
 #include "shell/WelcomePage.h"
@@ -99,9 +101,18 @@ MainWindow::MainWindow(AppContext& context, QWidget* parent)
     applyInterface();
     restoreWindowGeometry();
     refreshForCurrent();
+    if (m_context.config().boolValue(QStringLiteral("show_find_multi")))
+        QTimer::singleShot(0, this, &MainWindow::showMultiLineFind);
 }
 
-MainWindow::~MainWindow() = default;
+MainWindow::~MainWindow()
+{
+    // The dialog must not report being closed while the window goes away.
+    if (m_multiFind) {
+        disconnect(m_multiFind, nullptr, this, nullptr);
+        delete m_multiFind;
+    }
+}
 
 // ---------------------------------------------------------------------------------------------
 // Construction
@@ -182,6 +193,12 @@ void MainWindow::buildCentralArea()
 
     m_dock = new BottomDock(this);
     m_dock->hide();
+    m_quickFind = new QuickFindBar(m_context.config(), this);
+    m_quickFind->hide();
+    connect(m_quickFind, &QuickFindBar::findRequested, this, [this] { quickFind(0); });
+    connect(m_quickFind, &QuickFindBar::replaceRequested, this, [this] { quickFind(1); });
+    connect(m_quickFind, &QuickFindBar::replaceAllRequested, this, [this] { quickFind(2); });
+    connect(m_quickFind, &QuickFindBar::closeRequested, this, [this] { setQuickFindOpen(false); });
 
     m_actionList = new QListWidget;
     m_actionList->setObjectName(QStringLiteral("actionList"));
@@ -348,13 +365,18 @@ void MainWindow::connectEditActions()
     on("code_comment", withCode([](CodeEditor* e) { e->toggleComment(); }));
     on("code_fold_all", withCode([](CodeEditor* e) { e->foldAll(); }));
     on("code_unfold_all", withCode([](CodeEditor* e) { e->unfoldAll(); }));
-    on("code_goto", withCode([this](CodeEditor* e) {
-           bool ok = false;
-           const int line = QInputDialog::getInt(this, tr("Go to line"), tr("Line number:"), e->cursorLine(), 1,
-                                                 e->blockCount(), 1, &ok);
-           if (ok)
-               e->goToLine(line);
-       }));
+    on("code_goto", withCode([this](CodeEditor* e) { goToLineDialog(e); }));
+    on("edit_find_replace", [this] {
+        if (!currentProjectView())
+            return;
+        if (QPlainTextEdit* target = searchTarget()) {
+            const QString selected = target->textCursor().selectedText();
+            if (!selected.isEmpty() && !selected.contains(QChar::ParagraphSeparator))
+                m_quickFind->setFindText(selected);
+        }
+        setQuickFindOpen(true);
+    });
+    on("edit_find_replace_multi", [this] { showMultiLineFind(); });
     auto withPage = [this](bool forward, bool deprecations) {
         return [this, forward, deprecations] {
             if (ProjectView* view = currentProjectView()) {
@@ -430,6 +452,119 @@ void MainWindow::connectEditActions()
         if (e.utf8)
             on(e.utf8, [this, editor] { saveEditorFile(editor, true); });
     }
+}
+
+QPlainTextEdit* MainWindow::searchTarget() const
+{
+    if (ProjectView* view = currentProjectView()) {
+        if (CodeEditor* editor = view->currentCodeEditor())
+            return editor;
+    }
+    return nullptr;
+}
+
+void MainWindow::setQuickFindOpen(bool open)
+{
+    m_context.config().setValue(QStringLiteral("show_quicksearch"), open);
+    if (open) {
+        m_quickFind->activate();
+        return;
+    }
+    m_quickFind->hide();
+    if (QPlainTextEdit* target = searchTarget())
+        target->setFocus();
+}
+
+// 0 find, 1 replace, 2 replace all
+void MainWindow::quickFind(int operation)
+{
+    QPlainTextEdit* target = searchTarget();
+    const TextSearch search(m_quickFind->findText(), m_quickFind->options());
+    if (!target || search.isEmpty())
+        return;
+    if (!search.isValid()) {
+        m_quickFind->setNotFound(true);
+        m_quickFind->setToolTip(search.errorString());
+        return;
+    }
+    m_quickFind->setToolTip(QString());
+    bool found = false;
+    switch (operation) {
+    case 0:
+        found = TextSearchOps::find(target, search, m_quickFind->isBackward(), m_quickFind->isCircular());
+        break;
+    case 1:
+        found = TextSearchOps::replace(target, search, m_quickFind->replaceText(), m_quickFind->isBackward(),
+                                       m_quickFind->isCircular());
+        break;
+    default:
+        found = TextSearchOps::replaceAll(target, search, m_quickFind->replaceText()) > 0;
+        break;
+    }
+    m_quickFind->setNotFound(!found);
+    if (!found)
+        QApplication::beep();
+}
+
+void MainWindow::showMultiLineFind()
+{
+    if (!m_multiFind) {
+        m_multiFind = new MultiLineFindDialog(this);
+        m_multiFind->setAttribute(Qt::WA_DeleteOnClose);
+        connect(m_multiFind, &MultiLineFindDialog::findRequested, this,
+                [this](bool backward) { multiLineFind(0, backward); });
+        connect(m_multiFind, &MultiLineFindDialog::replaceRequested, this,
+                [this](bool backward) { multiLineFind(1, backward); });
+        connect(m_multiFind, &MultiLineFindDialog::replaceAllRequested, this, [this] { multiLineFind(2, false); });
+        connect(m_multiFind, &QDialog::finished, this,
+                [this] { m_context.config().setValue(QStringLiteral("show_find_multi"), false); });
+    }
+    if (QPlainTextEdit* target = searchTarget()) {
+        const QString selected = target->textCursor().selectedText();
+        if (!selected.isEmpty())
+            m_multiFind->setFindText(QString(selected).replace(QChar::ParagraphSeparator, QLatin1Char('\n')));
+    }
+    m_context.config().setValue(QStringLiteral("show_find_multi"), true);
+    m_multiFind->show();
+    m_multiFind->raise();
+    m_multiFind->activateWindow();
+}
+
+// 0 find, 1 replace, 2 replace all
+void MainWindow::multiLineFind(int operation, bool backward)
+{
+    QPlainTextEdit* target = searchTarget();
+    if (!target || !m_multiFind)
+        return;
+    SearchOptions options;
+    options.caseSensitive = m_multiFind->isCaseSensitive();
+    const TextSearch search(m_multiFind->findText(), options);
+    bool found = false;
+    switch (operation) {
+    case 0:
+        found = TextSearchOps::find(target, search, backward, true);
+        break;
+    case 1:
+        found = TextSearchOps::replace(target, search, m_multiFind->replaceText(), backward, true);
+        break;
+    default:
+        found = TextSearchOps::replaceAll(target, search, m_multiFind->replaceText()) > 0;
+        break;
+    }
+    if (!found)
+        QApplication::beep();
+}
+
+void MainWindow::goToLineDialog(CodeEditor* editor)
+{
+    QInputDialog dialog(this);
+    dialog.setObjectName(QStringLiteral("GoToDlg"));
+    dialog.setWindowTitle(tr("Number"));
+    dialog.setInputMode(QInputDialog::IntInput);
+    dialog.setIntRange(1, 99999999);
+    dialog.setIntValue(editor->cursorLine());
+    if (dialog.exec() == QDialog::Accepted)
+        editor->goToLine(dialog.intValue());
 }
 
 void MainWindow::refreshIssues()
@@ -561,6 +696,7 @@ void MainWindow::applyInterface()
     m_context.actions().applyIcons(theme.iconSet());
     m_dock->setArrowIcons(theme.iconSet().icon(QStringLiteral("bottom_up")),
                           theme.iconSet().icon(QStringLiteral("bottom_down")));
+    m_quickFind->setIcons(theme.iconSet());
 
     m_preset = model;
     for (ProjectView* view : projectViews())
@@ -761,6 +897,8 @@ void MainWindow::refreshForCurrent()
     if (view) {
         m_stack->setCurrentWidget(view);
         view->adoptBottomDock(m_dock);
+        view->adoptQuickFind(m_quickFind);
+        m_quickFind->setVisible(m_context.config().boolValue(QStringLiteral("show_quicksearch")));
         m_context.actions().setActiveEditorScope(view->currentEditorInfo().scope());
         if (QAction* a = m_context.actions().action(view->currentEditorInfo().switchAction))
             a->setChecked(true);

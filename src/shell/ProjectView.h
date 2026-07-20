@@ -50,6 +50,7 @@ public:
     void setOrganizerVisible(bool visible);
 
     void adoptBottomDock(BottomDock* dock);
+    void adoptQuickFind(QWidget* bar);
 
     static QString extraPanelTitle(const QString& name);
 

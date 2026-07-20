@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/preset/PresetModel.h"
+#include "shell/dialogs/MultiLineFindDialog.h"
 
 #include <QHash>
 #include <QMainWindow>
@@ -12,6 +13,7 @@ class QActionGroup;
 class QDockWidget;
 class QListWidget;
 class QMenu;
+class QPlainTextEdit;
 class QStackedWidget;
 class QTabBar;
 class QToolBar;
@@ -20,9 +22,11 @@ namespace OFS {
 
 class AppContext;
 class BottomDock;
+class CodeEditor;
 class MenuBuilder;
 class ProjectFile;
 class ProjectView;
+class QuickFindBar;
 class StatusBar;
 class UpdateChecker;
 class WelcomePage;
@@ -86,6 +90,12 @@ private:
     bool confirmClose(ProjectView* view);
     void saveFile(ProjectFile* file, bool asUtf8);
     void saveEditorFile(const QString& editorId, bool asUtf8);
+    QPlainTextEdit* searchTarget() const;
+    void setQuickFindOpen(bool open);
+    void quickFind(int operation);
+    void showMultiLineFind();
+    void multiLineFind(int operation, bool backward);
+    void goToLineDialog(CodeEditor* editor);
 
     AppContext& m_context;
     std::unique_ptr<MenuBuilder> m_menus;
@@ -103,6 +113,8 @@ private:
     QDockWidget* m_actionListDock = nullptr;
     QListWidget* m_actionList = nullptr;
     UpdateChecker* m_updates = nullptr;
+    QuickFindBar* m_quickFind = nullptr;
+    QPointer<MultiLineFindDialog> m_multiFind;
     bool m_welcomeTab = false;
 };
 

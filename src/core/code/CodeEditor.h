@@ -49,6 +49,7 @@ public:
     int cursorLine() const;
     int cursorColumn() const;
     void goToLine(int line); // 1-based
+    void revealPosition(int position);
 
     void toggleComment();
     void foldAll();

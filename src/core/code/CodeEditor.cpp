@@ -145,17 +145,23 @@ int CodeEditor::cursorColumn() const
 void CodeEditor::goToLine(int line)
 {
     const QTextBlock block = document()->findBlockByNumber(qBound(1, line, blockCount()) - 1);
-    if (!block.isVisible()) {
-        for (QTextBlock b = block; b.isValid(); b = b.previous()) {
-            if (auto* data = CodeBlockData::get(b); data && data->isHeader) {
-                setFolded(b, false);
-                break;
-            }
-        }
-    }
+    revealPosition(block.position());
     QTextCursor c(block);
     setTextCursor(c);
     centerCursor();
+}
+
+void CodeEditor::revealPosition(int position)
+{
+    const QTextBlock block = document()->findBlock(position);
+    if (block.isVisible())
+        return;
+    for (QTextBlock b = block; b.isValid(); b = b.previous()) {
+        if (auto* data = CodeBlockData::get(b); data && data->isHeader) {
+            setFolded(b, false);
+            break;
+        }
+    }
 }
 
 void CodeEditor::toggleComment()

@@ -1,6 +1,7 @@
 #include "shell/MainWindow.h"
 #include "core/actions/ActionRegistry.h"
 #include "core/app/AppContext.h"
+#include "core/code/CodeEditor.h"
 #include "core/project/Project.h"
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
@@ -9,12 +10,19 @@
 #include "shell/StatusBar.h"
 
 #include <QAction>
+#include <QApplication>
+#include <QDialog>
 #include <QFile>
+#include <QInputDialog>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMenuBar>
+#include <QPlainTextEdit>
+#include <QPushButton>
 #include <QScrollBar>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
 
@@ -240,6 +248,85 @@ private Q_SLOTS:
 
         m_context->actions().action("editor_spr")->trigger();
         QVERIFY(!encodings->menuAction()->isEnabled());
+    }
+
+    void searchTools()
+    {
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(m_dir.filePath("fighter.def")));
+        ActionRegistry& actions = m_context->actions();
+        actions.action("editor_def")->trigger();
+        CodeEditor* editor = window.currentProjectView()->currentCodeEditor();
+        QVERIFY(editor);
+        Config& config = m_context->config();
+
+        auto* bar = window.findChild<QWidget*>("quickFind");
+        QVERIFY(bar);
+        QVERIFY(!bar->isVisible());
+        actions.action("edit_find_replace")->trigger();
+        QVERIFY(bar->isVisible());
+        QVERIFY(config.boolValue("show_quicksearch"));
+        auto* find = bar->findChild<QLineEdit*>("quickSearchFind");
+        auto* replace = bar->findChild<QLineEdit*>("quickSearchReplace");
+        find->setText("fighter");
+        bar->findChild<QPushButton*>("quickSearchFindBut")->click();
+        QCOMPARE(editor->textCursor().selectedText(), QStringLiteral("Fighter"));
+        QCOMPARE(editor->cursorLine(), 3);
+        bar->findChild<QPushButton*>("quickSearchFindBut")->click();
+        QCOMPARE(editor->cursorLine(), 6); // cmd = fighter.cmd
+        bar->findChild<QToolButton*>("quickSearchCase")->setChecked(true);
+        QVERIFY(config.boolValue("quicksearch_case"));
+        find->setText("Fighter");
+        bar->findChild<QPushButton*>("quickSearchFindBut")->click(); // wraps around to line 3
+        QCOMPARE(editor->cursorLine(), 3);
+        replace->setText("Brawler");
+        bar->findChild<QPushButton*>("quickSearchReplaceBut")->click();
+        QVERIFY(editor->toPlainText().contains("name = \"Test Brawler\""));
+        bar->findChild<QToolButton*>("quickSearchCase")->setChecked(false);
+        find->setText("fighter\\.(\\w+)");
+        replace->setText("%1.fighter");
+        bar->findChild<QToolButton*>("quickSearchRegExp")->setChecked(true);
+        bar->findChild<QPushButton*>("quickSearchReplaceAllBut")->click();
+        QVERIFY(editor->toPlainText().contains("cmd = cmd.fighter"));
+        QVERIFY(editor->toPlainText().contains("anim = air.fighter"));
+        bar->findChild<QToolButton*>("quickSearchRegExp")->setChecked(false);
+        find->setText("no such text");
+        bar->findChild<QPushButton*>("quickSearchFindBut")->click();
+        QVERIFY(find->property("notFound").toBool());
+        bar->findChild<QToolButton*>("quickSearchClose")->click();
+        QVERIFY(!bar->isVisible());
+        QVERIFY(!config.boolValue("show_quicksearch"));
+
+        actions.action("edit_find_replace_multi")->trigger();
+        auto* dialog = window.findChild<QDialog*>("FindDlgMlt");
+        QVERIFY(dialog);
+        QVERIFY(dialog->isVisible());
+        QCOMPARE(dialog->windowTitle(), QStringLiteral("Find/Replace (multi-line)"));
+        QVERIFY(config.boolValue("show_find_multi"));
+        dialog->findChild<QPlainTextEdit*>("findTxt")->setPlainText("[Info]\nname");
+        editor->moveCursor(QTextCursor::End);
+        dialog->findChild<QPushButton*>("next_but")->click();
+        QCOMPARE(editor->textCursor().selectedText(), QString("[Info]") + QChar::ParagraphSeparator + "name");
+        dialog->findChild<QPlainTextEdit*>("replaceTxt")->setPlainText("[Info]\n; renamed\nname");
+        dialog->findChild<QPushButton*>("all_but")->click();
+        QVERIFY(editor->toPlainText().contains("[Info]\n; renamed\nname = "));
+        dialog->close();
+        QVERIFY(!config.boolValue("show_find_multi"));
+
+        QTimer::singleShot(0, this, [] {
+            auto* input = qobject_cast<QInputDialog*>(QApplication::activeModalWidget());
+            QVERIFY(input);
+            QCOMPARE(input->objectName(), QStringLiteral("GoToDlg"));
+            QCOMPARE(input->windowTitle(), QStringLiteral("Number"));
+            QCOMPARE(input->intMaximum(), 99999999);
+            input->setIntValue(5);
+            input->accept();
+        });
+        actions.action("code_goto")->trigger();
+        QCOMPARE(editor->cursorLine(), 5);
+
+        editor->document()->setModified(false);
     }
 
     void welcomeTabAndHistory()

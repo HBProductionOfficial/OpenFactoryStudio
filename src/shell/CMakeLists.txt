@@ -14,6 +14,8 @@ add_library(ofsshell STATIC
     StatusBar.cpp
     UpdateChecker.h
     UpdateChecker.cpp
+    QuickFindBar.h
+    QuickFindBar.cpp
     WelcomePage.h
     WelcomePage.cpp
     dialogs/AboutDialog.h
@@ -30,6 +32,8 @@ add_library(ofsshell STATIC
     dialogs/MugenOptionsPage.cpp
     dialogs/OptionsDialog.h
     dialogs/OptionsDialog.cpp
+    dialogs/MultiLineFindDialog.h
+    dialogs/MultiLineFindDialog.cpp
     dialogs/RunConfigDialog.h
     dialogs/RunConfigDialog.cpp
     dialogs/ShortcutEditor.h

@@ -1,6 +1,7 @@
 #include "core/code/CodeBlockData.h"
 #include "core/code/CodeEditor.h"
 #include "core/code/CodeLine.h"
+#include "core/code/TextSearch.h"
 #include "core/project/ProjectFile.h"
 #include "core/syntax/SyntaxDatabase.h"
 #include "core/text/Encodings.h"
@@ -265,6 +266,87 @@ private Q_SLOTS:
         QCOMPARE(readBytes(path), QByteArray("name = \"\xE3\x83\x86\xE3\x82\xB9\xE3\x83\x88\"\r\n"));
         QVERIFY(!file.setEncoding("no-such-codec", &error));
         QVERIFY(!file.reloadWithEncoding("no-such-codec", &error));
+    }
+
+    void textSearch()
+    {
+        const QString text =
+            QStringLiteral("[State 200]\ntype = HitDef\nTrigger1 = AnimElem = 3\ntrigger2 = time = 0\n");
+        SearchOptions plain;
+        TextSearch search("trigger", plain);
+        QCOMPARE(search.findAll(text).size(), 2);
+        QCOMPARE(search.find(text, 0).start, text.indexOf("Trigger1"));
+        QCOMPARE(search.find(text, text.indexOf("Trigger1") + 1).start, text.indexOf("trigger2"));
+        QVERIFY(!search.find(text, text.indexOf("trigger2") + 1).isValid());
+        QCOMPARE(search.find(text, text.size(), true).start, text.indexOf("trigger2"));
+        QCOMPARE(search.find(text, text.indexOf("trigger2") + 6, true).start, text.indexOf("Trigger1"));
+        QVERIFY(!search.find(text, 5, true).isValid());
+
+        SearchOptions sensitive;
+        sensitive.caseSensitive = true;
+        QCOMPARE(TextSearch("trigger", sensitive).findAll(text).size(), 1);
+
+        SearchOptions words;
+        words.wholeWords = true;
+        QCOMPARE(TextSearch("time", words).findAll(text).size(), 1);
+        QCOMPARE(TextSearch("tim", words).findAll(text).size(), 0);
+        QCOMPARE(TextSearch("[State", words).findAll(text).size(), 1);
+
+        QCOMPARE(TextSearch("HitDef\ntrigger1", plain).find(text, 0).start, text.indexOf("HitDef"));
+        QCOMPARE(TextSearch("[State 200]", plain).find(text, 0).start, 0);
+
+        SearchOptions regex;
+        regex.regExp = true;
+        const TextSearch captures("(\\w+) = (\\d+)$", regex);
+        const TextSearch::Match m = captures.find(text, 0);
+        QVERIFY(m.isValid());
+        QCOMPARE(captures.replacement(m, "%2 = %1 (%0)"), QStringLiteral("3 = AnimElem (AnimElem = 3)"));
+        QCOMPARE(TextSearch("a(", regex).isValid(), false);
+        QVERIFY(TextSearch("x*", regex).findAll(text).isEmpty());
+        QVERIFY(captures.matchAt(text, m.start, m.length).isValid());
+        QVERIFY(!captures.matchAt(text, m.start, m.length - 1).isValid());
+        QVERIFY(!captures.matchAt(text, m.start - 1, m.length + 1).isValid());
+        QCOMPARE(TextSearch("a", plain).replacement(m, "%1"), QStringLiteral("%1"));
+    }
+
+    void textSearchOps()
+    {
+        CodeEditor editor;
+        editor.setPlainText("[Data]\nlife = 1000\n[Size]\nxscale = 1\nyscale = 1\n");
+        QCoreApplication::processEvents();
+        SearchOptions plain;
+        const TextSearch scale("scale", plain);
+
+        editor.foldAll();
+        QVERIFY(TextSearchOps::find(&editor, scale, false, false));
+        QCOMPARE(editor.textCursor().selectedText(), QStringLiteral("scale"));
+        QCOMPARE(editor.cursorLine(), 4);
+        QVERIFY(editor.document()->findBlockByNumber(3).isVisible());
+        QVERIFY(TextSearchOps::find(&editor, scale, false, false));
+        QCOMPARE(editor.cursorLine(), 5);
+        QVERIFY(!TextSearchOps::find(&editor, scale, false, false));
+        QVERIFY(TextSearchOps::find(&editor, scale, false, true));
+        QCOMPARE(editor.cursorLine(), 4);
+        QVERIFY(TextSearchOps::find(&editor, scale, true, true));
+        QCOMPARE(editor.cursorLine(), 5);
+
+        editor.moveCursor(QTextCursor::Start);
+        QVERIFY(TextSearchOps::replace(&editor, scale, "size", false, false));
+        QCOMPARE(editor.cursorLine(), 4);
+        QVERIFY(editor.toPlainText().contains("xscale"));
+        QVERIFY(TextSearchOps::replace(&editor, scale, "size", false, false));
+        QVERIFY(editor.toPlainText().contains("xsize = 1"));
+        QCOMPARE(editor.cursorLine(), 5);
+
+        SearchOptions regex;
+        regex.regExp = true;
+        QCOMPARE(TextSearchOps::replaceAll(&editor, TextSearch("(\\w+) = (\\d+)", regex), "%1: %2"), 3);
+        QCOMPARE(editor.toPlainText(), QStringLiteral("[Data]\nlife: 1000\n[Size]\nxsize: 1\nyscale: 1\n"));
+        editor.undo();
+        QCOMPARE(editor.toPlainText(), QStringLiteral("[Data]\nlife = 1000\n[Size]\nxsize = 1\nyscale = 1\n"));
+
+        editor.setReadOnly(true);
+        QCOMPARE(TextSearchOps::replaceAll(&editor, scale, "x"), 0);
     }
 
     void editorCommentToggle()

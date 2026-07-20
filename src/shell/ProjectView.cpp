@@ -500,6 +500,13 @@ void ProjectView::adoptBottomDock(BottomDock* dock)
     updateDockStretch();
 }
 
+void ProjectView::adoptQuickFind(QWidget* bar)
+{
+    if (bar->parentWidget() == this)
+        return;
+    m_workspaceLayout->insertWidget(m_workspaceLayout->indexOf(m_center) + 1, bar);
+}
+
 void ProjectView::updateDockStretch()
 {
     if (!m_dock)
