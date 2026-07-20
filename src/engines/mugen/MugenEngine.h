@@ -30,11 +30,13 @@ public:
     QList<MenuItemSpec> toolsMenuItems() const override;
     Project* openProject(const QString& filePath, QString* error) override;
     const SyntaxDatabase* syntax() const override;
+    const CompletionModels* completion() const override;
     QString syntaxFileType(const Project& project, const QString& editorId) const override;
     IssueList validate(const Project& project, const QString& editorId, const QString& text) const override;
 
 private:
     mutable std::unique_ptr<SyntaxDatabase> m_syntax;
+    mutable std::unique_ptr<CompletionModels> m_completion;
 };
 
 } // namespace OFS::Mugen

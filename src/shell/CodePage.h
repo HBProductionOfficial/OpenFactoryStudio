@@ -2,6 +2,7 @@
 
 #include "core/syntax/Issue.h"
 
+#include <QHash>
 #include <QWidget>
 
 class QComboBox;
@@ -12,6 +13,7 @@ namespace OFS {
 class ActionRegistry;
 class CodeEditor;
 class IconSet;
+class Snippet;
 
 // Code file tab: a toolbar with the snippets and the issue navigator above the code editor.
 class CodePage : public QWidget
@@ -31,6 +33,7 @@ public:
 
     void setSnippets(const QStringList& names);
     QString currentSnippet() const;
+    void insertSnippet(const Snippet& snippet, const QHash<QString, QString>& values);
 
     bool goToIssue(bool forward, bool deprecations);
 

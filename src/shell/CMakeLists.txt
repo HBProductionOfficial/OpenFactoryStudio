@@ -34,6 +34,8 @@ add_library(ofsshell STATIC
     dialogs/OptionsDialog.cpp
     dialogs/MultiLineFindDialog.h
     dialogs/MultiLineFindDialog.cpp
+    dialogs/SnippetFieldsDialog.h
+    dialogs/SnippetFieldsDialog.cpp
     dialogs/RunConfigDialog.h
     dialogs/RunConfigDialog.cpp
     dialogs/ShortcutEditor.h

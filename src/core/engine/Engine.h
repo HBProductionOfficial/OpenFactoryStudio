@@ -11,10 +11,14 @@
 #include <QStringList>
 #include <QtPlugin>
 
+#include <memory>
+
 namespace OFS {
 
 class AppContext;
+class CompletionModels;
 class Project;
+class SnippetLibrary;
 class SyntaxDatabase;
 
 struct EngineVersion
@@ -67,8 +71,17 @@ public:
 
     virtual IssueList validate(const Project& project, const QString& editorId, const QString& text) const;
 
+    virtual const CompletionModels* completion() const { return nullptr; }
+
+    SnippetLibrary& snippets();
+    void reloadSnippets();
+    QString userSnippetDir() const;
+
     QString dataDir() const;
     QString userDataDir() const;
+
+private:
+    std::unique_ptr<SnippetLibrary> m_snippets;
 };
 
 class EnginePlugin

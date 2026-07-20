@@ -1,6 +1,7 @@
 #include "engines/mugen/MugenEngine.h"
 
 #include "core/app/AppContext.h"
+#include "core/code/CompletionModels.h"
 #include "core/project/Project.h"
 #include "core/syntax/SyntaxDatabase.h"
 #include "engines/mugen/MugenActions.h"
@@ -8,6 +9,8 @@
 #include "engines/mugen/MugenMenus.h"
 #include "engines/mugen/MugenProject.h"
 #include "engines/mugen/MugenSyntax.h"
+
+#include <QFileInfo>
 
 namespace OFS::Mugen {
 
@@ -109,6 +112,18 @@ const SyntaxDatabase* MugenEngine::syntax() const
             qWarning("could not load %s: %s", qPrintable(path), qPrintable(error));
     }
     return m_syntax.get();
+}
+
+const CompletionModels* MugenEngine::completion() const
+{
+    if (!m_completion) {
+        m_completion = std::make_unique<CompletionModels>();
+        QString error;
+        const QString path = dataDir() + QStringLiteral("/completer.xml");
+        if (QFileInfo::exists(path) && !m_completion->load(path, &error))
+            qWarning("could not load %s: %s", qPrintable(path), qPrintable(error));
+    }
+    return m_completion.get();
 }
 
 QString MugenEngine::syntaxFileType(const Project& project, const QString& editorId) const

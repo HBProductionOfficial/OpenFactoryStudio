@@ -2,9 +2,14 @@
 
 #include "core/code/CodeBlockData.h"
 #include "core/code/CodeHighlighter.h"
+#include "core/code/CompletionModels.h"
 
+#include <QAbstractItemView>
 #include <QAbstractTextDocumentLayout>
+#include <QCompleter>
 #include <QPainter>
+#include <QScrollBar>
+#include <QStringListModel>
 #include <QTextBlock>
 #include <QWheelEvent>
 
@@ -317,7 +322,127 @@ void CodeEditor::wheelEvent(QWheelEvent* event)
     QPlainTextEdit::wheelEvent(event);
 }
 
+void CodeEditor::setCompletionModels(const CompletionModels* models)
+{
+    m_completionModels = models;
+    if (!models && m_completer)
+        m_completer->popup()->hide();
+}
+
+bool CodeEditor::isCompleting() const
+{
+    return m_completer && m_completer->popup()->isVisible();
+}
+
+void CodeEditor::updateCompletion(bool typed)
+{
+    if (!m_completionModels || isReadOnly())
+        return;
+    const QTextCursor cursor = textCursor();
+    const QString before = cursor.block().text().left(cursor.positionInBlock());
+
+    if (!isCompleting()) {
+        const CompletionModels::Model* model = typed ? m_completionModels->match(before) : nullptr;
+        if (!model)
+            return;
+        if (!m_completer) {
+            m_completionList = new QStringListModel(this);
+            m_completer = new QCompleter(m_completionList, this);
+            m_completer->setWidget(this);
+            m_completer->setCompletionMode(QCompleter::PopupCompletion);
+            m_completer->setCaseSensitivity(Qt::CaseInsensitive);
+            m_completer->setModelSorting(QCompleter::UnsortedModel);
+            m_completer->setFilterMode(Qt::MatchStartsWith);
+            m_completer->setMaxVisibleItems(12);
+            connect(m_completer, qOverload<const QString&>(&QCompleter::activated), this, [this](const QString& shown) {
+                for (const QString& word : std::as_const(m_completionWords)) {
+                    if (word.trimmed() == shown) {
+                        insertCompletion(word);
+                        break;
+                    }
+                }
+            });
+        }
+        m_completionWords = model->words;
+        QStringList shown;
+        for (const QString& word : model->words)
+            shown << word.trimmed();
+        m_completionList->setStringList(shown);
+        m_completionStart = cursor.position();
+    }
+
+    const int length = cursor.position() - m_completionStart;
+    if (length < 0 || cursor.block() != document()->findBlock(m_completionStart)) {
+        m_completer->popup()->hide();
+        return;
+    }
+    const QString filter = before.right(length).trimmed();
+    for (QChar c : filter) {
+        if (!c.isLetterOrNumber() && c != QLatin1Char('_') && c != QLatin1Char('.')) {
+            m_completer->popup()->hide();
+            return;
+        }
+    }
+    m_completer->setCompletionPrefix(filter);
+    if (m_completer->completionCount() == 0) {
+        m_completer->popup()->hide();
+        return;
+    }
+    m_completer->popup()->setCurrentIndex(m_completer->completionModel()->index(0, 0));
+    QRect rect = cursorRect();
+    rect.setWidth(m_completer->popup()->sizeHintForColumn(0) +
+                  m_completer->popup()->verticalScrollBar()->sizeHint().width() + 8);
+    m_completer->complete(rect);
+}
+
+void CodeEditor::insertCompletion(const QString& word)
+{
+    QTextCursor cursor = textCursor();
+    const int start = m_completionStart;
+    m_completionStart = -1;
+    if (start < 0 || start > cursor.position())
+        return;
+    QTextCursor range(document());
+    range.setPosition(start);
+    range.setPosition(cursor.position(), QTextCursor::KeepAnchor);
+    const QString typed = range.selectedText();
+    qsizetype keep = 0;
+    while (keep < typed.size() && typed.at(keep).isSpace())
+        ++keep;
+    range.setPosition(start + int(keep));
+    range.setPosition(cursor.position(), QTextCursor::KeepAnchor);
+    QString text = word;
+    const QString lineBefore = range.block().text().left(range.anchor() - range.block().position());
+    if (text.startsWith(QLatin1Char(' ')) && (lineBefore.isEmpty() || lineBefore.back().isSpace()))
+        text.remove(0, 1);
+    range.insertText(text);
+    setTextCursor(range);
+}
+
 void CodeEditor::keyPressEvent(QKeyEvent* event)
+{
+    if (isCompleting()) {
+        switch (event->key()) {
+        case Qt::Key_Return:
+        case Qt::Key_Enter:
+        case Qt::Key_Escape:
+        case Qt::Key_Tab:
+        case Qt::Key_Backtab:
+            event->ignore();
+            return;
+        default:
+            break;
+        }
+    }
+    const bool typed = !event->text().isEmpty() && event->text().at(0).isPrint();
+    keyPressEventWithoutCompletion(event);
+    if (typed || (isCompleting() && event->key() == Qt::Key_Backspace))
+        updateCompletion(typed);
+    else if (isCompleting() && event->key() != Qt::Key_Shift)
+        m_completer->popup()->hide();
+}
+
+void CodeEditor::keyPressEventWithoutCompletion(QKeyEvent* event)
 {
     if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) && event->modifiers() == Qt::NoModifier) {
         const QString text = textCursor().block().text();

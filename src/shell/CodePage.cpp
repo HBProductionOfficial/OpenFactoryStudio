@@ -2,6 +2,7 @@
 
 #include "core/actions/ActionRegistry.h"
 #include "core/code/CodeEditor.h"
+#include "core/code/Snippet.h"
 #include "core/theme/IconSet.h"
 
 #include <QAction>
@@ -111,6 +112,19 @@ void CodePage::setSnippets(const QStringList& names)
 QString CodePage::currentSnippet() const
 {
     return m_snippets->currentText();
+}
+
+void CodePage::insertSnippet(const Snippet& snippet, const QHash<QString, QString>& values)
+{
+    int marker = -1;
+    const QString text = snippet.expand(values, &marker);
+    QTextCursor cursor = m_editor->textCursor();
+    const int start = cursor.selectionStart();
+    cursor.insertText(text);
+    if (marker >= 0)
+        cursor.setPosition(start + marker);
+    m_editor->setTextCursor(cursor);
+    m_editor->setFocus();
 }
 
 bool CodePage::goToIssue(bool forward, bool deprecations)

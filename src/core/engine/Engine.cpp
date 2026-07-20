@@ -1,5 +1,7 @@
 #include "core/engine/Engine.h"
 
+#include "core/code/Snippet.h"
+
 #include "core/app/Paths.h"
 
 #include <QFileInfo>
@@ -44,6 +46,27 @@ QString Engine::syntaxFileType(const Project&, const QString&) const
 IssueList Engine::validate(const Project&, const QString&, const QString&) const
 {
     return {};
+}
+
+SnippetLibrary& Engine::snippets()
+{
+    if (!m_snippets) {
+        m_snippets = std::make_unique<SnippetLibrary>();
+        reloadSnippets();
+    }
+    return *m_snippets;
+}
+
+void Engine::reloadSnippets()
+{
+    if (!m_snippets)
+        m_snippets = std::make_unique<SnippetLibrary>();
+    m_snippets->load({dataDir() + QStringLiteral("/snippets"), userSnippetDir()});
+}
+
+QString Engine::userSnippetDir() const
+{
+    return userDataDir() + QStringLiteral("/snippets");
 }
 
 QString Engine::dataDir() const

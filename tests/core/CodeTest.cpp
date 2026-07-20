@@ -1,11 +1,16 @@
 #include "core/code/CodeBlockData.h"
 #include "core/code/CodeEditor.h"
 #include "core/code/CodeLine.h"
+#include "core/code/CompletionModels.h"
+#include "core/code/Snippet.h"
 #include "core/code/TextSearch.h"
 #include "core/project/ProjectFile.h"
 #include "core/syntax/SyntaxDatabase.h"
 #include "core/text/Encodings.h"
 
+#include <QAbstractItemView>
+#include <QCompleter>
+#include <QDir>
 #include <QFile>
 #include <QTemporaryDir>
 #include <QTest>
@@ -347,6 +352,110 @@ private Q_SLOTS:
 
         editor.setReadOnly(true);
         QCOMPARE(TextSearchOps::replaceAll(&editor, scale, "x"), 0);
+    }
+
+    void snippets()
+    {
+        QTemporaryDir dir;
+        QDir().mkpath(dir.filePath("shipped"));
+        QDir().mkpath(dir.filePath("user"));
+        writeBytes(dir.filePath("shipped/Generic state.xml"),
+                   "<snippet>\n"
+                   "  <field name=\"sdef\" title=\"StateDef\" type=\"int\"/>\n"
+                   "  <field name=\"sdefname\" title=\"Name\" type=\"string\"/>\n"
+                   "  <field name=\"kind\" title=\"Type\" type=\"items\" value=\"S,C,A\" "
+                   "value_title=\"Standing,Crouching,Air\"/>\n"
+                   "  <code>\n"
+                   "    ; @sdefname\n"
+                   "    [Statedef @sdef]\n"
+                   "    type = @kind\n"
+                   "\n"
+                   "    [State @sdef, end]\n"
+                   "      type = ChangeState\n"
+                   "      value = CURSOR\n"
+                   "  </code>\n"
+                   "</snippet>\n");
+        writeBytes(dir.filePath("shipped/Command.xml"), "<snippet><code>[Command]</code></snippet>");
+        writeBytes(dir.filePath("shipped/Command defaults.xml"), "<snippet><code>[Defaults]</code></snippet>");
+        writeBytes(dir.filePath("shipped/broken.xml"), "<snippet><code>");
+        writeBytes(dir.filePath("user/command.xml"), "<snippet><code>[Command] ; mine</code></snippet>");
+
+        SnippetLibrary library;
+        library.load({dir.filePath("shipped"), dir.filePath("user")});
+        QCOMPARE(library.names(), (QStringList{"Command defaults", "command", "Generic state"}));
+        QCOMPARE(library.find("COMMAND")->code, QStringLiteral("[Command] ; mine"));
+
+        const Snippet* state = library.find("Generic state");
+        QVERIFY(state);
+        QCOMPARE(state->fields.size(), 3);
+        QCOMPARE(state->fields[2].type, SnippetField::Type::Items);
+        QCOMPARE(state->fields[2].valueTitles, (QStringList{"Standing", "Crouching", "Air"}));
+        int cursor = -2;
+        const QString text = state->expand({{"sdef", "200"}, {"sdefname", "Punch"}, {"kind", "S"}}, &cursor);
+        QCOMPARE(text, QStringLiteral("; Punch\n[Statedef 200]\ntype = S\n\n[State 200, end]\n  type = "
+                                      "ChangeState\n  value = "));
+        QCOMPARE(cursor, int(text.size()));
+        library.find("Command defaults")->expand({}, &cursor);
+        QCOMPARE(cursor, -1);
+
+        Snippet copy = *state;
+        QVERIFY(copy.save(dir.filePath("user/Copy.xml")));
+        Snippet reloaded;
+        QVERIFY(reloaded.load(dir.filePath("user/Copy.xml")));
+        QCOMPARE(reloaded.name, QStringLiteral("Copy"));
+        QCOMPARE(reloaded.code, state->code);
+        QCOMPARE(reloaded.fields.size(), 3);
+        QCOMPARE(reloaded.fields[2].values, (QStringList{"S", "C", "A"}));
+        QCOMPARE(reloaded.fields[0].type, SnippetField::Type::Int);
+    }
+
+    void completion()
+    {
+        QTemporaryDir dir;
+        writeBytes(dir.filePath("completer.xml"), "<completion>\n"
+                                                  "  <model prefix=\"type=\">\n"
+                                                  "    <word value=\" ChangeState\"/>\n"
+                                                  "    <word value=\" ChangeAnim\"/>\n"
+                                                  "    <word value=\" VelSet\"/>\n"
+                                                  "  </model>\n"
+                                                  "  <model prefix=\"const(\"><word value=\"data.life)\"/></model>\n"
+                                                  "</completion>\n");
+        CompletionModels models;
+        QVERIFY(models.load(dir.filePath("completer.xml")));
+        QCOMPARE(models.models().size(), 2);
+        QVERIFY(models.match("type="));
+        QVERIFY(models.match("  Type = "));
+        QVERIFY(models.match("trigger1 = Const("));
+        QVERIFY(!models.match("type=x"));
+
+        CodeEditor editor;
+        editor.setCompletionModels(&models);
+        editor.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&editor));
+        QTest::keyClicks(&editor, "type =");
+        QVERIFY(editor.isCompleting());
+        QCOMPARE(editor.completer()->completionCount(), 3);
+        QTest::keyClicks(&editor, " Cha");
+        QCOMPARE(editor.completer()->completionCount(), 2);
+        QTest::keyClick(editor.completer()->popup(), Qt::Key_Down);
+        QTest::keyClick(editor.completer()->popup(), Qt::Key_Return);
+        QVERIFY(!editor.isCompleting());
+        QCOMPARE(editor.toPlainText(), QStringLiteral("type = ChangeAnim"));
+
+        editor.clear();
+        QTest::keyClicks(&editor, "type=");
+        QVERIFY(editor.isCompleting());
+        QTest::keyClick(editor.completer()->popup(), Qt::Key_Tab);
+        QCOMPARE(editor.toPlainText(), QStringLiteral("type= ChangeState"));
+
+        editor.clear();
+        QTest::keyClicks(&editor, "x = const(da");
+        QVERIFY(editor.isCompleting());
+        QTest::keyClick(editor.completer()->popup(), Qt::Key_Escape);
+        QVERIFY(!editor.isCompleting());
+        QCOMPARE(editor.toPlainText(), QStringLiteral("x = const(da"));
+        QTest::keyClicks(&editor, ")");
+        QVERIFY(!editor.isCompleting());
     }
 
     void editorCommentToggle()

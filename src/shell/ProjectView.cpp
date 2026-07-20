@@ -3,6 +3,7 @@
 #include "core/actions/ActionRegistry.h"
 #include "core/app/AppContext.h"
 #include "core/code/CodeEditor.h"
+#include "core/code/Snippet.h"
 #include "core/engine/Engine.h"
 #include "core/preset/ControlRegistry.h"
 #include "core/preset/PresetBuilder.h"
@@ -218,7 +219,12 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
             editor->setReadOnly(true);
         }
         page->setToolBarVisible(m_context.config().boolValue(QStringLiteral("show_code_bar"), true));
+        page->setSnippets(engine()->snippets().names());
         configureCodeEditor(editor, info.id);
+        connect(editor, &CodeEditor::cursorPositionChanged, this, [this, editor] {
+            if (editor == currentCodeEditor())
+                Q_EMIT currentFileChanged();
+        });
         return page;
     }
     auto* workspace = new QWidget;
@@ -242,10 +248,14 @@ void ProjectView::configureCodeEditor(CodeEditor* editor, const QString& editorI
     editor->setOptions(options);
     editor->setSyntax(engine()->syntax(), engine()->syntaxFileType(*m_project, editorId));
     editor->setColorSet(m_context.theme().colorSet());
-    connect(editor, &CodeEditor::cursorPositionChanged, this, [this, editor] {
-        if (editor == currentCodeEditor())
-            Q_EMIT currentFileChanged();
-    });
+    editor->setCompletionModels(engine()->completion());
+}
+
+void ProjectView::refreshSnippets()
+{
+    const QStringList names = engine()->snippets().names();
+    for (CodePage* page : codePages())
+        page->setSnippets(names);
 }
 
 void ProjectView::reconfigureEditors()

@@ -7,6 +7,7 @@
 #include "core/app/Messages.h"
 #include "core/app/Paths.h"
 #include "core/code/CodeEditor.h"
+#include "core/code/Snippet.h"
 #include "core/code/TextSearch.h"
 #include "core/engine/Engine.h"
 #include "core/engine/EngineManager.h"
@@ -30,6 +31,7 @@
 #include "shell/dialogs/CalculatorDialog.h"
 #include "shell/dialogs/ClipboardContainer.h"
 #include "shell/dialogs/OptionsDialog.h"
+#include "shell/dialogs/SnippetFieldsDialog.h"
 
 #include <QAction>
 #include <QActionGroup>
@@ -384,6 +386,19 @@ void MainWindow::connectEditActions()
         setQuickFindOpen(true);
     });
     on("edit_find_replace_multi", [this] { showMultiLineFind(); });
+    on("code_snippet_insert", [this] {
+        ProjectView* view = currentProjectView();
+        CodePage* page = view ? view->currentCodePage() : nullptr;
+        if (!page || page->editor()->isReadOnly())
+            return;
+        const Snippet* snippet = view->engine()->snippets().find(page->currentSnippet());
+        if (!snippet)
+            return;
+        QHash<QString, QString> values;
+        if (!snippet->fields.isEmpty() && !SnippetFieldsDialog::ask(this, *snippet, &values))
+            return;
+        page->insertSnippet(*snippet, values);
+    });
     auto withPage = [this](bool forward, bool deprecations) {
         return [this, forward, deprecations] {
             if (ProjectView* view = currentProjectView()) {

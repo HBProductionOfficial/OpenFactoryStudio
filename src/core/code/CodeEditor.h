@@ -8,8 +8,12 @@
 #include <QPlainTextEdit>
 #include <QPointer>
 
+class QCompleter;
+class QStringListModel;
+
 namespace OFS {
 
+class CompletionModels;
 class SyntaxDatabase;
 
 class OFS_CORE_EXPORT CodeEditor : public QPlainTextEdit
@@ -49,6 +53,10 @@ public:
     int cursorLine() const;
     int cursorColumn() const;
     void goToLine(int line); // 1-based
+
+    void setCompletionModels(const CompletionModels* models);
+    QCompleter* completer() const { return m_completer; }
+    bool isCompleting() const;
     void revealPosition(int position);
 
     void toggleComment();
@@ -67,6 +75,7 @@ protected:
     void resizeEvent(QResizeEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
+    void keyPressEventWithoutCompletion(QKeyEvent* event);
 
 private:
     friend class CodeGutter;
@@ -76,6 +85,8 @@ private:
     void updateGutter(const QRect& rect, int dy);
     void updateExtraSelections();
     void setFolded(QTextBlock header, bool folded);
+    void updateCompletion(bool typed);
+    void insertCompletion(const QString& word);
 
     QWidget* m_gutter;
     QPointer<CodeHighlighter> m_highlighter;
@@ -84,6 +95,11 @@ private:
     QList<Marker> m_markers;
     int m_baseFontSize = 10;
     int m_zoom = 0;
+    const CompletionModels* m_completionModels = nullptr;
+    QCompleter* m_completer = nullptr;
+    QStringListModel* m_completionList = nullptr;
+    QStringList m_completionWords;
+    int m_completionStart = -1;
 };
 
 } // namespace OFS

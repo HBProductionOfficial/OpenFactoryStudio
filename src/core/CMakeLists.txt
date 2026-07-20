@@ -16,6 +16,10 @@ add_library(ofscore SHARED
     code/CodeBlockData.cpp
     code/CodeEditor.h
     code/CodeEditor.cpp
+    code/CompletionModels.h
+    code/CompletionModels.cpp
+    code/Snippet.h
+    code/Snippet.cpp
     code/TextSearch.h
     code/TextSearch.cpp
     code/CodeHighlighter.h

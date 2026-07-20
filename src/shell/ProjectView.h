@@ -60,6 +60,7 @@ public:
     // `line` is 1-based, 0 keeps the cursor where it is.
     bool showFileLine(const QString& filePath, int line);
     void setCodeToolBarsVisible(bool visible);
+    void refreshSnippets();
     const QHash<QString, IssueList>& issues() const { return m_issues; }
     void validateAll();
     ProjectFile* currentFile() const;
