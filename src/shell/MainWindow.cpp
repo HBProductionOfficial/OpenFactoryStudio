@@ -35,6 +35,7 @@
 #include <QActionGroup>
 #include <QApplication>
 #include <QCloseEvent>
+#include <QCursor>
 #include <QDesktopServices>
 #include <QDir>
 #include <QDockWidget>
@@ -96,6 +97,12 @@ MainWindow::MainWindow(AppContext& context, QWidget* parent)
     buildCentralArea();
     m_status = new StatusBar(this);
     setStatusBar(m_status);
+    connect(m_status->sectionLabel(2), &EClickableLabel::clicked, this, [this] {
+        ProjectView* view = currentProjectView();
+        QMenu* encodings = m_menus->submenu(QStringLiteral("menu_encoding"));
+        if (view && encodings && view->currentEditorInfo().workspace == WorkspaceType::Code)
+            encodings->popup(QCursor::pos());
+    });
     connectActions();
 
     applyInterface();
