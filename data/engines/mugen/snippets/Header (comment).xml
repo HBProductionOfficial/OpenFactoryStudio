@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<snippet>
+    <field name="title" title="Title" type="string"/>
+    <field name="author" title="Author" type="string"/>
+    <code><![CDATA[;------------------------------------------------------------------------------
+; @title
+; by @author
+;------------------------------------------------------------------------------
+CURSOR
+]]></code>
+</snippet>

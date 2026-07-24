@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<snippet>
+    <field name="fontname" title="Font name" type="string"/>
+    <field name="author" title="Author" type="string"/>
+    <field name="ttf" title="TrueType file (.ttf)" type="string"/>
+    <field name="height" title="Height in pixels" type="int"/>
+    <code><![CDATA[[FNT v2]
+fntversion = 2,00
+name = "@fontname"
+author = "@author"
+
+[Def]
+type = truetype
+size = 0,@height   ; Only the height is used by TrueType fonts
+spacing = 0,1
+offset = 0,0
+file = @ttf
+blend = 1          ; 1 = smooth (antialiased) edges, 0 = sharp edges
+]]></code>
+</snippet>

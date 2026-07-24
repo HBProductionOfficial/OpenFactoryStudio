@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<snippet>
+    <field name="sdef" title="StateDef number (170 is the time-over loss)" type="int"/>
+    <field name="anim" title="Animation" type="int"/>
+    <code><![CDATA[; Lost the round by time over
+[Statedef @sdef]
+type = S
+movetype = I
+physics = S
+anim = @anim
+ctrl = 0
+velset = 0, 0
+
+[State @sdef, Out of the fight]
+type = NotHitBy
+trigger1 = 1
+value = SCA
+time = 1
+CURSOR
+]]></code>
+</snippet>

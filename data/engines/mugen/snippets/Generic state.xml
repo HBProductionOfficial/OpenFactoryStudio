@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<snippet>
+    <field name="label" title="Description" type="string"/>
+    <field name="sdef" title="StateDef number" type="int"/>
+    <field name="stype" title="State type" type="items" value="S,C,A,L" value_title="Standing,Crouching,Aerial,Lying down"/>
+    <field name="mtype" title="Move type" type="items" value="I,A,H" value_title="Idle,Attacking,Being hit"/>
+    <field name="phys" title="Physics" type="items" value="S,C,A,N" value_title="Standing,Crouching,Aerial,None"/>
+    <field name="anim" title="Animation" type="int"/>
+    <code><![CDATA[; @label
+[Statedef @sdef]
+type = @stype
+movetype = @mtype
+physics = @phys
+anim = @anim
+ctrl = 0
+velset = 0, 0
+
+CURSOR
+[State @sdef, Back to idle]
+type = ChangeState
+trigger1 = AnimTime = 0
+value = 0
+ctrl = 1
+]]></code>
+</snippet>

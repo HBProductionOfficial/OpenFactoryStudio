@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<snippet>
+    <code><![CDATA[; Each button on the left is read as the button on the right
+[Remap]
+x = x
+y = y
+z = z
+a = a
+b = b
+c = c
+s = s
+CURSOR
+]]></code>
+</snippet>

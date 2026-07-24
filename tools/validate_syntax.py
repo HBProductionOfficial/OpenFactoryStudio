@@ -452,13 +452,15 @@ def check_data_dir(db: SyntaxDB, data_dir: Path) -> list[str]:
             if b'\n' in data.replace(b'\r\n', b''):
                 errors.append(f'sctrls/{p.name}: line endings must be CRLF')
             try:
-                data.decode('ascii')
+                text = data.decode('ascii')
             except UnicodeDecodeError:
                 errors.append(f'sctrls/{p.name}: must be plain ASCII')
+                continue
+            errors += check_template(db, p.name, text, names)
     ndir = data_dir / 'snippets'
     if ndir.is_dir():
         for p in sorted(ndir.glob('*.xml')):
-            errors += check_snippet(p)
+            errors += check_snippet(p, db)
     pdir = data_dir / 'palFX'
     if pdir.is_dir():
         for p in sorted(pdir.glob('*.xml')):
@@ -485,7 +487,46 @@ def check_data_dir(db: SyntaxDB, data_dir: Path) -> list[str]:
     return errors
 
 
-def check_snippet(p: Path) -> list[str]:
+def unknowns_in(db: SyntaxDB, text: str, ftype: str, label: str) -> list[str]:
+    report = Report()
+    check_sections(db, parse_ini_text(text), ftype, label, report)
+    out = []
+    for kind, byfile in report.unknown.items():
+        for names in byfile.values():
+            for name in names:
+                out.append(f'{label}: unknown {kind[:-1]} {name}')
+    return out
+
+
+def check_template(db: SyntaxDB, fname: str, text: str, names: list[str]) -> list[str]:
+    """Commented-out parameters in a template must be known too."""
+    errors = []
+    stem = fname.rsplit('.', 1)[0]
+    lines = []
+    for line in text.splitlines():
+        m = re.match(r'^\s*;\s*([A-Za-z][\w.]*(\(\w*\))?\s*=.*)$', line)
+        lines.append(m.group(1) if m else line)
+    text = '\n'.join(lines)
+    sections = parse_ini_text(text)
+    if stem.lower() == 'statedef':
+        if not sections or not sections[0].header.lower().startswith('statedef'):
+            errors.append(f'sctrls/{fname}: must start with a [Statedef] header')
+    else:
+        tval = sections[0].get('type') if sections else None
+        if tval is None or tval.strip().lower() != stem.lower():
+            errors.append(f'sctrls/{fname}: type does not match the file name')
+        if stem.lower() not in {n.lower() for n in names}:
+            errors.append(f'sctrls/{fname}: not a controller of the database')
+    errors += unknowns_in(db, text, 'state', f'sctrls/{fname}')
+    return errors
+
+
+SNIPPET_TYPES = [('statedef', 'state'), ('state ', 'state'), ('command', 'command'), ('remap', 'command'),
+                 ('defaults', 'command'), ('fnt v2', 'font'), ('info', 'char'), ('files', 'char'),
+                 ('arcade', 'char'), ('palette keymap', 'char')]
+
+
+def check_snippet(p: Path, db: SyntaxDB | None = None) -> list[str]:
     errors = []
     try:
         root = ET.parse(p).getroot()
@@ -511,6 +552,19 @@ def check_snippet(p: Path) -> list[str]:
                 errors.append(f'snippets/{p.name}: field "{name}" needs value and value_title of equal length')
         if '@' + name not in text:
             errors.append(f'snippets/{p.name}: field "{name}" is not used in the code')
+    if db is not None:
+        sample = text.replace('CURSOR', '')
+        for f in sorted(root.findall('field'), key=lambda f: -len(f.get('name', ''))):
+            value = {'int': '1', 'items': (f.get('value') or 'x').split(',')[0]}.get(f.get('type'), 'x')
+            sample = sample.replace('@' + f.get('name', ''), value)
+        sections = parse_ini_text(sample)
+        head = sections[0].header.lower() if sections else ''
+        ftype = next((t for prefix, t in SNIPPET_TYPES if head.startswith(prefix)), None)
+        if ftype is None:
+            if sections:
+                errors.append(f'snippets/{p.name}: cannot tell which file type the code is for')
+        else:
+            errors += unknowns_in(db, sample, ftype, f'snippets/{p.name}')
     return errors
 
 
@@ -582,9 +636,13 @@ def read_text(path: Path) -> str:
 
 
 def parse_ini(path: Path) -> list[Section]:
+    return parse_ini_text(read_text(path))
+
+
+def parse_ini_text(text: str) -> list[Section]:
     sections: list[Section] = []
     cur = None
-    for n, raw in enumerate(read_text(path).splitlines(), 1):
+    for n, raw in enumerate(text.splitlines(), 1):
         line = strip_comment(raw).strip()
         if not line:
             continue
@@ -749,6 +807,10 @@ def check_file(db: SyntaxDB, path: Path, report: Report, forced: str | None = No
             report.undetected.append(str(path))
         return
     report.files[ftype] += 1
+    check_sections(db, sections, ftype, str(path), report)
+
+
+def check_sections(db: SyntaxDB, sections: list[Section], ftype: str, path: str, report: Report):
     bg_names = []
     if ftype == 'storyboard':
         # Scenes name their background with bg.name. Its <name>* sections are checked as BG* blocks.

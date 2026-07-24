@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<snippet>
+    <field name="cmdname" title="Name" type="string"/>
+    <field name="sequence" title="Input sequence (e.g. ~D, DF, F, x)" type="string"/>
+    <field name="time" title="Time to enter it (ticks)" type="int"/>
+    <code><![CDATA[[Command]
+name = "@cmdname"
+command = @sequence
+time = @time
+CURSOR
+]]></code>
+</snippet>

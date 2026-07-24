@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<snippet>
+    <field name="base" title="File name without extension" type="string"/>
+    <code><![CDATA[[Files]
+cmd = @base.cmd          ; Commands
+cns = @base.cns          ; Constants
+st = @base.cns           ; States
+stcommon = common1.cns   ; Shared states
+sprite = @base.sff       ; Sprites
+anim = @base.air         ; Animations
+sound = @base.snd        ; Sounds
+pal1 = @base.act         ; First palette
+CURSOR
+]]></code>
+</snippet>

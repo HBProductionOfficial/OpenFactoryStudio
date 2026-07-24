@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<snippet>
+    <field name="sdef" title="StateDef number (191 is the default intro)" type="int"/>
+    <field name="anim" title="Animation" type="int"/>
+    <code><![CDATA[; Introduction pose
+[Statedef @sdef]
+type = S
+movetype = I
+physics = S
+anim = @anim
+ctrl = 0
+velset = 0, 0
+
+[State @sdef, Intro running]
+type = AssertSpecial
+trigger1 = 1
+flag = Intro
+
+CURSOR
+[State @sdef, Done]
+type = ChangeState
+trigger1 = AnimTime = 0
+value = 0
+]]></code>
+</snippet>
