@@ -49,3 +49,16 @@ add_dependencies(test_core_preset_coverage ofs_data ${_ofs_plugins})
 ofs_add_test(NAME shell_update_checker
     SOURCES gui/UpdateCheckerTest.cpp
     LIBS OFS::shell)
+
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_Interpreter_FOUND)
+    add_test(NAME data_mugen_syntax
+        COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/validate_syntax.py")
+    set_tests_properties(data_mugen_syntax PROPERTIES LABELS unit)
+    add_test(NAME data_mugen_syntax_corpus
+        COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/validate_syntax.py"
+                --corpus-env --strict)
+    set_tests_properties(data_mugen_syntax_corpus PROPERTIES LABELS corpus SKIP_RETURN_CODE 77)
+else()
+    message(STATUS "Python 3 not found: the engine data tests are disabled")
+endif()
