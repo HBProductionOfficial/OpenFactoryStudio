@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import collections
+import html
 import os
 import re
 import sys
@@ -171,7 +172,12 @@ class SyntaxDB:
             target = 'bgctrl>' + rest[1]
         if target is None:
             return None
-        return self.find_block('stage', target)
+        found = self.find_block('stage', target)
+        if found is None:
+            # The file relies on built-in background types, so accept it with no parameters.
+            found = Block(ET.Element('block', type=target.replace('bgctrl>', 'BGCtrl>').replace('bg>', 'BG>')),
+                          'stage')
+        return found
 
     def resolve(self, block: Block) -> Block | None:
         ref = block.base
@@ -484,7 +490,29 @@ def check_data_dir(db: SyntaxDB, data_dir: Path) -> list[str]:
                     for page in variant.iterdir():
                         if not re.match(r'^(sctrl|trigger)\.[a-z0-9_]+\.html$', page.name):
                             errors.append(f'docs/{lang.name}/{variant.name}: unexpected file "{page.name}"')
+                            continue
+                        errors += check_doc_page(db, page, f'docs/{lang.name}/{variant.name}/{page.name}')
     return errors
+
+
+def check_doc_page(db: SyntaxDB, page: Path, label: str) -> list[str]:
+    """Pages are HTML fragments. The code in their last <pre> block must be valid."""
+    text = page.read_text(encoding='utf-8')
+    try:
+        ET.fromstring('<div>' + text + '</div>')
+    except ET.ParseError as e:
+        return [f'{label}: not well-formed ({e})']
+    blocks = re.findall(r'<pre>(.*?)</pre>', text, re.S)
+    if not blocks:
+        return [f'{label}: no example']
+    example = html.unescape(blocks[-1])
+    if page.name.startswith('trigger.'):
+        lines = []
+        for line in example.splitlines():
+            if '=' in line:
+                lines.append('trigger1 = ' + line.split('=', 1)[1])
+        example = '[State 0, Example]\ntype = CtrlSet\nvalue = 1\n' + '\n'.join(lines)
+    return unknowns_in(db, example, 'state', label)
 
 
 def unknowns_in(db: SyntaxDB, text: str, ftype: str, label: str) -> list[str]:
