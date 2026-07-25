@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<palfx>
+    <add red="60" green="70" blue="170"/>
+    <mul red="200" green="220" blue="256"/>
+    <sin red="80" green="80" blue="120" period="3"/>
+    <color value="64"/>
+    <invert value="false"/>
+</palfx>
