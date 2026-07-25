@@ -1,0 +1,7 @@
+; DefenceMulSet: Sets the multiplier of the damage the player takes
+[State 0, DefenceMulSet]
+type = DefenceMulSet
+trigger1 =
+value = 1                       ; damage taken multiplier
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

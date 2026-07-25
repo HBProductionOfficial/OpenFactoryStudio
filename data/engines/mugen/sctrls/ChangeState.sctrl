@@ -1,0 +1,9 @@
+; ChangeState: Moves the player to another state
+[State 0, ChangeState]
+type = ChangeState
+trigger1 =
+value = 0                       ; state number
+;ctrl = 1                       ; 1 = give control
+;anim = 0                       ; animation number
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

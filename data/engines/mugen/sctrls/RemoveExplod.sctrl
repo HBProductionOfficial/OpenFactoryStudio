@@ -1,0 +1,7 @@
+; RemoveExplod: Removes explods
+[State 0, RemoveExplod]
+type = RemoveExplod
+trigger1 =
+;ID = -1                        ; identifier
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

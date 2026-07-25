@@ -1,0 +1,7 @@
+; AngleSet: Sets the angle used by AngleDraw
+[State 0, AngleSet]
+type = AngleSet
+trigger1 =
+value = 0                       ; degrees
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

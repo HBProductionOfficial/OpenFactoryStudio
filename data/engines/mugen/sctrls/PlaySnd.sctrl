@@ -1,0 +1,15 @@
+; PlaySnd: Plays a sound
+[State 0, PlaySnd]
+type = PlaySnd
+trigger1 =
+value = 0, 0                    ; group, item (F = common sounds)
+;volume = 0                     ; replaced by volumescale in 1.0 (deprecated since 1.0)
+;volumescale = 100              ; percent (1.0+)
+;channel = -1                   ; sound channel, -1 any
+;lowpriority = 0                ; 1 = cannot be cut
+;freqmul = 1.0                  ; pitch multiplier
+;loop = 0                       ; 1 = loop
+;pan = 0                        ; offset from the player
+;abspan = 0                     ; offset from the centre
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

@@ -1,0 +1,8 @@
+; TargetState: Sends targets to one of the player's states
+[State 0, TargetState]
+type = TargetState
+trigger1 =
+value = 0                       ; state number
+;ID = 0                         ; identifier
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

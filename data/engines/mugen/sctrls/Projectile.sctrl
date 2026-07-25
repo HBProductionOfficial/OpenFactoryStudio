@@ -1,0 +1,129 @@
+; Projectile: Fires a projectile that carries its own HitDef
+[State 0, Projectile]
+type = Projectile
+trigger1 =
+attr = S, SP                    ; state type, attack class
+;ProjID = 1                     ; projectile id
+;projanim = 0                   ; flight animation
+;projhitanim = -1               ; animation on hit
+;projremanim = -1               ; animation on removal
+;projcancelanim = -1            ; animation when cancelled
+;projscale = 1, 1               ; x, y scale
+;projremove = 1                 ; 0 = keep after hitting
+;projremovetime = -1            ; ticks, -1 forever
+;velocity = 4, 0                ; x, y velocity
+;remvelocity = 0, 0             ; x, y velocity while removed
+;accel = 0, 0                   ; x, y acceleration
+;velmul = 1, 1                  ; x, y multiplier per tick
+;projhits = 1                   ; hits before removal
+;projmisstime = 0               ; ticks between hits
+;projpriority = 1               ; clash priority
+;projsprpriority = 3            ; drawing layer
+;projedgebound = 0              ; removal distance off screen
+;projstagebound = 0             ; removal distance off stage
+;projheightbound = 0, 0         ; lowest, highest y
+;offset = 20, -50               ; x, y start offset
+;postype = P1                   ; what pos is relative to: P1, P2, Front, Back, Left, Right
+;projshadow = 0                 ; 1 = draw a shadow
+;supermovetime = 0              ; ticks unfrozen in a SuperPause
+;pausemovetime = 0              ; ticks unfrozen in a Pause
+;ownpal = 0                     ; 1 = own palette (1.1+)
+;remappal = -1, 0               ; group, item of the palette to use (1.1+)
+;afterimage.time = 1            ; duration in ticks
+;afterimage.length = 20         ; frames kept (max 60)
+;afterimage.palcolor = 256      ; 0 grey .. 256 normal
+;afterimage.palinvertall = 0    ; 1 = negative
+;afterimage.palbright = 30, 30, 30 ; r, g, b added
+;afterimage.palcontrast = 120, 120, 220 ; r, g, b multiplier
+;afterimage.palpostbright = 0, 0, 0 ; r, g, b added last
+;afterimage.paladd = 10, 10, 25 ; r, g, b added per frame
+;afterimage.palmul = .65, .65, .75 ; r, g, b multiplier per frame
+;afterimage.timegap = 1         ; save every n-th frame
+;afterimage.framegap = 4        ; draw every n-th saved frame
+;afterimage.trans = None        ; blending: None, Add, Add1, Sub
+;hitflag = MAF                  ; H L A F D + -
+;guardflag = MA                 ; H L A
+;affectteam = E                 ; E enemy, B both, F friend
+;animtype = Light               ; get-hit animation: Light, Medium, Hard, Back, Up, DiagUp
+;air.animtype = Light           ; when P2 is in the air: Light, Medium, Hard, Back, Up, DiagUp
+;fall.animtype = Light          ; when P2 is falling: Light, Medium, Hard, Back, Up, DiagUp
+;priority = 4, Hit              ; priority 1-7, Hit/Miss/Dodge
+;damage = 20, 0                 ; hit damage, guard damage
+;pausetime = 8, 8               ; P1 pause, P2 shake
+;guard.pausetime = 0, 0         ; P1 pause, P2 shake when guarded
+;sparkno = 0                    ; spark anim (S = own AIR)
+;guard.sparkno = 0              ; guard spark (S = own AIR)
+;sparkxy = -10, -70             ; spark x (from P2 front), y
+;hitsound = 5, 0                ; group, item (S = own SND)
+;guardsound = 6, 0              ; group, item (S = own SND)
+;ground.type = High             ; High, Low, Trip, None
+;air.type = High                ; type when P2 is in the air: High, Low, Trip, None
+;ground.slidetime = 8           ; ticks P2 slides
+;guard.slidetime = 0            ; ticks P2 slides when guarding
+;ground.hittime = 10            ; ticks P2 stays in hit state
+;guard.hittime = 0              ; hit time when guarded
+;air.hittime = 0                ; hit time in the air
+;guard.ctrltime = 0             ; ticks before P2 regains control
+;guard.dist = 0                 ; guard distance
+;yaccel = .35                   ; P2 y acceleration
+;ground.velocity = -4           ; P2 x, y velocity on the ground
+;guard.velocity = 0             ; P2 x velocity when guarding
+;air.velocity = -2, -4          ; P2 x, y velocity in the air
+;airguard.velocity = 0, 0       ; x, y velocity when guarding in the air
+;ground.cornerpush.veloff = 0   ; P1 push-back in the corner
+;air.cornerpush.veloff = 0      ; corner push-back on an airborne P2
+;down.cornerpush.veloff = 0     ; corner push-back on a downed P2
+;guard.cornerpush.veloff = 0    ; corner push-back when guarded
+;airguard.cornerpush.veloff = 0 ; corner push-back on an air guard
+;airguard.ctrltime = 0          ; control time after an air guard
+;air.juggle = 0                 ; juggle points needed
+;mindist = 0, 0                 ; minimum x, y distance of P2
+;maxdist = 0, 0                 ; maximum x, y distance of P2
+;snap = 0, 0                    ; x, y position P2 is moved to
+;p1sprpriority = 1              ; P1 layer after contact (WinMUGEN+)
+;p2sprpriority = 0              ; P2 layer after contact (WinMUGEN+)
+;sprpriority = 0                ; drawing layer (deprecated since WinMUGEN)
+;p1facing = 0                   ; -1 = turn P1
+;p1getp2facing = 0              ; 1 same as P2, -1 opposite
+;p2facing = 0                   ; 1 face P1 direction, -1 away
+;p1stateno = -1                 ; P1 state after the hit
+;p2stateno = -1                 ; P2 state after the hit (custom state)
+;p2getp1state = 1               ; 0 = P2 keeps its own states
+;forcestand = 0                 ; 1 = P2 stands up
+;fall = 0                       ; 1 = knock down
+;fall.xvelocity = 0             ; bounce x velocity
+;fall.yvelocity = 0             ; bounce y velocity
+;fall.recover = 1               ; 0 = no recovery
+;fall.recovertime = 0           ; ticks before recovery
+;fall.damage = 0                ; damage on landing
+;air.fall = 0                   ; fall when hit in the air
+;forcenofall = 0                ; 1 = stop P2 falling
+;down.velocity = 0, 0           ; x, y velocity on a downed P2
+;down.hittime = 0               ; slide time on a downed P2
+;down.bounce = 0                ; 1 = downed P2 bounces
+;id = 1                         ; identifier
+;chainID = -1                   ; only after hit with this id
+;nochainID = -1, -1             ; not after these ids
+;hitonce = 0                    ; 1 = one opponent only
+;kill = 1                       ; 0 = cannot KO
+;guard.kill = 1                 ; 0 = guard cannot KO
+;fall.kill = 1                  ; 0 = fall cannot KO
+;numhits = 1                    ; hits added to the combo
+;getpower = 0, 0                ; P1 power on hit, on guard
+;givepower = 0, 0               ; P2 power on hit, on guard
+;palfx.time = 10                ; P2 palette effect ticks
+;palfx.mul = 256, 256, 256      ; r, g, b multiplier
+;palfx.add = 0, 0, 0            ; r, g, b added
+;palfx.sinadd = 0, 0, 0, 1      ; r, g, b amplitude, period
+;palfx.invertall = 0            ; 1 = negative
+;palfx.color = 256              ; 0 grey .. 256 normal
+;envshake.time = 10             ; screen shake ticks
+;envshake.freq = 60             ; shake speed
+;envshake.ampl = -4             ; shake amplitude
+;envshake.phase = 0             ; shake phase
+;fall.envshake.time = 0         ; shake ticks on landing
+;fall.envshake.freq = 0         ; shake speed
+;fall.envshake.ampl = 0         ; shake amplitude
+;fall.envshake.phase = 0        ; shake phase
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

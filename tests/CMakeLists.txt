@@ -55,6 +55,9 @@ if(Python3_Interpreter_FOUND)
     add_test(NAME data_mugen_syntax
         COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/validate_syntax.py")
     set_tests_properties(data_mugen_syntax PROPERTIES LABELS unit)
+    add_test(NAME data_mugen_sctrls
+        COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/gen_sctrl_templates.py" --check)
+    set_tests_properties(data_mugen_sctrls PROPERTIES LABELS unit)
     add_test(NAME data_mugen_syntax_corpus
         COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/validate_syntax.py"
                 --corpus-env --strict)

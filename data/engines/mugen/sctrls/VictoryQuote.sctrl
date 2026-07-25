@@ -1,0 +1,7 @@
+; VictoryQuote: Chooses the quote shown on the victory screen
+[State 0, VictoryQuote]
+type = VictoryQuote
+trigger1 =
+;value = -1                     ; quote index, -1 random
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

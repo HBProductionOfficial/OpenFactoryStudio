@@ -1,0 +1,9 @@
+; NotHitBy: The listed attack types cannot hit the player
+[State 0, NotHitBy]
+type = NotHitBy
+trigger1 =
+value = SCA
+time = 1                        ; duration in ticks
+;value2 = SCA
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

@@ -1,0 +1,8 @@
+; ChangeAnim: Switches to another animation
+[State 0, ChangeAnim]
+type = ChangeAnim
+trigger1 =
+value = 0                       ; animation number
+;elem = 0                       ; element to start from
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

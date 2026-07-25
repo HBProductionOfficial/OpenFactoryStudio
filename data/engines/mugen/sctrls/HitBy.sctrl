@@ -1,0 +1,9 @@
+; HitBy: Only the listed attack types can hit the player
+[State 0, HitBy]
+type = HitBy
+trigger1 =
+value = SCA                     ; state types, attack classes
+time = 1                        ; duration in ticks
+;value2 = SCA
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

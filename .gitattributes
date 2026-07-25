@@ -5,6 +5,7 @@
 *.ps1  text eol=crlf
 *.iss  text eol=crlf
 *.rc   text eol=crlf
+*.sctrl text eol=crlf
 
 *.png  binary
 *.ico  binary

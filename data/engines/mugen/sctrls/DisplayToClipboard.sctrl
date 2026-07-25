@@ -1,0 +1,8 @@
+; DisplayToClipboard: Replaces the debug clipboard text with a formatted message
+[State 0, DisplayToClipboard]
+type = DisplayToClipboard
+trigger1 =
+text = "value: %d"              ; message in quotes, %d %f for params
+;params = var(0)                ; up to 6 expressions
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

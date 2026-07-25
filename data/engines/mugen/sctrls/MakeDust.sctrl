@@ -1,0 +1,9 @@
+; MakeDust: Draws dust clouds (old controller, use Explod)
+[State 0, MakeDust]
+type = MakeDust
+trigger1 =
+;pos = 0, 0                     ; x, y
+;pos2 = 0, 0                    ; second cloud x, y
+;spacing = 0                    ; ticks between clouds
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

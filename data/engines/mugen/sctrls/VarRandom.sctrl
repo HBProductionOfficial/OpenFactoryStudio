@@ -1,0 +1,8 @@
+; VarRandom: Puts a random number in an int variable
+[State 0, VarRandom]
+type = VarRandom
+trigger1 =
+v = 0                           ; int variable number
+;range = 0, 1000                ; lowest, highest
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

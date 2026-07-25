@@ -1,0 +1,9 @@
+; SelfState: Returns a player in a custom state to its own states
+[State 0, SelfState]
+type = SelfState
+trigger1 =
+value = 0
+;ctrl = 1                       ; 1 = give control
+;anim = 0                       ; animation number
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

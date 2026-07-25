@@ -1,0 +1,35 @@
+; ModifyExplod: Changes parameters of existing explods
+[State 0, ModifyExplod]
+type = ModifyExplod
+trigger1 =
+;anim = 0                       ; animation number
+;ID = 1                         ; identifier
+;space = Stage                  ; coordinate space: Screen, Stage (1.1+)
+;pos = 0, 0                     ; x, y
+;postype = P1                   ; what pos is relative to: P1, P2, Front, Back, Left, Right, None (deprecated since 1.1)
+;facing = 1                     ; 1 or -1
+;vfacing = 1                    ; 1 or -1 (flip vertically)
+;bindID = -2                    ; player to bind to, -1 any, -2 none (1.1+)
+;bindtime = 1                   ; ticks bound, -1 forever
+;vel = 0, 0                     ; x, y velocity
+;velocity = 0, 0                ; x, y velocity
+;accel = 0, 0                   ; x, y acceleration
+;random = 0, 0                  ; x, y random spread (deprecated since 1.1)
+;removetime = -2                ; ticks, -1 forever, -2 at end of anim
+;supermove = 0                  ; old form of supermovetime (deprecated since WinMUGEN)
+;supermovetime = 0              ; ticks unfrozen in a SuperPause
+;pausemovetime = 0              ; ticks unfrozen in a Pause
+;scale = 1, 1                   ; x, y scale
+;angle = 0                      ; degrees (1.1+)
+;yangle = 0                     ; degrees around y (1.1+)
+;xangle = 0                     ; degrees around x (1.1+)
+;sprpriority = 0                ; drawing layer
+;ontop = 0                      ; 1 = draw above everything
+;shadow = 0                     ; 1 = draw a shadow
+;ownpal = 0                     ; 1 = own palette
+;remappal = -1, 0               ; group, item of the palette to use (1.1+)
+;removeongethit = 0             ; 1 = remove when hit
+;ignorehitpause = 1             ; 1 = keep animating in hit pauses
+;trans = Add                    ; blending: Default, None, Add, AddAlpha, Add1, Sub
+;alpha = 256, 256               ; source, destination (0-256)
+;persistent = 1                 ; 0 = once per state, n = every n-th time

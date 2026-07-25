@@ -1,0 +1,6 @@
+; MoveHitReset: Clears the MoveHit, MoveContact and MoveGuarded flags
+[State 0, MoveHitReset]
+type = MoveHitReset
+trigger1 =
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

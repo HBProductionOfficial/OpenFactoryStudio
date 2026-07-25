@@ -1,0 +1,7 @@
+; PowerAdd: Adds to the power bar
+[State 0, PowerAdd]
+type = PowerAdd
+trigger1 =
+value = 0                       ; power added
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

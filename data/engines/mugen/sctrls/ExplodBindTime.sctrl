@@ -1,0 +1,9 @@
+; ExplodBindTime: Changes how long explods stay bound to their anchor
+[State 0, ExplodBindTime]
+type = ExplodBindTime
+trigger1 =
+;ID = -1                        ; identifier
+;time = 1                       ; duration in ticks
+;value = 0                      ; ticks
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

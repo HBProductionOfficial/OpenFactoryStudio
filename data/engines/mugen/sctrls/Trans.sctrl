@@ -1,0 +1,8 @@
+; Trans: Overrides the player's transparency for this tick
+[State 0, Trans]
+type = Trans
+trigger1 =
+trans = Add                     ; blending: Default, None, Add, AddAlpha, Add1, Sub
+;alpha = 256, 128               ; source, destination (0-256)
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

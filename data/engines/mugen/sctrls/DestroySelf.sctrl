@@ -1,0 +1,8 @@
+; DestroySelf: Removes the helper that runs it
+[State 0, DestroySelf]
+type = DestroySelf
+trigger1 =
+;recursive = 0                  ; 1 = also descendants (1.1+)
+;removeexplods = 0              ; 1 = also its explods (1.1+)
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

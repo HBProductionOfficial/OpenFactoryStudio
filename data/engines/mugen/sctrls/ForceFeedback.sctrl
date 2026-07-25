@@ -1,0 +1,11 @@
+; ForceFeedback: Rumbles a force feedback pad
+[State 0, ForceFeedback]
+type = ForceFeedback
+trigger1 =
+;waveform = Sine                ; motor pattern: Sine, Square, SineSquare, Off
+;time = 60                      ; duration in ticks
+;freq = 128, 0, 0, 0            ; speed
+;ampl = 128, 0, 0, 0            ; amplitude
+;self = 1                       ; 1 = own pad, 0 = opponent
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

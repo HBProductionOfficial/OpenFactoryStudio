@@ -1,0 +1,9 @@
+; AssertSpecial: Turns on special engine flags for this tick
+[State 0, AssertSpecial]
+type = AssertSpecial
+trigger1 =
+flag = Invisible                ; flag name
+;flag2 = NoAutoTurn             ; flag name
+;flag3 = NoShadow               ; flag name
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

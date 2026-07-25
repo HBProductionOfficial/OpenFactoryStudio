@@ -1,0 +1,8 @@
+; AngleDraw: Draws the player rotated (and optionally scaled) for this tick
+[State 0, AngleDraw]
+type = AngleDraw
+trigger1 =
+;value = 0                      ; degrees
+;scale = 1, 1                   ; x, y scale
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

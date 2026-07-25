@@ -1,0 +1,10 @@
+; EnvShake: Shakes the screen vertically
+[State 0, EnvShake]
+type = EnvShake
+trigger1 =
+time = 10                       ; duration in ticks
+;freq = 60                      ; speed
+;ampl = -4                      ; amplitude
+;phase = 0                      ; phase offset
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

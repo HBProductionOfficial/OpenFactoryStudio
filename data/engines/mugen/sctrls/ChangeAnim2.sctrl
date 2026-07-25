@@ -1,0 +1,8 @@
+; ChangeAnim2: Switches to an animation of the state owner's AIR file
+[State 0, ChangeAnim2]
+type = ChangeAnim2
+trigger1 =
+value = 0
+;elem = 0                       ; element to start from
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

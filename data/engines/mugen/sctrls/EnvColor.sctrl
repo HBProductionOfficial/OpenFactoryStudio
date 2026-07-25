@@ -1,0 +1,9 @@
+; EnvColor: Fills the screen with a solid colour
+[State 0, EnvColor]
+type = EnvColor
+trigger1 =
+;value = 255, 255, 255          ; r, g, b
+;time = 1                       ; duration in ticks
+;under = 0                      ; 1 = behind the players
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

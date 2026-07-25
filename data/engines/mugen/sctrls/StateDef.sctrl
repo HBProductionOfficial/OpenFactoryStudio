@@ -1,0 +1,15 @@
+; StateDef: starts a state and sets its initial properties
+[Statedef 0]
+type = S                        ; S stand, C crouch, A air, L lie down, U unchanged
+movetype = I                    ; I idle, A attack, H being hit, U unchanged
+physics = S                     ; S stand, C crouch, A air, N none, U unchanged
+anim = 0                        ; animation number
+velset = 0, 0                   ; x, y velocity on entry
+ctrl = 1                        ; 1 = give control
+sprpriority = 0                 ; drawing layer
+;poweradd = 0                   ; power added on entry
+;juggle = 0                     ; juggle points this attack needs
+;facep2 = 0                     ; 1 = turn to face the opponent
+;hitdefpersist = 0              ; 1 = keep the active HitDef
+;movehitpersist = 0             ; 1 = keep the MoveHit flags
+;hitcountpersist = 0            ; 1 = keep the hit counter

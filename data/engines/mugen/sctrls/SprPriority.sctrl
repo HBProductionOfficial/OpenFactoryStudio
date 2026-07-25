@@ -1,0 +1,7 @@
+; SprPriority: Sets the drawing layer of the player
+[State 0, SprPriority]
+type = SprPriority
+trigger1 =
+value = 2                       ; -5 .. 5
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time
