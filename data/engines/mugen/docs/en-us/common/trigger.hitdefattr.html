@@ -1,0 +1,15 @@
+<h2>HitDefAttr</h2>
+<p>Old-style trigger: compares the attribute of the active HitDef with an attribute string.</p>
+<h3>Format</h3>
+<pre>HitDefAttr = attr
+HitDefAttr != attr</pre>
+<h3>Arguments</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>attr</b></td><td>State types followed by attack classes, e.g. <code>SC, NA, SA</code>.</td></tr>
+</table>
+<h3>Returns</h3>
+<p>boolean (1 or 0)</p>
+<h3>Notes</h3>
+<ul><li>False when no HitDef is active (move type other than A).</li></ul>
+<h3>Example</h3>
+<pre>trigger1 = HitDefAttr = SCA, HA</pre>
