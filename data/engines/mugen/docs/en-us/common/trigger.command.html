@@ -1,0 +1,11 @@
+<h2>Command</h2>
+<p>Tells whether a command defined in the CMD file has just been entered.</p>
+<h3>Format</h3>
+<pre>Command = "name"
+Command != "name"</pre>
+<h3>Returns</h3>
+<p>boolean (1 or 0)</p>
+<h3>Notes</h3>
+<ul><li>Several [Command] blocks may share a name; any of them counts.</li><li>Only players with command input (or helpers with keyctrl) receive commands.</li></ul>
+<h3>Example</h3>
+<pre>trigger1 = Command = "QCF_x"</pre>
