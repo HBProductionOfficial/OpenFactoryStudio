@@ -1,0 +1,14 @@
+<h2>VarRangeSet</h2>
+<p>Sets a block of consecutive variables to the same value.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>value</b></td><td>integer expression</td><td>Value for int variables.</td></tr>
+<tr><td><b>fvalue</b></td><td>float expression</td><td>Value for float variables (use one of value or fvalue).</td></tr>
+<tr><td><b>first</b></td><td>integer expression</td><td>First variable of the block. Default 0.</td></tr>
+<tr><td><b>last</b></td><td>integer expression</td><td>Last variable of the block. Default 59 for ints, 39 for floats.</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State 5900, Reset]
+type = VarRangeSet
+trigger1 = RoundNo = 1
+value = 0</pre>

@@ -1,0 +1,27 @@
+<h2>SuperPause</h2>
+<p>Freezes everything except the player, darkens the screen and plays a charge effect, typically at the start of a super move.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>time</b></td><td>integer expression</td><td>Ticks the pause lasts. Default 30.</td></tr>
+<tr><td><b>anim</b></td><td>integer expression, S/F prefix allowed</td><td>Fightfx animation shown (S prefix for the player AIR file). -1 for none. Default 30.</td></tr>
+<tr><td><b>sound</b></td><td>2 integer expressions, S/F prefix allowed</td><td>Sound played, from the common sounds (S prefix for the player sounds). Default -1.</td></tr>
+<tr><td><b>pos</b></td><td>2 float expressions</td><td>Offset of the animation from the player axis.</td></tr>
+<tr><td><b>darken</b></td><td>expression, 0 or 1</td><td>0 keeps the screen bright. Default 1.</td></tr>
+<tr><td><b>p2defmul</b></td><td>float expression</td><td>Temporary defence multiplier of the targets; 0 uses the mugen.cfg value. Default 0.</td></tr>
+<tr><td><b>poweradd</b></td><td>integer expression</td><td>Power added to the player.</td></tr>
+<tr><td><b>unhittable</b></td><td>expression, 0 or 1</td><td>0 lets the player be hit during the pause. Default 1.</td></tr>
+<tr><td><b>endcmdbuftime</b></td><td>integer expression <i>(WinMUGEN and later)</i></td><td>As in Pause.</td></tr>
+<tr><td><b>movetime</b></td><td>integer expression</td><td>As in Pause.</td></tr>
+<tr><td><b>pausebg</b></td><td>expression, 0 or 1 <i>(WinMUGEN and later)</i></td><td>As in Pause.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>A SuperPause pre-empts a running Pause, whose remaining time waits.</li></ul>
+<h3>Example</h3>
+<pre>[State 3000, Flash]
+type = SuperPause
+trigger1 = Time = 0
+time = 40
+anim = 100
+sound = 20, 0
+pos = 20, -60
+poweradd = -1000</pre>

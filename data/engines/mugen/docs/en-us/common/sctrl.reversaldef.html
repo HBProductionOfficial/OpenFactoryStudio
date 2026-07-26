@@ -1,0 +1,21 @@
+<h2>ReversalDef</h2>
+<p>Counters attacks: when an attack box of the opponent touches an attack box of the player while the ReversalDef is active, the attack is reversed.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>reversal.attr</b></td><td>hit attribute, <b>required</b></td><td>Hit attribute string of the attacks that can be reversed.</td></tr>
+<tr><td><b>pausetime</b></td><td>2 integer expressions</td><td>Ticks P1 freezes, then ticks P2 shakes, on reversal.</td></tr>
+<tr><td><b>sparkno</b></td><td>integer expression, S/F prefix allowed</td><td>Spark animation (S prefix for the player AIR file).</td></tr>
+<tr><td><b>sparkxy</b></td><td>2 integer expressions</td><td>Offset added to the sparkxy of the reversed HitDef.</td></tr>
+<tr><td><b>hitsound</b></td><td>2 integer expressions, S/F prefix allowed</td><td>Sound played on reversal (S prefix for the player sounds).</td></tr>
+<tr><td><b>p1stateno</b></td><td>integer expression</td><td>State the player goes to on reversal.</td></tr>
+<tr><td><b>p2stateno</b></td><td>integer expression</td><td>State the opponent goes to on reversal.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>MoveHit tells whether the reversal succeeded.</li></ul>
+<h3>Example</h3>
+<pre>[State 1600, Parry]
+type = ReversalDef
+trigger1 = Time = 0
+reversal.attr = SA, NA, SA
+pausetime = 12, 12
+p1stateno = 1610</pre>

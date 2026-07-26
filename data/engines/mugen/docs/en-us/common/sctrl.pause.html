@@ -1,0 +1,17 @@
+<h2>Pause</h2>
+<p>Freezes the game: players and background stop updating.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>time</b></td><td>integer expression, <b>required</b></td><td>Ticks to pause.</td></tr>
+<tr><td><b>endcmdbuftime</b></td><td>integer expression <i>(WinMUGEN and later)</i></td><td>Ticks at the end of the pause during which frozen players can buffer commands. Default 0.</td></tr>
+<tr><td><b>movetime</b></td><td>integer expression</td><td>Ticks at the start during which the player may still move (and hit). Default 0.</td></tr>
+<tr><td><b>pausebg</b></td><td>expression, 0 or 1 <i>(WinMUGEN and later)</i></td><td>0 keeps the background moving during the pause. Default 1.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>A new Pause cancels the previous one. A Pause during a SuperPause waits for it to end.</li></ul>
+<h3>Example</h3>
+<pre>[State 3000, Freeze]
+type = Pause
+trigger1 = Time = 0
+time = 20
+movetime = 20</pre>

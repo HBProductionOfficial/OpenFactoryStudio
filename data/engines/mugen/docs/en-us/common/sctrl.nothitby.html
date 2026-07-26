@@ -1,0 +1,15 @@
+<h2>NotHitBy</h2>
+<p>For a while, attacks matching the given attributes cannot hit the player.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>value</b></td><td>hit attribute</td><td>Hit attribute string listing the attacks concerned, e.g. <code>SCA, NA, SA</code>. Fills the first of the two attribute slots.</td></tr>
+<tr><td><b>value2</b></td><td>hit attribute</td><td>The same, but fills the second slot. Use only one of value and value2 in a controller.</td></tr>
+<tr><td><b>time</b></td><td>integer expression</td><td>Ticks the slot stays active. Default 1.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>Shares the two attribute slots with HitBy; a slot set by NotHitBy allows every attribute except the listed ones.</li></ul>
+<h3>Example</h3>
+<pre>[State 1300, Invincible]
+type = NotHitBy
+trigger1 = Time &lt; 10
+value = SCA</pre>

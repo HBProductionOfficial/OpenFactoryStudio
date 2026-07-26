@@ -1,0 +1,14 @@
+<h2>StateTypeSet</h2>
+<p>Changes the state type, move type and physics without leaving the state.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>statetype</b></td><td>one of: S, C, A, L</td><td>S standing, C crouching, A air or L lying.</td></tr>
+<tr><td><b>movetype</b></td><td>one of: I, A, H</td><td>I idle, A attacking or H being hit.</td></tr>
+<tr><td><b>physics</b></td><td>one of: S, C, A, N</td><td>S, C, A or N (none).</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State 1100, Take off]
+type = StateTypeSet
+trigger1 = AnimElem = 3
+statetype = A
+physics = A</pre>

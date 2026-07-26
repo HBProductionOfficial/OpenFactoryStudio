@@ -1,0 +1,13 @@
+<h2>TargetVelAdd</h2>
+<p>Adds to the velocity of the targets (positive x towards their front, positive y down).</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>x</b></td><td>float expression</td><td>X velocity to add.</td></tr>
+<tr><td><b>y</b></td><td>float expression</td><td>Y velocity to add.</td></tr>
+<tr><td><b>ID</b></td><td>integer expression</td><td>Only targets with this id; -1 for all.</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State 821, Gravity on victim]
+type = TargetVelAdd
+trigger1 = 1
+y = 0.4</pre>

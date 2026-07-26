@@ -1,0 +1,9 @@
+<h2>Null</h2>
+<p>Does nothing. Changing the type of a controller to Null disables it while keeping its text.</p>
+<h3>Notes</h3>
+<ul><li>Its triggers are still evaluated, so assignments with := inside them still happen.</li><li>Any parameter is accepted and ignored.</li></ul>
+<h3>Example</h3>
+<pre>[State 200, Disabled]
+type = Null ; was VelSet
+trigger1 = Time = 0
+x = 2</pre>

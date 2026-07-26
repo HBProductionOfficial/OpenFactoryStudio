@@ -1,0 +1,16 @@
+<h2>TargetVelSet</h2>
+<p>Sets the velocity of the targets.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>x</b></td><td>float expression</td><td>X velocity to add.</td></tr>
+<tr><td><b>y</b></td><td>float expression</td><td>Y velocity to add.</td></tr>
+<tr><td><b>ID</b></td><td>integer expression</td><td>Only targets with this id; -1 for all.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>Same parameters as TargetVelAdd.</li></ul>
+<h3>Example</h3>
+<pre>[State 821, Launch victim]
+type = TargetVelSet
+trigger1 = Time = 0
+x = -3
+y = -6</pre>

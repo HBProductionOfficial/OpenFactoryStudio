@@ -1,0 +1,12 @@
+<h2>TargetDrop</h2>
+<p>Removes targets from the target list of the player.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>excludeID</b></td><td>integer expression</td><td>Targets hit with this HitDef id are kept; -1 drops every target.</td></tr>
+<tr><td><b>keepone</b></td><td>expression, 0 or 1</td><td>Non-zero keeps at most one of the kept targets (useful for throws). Default 1.</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State 800, One victim]
+type = TargetDrop
+trigger1 = Time = 0
+excludeID = 800</pre>
