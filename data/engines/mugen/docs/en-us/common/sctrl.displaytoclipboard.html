@@ -1,0 +1,13 @@
+<h2>DisplayToClipboard</h2>
+<p>Debugging aid: replaces the player clipboard with a formatted message, shown in debug mode (Ctrl+D).</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>text</b></td><td>quoted text, <b>required</b></td><td>Message in double quotes, printf style: %d or %i for an integer, %f, %e or %g for a float, %% for a percent sign, \n for a new line and \t for a tab.</td></tr>
+<tr><td><b>params</b></td><td>list of expressions</td><td>Up to six expressions, one per placeholder in text, in order.</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State 0, Debug]
+type = DisplayToClipboard
+trigger1 = 1
+text = "state %d, x velocity %f"
+params = StateNo, Vel X</pre>

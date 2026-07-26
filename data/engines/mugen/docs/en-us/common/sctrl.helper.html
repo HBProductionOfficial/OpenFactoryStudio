@@ -1,0 +1,39 @@
+<h2>Helper</h2>
+<p>Creates a helper: another instance of the player with its own position, state and variables, used for projectiles with logic, effects, shadows or camera tricks.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>helpertype</b></td><td>one of: Normal, Player</td><td>Normal or Player. Player-type helpers are not supported; keep Normal and use ScreenBound for camera control.</td></tr>
+<tr><td><b>name</b></td><td>quoted text</td><td>Name in double quotes, used in debug output.</td></tr>
+<tr><td><b>ID</b></td><td>integer expression</td><td>ID used by helper(ID) redirection and NumHelper. Default 0.</td></tr>
+<tr><td><b>pos</b></td><td>2 float expressions</td><td>X and y creation offset, interpreted according to postype.</td></tr>
+<tr><td><b>postype</b></td><td>one of: P1, P2, Front, Back, Left, Right</td><td>P1 (default) or P2 axis, Front or Back screen edge, Left or Right screen edge.</td></tr>
+<tr><td><b>facing</b></td><td>integer expression</td><td>1 faces the same way as the player (or right with Left/Right), -1 the other way.</td></tr>
+<tr><td><b>stateno</b></td><td>integer expression</td><td>State the helper starts in. Default 0.</td></tr>
+<tr><td><b>keyctrl</b></td><td>expression, 0 or 1</td><td>1 lets the helper read the command input and run the State -1 of the root.</td></tr>
+<tr><td><b>ownpal</b></td><td>expression, 0 or 1</td><td>1 gives the helper its own palette copy, unaffected by the parent PalFX and RemapPal.</td></tr>
+<tr><td><b>remappal</b></td><td>2 integer expressions <i>(1.1 and later)</i></td><td>Palette group and item the helper uses when ownpal is set.</td></tr>
+<tr><td><b>supermovetime</b></td><td>integer expression</td><td>Ticks the helper may move during a SuperPause.</td></tr>
+<tr><td><b>pausemovetime</b></td><td>integer expression</td><td>Ticks the helper may move during a Pause.</td></tr>
+<tr><td><b>size.xscale</b></td><td>float expression</td><td>Overrides the [Size] constant of the same name for this helper.</td></tr>
+<tr><td><b>size.yscale</b></td><td>float expression</td><td>Overrides the [Size] constant of the same name for this helper.</td></tr>
+<tr><td><b>size.ground.back</b></td><td>integer expression</td><td>Overrides the [Size] constant of the same name for this helper.</td></tr>
+<tr><td><b>size.ground.front</b></td><td>integer expression</td><td>Overrides the [Size] constant of the same name for this helper.</td></tr>
+<tr><td><b>size.air.back</b></td><td>integer expression</td><td>Overrides the [Size] constant of the same name for this helper.</td></tr>
+<tr><td><b>size.air.front</b></td><td>integer expression</td><td>Overrides the [Size] constant of the same name for this helper.</td></tr>
+<tr><td><b>size.height</b></td><td>integer expression</td><td>Overrides the [Size] constant of the same name for this helper.</td></tr>
+<tr><td><b>size.proj.doscale</b></td><td>integer expression</td><td>Overrides the [Size] constant of the same name for this helper.</td></tr>
+<tr><td><b>size.head.pos</b></td><td>2 integer expressions</td><td>Overrides the [Size] constant of the same name for this helper.</td></tr>
+<tr><td><b>size.mid.pos</b></td><td>2 integer expressions</td><td>Overrides the [Size] constant of the same name for this helper.</td></tr>
+<tr><td><b>size.shadowoffset</b></td><td>integer expression</td><td>Overrides the [Size] constant of the same name for this helper.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>Helpers have no State -2 or -3 of their own, and no State -1 unless keyctrl is set.</li></ul>
+<h3>Example</h3>
+<pre>[State 1000, Fireball]
+type = Helper
+trigger1 = AnimElem = 2
+name = "Fireball"
+ID = 1001
+stateno = 1001
+pos = 40, -60
+postype = P1</pre>

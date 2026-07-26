@@ -1,0 +1,14 @@
+<h2>AngleDraw</h2>
+<p>Draws the player rotated around its axis for the current tick, optionally scaled.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>value</b></td><td>float expression</td><td>Angle in degrees. When omitted, the angle set with AngleSet/AngleAdd/AngleMul is used.</td></tr>
+<tr><td><b>scale</b></td><td>2 float expressions</td><td>Horizontal and vertical drawing scale.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>A positive angle turns counter-clockwise when the player faces right.</li><li>Only the picture changes: collision boxes keep their unrotated shape.</li><li>Must be triggered every tick the rotation should be visible.</li></ul>
+<h3>Example</h3>
+<pre>[State 1200, Draw]
+type = AngleDraw
+trigger1 = 1
+scale = 1.2, 1.2</pre>

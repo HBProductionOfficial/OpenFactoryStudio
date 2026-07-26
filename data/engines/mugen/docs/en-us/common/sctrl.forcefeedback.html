@@ -1,0 +1,18 @@
+<h2>ForceFeedback</h2>
+<p>Makes a force feedback controller vibrate. Not implemented in 1.0.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>waveform</b></td><td>one of: Sine, Square, SineSquare, Off</td><td>Sine (large motor), Square (small motor), SineSquare (both) or Off.</td></tr>
+<tr><td><b>time</b></td><td>integer</td><td>Duration in ticks. Default 60.</td></tr>
+<tr><td><b>freq</b></td><td>integer and 3 numbers</td><td>Start value (0-255) and the coefficients of t, t squared and t cubed. Ignored by the engine.</td></tr>
+<tr><td><b>ampl</b></td><td>integer and 3 numbers</td><td>Start strength (0-255) and the coefficients of t, t squared and t cubed.</td></tr>
+<tr><td><b>self</b></td><td>integer</td><td>1 vibrates the own pad, 0 the opponent pad. Default 1.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>Unlike other controllers, its parameters must be constants, not expressions.</li></ul>
+<h3>Example</h3>
+<pre>[State 5000, Rumble]
+type = ForceFeedback
+trigger1 = Time = 0
+waveform = Square
+time = 10</pre>

@@ -1,0 +1,12 @@
+<h2>ChangeAnim</h2>
+<p>Switches the player to another animation.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>value</b></td><td>integer expression, <b>required</b></td><td>Number of the animation (action) to play.</td></tr>
+<tr><td><b>elem</b></td><td>integer expression</td><td>Element of that animation to start from. Default 1.</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State 200, Second half]
+type = ChangeAnim
+trigger1 = AnimTime = 0
+value = 201</pre>

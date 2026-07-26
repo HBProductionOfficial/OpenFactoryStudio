@@ -1,0 +1,16 @@
+<h2>AssertSpecial</h2>
+<p>Raises up to three engine flags. Flags only last one tick, so the controller has to run every tick they are needed.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>flag</b></td><td>one of: intro, invisible, roundnotover, nobardisplay, noBG, noFG, nostandguard, nocrouchguard, noairguard, noautoturn, nojugglecheck, nokosnd, nokoslow, noshadow, globalnoshadow, nomusic, nowalk, timerfreeze, unguardable, <b>required</b></td><td>First flag to raise (see the list below).</td></tr>
+<tr><td><b>flag2</b></td><td>one of: intro, invisible, roundnotover, nobardisplay, noBG, noFG, nostandguard, nocrouchguard, noairguard, noautoturn, nojugglecheck, nokosnd, nokoslow, noshadow, globalnoshadow, nomusic, nowalk, timerfreeze, unguardable</td><td>Optional second flag.</td></tr>
+<tr><td><b>flag3</b></td><td>one of: intro, invisible, roundnotover, nobardisplay, noBG, noFG, nostandguard, nocrouchguard, noairguard, noautoturn, nojugglecheck, nokosnd, nokoslow, noshadow, globalnoshadow, nomusic, nowalk, timerfreeze, unguardable</td><td>Optional third flag.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>Flags: <b>Intro</b> (intro pose is playing), <b>Invisible</b> (player not drawn), <b>RoundNotOver</b> (win pose still playing), <b>NoBarDisplay</b> (hide lifebars), <b>NoBG</b> / <b>NoFG</b> (hide the stage background / foreground), <b>NoStandGuard</b>, <b>NoCrouchGuard</b>, <b>NoAirGuard</b>, <b>NoAutoTurn</b>, <b>NoJuggleCheck</b>, <b>NoKOSnd</b> (no KO cry), <b>NoKOSlow</b> (no slow motion at the end of the round), <b>NoShadow</b>, <b>GlobalNoShadow</b> (no shadows for anyone), <b>NoMusic</b> (pause the music), <b>NoWalk</b>, <b>TimerFreeze</b> (round timer stops), <b>Unguardable</b> (the player's attacks cannot be guarded).</li></ul>
+<h3>Example</h3>
+<pre>[State 191, Intro]
+type = AssertSpecial
+trigger1 = 1
+flag = Intro
+flag2 = NoBarDisplay</pre>

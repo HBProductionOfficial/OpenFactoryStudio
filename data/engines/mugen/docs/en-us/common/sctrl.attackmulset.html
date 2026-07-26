@@ -1,0 +1,11 @@
+<h2>AttackMulSet</h2>
+<p>Sets the attack multiplier: every amount of damage the player deals is scaled by it.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>value</b></td><td>float expression, <b>required</b></td><td>Multiplier, 1 = normal damage.</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State -2, Power up]
+type = AttackMulSet
+trigger1 = Var(10) = 1
+value = 1.25</pre>

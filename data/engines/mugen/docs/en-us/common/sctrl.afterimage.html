@@ -1,0 +1,28 @@
+<h2>AfterImage</h2>
+<p>Turns on an afterimage trail: copies of earlier frames of the player are drawn behind it with their own palette effects.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>time</b></td><td>integer expression</td><td>Ticks the trail stays visible; -1 keeps it until stopped. Default 1.</td></tr>
+<tr><td><b>length</b></td><td>integer expression</td><td>Number of past frames kept in the trail buffer, at most 60. Default 20.</td></tr>
+<tr><td><b>palcolor</b></td><td>integer expression</td><td>Saturation of the copies, 0 (grey) to 256 (normal colours).</td></tr>
+<tr><td><b>palinvertall</b></td><td>expression, 0 or 1</td><td>Non-zero inverts the colours of the copies.</td></tr>
+<tr><td><b>palbright</b></td><td>3 integer expressions</td><td>Red, green, blue added to the copies before palcontrast.</td></tr>
+<tr><td><b>palcontrast</b></td><td>3 integer expressions</td><td>Red, green, blue multipliers (256 = 1.0) applied after palbright.</td></tr>
+<tr><td><b>palpostbright</b></td><td>3 integer expressions</td><td>Red, green, blue added after palcontrast.</td></tr>
+<tr><td><b>paladd</b></td><td>3 integer expressions</td><td>Red, green, blue added again for every step back in the trail, so older copies drift further.</td></tr>
+<tr><td><b>palmul</b></td><td>3 float expressions</td><td>Red, green, blue multipliers (floats) applied again for every step back in the trail.</td></tr>
+<tr><td><b>timegap</b></td><td>integer expression</td><td>A frame is stored in the trail buffer every timegap ticks. Default 1.</td></tr>
+<tr><td><b>framegap</b></td><td>integer expression</td><td>Only every framegap-th stored frame is drawn. Default 4.</td></tr>
+<tr><td><b>trans</b></td><td>one of: None, Add, Add1, Sub</td><td>Blending of the copies: None, Add, Add1 or Sub. Default None.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>Each copy receives palbright, palcontrast and palpostbright once, then paladd and palmul once more for every step it lies behind the newest frame.</li><li>Use AfterImageTime to shorten or stop a running trail.</li></ul>
+<h3>Example</h3>
+<pre>[State 1000, Trail]
+type = AfterImage
+trigger1 = Time = 0
+time = 30
+length = 12
+palbright = 0, 0, 0
+palcontrast = 200, 200, 256
+trans = Add</pre>

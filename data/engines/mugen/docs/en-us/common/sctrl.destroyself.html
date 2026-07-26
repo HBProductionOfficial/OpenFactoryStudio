@@ -1,0 +1,13 @@
+<h2>DestroySelf</h2>
+<p>Removes the helper that executes it. Normal players ignore it.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>recursive</b></td><td>expression, 0 or 1 <i>(1.1 and later)</i></td><td>When 1, helpers spawned by this helper are removed too.</td></tr>
+<tr><td><b>removeexplods</b></td><td>expression, 0 or 1 <i>(1.1 and later)</i></td><td>When 1, the explods of the helper (and of its descendants with recursive) are removed too.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>Nothing after it in the state is executed.</li><li>Players and explods bound to the helper are released; explods left behind keep playing.</li></ul>
+<h3>Example</h3>
+<pre>[State 6000, Gone]
+type = DestroySelf
+trigger1 = AnimTime = 0</pre>
