@@ -3249,27 +3249,6 @@
             <param name="p1.name.vfacing" type="int"/>
             <param name="p1.name.layerno" type="int"/>
             <param name="p1.name.scale" type="float2" optional="req,def"/>
-            <param name="p2.anim" type="int"/>
-            <param name="p2.spr" type="int2" optional="req,def"/>
-            <param name="p2.font" type="intvec" optional="req,def,def,def,def,def" max="6"/>
-            <param name="p2.text" type="ustring"/>
-            <param name="p2.offset" type="float2" optional="req,def"/>
-            <param name="p2.displaytime" type="int"/>
-            <param name="p2.facing" type="int"/>
-            <param name="p2.vfacing" type="int"/>
-            <param name="p2.layerno" type="int"/>
-            <param name="p2.scale" type="float2" optional="req,def"/>
-            <param name="p2.window" type="int4"/>
-            <param name="p2.name.anim" type="int"/>
-            <param name="p2.name.spr" type="int2" optional="req,def"/>
-            <param name="p2.name.font" type="intvec" optional="req,def,def,def,def,def" max="6"/>
-            <param name="p2.name.text" type="ustring"/>
-            <param name="p2.name.offset" type="float2" optional="req,def"/>
-            <param name="p2.name.displaytime" type="int"/>
-            <param name="p2.name.facing" type="int"/>
-            <param name="p2.name.vfacing" type="int"/>
-            <param name="p2.name.layerno" type="int"/>
-            <param name="p2.name.scale" type="float2" optional="req,def"/>
             <param name="winquote.anim" type="int"/>
             <param name="winquote.spr" type="int2" optional="req,def"/>
             <param name="winquote.font" type="intvec" optional="req,def,def,def,def,def" max="6"/>
