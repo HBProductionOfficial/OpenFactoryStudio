@@ -733,10 +733,10 @@ ProjectView* MainWindow::currentProjectView() const
 {
     if (m_projectTabs->count() == 0)
         return nullptr;
-    const QVariant data = m_projectTabs->tabData(m_projectTabs->currentIndex());
-    if (data.toString() == kWelcomeTab)
+    const QVariant tab = m_projectTabs->tabData(m_projectTabs->currentIndex());
+    if (tab.toString() == kWelcomeTab)
         return nullptr;
-    return qobject_cast<ProjectView*>(data.value<QObject*>());
+    return qobject_cast<ProjectView*>(tab.value<QObject*>());
 }
 
 QList<ProjectView*> MainWindow::projectViews() const
@@ -840,15 +840,15 @@ void MainWindow::closeProject(int tabIndex)
 {
     if (tabIndex < 0 || tabIndex >= m_projectTabs->count())
         return;
-    const QVariant data = m_projectTabs->tabData(tabIndex);
-    auto* view = qobject_cast<ProjectView*>(data.value<QObject*>());
+    const QVariant tab = m_projectTabs->tabData(tabIndex);
+    auto* view = qobject_cast<ProjectView*>(tab.value<QObject*>());
     if (view && !confirmClose(view))
         return;
     if (view && m_dock->parentWidget() && view->isAncestorOf(m_dock)) {
         m_dock->hide();
         m_dock->setParent(this);
     }
-    if (data.toString() == kWelcomeTab)
+    if (tab.toString() == kWelcomeTab)
         m_welcomeTab = false;
     m_projectTabs->removeTab(tabIndex);
     if (view) {

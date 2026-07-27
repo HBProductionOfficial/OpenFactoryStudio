@@ -181,7 +181,10 @@ private Q_SLOTS:
         QTest::newRow("ascii crlf") << QByteArray("[Data]\r\nlife = 1000\r\n") << "UTF-8";
         QTest::newRow("utf8 bom") << QByteArray("\xEF\xBB\xBFname = \"\xC3\xA9t\xC3\xA9\"\n") << "UTF-8";
         QTest::newRow("utf8 lf") << QByteArray("a = \"\xE2\x98\x85\"\nb = 1") << "UTF-8";
+#ifdef Q_OS_WIN
+        // windows-1252 on the western Windows systems we test on. Elsewhere UTF-8 cannot hold this byte.
         QTest::newRow("latin1") << QByteArray("name = \"caf\xE9\"\r\n") << "System";
+#endif
         QTest::newRow("utf16le") << QByteArray("\xFF\xFE"
                                                "a\0=\0"
                                                "1\0",

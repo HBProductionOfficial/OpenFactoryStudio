@@ -114,10 +114,10 @@ int ClipboardContainer::addCurrentClipboard(const QString& name)
 
 bool ClipboardContainer::putBack(int row)
 {
-    QMimeData* data = m_store->copy(row);
-    if (!data)
+    QMimeData* mime = m_store->copy(row);
+    if (!mime)
         return false;
-    QApplication::clipboard()->setMimeData(data);
+    QApplication::clipboard()->setMimeData(mime);
     return true;
 }
 

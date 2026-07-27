@@ -162,7 +162,7 @@ void CodeEditor::revealPosition(int position)
     if (block.isVisible())
         return;
     for (QTextBlock b = block; b.isValid(); b = b.previous()) {
-        if (auto* data = CodeBlockData::get(b); data && data->isHeader) {
+        if (auto* blockData = CodeBlockData::get(b); blockData && blockData->isHeader) {
             setFolded(b, false);
             break;
         }
@@ -203,16 +203,16 @@ void CodeEditor::toggleComment()
 
 bool CodeEditor::isFolded(int blockNumber) const
 {
-    const auto* data = CodeBlockData::get(document()->findBlockByNumber(blockNumber));
-    return data && data->isHeader && data->folded;
+    const auto* blockData = CodeBlockData::get(document()->findBlockByNumber(blockNumber));
+    return blockData && blockData->isHeader && blockData->folded;
 }
 
 void CodeEditor::setFolded(QTextBlock header, bool folded)
 {
-    auto* data = CodeBlockData::get(header);
-    if (!data || !data->isHeader)
+    auto* blockData = CodeBlockData::get(header);
+    if (!blockData || !blockData->isHeader)
         return;
-    data->folded = folded;
+    blockData->folded = folded;
     for (QTextBlock b = header.next(); b.isValid(); b = b.next()) {
         const auto* d = CodeBlockData::get(b);
         if (d && d->isHeader)
@@ -229,14 +229,14 @@ void CodeEditor::setFolded(QTextBlock header, bool folded)
 void CodeEditor::toggleFold(int blockNumber)
 {
     const QTextBlock block = document()->findBlockByNumber(blockNumber);
-    if (const auto* data = CodeBlockData::get(block); data && data->isHeader)
-        setFolded(block, !data->folded);
+    if (const auto* blockData = CodeBlockData::get(block); blockData && blockData->isHeader)
+        setFolded(block, !blockData->folded);
 }
 
 void CodeEditor::foldAll()
 {
     for (QTextBlock b = document()->begin(); b.isValid(); b = b.next()) {
-        if (const auto* data = CodeBlockData::get(b); data && data->isHeader)
+        if (const auto* blockData = CodeBlockData::get(b); blockData && blockData->isHeader)
             setFolded(b, true);
     }
 }
@@ -244,7 +244,7 @@ void CodeEditor::foldAll()
 void CodeEditor::unfoldAll()
 {
     for (QTextBlock b = document()->begin(); b.isValid(); b = b.next()) {
-        if (const auto* data = CodeBlockData::get(b); data && data->isHeader)
+        if (const auto* blockData = CodeBlockData::get(b); blockData && blockData->isHeader)
             setFolded(b, false);
     }
 }
@@ -480,7 +480,7 @@ void CodeEditor::paintGutter(QPaintEvent* event)
                                  QString::number(number + 1));
             }
             if (m_options.foldingMarkers) {
-                if (const auto* data = CodeBlockData::get(block); data && data->isHeader) {
+                if (const auto* blockData = CodeBlockData::get(block); blockData && blockData->isHeader) {
                     const int size = qMin(9, lineHeight - 4);
                     const QRect box(gutterWidth() - kFoldMarkerWidth + (kFoldMarkerWidth - size) / 2,
                                     int(top) + (lineHeight - size) / 2, size, size);
@@ -489,7 +489,7 @@ void CodeEditor::paintGutter(QPaintEvent* event)
                     painter.drawRect(box);
                     const int mid = box.center().y();
                     painter.drawLine(box.left() + 2, mid, box.right() - 2, mid);
-                    if (data->folded)
+                    if (blockData->folded)
                         painter.drawLine(box.center().x(), box.top() + 2, box.center().x(), box.bottom() - 2);
                 }
             }
