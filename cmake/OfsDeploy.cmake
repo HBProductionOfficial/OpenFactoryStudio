@@ -5,7 +5,7 @@ if(WIN32)
     if(OFS_WINDEPLOYQT)
         set(_ofs_deploy_cmds
             COMMAND "${OFS_WINDEPLOYQT}" --no-translations --no-system-d3d-compiler --no-compiler-runtime --svg
-                    --dir "${OFS_OUTPUT_DIR}" "$<TARGET_FILE:ofs>"
+                    --dir "${OFS_OUTPUT_DIR}" "$<TARGET_FILE:ofs>" "$<TARGET_FILE:ofscore>"
             # the tests run with the offscreen platform plugin
             COMMAND "${CMAKE_COMMAND}" -E copy_if_different
                     "${_ofs_qt_bin}/../plugins/platforms/qoffscreen$<$<CONFIG:Debug>:$<$<BOOL:${MSVC}>:d>>.dll"

@@ -38,6 +38,7 @@ struct SyntaxBlock
     QString minver;
     QString deprecated;
     bool required = false;
+    bool raw = false;          // free text without parameters ([Infobox Text], [Characters])
     QList<SyntaxParam> params;
 };
 
@@ -73,10 +74,15 @@ public:
     const SyntaxFileType* fileType(const QString& type) const;
     QStringList fileTypes() const;
 
+    QString sectionFor(const QString& fileType, const QString& header) const;
     // Outside state controllers a unique abbreviation of the type works too ("norm").
     const SyntaxBlock* findBlock(const QString& fileType, const QString& header, const QString& typeValue) const;
     bool isTypedSection(const QString& fileType, const QString& header) const;
+    bool hasPlainBlock(const QString& fileType, const QString& header) const;
     QStringList sectionTypes(const QString& fileType, const QString& header) const;
+
+    // Case-insensitive. The engine reads keywords by their first letters, so "Med" is "Medium".
+    static bool keywordMatches(const QStringList& keywords, const QString& word);
 
     QList<SyntaxParam> params(const QString& fileType, const SyntaxBlock& block) const;
     const SyntaxParam* param(const QString& fileType, const SyntaxBlock& block, const QString& name) const;
@@ -95,7 +101,7 @@ public:
     static bool headerMatchesSection(const QString& header, const QString& section);
 
 private:
-    const SyntaxBlock* resolveBase(const QString& fileType, const QString& base, QString* baseFileType) const;
+    const SyntaxBlock* resolveBase(const QString& fileType, const SyntaxBlock& block, QString* baseFileType) const;
     void collectParams(const QString& fileType, const SyntaxBlock& block, QList<SyntaxParam>& out, QSet<QString>& seen,
                        int depth) const;
 

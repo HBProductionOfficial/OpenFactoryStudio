@@ -96,7 +96,7 @@ int SyntaxValidator::errorCount(const IssueList& issues)
 bool SyntaxValidator::isBuiltIn(const QString& header) const
 {
     for (const QString& s : m_builtIn) {
-        if (SyntaxDatabase::headerMatchesSection(header, s))
+        if (SyntaxDatabase::headerMatchesSection(header.trimmed(), s))
             return true;
     }
     return false;
@@ -181,14 +181,7 @@ void SyntaxValidator::checkValue(const SyntaxParam& param, const QString& value,
             const QString word = part.trimmed();
             if (word.isEmpty())
                 continue;
-            bool known = false;
-            for (const QString& k : param.list) {
-                if (k.compare(word, Qt::CaseInsensitive) == 0) {
-                    known = true;
-                    break;
-                }
-            }
-            if (!known) {
+            if (!SyntaxDatabase::keywordMatches(param.list, word)) {
                 const int pos = int(value.indexOf(word));
                 issues << makeIssue(Issue::Severity::Error, line, offset + qMax(0, pos), int(word.size()),
                                     tr("Unknown keyword '%1'").arg(word));
@@ -234,7 +227,7 @@ IssueList SyntaxValidator::validate(const QString& text) const
     }
 
     for (const Section& s : std::as_const(sections)) {
-        const QString header = s.header.header;
+        const QString header = m_headerMapper ? m_headerMapper(s.header.header) : s.header.header;
         const bool typed = m_syntax.isTypedSection(m_fileType, header);
         QString typeValue;
         const ParsedLine* typeLine = nullptr;
@@ -247,7 +240,7 @@ IssueList SyntaxValidator::validate(const QString& text) const
                     break;
                 }
             }
-            if (!typeLine) {
+            if (!typeLine && !m_syntax.hasPlainBlock(m_fileType, header)) {
                 issues << makeIssue(Issue::Severity::Error, s.headerLine, s.header.headerStart, s.header.headerLength,
                                     tr("Missing required parameter 'type'"));
                 continue;
@@ -256,7 +249,7 @@ IssueList SyntaxValidator::validate(const QString& text) const
 
         const SyntaxBlock* block = m_syntax.findBlock(m_fileType, header, typeValue);
         if (!block) {
-            if (typed)
+            if (typeLine)
                 issues << makeIssue(Issue::Severity::Error, typeLine->number, typeLine->code.valueStart,
                                     int(typeLine->code.value.size()), tr("Unknown type '%1'").arg(typeValue));
             else if (!isBuiltIn(header))
@@ -265,21 +258,36 @@ IssueList SyntaxValidator::validate(const QString& text) const
             continue;
         }
 
+        if (typeLine && block->typeName.isEmpty()) {
+            if (!m_syntax.param(m_fileType, *block, QStringLiteral("type"))) {
+                issues << makeIssue(Issue::Severity::Error, typeLine->number, typeLine->code.valueStart,
+                                    int(typeLine->code.value.size()), tr("Unknown type '%1'").arg(typeValue));
+                continue;
+            }
+            typeLine = nullptr;
+        }
         const QString blockName = block->typeName.isEmpty() ? block->section : block->typeName;
         if (!SyntaxDatabase::availableIn(block->minver, m_version))
-            issues << makeIssue(Issue::Severity::Error, s.headerLine, s.header.headerStart, s.header.headerLength,
+            issues << makeIssue(Issue::Severity::Warning, s.headerLine, s.header.headerStart, s.header.headerLength,
                                 tr("Invalid block for current project version"));
         if (SyntaxDatabase::deprecatedIn(block->deprecated, m_version))
             issues << makeIssue(Issue::Severity::Deprecation, s.headerLine, s.header.headerStart, s.header.headerLength,
                                 tr("Block deprecated in %1").arg(block->deprecated));
-
+        if (block->raw)
+            continue;
         QSet<QString> seen;
         for (const ParsedLine& l : s.lines) {
             if (l.code.kind != CodeLine::Kind::KeyValue)
                 continue;
-            if (typed && &l == typeLine)
+            if (typeLine && &l == typeLine)
                 continue;
             const QString key = l.code.key;
+            if (!block->typeName.isEmpty() && key.compare(QLatin1String("type"), Qt::CaseInsensitive) == 0) {
+                // The section's type was read from its first "type" line.
+                issues << makeIssue(Issue::Severity::Warning, l.number, l.code.keyStart, l.code.keyLength,
+                                    tr("Duplicate parameter '%1' on group '%2'").arg(key, header));
+                continue;
+            }
             const SyntaxParam* param = m_syntax.param(m_fileType, *block, key);
             if (!param && typed) {
                 for (const SyntaxParam& p : m_typedParams) {
@@ -308,7 +316,7 @@ IssueList SyntaxValidator::validate(const QString& text) const
             }
             seen.insert(seenKey);
             if (!SyntaxDatabase::availableIn(param->minver, m_version))
-                issues << makeIssue(Issue::Severity::Error, l.number, l.code.keyStart, l.code.keyLength,
+                issues << makeIssue(Issue::Severity::Warning, l.number, l.code.keyStart, l.code.keyLength,
                                     tr("Invalid parameter for current project version"));
             if (SyntaxDatabase::deprecatedIn(param->deprecated, m_version))
                 issues << makeIssue(Issue::Severity::Deprecation, l.number, l.code.keyStart, l.code.keyLength,

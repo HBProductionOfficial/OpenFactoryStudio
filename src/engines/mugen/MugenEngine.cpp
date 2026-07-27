@@ -148,7 +148,7 @@ IssueList MugenEngine::validate(const Project& project, const QString& editorId,
     const SyntaxDatabase* db = syntax();
     if (fileType.isEmpty() || !db || db->isEmpty())
         return {};
-    return validateMugenCode(*db, fileType, project.versionId(), text);
+    return validateMugenCode(*db, fileType, project.isVersionDeclared() ? project.versionId() : QString(), text);
 }
 
 } // namespace OFS::Mugen

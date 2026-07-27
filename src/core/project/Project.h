@@ -34,6 +34,8 @@ public:
     QString typeId() const { return m_typeId; }
     QString typeName() const;
     QString versionId() const { return m_versionId; }
+    // False when the file does not state its engine version, so version checks are skipped.
+    bool isVersionDeclared() const { return m_versionDeclared; }
     QString versionName() const;
 
     QStringList editorIds() const { return m_editorIds; }
@@ -54,6 +56,7 @@ Q_SIGNALS:
 protected:
     void setTypeId(const QString& id) { m_typeId = id; }
     void setVersionId(const QString& id) { m_versionId = id; }
+    void setVersionDeclared(bool declared) { m_versionDeclared = declared; }
     void setEditorIds(const QStringList& ids) { m_editorIds = ids; }
     void setEditorFiles(const QString& editorId, const QStringList& files);
 
@@ -63,6 +66,7 @@ private:
     QString m_name;
     QString m_typeId;
     QString m_versionId;
+    bool m_versionDeclared = true;
     QStringList m_editorIds;
     QHash<QString, QStringList> m_editorFiles;
     QList<ProjectFile*> m_files;

@@ -6,6 +6,8 @@
 #include <QCoreApplication>
 #include <QRegularExpression>
 
+#include <algorithm>
+
 namespace OFS::Mugen {
 
 namespace {
@@ -76,9 +78,17 @@ void MugenExpressionChecker::check(const QString& text, int offset, const Contex
 
     const auto parts = ExpressionParser::splitTopLevel(text, offset);
     int expressions = int(parts.size());
-    if (type == QLatin1String("expkeyword") || type == QLatin1String("exp2keyword"))
-        expressions -= 1;
-    const int max = componentCount(type);
+    // expkeyword and exp2keyword: one or two expressions, then an optional keyword
+    // ("priority = 4" or "priority = 4, Hit").
+    if (type == QLatin1String("expkeyword") && parts.size() > 1)
+        expressions = 1;
+    else if (type == QLatin1String("exp2keyword") && parts.size() > 2)
+        expressions = 2;
+    int max = componentCount(type);
+    if (type == QLatin1String("expkeyword"))
+        max = 2;
+    else if (type == QLatin1String("exp2keyword"))
+        max = 3;
     if (max > 0 && parts.size() > max)
         addIssue(issues, context.line, offset, int(text.size()), tr("Too many values (%1 at most)").arg(max),
                  Issue::Severity::Warning);
@@ -89,14 +99,7 @@ void MugenExpressionChecker::check(const QString& text, int offset, const Contex
         if (i >= expressions) {
             const QString word = part.trimmed();
             if (!context.list.isEmpty()) {
-                bool known = false;
-                for (const QString& k : context.list) {
-                    if (k.compare(word, Qt::CaseInsensitive) == 0) {
-                        known = true;
-                        break;
-                    }
-                }
-                if (!known)
+                if (!SyntaxDatabase::keywordMatches(context.list, word))
                     addIssue(issues, context.line, parts[i].second + int(part.indexOf(word)), int(word.size()),
                              tr("Unknown keyword '%1'").arg(word));
             }
@@ -210,6 +213,35 @@ IssueList validateMugenCode(const SyntaxDatabase& syntax, const QString& fileTyp
     add("persistent", "expi");
     add("ignorehitpause", "expb");
     validator.setTypedSectionParams(common);
+
+    // A storyboard scene names its background with bg.name. "<name>Def", "<name> ...", "<name>CtrlDef"
+    // and "<name>Ctrl ..." are its BG sections.
+    if (fileType == QLatin1String("storyboard")) {
+        QStringList names;
+        static const QRegularExpression bgName(QStringLiteral("^\\s*bg\\.name\\s*=\\s*\"?([^\";\\r\\n]+)"),
+                                               QRegularExpression::CaseInsensitiveOption |
+                                                   QRegularExpression::MultilineOption);
+        for (auto it = bgName.globalMatch(text); it.hasNext();) {
+            const QString name = it.next().captured(1).trimmed();
+            if (!name.isEmpty() && !names.contains(name, Qt::CaseInsensitive))
+                names << name;
+        }
+        // Longer names first, so "Intro2" is not read as "Intro" followed by "2".
+        std::sort(names.begin(), names.end(), [](const QString& a, const QString& b) { return a.size() > b.size(); });
+        validator.setHeaderMapper([names](const QString& header) -> QString {
+            const QString h = header.trimmed();
+            for (const QString& name : names) {
+                if (!h.startsWith(name, Qt::CaseInsensitive))
+                    continue;
+                const QString rest = h.mid(name.size());
+                if (rest.isEmpty() || rest.at(0).isSpace() ||
+                    rest.startsWith(QLatin1String("Def"), Qt::CaseInsensitive) ||
+                    rest.startsWith(QLatin1String("Ctrl"), Qt::CaseInsensitive))
+                    return QStringLiteral("BG") + rest;
+            }
+            return header;
+        });
+    }
 
     IssueList issues = validator.validate(text);
 

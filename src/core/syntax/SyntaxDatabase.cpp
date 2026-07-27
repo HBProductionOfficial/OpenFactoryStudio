@@ -15,6 +15,29 @@ bool boolAttr(const QXmlStreamAttributes& a, const char* name)
     return Config::decodeBool(a.value(QLatin1String(name)).toString(), false);
 }
 
+int literalLength(const QString& pattern)
+{
+    return int(pattern.size() - pattern.count(QLatin1Char('*')));
+}
+
+// "[ja.Quotes]": localised sections carry a two-letter language prefix.
+QString withoutLanguage(const QString& header)
+{
+    const QString h = header.trimmed();
+    if (h.size() > 3 && h.at(2) == QLatin1Char('.') && h.at(0).isLetter() && h.at(1).isLetter() && !h.at(3).isSpace())
+        return h.mid(3);
+    return h;
+}
+
+QString firstWord(const QString& value)
+{
+    const QString v = value.trimmed();
+    qsizetype end = 0;
+    while (end < v.size() && !v.at(end).isSpace())
+        ++end;
+    return v.left(end);
+}
+
 QStringList listAttr(const QXmlStreamAttributes& a, const char* name)
 {
     QStringList out;
@@ -79,6 +102,7 @@ bool SyntaxDatabase::loadFromData(const QByteArray& xml, QString* error)
                 block.minver = ba.value(QLatin1String("minver")).toString();
                 block.deprecated = ba.value(QLatin1String("deprecated")).toString();
                 block.required = boolAttr(ba, "required");
+                block.raw = boolAttr(ba, "raw");
                 while (r.readNextStartElement()) {
                     if (r.name() == QLatin1String("param")) {
                         const auto pa = r.attributes();
@@ -180,37 +204,80 @@ bool SyntaxDatabase::headerMatchesSection(const QString& header, const QString& 
     return false;
 }
 
-const SyntaxBlock* SyntaxDatabase::findBlock(const QString& fileTypeName, const QString& header,
-                                             const QString& typeValue) const
+QString SyntaxDatabase::sectionFor(const QString& fileTypeName, const QString& header) const
 {
     const SyntaxFileType* ft = fileType(fileTypeName);
     if (!ft)
-        return nullptr;
-    const SyntaxBlock* best = nullptr;
-    qsizetype bestLength = -1;
+        return {};
+    const QString h = withoutLanguage(header);
+    QString best;
+    int bestLength = -1;
     for (const SyntaxBlock& b : ft->blocks) {
-        if (!headerMatchesSection(header, b.section))
-            continue;
-        if (!b.typeName.isEmpty()) {
-            if (typeValue.isEmpty() || !wildcardMatch(b.typeName, typeValue.trimmed()))
-                continue;
-        }
-        const qsizetype length = b.section.size() * 2 + (b.typeName.isEmpty() ? 0 : 1);
-        if (length > bestLength) {
-            best = &b;
+        const int length = literalLength(b.section);
+        if (length > bestLength && headerMatchesSection(h, b.section)) {
+            best = b.section;
             bestLength = length;
         }
     }
     return best;
 }
 
-bool SyntaxDatabase::isTypedSection(const QString& fileTypeName, const QString& header) const
+const SyntaxBlock* SyntaxDatabase::findBlock(const QString& fileTypeName, const QString& header,
+                                             const QString& typeValue) const
 {
     const SyntaxFileType* ft = fileType(fileTypeName);
-    if (!ft)
+    const QString section = sectionFor(fileTypeName, header);
+    if (!ft || section.isEmpty())
+        return nullptr;
+    const SyntaxBlock* plain = nullptr;
+    QList<const SyntaxBlock*> typed;
+    for (const SyntaxBlock& b : ft->blocks) {
+        if (b.section.compare(section, Qt::CaseInsensitive) != 0)
+            continue;
+        if (b.typeName.isEmpty()) {
+            if (!plain)
+                plain = &b;
+        } else {
+            typed << &b;
+        }
+    }
+    // The engine reads only the first word of the type ("truetype font").
+    const QString value = firstWord(typeValue);
+    if (typed.isEmpty() || value.isEmpty())
+        return plain;
+    for (const SyntaxBlock* b : std::as_const(typed)) {
+        if (wildcardMatch(b->typeName, value))
+            return b;
+    }
+    if (section.compare(QLatin1String("State"), Qt::CaseInsensitive) != 0) {
+        const SyntaxBlock* match = nullptr;
+        for (const SyntaxBlock* b : std::as_const(typed)) {
+            if (b->typeName.startsWith(value, Qt::CaseInsensitive)) {
+                if (match && match->typeName.compare(b->typeName, Qt::CaseInsensitive) != 0)
+                    return nullptr; // ambiguous
+                match = b;
+            }
+        }
+        if (match)
+            return match;
+    }
+    // No typed block: the untyped one, when the section has one ("[Def] type = bitmap").
+    return plain;
+}
+
+bool SyntaxDatabase::isTypedSection(const QString& fileTypeName, const QString& header) const
+{
+    return !sectionTypes(fileTypeName, header).isEmpty();
+}
+
+bool SyntaxDatabase::hasPlainBlock(const QString& fileTypeName, const QString& header) const
+{
+    const SyntaxFileType* ft = fileType(fileTypeName);
+    const QString section = sectionFor(fileTypeName, header);
+    if (!ft || section.isEmpty())
         return false;
     for (const SyntaxBlock& b : ft->blocks) {
-        if (!b.typeName.isEmpty() && headerMatchesSection(header, b.section))
+        if (b.typeName.isEmpty() && b.section.compare(section, Qt::CaseInsensitive) == 0)
             return true;
     }
     return false;
@@ -219,38 +286,77 @@ bool SyntaxDatabase::isTypedSection(const QString& fileTypeName, const QString& 
 QStringList SyntaxDatabase::sectionTypes(const QString& fileTypeName, const QString& header) const
 {
     QStringList types;
-    if (const SyntaxFileType* ft = fileType(fileTypeName)) {
-        for (const SyntaxBlock& b : ft->blocks) {
-            if (!b.typeName.isEmpty() && headerMatchesSection(header, b.section) && !types.contains(b.typeName))
-                types << b.typeName;
-        }
+    const SyntaxFileType* ft = fileType(fileTypeName);
+    const QString section = sectionFor(fileTypeName, header);
+    if (!ft || section.isEmpty())
+        return types;
+    for (const SyntaxBlock& b : ft->blocks) {
+        if (!b.typeName.isEmpty() && b.section.compare(section, Qt::CaseInsensitive) == 0 &&
+            !types.contains(b.typeName))
+            types << b.typeName;
     }
     return types;
 }
 
-const SyntaxBlock* SyntaxDatabase::resolveBase(const QString& fileTypeName, const QString& base,
+bool SyntaxDatabase::keywordMatches(const QStringList& keywords, const QString& word)
+{
+    const QString w = word.trimmed();
+    if (w.isEmpty())
+        return false;
+    int prefixMatches = 0;
+    for (const QString& k : keywords) {
+        if (k.compare(w, Qt::CaseInsensitive) == 0)
+            return true;
+        if (k.startsWith(w, Qt::CaseInsensitive))
+            ++prefixMatches;
+    }
+    return prefixMatches == 1;
+}
+
+const SyntaxBlock* SyntaxDatabase::resolveBase(const QString& fileTypeName, const SyntaxBlock& block,
                                                QString* baseFileType) const
 {
     QString file = fileTypeName;
-    QString name = base;
+    QString name = block.base;
     // "file.Block" refers to another file type when the prefix is a known file type.
-    const qsizetype dot = base.indexOf(QLatin1Char('.'));
-    if (dot > 0 && fileType(base.left(dot))) {
-        file = base.left(dot);
-        name = base.mid(dot + 1);
+    const qsizetype dot = name.indexOf(QLatin1Char('.'));
+    if (dot > 0 && fileType(name.left(dot))) {
+        file = name.left(dot);
+        name = name.mid(dot + 1);
     }
     *baseFileType = file;
     const SyntaxFileType* ft = fileType(file);
     if (!ft)
         return nullptr;
-    for (const SyntaxBlock& b : ft->blocks) {
-        if (b.name.compare(name, Qt::CaseInsensitive) == 0)
-            return &b;
+    auto byName = [ft](const QString& wanted) -> const SyntaxBlock* {
+        for (const SyntaxBlock& b : ft->blocks) {
+            if (b.name.compare(wanted, Qt::CaseInsensitive) == 0)
+                return &b;
+        }
+        return nullptr;
+    };
+    // 1. A block named like the base.
+    if (const SyntaxBlock* b = byName(name))
+        return b;
+    // Older files write typed blocks with dots: "BG.Normal" is "BG>Normal" and
+    // "BGCtrlDef.Visible" is "BGCtrl>Visible".
+    if (name.contains(QLatin1Char('.'))) {
+        const QString section = name.section(QLatin1Char('.'), 0, -2);
+        const QString type = name.section(QLatin1Char('.'), -1);
+        if (const SyntaxBlock* b = byName(section + QLatin1Char('>') + type))
+            return b;
+        if (section.endsWith(QLatin1String("CtrlDef"), Qt::CaseInsensitive)) {
+            if (const SyntaxBlock* b = byName(section.chopped(3) + QLatin1Char('>') + type))
+                return b;
+        }
+        name = type;
     }
-    QString typed = name;
-    typed.replace(QLatin1Char('.'), QLatin1Char('>'));
+    // 2. A typed block of the inheriting block's section.
+    if (const SyntaxBlock* b = byName(block.section + QLatin1Char('>') + name); b && b != &block)
+        return b;
+    // 3. Any typed block whose type is the base.
     for (const SyntaxBlock& b : ft->blocks) {
-        if (b.name.compare(typed, Qt::CaseInsensitive) == 0 || b.typeName.compare(name, Qt::CaseInsensitive) == 0)
+        if (b.typeName.compare(name, Qt::CaseInsensitive) == 0)
             return &b;
     }
     return nullptr;
@@ -269,7 +375,7 @@ void SyntaxDatabase::collectParams(const QString& fileTypeName, const SyntaxBloc
     if (block.base.isEmpty() || depth > 16)
         return;
     QString baseFile;
-    if (const SyntaxBlock* base = resolveBase(fileTypeName, block.base, &baseFile))
+    if (const SyntaxBlock* base = resolveBase(fileTypeName, block, &baseFile))
         collectParams(baseFile, *base, out, seen, depth + 1);
 }
 
@@ -357,14 +463,14 @@ int SyntaxDatabase::versionRank(const QString& version)
 
 bool SyntaxDatabase::availableIn(const QString& minver, const QString& projectVersion)
 {
-    if (minver.isEmpty())
+    if (minver.isEmpty() || projectVersion.trimmed().isEmpty())
         return true;
     return versionRank(projectVersion) >= versionRank(minver);
 }
 
 bool SyntaxDatabase::deprecatedIn(const QString& deprecated, const QString& projectVersion)
 {
-    if (deprecated.isEmpty())
+    if (deprecated.isEmpty() || projectVersion.trimmed().isEmpty())
         return false;
     return versionRank(projectVersion) >= versionRank(deprecated);
 }

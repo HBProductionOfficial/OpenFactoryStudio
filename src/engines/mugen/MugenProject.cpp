@@ -21,6 +21,7 @@ bool MugenProject::load(QString* error)
     }
     setTypeId(detectType(def));
     setVersionId(detectVersion(def));
+    setVersionDeclared(!def.value(QStringLiteral("Info"), QStringLiteral("mugenversion")).trimmed().isEmpty());
     setEditorIds(editorsForType(typeId()));
 
     QString name = def.value(QStringLiteral("Info"), QStringLiteral("name"));

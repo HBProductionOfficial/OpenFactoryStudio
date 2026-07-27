@@ -7,6 +7,8 @@
 #include <QString>
 #include <QStringList>
 
+#include <functional>
+
 namespace OFS {
 
 // Checks expression values. The default only checks that parentheses and quotes are balanced.
@@ -41,6 +43,8 @@ public:
     void setRepeatableParams(const QStringList& params) { m_repeatable = params; }
     // e.g. triggerall, trigger1..n, persistent and ignorehitpause for state controllers.
     void setTypedSectionParams(const QList<SyntaxParam>& params) { m_typedParams = params; }
+    // Storyboards name their background sections after the scene's bg.name.
+    void setHeaderMapper(std::function<QString(const QString&)> mapper) { m_headerMapper = std::move(mapper); }
 
     IssueList validate(const QString& text) const;
 
@@ -58,6 +62,7 @@ private:
     QStringList m_builtIn;
     QStringList m_repeatable;
     QList<SyntaxParam> m_typedParams;
+    std::function<QString(const QString&)> m_headerMapper;
 };
 
 } // namespace OFS
