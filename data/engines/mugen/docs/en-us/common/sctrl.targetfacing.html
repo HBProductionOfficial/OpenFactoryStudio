@@ -1,0 +1,12 @@
+<h2>TargetFacing</h2>
+<p>Turns the targets relative to the player.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>value</b></td><td>integer expression, <b>required</b></td><td>Positive: same direction as the player; negative: the opposite direction.</td></tr>
+<tr><td><b>ID</b></td><td>integer expression</td><td>Only targets with this id; -1 for all.</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State 810, Turn victim]
+type = TargetFacing
+trigger1 = Time = 0
+value = -1</pre>

@@ -1,0 +1,15 @@
+<h2>AppendToClipboard</h2>
+<p>Debugging aid: adds a formatted line to the player clipboard shown in debug mode (Ctrl+D), keeping the text already there.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>text</b></td><td>quoted text, <b>required</b></td><td>Message in double quotes, printf style: %d or %i for an integer, %f, %e or %g for a float, %% for a percent sign, \n for a new line and \t for a tab.</td></tr>
+<tr><td><b>params</b></td><td>list of expressions</td><td>Up to six expressions, one per placeholder in text, in order.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>Same parameters and format rules as DisplayToClipboard.</li></ul>
+<h3>Example</h3>
+<pre>[State 0, Log]
+type = AppendToClipboard
+trigger1 = 1
+text = "life %d"
+params = Life</pre>

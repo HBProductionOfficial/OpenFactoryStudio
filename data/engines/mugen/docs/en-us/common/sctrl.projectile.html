@@ -1,0 +1,51 @@
+<h2>Projectile</h2>
+<p>Fires a projectile. It accepts every HitDef parameter, which describes the hit it carries, plus the projectile parameters below.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>ProjID</b></td><td>integer expression</td><td>ID used by the projectile triggers.</td></tr>
+<tr><td><b>projanim</b></td><td>integer expression</td><td>Animation while flying. Default 0.</td></tr>
+<tr><td><b>projhitanim</b></td><td>integer expression</td><td>Animation played when it hits. Default -1 (keep the current one).</td></tr>
+<tr><td><b>projremanim</b></td><td>integer expression</td><td>Animation played when it is removed. Defaults to projhitanim.</td></tr>
+<tr><td><b>projcancelanim</b></td><td>integer expression</td><td>Animation played when another projectile cancels it. Defaults to projremanim.</td></tr>
+<tr><td><b>projscale</b></td><td>2 float expressions</td><td>X and y scale, combined with proj.doscale of the [Size] group.</td></tr>
+<tr><td><b>projremove</b></td><td>expression, 0 or 1</td><td>0 keeps the projectile after it hits. Default 1.</td></tr>
+<tr><td><b>projremovetime</b></td><td>integer expression</td><td>Ticks before automatic removal; -1 never. Default -1.</td></tr>
+<tr><td><b>velocity</b></td><td>2 float expressions</td><td>Initial x and y velocity.</td></tr>
+<tr><td><b>remvelocity</b></td><td>2 float expressions</td><td>Velocity while the removal animation plays.</td></tr>
+<tr><td><b>accel</b></td><td>2 float expressions</td><td>X and y acceleration.</td></tr>
+<tr><td><b>velmul</b></td><td>2 float expressions</td><td>Velocity multipliers applied every tick. Default 1,1.</td></tr>
+<tr><td><b>projhits</b></td><td>integer expression</td><td>Hits it can deal before it is removed. Default 1.</td></tr>
+<tr><td><b>projmisstime</b></td><td>integer expression</td><td>Ticks between two hits of a multi-hit projectile.</td></tr>
+<tr><td><b>projpriority</b></td><td>integer expression</td><td>Clash priority: equal priorities cancel, a higher one wins and loses 1. Default 1.</td></tr>
+<tr><td><b>projsprpriority</b></td><td>integer expression</td><td>Drawing priority. Default 3.</td></tr>
+<tr><td><b>projedgebound</b></td><td>integer expression</td><td>Distance off the screen edge at which it is removed.</td></tr>
+<tr><td><b>projstagebound</b></td><td>integer expression</td><td>Distance off the stage edge at which it is removed.</td></tr>
+<tr><td><b>projheightbound</b></td><td>2 integer expressions</td><td>Lowest and highest y it may reach.</td></tr>
+<tr><td><b>offset</b></td><td>2 float expressions</td><td>Creation offset, relative to postype.</td></tr>
+<tr><td><b>postype</b></td><td>one of: P1, P2, Front, Back, Left, Right</td><td>What offset is measured from: P1, P2, Front, Back, Left or Right.</td></tr>
+<tr><td><b>projshadow</b></td><td>3 integer expressions</td><td>Non-zero draws a shadow (before 1.1: an r,g,b shadow colour).</td></tr>
+<tr><td><b>supermovetime</b></td><td>integer expression</td><td>Ticks it may move during a SuperPause.</td></tr>
+<tr><td><b>pausemovetime</b></td><td>integer expression</td><td>Ticks it may move during a Pause.</td></tr>
+<tr><td><b>ownpal</b></td><td>expression, 0 or 1 <i>(1.1 and later)</i></td><td>1 makes it ignore later PalFX and RemapPal of its owner.</td></tr>
+<tr><td><b>remappal</b></td><td>2 integer expressions <i>(1.1 and later)</i></td><td>Palette group and item it is drawn with, when ownpal is set.</td></tr>
+</table>
+<p>It also accepts every parameter of <b>HitDef</b>.</p>
+<h3>Notes</h3>
+<ul><li>afterimage.* parameters add an afterimage trail; they work like the AfterImage parameters.</li><li>Projectiles created by helpers belong to the root.</li></ul>
+<h3>Example</h3>
+<pre>[State 1000, Fireball]
+type = Projectile
+trigger1 = AnimElem = 3
+ProjID = 1000
+projanim = 1005
+projhitanim = 1006
+velocity = 5, 0
+offset = 30, -55
+attr = S, SP
+damage = 60, 8
+animtype = Hard
+guardflag = MA
+pausetime = 0, 12
+sparkxy = -5, 0
+ground.velocity = -6
+air.velocity = -4, -3</pre>

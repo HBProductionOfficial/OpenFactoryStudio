@@ -1,0 +1,16 @@
+<h2>GameMakeAnim</h2>
+<p>Old way to play a fightfx animation such as a spark. Superseded by Explod.</p>
+<p><i>Deprecated since 1.0.</i></p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>value</b></td><td>integer expression</td><td>Fightfx animation number. Default 0.</td></tr>
+<tr><td><b>under</b></td><td>expression, 0 or 1</td><td>1 draws it behind the players.</td></tr>
+<tr><td><b>pos</b></td><td>2 float expressions</td><td>Offset from the player axis.</td></tr>
+<tr><td><b>random</b></td><td>integer expression</td><td>Range of a random displacement in x and y.</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State 1000, Old spark]
+type = GameMakeAnim
+trigger1 = Time = 5
+value = 2
+pos = 30, -50</pre>

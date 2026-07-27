@@ -1,0 +1,14 @@
+<h2>VictoryQuote</h2>
+<p>Chooses which quote of the [Quotes] group appears on the next victory screen.</p>
+<p><i>Available from M.U.G.E.N 1.0.</i></p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>value</b></td><td>integer expression</td><td>Quote index from 0 to 99; an invalid index picks one at random. Default -1.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>Only the winner counts, and helpers cannot use it.</li></ul>
+<h3>Example</h3>
+<pre>[State 181, Quote]
+type = VictoryQuote
+trigger1 = Time = 0
+value = 2</pre>

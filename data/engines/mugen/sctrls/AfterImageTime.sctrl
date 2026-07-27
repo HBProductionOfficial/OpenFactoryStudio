@@ -1,0 +1,8 @@
+; AfterImageTime: Changes how long the current afterimage effect lasts
+[State 0, AfterImageTime]
+type = AfterImageTime
+trigger1 =
+time = 1                        ; duration in ticks
+;value = 0                      ; duration in ticks
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

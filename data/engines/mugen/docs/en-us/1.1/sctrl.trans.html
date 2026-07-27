@@ -1,0 +1,15 @@
+<h2>Trans</h2>
+<p>Overrides the blending of the player for the current tick.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>trans</b></td><td>one of: Default, None, Add, AddAlpha, Add1, Sub, <b>required</b></td><td>Default (no change), None, Add, AddAlpha, Add1 or Sub.</td></tr>
+<tr><td><b>alpha</b></td><td>2 integer expressions</td><td>Source and destination weights from 0 to 256 for the additive modes.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>In 1.1 write trans = Add with an alpha pair: the default alpha is 256,256. AddAlpha (default 256,0) and Add1 (256,128) still work but are deprecated. Sub always uses 256,256.</li></ul>
+<h3>Example</h3>
+<pre>[State 1700, Fade in]
+type = Trans
+trigger1 = Time &lt; 64
+trans = Add
+alpha = Time * 4, 256 - Time * 4</pre>

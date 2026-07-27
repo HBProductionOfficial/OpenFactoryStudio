@@ -1,0 +1,17 @@
+; SuperPause: Dramatic pause for super moves that darkens the screen
+[State 0, SuperPause]
+type = SuperPause
+trigger1 =
+;time = 30                      ; duration in ticks
+;anim = 30                      ; animation number
+;sound = -1                     ; group, item (S = own SND)
+;pos = 0, 0                     ; x, y
+;darken = 1                     ; 0 = no darkening
+;p2defmul = 0                   ; defence multiplier of targets
+;poweradd = 0                   ; power added
+;unhittable = 1                 ; 0 = can be hit
+;endcmdbuftime = 0              ; command buffer at end (WinMUGEN+)
+;movetime = 0                   ; ticks the player may still move
+;pausebg = 1                    ; 0 = stage keeps moving (WinMUGEN+)
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

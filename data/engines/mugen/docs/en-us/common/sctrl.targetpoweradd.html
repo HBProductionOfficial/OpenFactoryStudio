@@ -1,0 +1,12 @@
+<h2>TargetPowerAdd</h2>
+<p>Adds to the power of the targets.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>value</b></td><td>integer expression, <b>required</b></td><td>Power to add.</td></tr>
+<tr><td><b>ID</b></td><td>integer expression</td><td>Only targets with this id; -1 for all.</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State 810, Drain]
+type = TargetPowerAdd
+trigger1 = Time = 0
+value = -200</pre>

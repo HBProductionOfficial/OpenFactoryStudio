@@ -1,0 +1,9 @@
+; BindToRoot: Keeps a helper at a position relative to its root
+[State 0, BindToRoot]
+type = BindToRoot
+trigger1 =
+;time = 1                       ; duration in ticks
+;facing = 1                     ; 1 or -1
+;pos = 0, 0                     ; x, y
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

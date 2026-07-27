@@ -1,0 +1,6 @@
+; HitFallVel: Applies the fall velocities of the received hit
+[State 0, HitFallVel]
+type = HitFallVel
+trigger1 =
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

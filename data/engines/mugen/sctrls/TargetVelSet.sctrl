@@ -1,0 +1,9 @@
+; TargetVelSet: Sets the velocity of targets
+[State 0, TargetVelSet]
+type = TargetVelSet
+trigger1 =
+x = 0                           ; x component
+y = 0                           ; y component
+;ID = 0                         ; identifier
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

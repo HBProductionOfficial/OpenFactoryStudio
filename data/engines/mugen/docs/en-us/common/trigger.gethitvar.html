@@ -1,0 +1,14 @@
+<h2>GetHitVar</h2>
+<p>While the player is being hit, returns a value of the hit it received.</p>
+<h3>Format</h3>
+<pre>GetHitVar(name)</pre>
+<h3>Arguments</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>name</b></td><td>One of: xveladd, yveladd, type, animtype, airtype, groundtype, damage, hitcount, fallcount, hitshaketime, hittime, slidetime, ctrltime, recovertime, xoff, yoff, zoff, xvel, yvel, yaccel, hitid, chainid, guarded, isbound, fall, fall.damage, fall.xvel, fall.yvel, fall.recover, fall.time, fall.recovertime, fall.kill, fall.envshake.time, fall.envshake.freq, fall.envshake.ampl, fall.envshake.phase.</td></tr>
+</table>
+<h3>Returns</h3>
+<p>int or float, depending on the value</p>
+<h3>Notes</h3>
+<ul><li>type is 0 none, 1 high, 2 low, 3 trip; animtype is 0 light to 5 diagonal up.</li><li>GetHitVar(hittime) &lt; 0 is the same as HitOver.</li></ul>
+<h3>Example</h3>
+<pre>trigger1 = GetHitVar(animtype) &gt;= 3</pre>

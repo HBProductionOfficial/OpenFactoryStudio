@@ -1,0 +1,16 @@
+<h2>BindToParent</h2>
+<p>Keeps a helper glued to a point relative to its parent. Does nothing for normal players.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>time</b></td><td>integer expression</td><td>Ticks the binding lasts. Default 1.</td></tr>
+<tr><td><b>facing</b></td><td>integer expression</td><td>1: always face the same way as the parent, -1: always face away, 0: keep the current facing. Default 0.</td></tr>
+<tr><td><b>pos</b></td><td>2 float expressions</td><td>X and y offset from the parent axis. Default 0,0.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>The binding ends early if the parent disappears.</li></ul>
+<h3>Example</h3>
+<pre>[State 6000, Follow]
+type = BindToParent
+trigger1 = 1
+time = 1
+pos = 20, -40</pre>

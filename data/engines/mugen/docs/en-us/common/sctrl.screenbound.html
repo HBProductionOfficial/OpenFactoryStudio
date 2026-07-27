@@ -1,0 +1,13 @@
+<h2>ScreenBound</h2>
+<p>Decides for one tick whether the player is kept on screen and whether the camera follows it.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>value</b></td><td>expression, 0 or 1</td><td>0 lets the player leave the screen, 1 keeps it inside. Default 0.</td></tr>
+<tr><td><b>movecamera</b></td><td>2 0/1 expressions</td><td>1 lets the camera follow the player horizontally, then vertically. Default 0,0.</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State 6000, Free]
+type = ScreenBound
+trigger1 = 1
+value = 0
+movecamera = 0, 0</pre>

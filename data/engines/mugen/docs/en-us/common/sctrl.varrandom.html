@@ -1,0 +1,13 @@
+<h2>VarRandom</h2>
+<p>Stores a random integer in an int variable.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>v</b></td><td>integer expression, <b>required</b></td><td>Number of the int variable.</td></tr>
+<tr><td><b>range</b></td><td>2 integer expressions</td><td>Lowest and highest value. With one number n the range is 0 to n. Default 0,1000.</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State 0, Dice]
+type = VarRandom
+trigger1 = Time = 0
+v = 5
+range = 1, 6</pre>

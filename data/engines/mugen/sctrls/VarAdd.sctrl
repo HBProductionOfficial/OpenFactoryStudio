@@ -1,0 +1,13 @@
+; VarAdd: Adds to a variable
+[State 0, VarAdd]
+type = VarAdd
+trigger1 =
+v = 0                           ; int variable number
+value = 0                       ; value added
+;fv = 0                         ; float variable number
+;var(0) = 0                     ; var(n) = value
+;fvar(0) = 0                    ; fvar(n) = value
+;sysvar(0) = 0                  ; sysvar(n) = value
+;sysfvar(0) = 0                 ; sysfvar(n) = value
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

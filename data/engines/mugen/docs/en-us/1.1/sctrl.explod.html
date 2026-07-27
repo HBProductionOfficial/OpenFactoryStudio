@@ -1,0 +1,49 @@
+<h2>Explod</h2>
+<p>Creates an explod: an independent animation such as a spark, dust or a full-screen overlay. In 1.1 an explod lives either in stage space (moves and zooms with the camera) or in screen space, and can follow a player or helper with bindID.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>anim</b></td><td>integer expression, F prefix allowed, <b>required</b></td><td>Animation to play. Prefix it with F to take it from the common fight effects (fightfx) instead of the player AIR file.</td></tr>
+<tr><td><b>ID</b></td><td>integer expression</td><td>ID used by RemoveExplod, ModifyExplod, ExplodBindTime and NumExplod.</td></tr>
+<tr><td><b>space</b></td><td>one of: Screen, Stage</td><td>Screen (fixed to the screen, not affected by camera movement or zoom) or Stage (placed in the world). Default Stage.</td></tr>
+<tr><td><b>pos</b></td><td>2 float expressions</td><td>Position: an offset from the bind point when the explod is bound, otherwise the creation point.</td></tr>
+<tr><td><b>postype</b></td><td>one of: P1, P2, Front, Back, Left, Right, None <i>(deprecated since 1.1)</i></td><td>Before 1.1: what pos is measured from. P1 and P2 use that player axis; Front and Back use the screen edge P1 faces or turns away from; Left and Right use the screen corners. None (1.1) means an absolute position.</td></tr>
+<tr><td><b>facing</b></td><td>integer expression</td><td>1 faces the direction of positive x of pos, -1 the other way. Default 1.</td></tr>
+<tr><td><b>vfacing</b></td><td>integer expression</td><td>-1 draws the explod upside down. Default 1.</td></tr>
+<tr><td><b>bindID</b></td><td>integer expression</td><td>Player or helper ID to follow; -1 any player, -2 no binding (default). Screen space explods cannot be bound.</td></tr>
+<tr><td><b>bindtime</b></td><td>integer expression</td><td>Ticks the explod stays attached to its bind point; -1 until removed.</td></tr>
+<tr><td><b>vel</b></td><td>2 float expressions</td><td>Initial x and y velocity, relative to the explod facing.</td></tr>
+<tr><td><b>velocity</b></td><td>2 float expressions</td><td>Accepted as another name for vel.</td></tr>
+<tr><td><b>accel</b></td><td>2 float expressions</td><td>X and y acceleration.</td></tr>
+<tr><td><b>random</b></td><td>2 integer expressions <i>(deprecated since 1.1)</i></td><td>Random displacement range of the creation point in x and y.</td></tr>
+<tr><td><b>removetime</b></td><td>integer expression</td><td>Ticks before removal. -1 never, -2 when the animation ends (default).</td></tr>
+<tr><td><b>supermove</b></td><td>expression, 0 or 1 <i>(deprecated since WinMUGEN)</i></td><td>Old way to keep the explod alive during a SuperPause; use supermovetime.</td></tr>
+<tr><td><b>supermovetime</b></td><td>integer expression</td><td>Ticks the explod keeps animating during a SuperPause. Default 0.</td></tr>
+<tr><td><b>pausemovetime</b></td><td>integer expression</td><td>Ticks the explod keeps animating during a Pause. Default 0.</td></tr>
+<tr><td><b>scale</b></td><td>2 float expressions</td><td>Horizontal and vertical scale. Default 1,1.</td></tr>
+<tr><td><b>angle</b></td><td>float expression</td><td>Rotation in degrees.</td></tr>
+<tr><td><b>yangle</b></td><td>float expression</td><td>Rotation around the vertical axis, in degrees.</td></tr>
+<tr><td><b>xangle</b></td><td>float expression</td><td>Rotation around the horizontal axis, in degrees.</td></tr>
+<tr><td><b>sprpriority</b></td><td>integer expression</td><td>Drawing priority; higher values are drawn in front. Default 0.</td></tr>
+<tr><td><b>ontop</b></td><td>expression, 0 or 1</td><td>1 draws the explod above everything, including the stage foreground. Overrides sprpriority.</td></tr>
+<tr><td><b>shadow</b></td><td>3 integer expressions</td><td>Non-zero draws a shadow (before 1.1 the value was an r,g,b shadow colour).</td></tr>
+<tr><td><b>ownpal</b></td><td>expression, 0 or 1</td><td>1 keeps the explod colours independent of later PalFX and RemapPal on the player. Fightfx explods use their own palette anyway.</td></tr>
+<tr><td><b>remappal</b></td><td>2 integer expressions</td><td>Palette group and item the explod is drawn with, when ownpal is set. -1 ignores it.</td></tr>
+<tr><td><b>removeongethit</b></td><td>expression, 0 or 1</td><td>1 removes the explod when the player is hit.</td></tr>
+<tr><td><b>ignorehitpause</b></td><td>expression, 0 or 1</td><td>1 (default) keeps the explod animating while its owner is in a hit pause.</td></tr>
+<tr><td><b>trans</b></td><td>one of: Default, None, Add, AddAlpha, Add1, Sub</td><td>Overrides the animation blending: Default, None, Add, AddAlpha, Add1 or Sub.</td></tr>
+<tr><td><b>alpha</b></td><td>2 integer expressions</td><td>Source and destination weights (0-256) for the additive modes.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>Without bindID, pos is an absolute position: from the stage centre at ground level in stage space, from the top-left corner in screen space (see ScreenWidth and ScreenHeight).</li><li>postype and random are deprecated. For postype = P1 use pos = Pos X + CameraPos X, Pos Y with facing = Facing; for the screen edges use space = Screen with 0 or ScreenWidth as x.</li><li>The angle, xangle and yangle parameters may still change in later 1.1 builds.</li></ul>
+<h3>Example</h3>
+<pre>[State 1000, Spark]
+type = Explod
+trigger1 = AnimElem = 3
+anim = 1050
+ID = 1050
+space = Stage
+bindID = ID
+bindtime = -1
+pos = 40, -60
+removetime = -2
+sprpriority = 3</pre>

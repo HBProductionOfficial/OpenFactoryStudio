@@ -1,0 +1,13 @@
+<h2>BindToTarget</h2>
+<p>Keeps the player at a point relative to one of its targets.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>time</b></td><td>integer expression</td><td>Ticks the binding lasts. Default 1.</td></tr>
+<tr><td><b>ID</b></td><td>integer expression</td><td>Target ID to bind to; -1 picks any target. Default -1.</td></tr>
+<tr><td><b>pos</b></td><td>2 expressions, then Foot, Mid, Head</td><td>X and y offset, optionally followed by the anchor on the target: Foot (axis, the default), Mid or Head (from the target size constants mid.pos and head.pos).</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State 900, Ride]
+type = BindToTarget
+trigger1 = 1
+pos = 0, -10, Head</pre>

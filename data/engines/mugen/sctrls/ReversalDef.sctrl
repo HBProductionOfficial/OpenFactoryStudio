@@ -1,0 +1,13 @@
+; ReversalDef: Counters attacks that touch the player's attack boxes
+[State 0, ReversalDef]
+type = ReversalDef
+trigger1 =
+reversal.attr = SCA, NA, SA     ; attacks that can be reversed
+;pausetime = 8, 8               ; P1 pause, P2 shake
+;sparkno = 0                    ; spark anim (S = own AIR)
+;sparkxy = 0, 0                 ; spark x (from P2 front), y
+;hitsound = 0, 0                ; group, item (S = own SND)
+;p1stateno = 0                  ; P1 state after the hit
+;p2stateno = 0                  ; P2 state after the hit (custom state)
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

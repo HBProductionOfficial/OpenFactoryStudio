@@ -1,0 +1,15 @@
+<h2>RemapPal</h2>
+<p>Draws every sprite that uses one palette with another palette of the player.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>source</b></td><td>2 integer expressions</td><td>Group and item of the palette to replace. -1 remaps every indexed sprite.</td></tr>
+<tr><td><b>dest</b></td><td>2 integer expressions</td><td>Group and item of the palette to use. -1 removes the mapping of source.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>Mappings do not chain: mapping A to B and B to C does not map A to C.</li><li>In 1.1 a player can hold up to 8 mappings at once.</li></ul>
+<h3>Example</h3>
+<pre>[State 1500, Alternate colours]
+type = RemapPal
+trigger1 = Time = 0
+source = 1, 1
+dest = 1, 4</pre>

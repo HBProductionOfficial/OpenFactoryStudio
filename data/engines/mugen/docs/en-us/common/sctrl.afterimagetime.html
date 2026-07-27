@@ -1,0 +1,14 @@
+<h2>AfterImageTime</h2>
+<p>Changes the remaining duration of the afterimage trail that is currently running.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>time</b></td><td>integer expression</td><td>New duration in ticks; 0 ends the trail.</td></tr>
+<tr><td><b>value</b></td><td>integer expression</td><td>Same as time (alternative name).</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>Has no effect when no afterimage is active.</li><li>With a timegap other than 1 in the AfterImage controller, the stored frames may jump.</li></ul>
+<h3>Example</h3>
+<pre>[State 1000, End trail]
+type = AfterImageTime
+trigger1 = AnimTime = 0
+time = 0</pre>

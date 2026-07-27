@@ -1,0 +1,20 @@
+<h2>VarAdd</h2>
+<p>Adds to a variable of the player.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>v</b></td><td>integer expression</td><td>Number of the int variable (0-59).</td></tr>
+<tr><td><b>fv</b></td><td>integer expression</td><td>Number of the float variable (0-39).</td></tr>
+<tr><td><b>value</b></td><td>expression</td><td>Value to use: an int expression with v, a float expression with fv.</td></tr>
+<tr><td><b>var(n)</b></td><td>integer expression</td><td>Short form: <code>var(n) = value</code>.</td></tr>
+<tr><td><b>fvar(n)</b></td><td>float expression</td><td>Short form: <code>fvar(n) = value</code>.</td></tr>
+<tr><td><b>sysvar(n)</b></td><td>integer expression</td><td>Short form for system int variables (0-4), reserved for common1.cns.</td></tr>
+<tr><td><b>sysfvar(n)</b></td><td>float expression</td><td>Short form for system float variables (0-4), reserved for common1.cns.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>In a custom state, variables belong to the player held in the state: avoid touching them.</li></ul>
+<h3>Example</h3>
+<pre>[State -2, Counter]
+type = VarAdd
+trigger1 = MoveHit = 1
+v = 20
+value = 1</pre>

@@ -1,0 +1,8 @@
+; VelMul: Multiplies the player's velocity
+[State 0, VelMul]
+type = VelMul
+trigger1 =
+x = 0                           ; x component
+y = 0                           ; y component
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

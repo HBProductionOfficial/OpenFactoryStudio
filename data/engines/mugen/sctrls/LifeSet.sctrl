@@ -1,0 +1,7 @@
+; LifeSet: Sets the player's life
+[State 0, LifeSet]
+type = LifeSet
+trigger1 =
+value = 0                       ; new life
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

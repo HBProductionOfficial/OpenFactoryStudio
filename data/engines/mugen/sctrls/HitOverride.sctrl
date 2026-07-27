@@ -1,0 +1,11 @@
+; HitOverride: Sends the player to a custom state when hit by matching attacks
+[State 0, HitOverride]
+type = HitOverride
+trigger1 =
+attr = SCA, AA                  ; state type, attack class
+stateno = 0                     ; state number
+;slot = 0                       ; 0-7
+;time = 1                       ; duration in ticks
+;forceair = 0                   ; 1 = treat as airborne
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

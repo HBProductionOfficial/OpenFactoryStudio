@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<snippet>
+    <field name="charname" title="Name" type="string"/>
+    <field name="display" title="Display name" type="string"/>
+    <field name="date" title="Version date (MM,DD,YYYY)" type="string"/>
+    <field name="author" title="Author" type="string"/>
+    <code><![CDATA[[Info]
+name = "@charname"
+displayname = "@display"
+versiondate = @date
+mugenversion = 1.0
+author = "@author"
+pal.defaults = 1,2,3,4   ; Preferred palettes, best first
+localcoord = 320,240     ; Coordinate space the character was made for
+]]></code>
+</snippet>

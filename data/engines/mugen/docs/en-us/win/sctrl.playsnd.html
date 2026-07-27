@@ -1,0 +1,22 @@
+<h2>PlaySnd</h2>
+<p>Plays a sound from the player sound file, or from the common sound file with an F prefix.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>value</b></td><td>2 integer expressions, F prefix allowed, <b>required</b></td><td>Sound group and number. Prefix the group with F for the common sounds.</td></tr>
+<tr><td><b>volume</b></td><td>integer expression</td><td>Volume offset used before 1.0; ignored by 1.0 and later.</td></tr>
+<tr><td><b>channel</b></td><td>integer expression</td><td>Channel; a new sound on a busy channel stops the old one. Channel 0 is for voices and is cut when the player is hit. Default -1 (any free channel).</td></tr>
+<tr><td><b>lowpriority</b></td><td>expression, 0 or 1</td><td>Non-zero: does not interrupt a sound already playing on the channel.</td></tr>
+<tr><td><b>freqmul</b></td><td>float expression</td><td>Pitch multiplier. Default 1.</td></tr>
+<tr><td><b>loop</b></td><td>expression, 0 or 1</td><td>Non-zero loops the sound.</td></tr>
+<tr><td><b>pan</b></td><td>integer expression</td><td>Stereo offset in pixels from the player, towards its front when positive.</td></tr>
+<tr><td><b>abspan</b></td><td>integer expression</td><td>Stereo offset from the centre of the screen. Do not combine with pan.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>WinMUGEN reads volume, an offset added to the default volume; volumescale arrived with 1.0.</li></ul>
+<h3>Example</h3>
+<pre>[State 200, Voice]
+type = PlaySnd
+trigger1 = Time = 1
+value = 0, 1
+channel = 0
+volume = 50</pre>

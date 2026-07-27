@@ -1,0 +1,14 @@
+<h2>SndPan</h2>
+<p>Moves a sound that is playing in the stereo field; trigger it every tick to follow the player.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>channel</b></td><td>integer expression, <b>required</b></td><td>Channel of the sound.</td></tr>
+<tr><td><b>pan</b></td><td>integer expression</td><td>Offset from the player (see PlaySnd).</td></tr>
+<tr><td><b>abspan</b></td><td>integer expression</td><td>Offset from the screen centre. Use pan or abspan, not both.</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State 1000, Follow sound]
+type = SndPan
+trigger1 = 1
+channel = 3
+pan = 0</pre>

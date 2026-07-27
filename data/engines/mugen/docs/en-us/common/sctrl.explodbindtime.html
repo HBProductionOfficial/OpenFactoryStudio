@@ -1,0 +1,14 @@
+<h2>ExplodBindTime</h2>
+<p>Changes how long existing explods stay attached to their bind points.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>ID</b></td><td>integer expression</td><td>Only explods with this ID; -1 (default) affects all of them.</td></tr>
+<tr><td><b>time</b></td><td>integer expression</td><td>New bind time in ticks; -1 binds them until further notice. Default 1.</td></tr>
+<tr><td><b>value</b></td><td>integer expression</td><td>Same as time.</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State 1000, Release]
+type = ExplodBindTime
+trigger1 = Time = 20
+ID = 1050
+time = 0</pre>

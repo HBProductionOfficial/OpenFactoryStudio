@@ -1,0 +1,13 @@
+<h2>AttackDist</h2>
+<p>Changes the guard distance of the HitDef that is currently active.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>value</b></td><td>integer expression, <b>required</b></td><td>New distance, in pixels, inside which the opponent starts guarding.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>Only matters while the player is attacking (move type A).</li></ul>
+<h3>Example</h3>
+<pre>[State 200, Far guard]
+type = AttackDist
+trigger1 = Time = 0
+value = 100</pre>

@@ -1,0 +1,18 @@
+; AfterImage: Leaves a trail of delayed copies of the player
+[State 0, AfterImage]
+type = AfterImage
+trigger1 =
+;time = 1                       ; duration in ticks
+;length = 20                    ; frames kept (max 60)
+;palcolor = 256                 ; 0 grey .. 256 normal
+;palinvertall = 0               ; 1 = negative
+;palbright = 30, 30, 30         ; r, g, b added
+;palcontrast = 120, 120, 220    ; r, g, b multiplier
+;palpostbright = 0, 0, 0        ; r, g, b added last
+;paladd = 10, 10, 25            ; r, g, b added per frame
+;palmul = .65, .65, .75         ; r, g, b multiplier per frame
+;timegap = 1                    ; save every n-th frame
+;framegap = 4                   ; draw every n-th saved frame
+;trans = None                   ; blending: None, Add, Add1, Sub
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

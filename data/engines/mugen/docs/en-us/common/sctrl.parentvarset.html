@@ -1,0 +1,18 @@
+<h2>ParentVarSet</h2>
+<p>From a helper, sets a variable of its parent. Normal players ignore it.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>v</b></td><td>integer expression</td><td>Number of the int variable (0-59).</td></tr>
+<tr><td><b>fv</b></td><td>integer expression</td><td>Number of the float variable (0-39).</td></tr>
+<tr><td><b>value</b></td><td>expression</td><td>Value to use: an int expression with v, a float expression with fv.</td></tr>
+<tr><td><b>var(n)</b></td><td>integer expression</td><td>Short form: <code>var(n) = value</code>.</td></tr>
+<tr><td><b>fvar(n)</b></td><td>float expression</td><td>Short form: <code>fvar(n) = value</code>.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>System variables cannot be used here.</li></ul>
+<h3>Example</h3>
+<pre>[State 6000, Report]
+type = ParentVarSet
+trigger1 = Time = 0
+v = 11
+value = 1</pre>

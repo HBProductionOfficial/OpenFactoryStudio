@@ -1,0 +1,19 @@
+<h2>AllPalFX</h2>
+<p>Applies a palette effect to everything on screen: every player, helper and explod, the stage and the lifebars.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>time</b></td><td>integer expression</td><td>How many ticks the effect lasts. -1 keeps it until another palette effect replaces it; 0 cancels a running effect.</td></tr>
+<tr><td><b>add</b></td><td>3 integer expressions</td><td>Values added to the red, green and blue components of every colour (default 0,0,0).</td></tr>
+<tr><td><b>mul</b></td><td>3 integer expressions</td><td>Multipliers applied after the addition, where 256 leaves a component unchanged (default 256,256,256).</td></tr>
+<tr><td><b>sinadd</b></td><td>4 integer expressions</td><td>Red, green and blue amplitudes of an extra sine-wave addition, followed by its period in ticks.</td></tr>
+<tr><td><b>invertall</b></td><td>expression, 0 or 1</td><td>When non-zero, colours are inverted (a photographic negative) before add and mul are applied.</td></tr>
+<tr><td><b>color</b></td><td>integer expression</td><td>Colour saturation from 0 (greyscale) to 256 (unchanged), applied first. Default 256.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>Takes the same parameters as PalFX. Explods are affected even if they use their own palette.</li></ul>
+<h3>Example</h3>
+<pre>[State 3000, Flash]
+type = AllPalFX
+trigger1 = Time = 0
+time = 6
+add = 128, 128, 128</pre>

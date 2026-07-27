@@ -1,0 +1,15 @@
+<h2>VelSet</h2>
+<p>Sets the player's velocity.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>x</b></td><td>float expression</td><td>X velocity to add.</td></tr>
+<tr><td><b>y</b></td><td>float expression</td><td>Y velocity to add.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>Same parameters as VelAdd. An omitted component keeps its value.</li></ul>
+<h3>Example</h3>
+<pre>[State 1100, Jump]
+type = VelSet
+trigger1 = Time = 0
+x = 3
+y = -8</pre>

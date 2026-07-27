@@ -1,0 +1,9 @@
+; Width: Changes the player's width for this tick
+[State 0, Width]
+type = Width
+trigger1 =
+edge = 0, 0                     ; front, back edge width
+player = 0, 0                   ; front, back player width
+;value = 0, 0                   ; front, back width
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<snippet>
+    <field name="sdef" title="StateDef number (181 is the first win pose)" type="int"/>
+    <field name="anim" title="Animation" type="int"/>
+    <code><![CDATA[; Victory pose
+[Statedef @sdef]
+type = S
+movetype = I
+physics = S
+anim = @anim
+ctrl = 0
+velset = 0, 0
+
+[State @sdef, Pose running]
+type = AssertSpecial
+trigger1 = AnimTime < 0
+flag = RoundNotOver
+
+[State @sdef, Out of the fight]
+type = NotHitBy
+trigger1 = 1
+value = SCA
+time = 1
+CURSOR
+]]></code>
+</snippet>

@@ -1,0 +1,11 @@
+; ParentVarAdd: Adds to a variable of the helper's parent
+[State 0, ParentVarAdd]
+type = ParentVarAdd
+trigger1 =
+v = 0                           ; int variable number
+value = 0                       ; value added
+;fv = 0                         ; float variable number
+;var(0) = 0                     ; var(n) = value
+;fvar(0) = 0                    ; fvar(n) = value
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

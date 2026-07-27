@@ -1,0 +1,9 @@
+; HitFallSet: Changes whether and how the player falls after a hit
+[State 0, HitFallSet]
+type = HitFallSet
+trigger1 =
+;value = -1                     ; -1 keep, 0 no fall, 1 fall
+;xvel = 0                       ; fall x velocity
+;yvel = 0                       ; fall y velocity
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

@@ -1,0 +1,9 @@
+; BindToTarget: Keeps the player at a position relative to a target
+[State 0, BindToTarget]
+type = BindToTarget
+trigger1 =
+;time = 1                       ; duration in ticks
+;ID = -1                        ; identifier
+;pos = 0, 0, Foot               ; x, y
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

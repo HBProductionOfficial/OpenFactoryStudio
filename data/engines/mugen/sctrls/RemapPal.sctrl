@@ -1,0 +1,8 @@
+; RemapPal: Draws the sprites of one palette with another palette
+[State 0, RemapPal]
+type = RemapPal
+trigger1 =
+source = 1, 1                   ; group, item of the palette to replace
+dest = 1, 2                     ; group, item of the palette to use
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

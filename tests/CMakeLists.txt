@@ -124,3 +124,20 @@ add_dependencies(test_gui_first_run ofs_data)
 ofs_add_test(NAME mugen_syntax
     SOURCES mugen/MugenSyntaxTest.cpp
     LIBS OFS::mugen)
+
+
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_Interpreter_FOUND)
+    add_test(NAME data_mugen_syntax
+        COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/validate_syntax.py")
+    set_tests_properties(data_mugen_syntax PROPERTIES LABELS unit)
+    add_test(NAME data_mugen_sctrls
+        COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/gen_sctrl_templates.py" --check)
+    set_tests_properties(data_mugen_sctrls PROPERTIES LABELS unit)
+    add_test(NAME data_mugen_syntax_corpus
+        COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/validate_syntax.py"
+                --corpus-env --strict)
+    set_tests_properties(data_mugen_syntax_corpus PROPERTIES LABELS corpus SKIP_RETURN_CODE 77)
+else()
+    message(STATUS "Python 3 not found: the engine data tests are disabled")
+endif()

@@ -1,0 +1,7 @@
+; StopSnd: Stops the sound playing on a channel
+[State 0, StopSnd]
+type = StopSnd
+trigger1 =
+channel = -1                    ; sound channel, -1 any
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

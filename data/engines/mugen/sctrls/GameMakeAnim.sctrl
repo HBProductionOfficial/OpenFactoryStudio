@@ -1,0 +1,10 @@
+; GameMakeAnim: Plays a fightfx animation (old controller, use Explod)
+[State 0, GameMakeAnim]
+type = GameMakeAnim
+trigger1 =
+;value = 0                      ; fightfx animation
+;under = 0                      ; 1 = behind the players
+;pos = 0, 0                     ; x, y
+;random = 0                     ; x, y random spread
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

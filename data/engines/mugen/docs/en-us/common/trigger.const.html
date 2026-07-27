@@ -1,0 +1,12 @@
+<h2>Const</h2>
+<p>Returns one of the constants of the player (the [Data], [Size], [Velocity] and [Movement] groups).</p>
+<h3>Format</h3>
+<pre>Const(name)</pre>
+<h3>Arguments</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>name</b></td><td>A name such as data.life, size.height, velocity.walk.fwd.x or movement.yaccel.</td></tr>
+</table>
+<h3>Returns</h3>
+<p>int or float, depending on the constant</p>
+<h3>Example</h3>
+<pre>trigger1 = Pos Y &gt; Const(movement.air.gethit.groundlevel)</pre>

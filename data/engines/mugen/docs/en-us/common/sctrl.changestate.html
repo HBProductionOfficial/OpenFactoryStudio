@@ -1,0 +1,14 @@
+<h2>ChangeState</h2>
+<p>Moves the player to another state. The rest of the current state is skipped.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>value</b></td><td>integer expression, <b>required</b></td><td>Number of the state to enter.</td></tr>
+<tr><td><b>ctrl</b></td><td>expression, 0 or 1</td><td>Sets the control flag: 1 gives control, 0 removes it. Unchanged when omitted.</td></tr>
+<tr><td><b>anim</b></td><td>integer expression</td><td>Animation to switch to. The animation is unchanged when omitted.</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State 210, Done]
+type = ChangeState
+trigger1 = AnimTime = 0
+value = 0
+ctrl = 1</pre>

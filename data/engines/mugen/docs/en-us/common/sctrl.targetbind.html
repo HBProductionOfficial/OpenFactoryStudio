@@ -1,0 +1,13 @@
+<h2>TargetBind</h2>
+<p>Holds the targets at a point relative to the player axis.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>time</b></td><td>integer expression</td><td>Ticks the binding lasts. Default 1.</td></tr>
+<tr><td><b>ID</b></td><td>integer expression</td><td>Only targets hit with this HitDef id; -1 for all.</td></tr>
+<tr><td><b>pos</b></td><td>2 float expressions</td><td>X and y offset from the player axis.</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State 810, Hold]
+type = TargetBind
+trigger1 = AnimElem = 1
+pos = 30, -10</pre>

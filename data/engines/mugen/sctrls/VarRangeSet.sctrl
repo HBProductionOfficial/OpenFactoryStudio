@@ -1,0 +1,10 @@
+; VarRangeSet: Sets a range of variables to one value
+[State 0, VarRangeSet]
+type = VarRangeSet
+trigger1 =
+value = 0                       ; int value
+;fvalue = 0                     ; float value
+;first = 0                      ; first variable
+;last = 59                      ; last variable
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

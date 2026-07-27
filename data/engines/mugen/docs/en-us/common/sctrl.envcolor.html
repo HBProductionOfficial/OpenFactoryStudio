@@ -1,0 +1,13 @@
+<h2>EnvColor</h2>
+<p>Paints the whole screen in one colour. Hit sparks and explods drawn on top are still visible.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>value</b></td><td>3 integer expressions</td><td>Red, green and blue from 0 to 255. Default 255,255,255 (white).</td></tr>
+<tr><td><b>time</b></td><td>integer expression</td><td>Ticks the colour stays; -1 keeps it indefinitely. Default 1.</td></tr>
+<tr><td><b>under</b></td><td>expression, 0 or 1</td><td>When 1, the colour is drawn under the players and projectiles instead of over them. Default 0.</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State 3000, White flash]
+type = EnvColor
+trigger1 = Time = 0
+time = 3</pre>

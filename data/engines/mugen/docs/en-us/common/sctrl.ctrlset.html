@@ -1,0 +1,11 @@
+<h2>CtrlSet</h2>
+<p>Gives or removes control. A player with control can walk, jump and start moves.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>value</b></td><td>expression, 0 or 1, <b>required</b></td><td>1 gives control, 0 removes it.</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State 210, Recovered]
+type = CtrlSet
+trigger1 = Time = 20
+value = 1</pre>

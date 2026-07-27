@@ -1,0 +1,19 @@
+<h2>VarSet</h2>
+<p>Sets a variable of the player.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>v</b></td><td>integer expression</td><td>Number of the int variable (0-59).</td></tr>
+<tr><td><b>fv</b></td><td>integer expression</td><td>Number of the float variable (0-39).</td></tr>
+<tr><td><b>value</b></td><td>expression</td><td>Value to use: an int expression with v, a float expression with fv.</td></tr>
+<tr><td><b>var(n)</b></td><td>integer expression</td><td>Short form: <code>var(n) = value</code>.</td></tr>
+<tr><td><b>fvar(n)</b></td><td>float expression</td><td>Short form: <code>fvar(n) = value</code>.</td></tr>
+<tr><td><b>sysvar(n)</b></td><td>integer expression</td><td>Short form for system int variables (0-4), reserved for common1.cns.</td></tr>
+<tr><td><b>sysfvar(n)</b></td><td>float expression</td><td>Short form for system float variables (0-4), reserved for common1.cns.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>The short form <code>var(n) = value</code> differs from the := assignment used inside expressions.</li></ul>
+<h3>Example</h3>
+<pre>[State 1000, Remember]
+type = VarSet
+trigger1 = Time = 0
+var(3) = StateNo</pre>

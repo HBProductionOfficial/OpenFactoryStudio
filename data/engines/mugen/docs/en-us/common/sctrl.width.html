@@ -1,0 +1,13 @@
+<h2>Width</h2>
+<p>Changes the width of the player for one tick, which controls pushing against players and screen edges.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>edge</b></td><td>2 integer expressions</td><td>Front and back distance kept from the screen edges.</td></tr>
+<tr><td><b>player</b></td><td>2 integer expressions</td><td>Front and back distance kept from other players.</td></tr>
+<tr><td><b>value</b></td><td>2 integer expressions</td><td>Sets edge and player together; do not combine with them.</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State 1300, Wide]
+type = Width
+trigger1 = 1
+value = 30, 20</pre>

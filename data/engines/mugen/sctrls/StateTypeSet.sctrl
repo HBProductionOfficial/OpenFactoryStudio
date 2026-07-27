@@ -1,0 +1,9 @@
+; StateTypeSet: Changes the state type, move type and physics
+[State 0, StateTypeSet]
+type = StateTypeSet
+trigger1 =
+statetype = S                   ; S, C, A, L
+movetype = I                    ; I, A, H
+physics = S                     ; S, C, A, N
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

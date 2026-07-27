@@ -1,0 +1,7 @@
+; PlayerPush: Turns pushing between players on or off for this tick
+[State 0, PlayerPush]
+type = PlayerPush
+trigger1 =
+value = 0                       ; 0 = no pushing
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

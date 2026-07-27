@@ -1,0 +1,12 @@
+; Zoom: Zooms the camera (undocumented 1.1 controller)
+[State 0, Zoom]
+type = Zoom
+trigger1 =
+;pos = 0, 0                     ; x, y
+;scale = 1                      ; x, y scale
+;lag = 0                        ; camera lag
+;camerabound = 0                ; 1 = keep in camera bounds
+;time = 1                       ; duration in ticks
+;stagebound = 0                 ; 1 = keep in stage bounds
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

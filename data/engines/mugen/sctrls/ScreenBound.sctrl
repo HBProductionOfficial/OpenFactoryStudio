@@ -1,0 +1,8 @@
+; ScreenBound: Lets the player leave the screen and sets camera following
+[State 0, ScreenBound]
+type = ScreenBound
+trigger1 =
+;value = 1                      ; 0 = may leave the screen
+;movecamera = 1, 1              ; x, y follow
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

@@ -1,0 +1,17 @@
+<h2>Zoom</h2>
+<p>Zooms the camera. This 1.1 controller is not covered by the official documentation; the parameters below are the ones other engines read.</p>
+<p><i>Available from M.U.G.E.N 1.1.</i></p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>pos</b></td><td>2 float expressions</td><td>Point to zoom on.</td></tr>
+<tr><td><b>scale</b></td><td>float expression</td><td>Zoom factor.</td></tr>
+<tr><td><b>lag</b></td><td>float expression</td><td>Delay of the camera.</td></tr>
+<tr><td><b>camerabound</b></td><td>expression, 0 or 1</td><td>1 keeps the view inside the camera bounds.</td></tr>
+<tr><td><b>time</b></td><td>integer expression</td><td>Ticks it lasts.</td></tr>
+<tr><td><b>stagebound</b></td><td>expression, 0 or 1</td><td>1 keeps the view inside the stage.</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State 3000, Close up]
+type = Zoom
+trigger1 = Time &lt; 30
+scale = 1.5</pre>

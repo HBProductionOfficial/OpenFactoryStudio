@@ -1,0 +1,13 @@
+<h2>LifeAdd</h2>
+<p>Adds to the life of the player, scaled by its defence multiplier unless absolute is set.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>value</b></td><td>integer expression, <b>required</b></td><td>Life to add (negative to remove).</td></tr>
+<tr><td><b>kill</b></td><td>expression, 0 or 1</td><td>0 never takes life below 1. Default 1.</td></tr>
+<tr><td><b>absolute</b></td><td>expression, 0 or 1</td><td>1 adds exactly value, ignoring the defence multiplier.</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State 1400, Heal]
+type = LifeAdd
+trigger1 = Time % 10 = 0
+value = 5</pre>

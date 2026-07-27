@@ -1,0 +1,10 @@
+; TargetLifeAdd: Adds to the life of targets
+[State 0, TargetLifeAdd]
+type = TargetLifeAdd
+trigger1 =
+value = 0                       ; life added
+;ID = 0                         ; identifier
+;kill = 1                       ; 0 = cannot KO
+;absolute = 0                   ; 1 = ignore attack/defence
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

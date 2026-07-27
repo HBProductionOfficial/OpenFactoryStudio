@@ -1,0 +1,16 @@
+<h2>ModifyExplod</h2>
+<p>Changes the parameters of explods that already exist.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>anim</b></td><td>integer expression, F prefix allowed</td><td>New animation (F prefix for fightfx).</td></tr>
+</table>
+<p>It also accepts every parameter of <b>Explod</b>.</p>
+<h3>Notes</h3>
+<ul><li>Takes the parameters of Explod. Use ID to choose the explods to change.</li><li>Elecbyte marks this controller as subject to change between versions.</li></ul>
+<h3>Example</h3>
+<pre>[State 1000, Fade]
+type = ModifyExplod
+trigger1 = Time = 30
+ID = 1050
+trans = Add
+alpha = 128, 256</pre>

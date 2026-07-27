@@ -1,0 +1,14 @@
+<h2>ChangeAnim2</h2>
+<p>Like ChangeAnim, but takes the animation from the AIR file of the player that owns the current state. Used on an opponent put into a custom state, e.g. a thrown pose.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>value</b></td><td>integer expression, <b>required</b></td><td>Number of the animation (action) to play.</td></tr>
+<tr><td><b>elem</b></td><td>integer expression</td><td>Element of that animation to start from. Default 1.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>Same parameters as ChangeAnim.</li></ul>
+<h3>Example</h3>
+<pre>[State 820, Thrown pose]
+type = ChangeAnim2
+trigger1 = Time = 0
+value = 820</pre>

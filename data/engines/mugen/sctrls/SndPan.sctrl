@@ -1,0 +1,9 @@
+; SndPan: Moves a playing sound in the stereo field
+[State 0, SndPan]
+type = SndPan
+trigger1 =
+channel = 0                     ; sound channel, -1 any
+pan = 0                         ; offset from the player
+;abspan = 0                     ; offset from the centre
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

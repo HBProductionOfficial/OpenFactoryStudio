@@ -1,0 +1,15 @@
+<h2>HitBy</h2>
+<p>For a while, only attacks matching the given attributes can hit the player.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>value</b></td><td>hit attribute</td><td>Hit attribute string listing the attacks concerned, e.g. <code>SCA, NA, SA</code>. Fills the first of the two attribute slots.</td></tr>
+<tr><td><b>value2</b></td><td>hit attribute</td><td>The same, but fills the second slot. Use only one of value and value2 in a controller.</td></tr>
+<tr><td><b>time</b></td><td>integer expression</td><td>Ticks the slot stays active. Default 1.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>The player has two attribute slots shared with NotHitBy. A HitDef connects only if its attribute is allowed by every slot still active.</li></ul>
+<h3>Example</h3>
+<pre>[State 700, Only throws]
+type = HitBy
+trigger1 = 1
+value = SCA, NT, ST, HT</pre>

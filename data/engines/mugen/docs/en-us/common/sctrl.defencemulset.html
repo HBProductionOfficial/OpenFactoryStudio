@@ -1,0 +1,13 @@
+<h2>DefenceMulSet</h2>
+<p>Sets the defence multiplier: every amount of damage the player takes is scaled by it.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>value</b></td><td>float expression, <b>required</b></td><td>Multiplier, 1 = normal damage, 0.5 = half damage.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>LifeAdd ignores this multiplier.</li></ul>
+<h3>Example</h3>
+<pre>[State -2, Armour]
+type = DefenceMulSet
+trigger1 = 1
+value = 0.75</pre>

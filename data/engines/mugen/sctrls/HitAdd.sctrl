@@ -1,0 +1,7 @@
+; HitAdd: Adds hits to the combo counter
+[State 0, HitAdd]
+type = HitAdd
+trigger1 =
+value = 0                       ; hits
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

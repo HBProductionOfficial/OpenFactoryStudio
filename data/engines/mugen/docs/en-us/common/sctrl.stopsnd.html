@@ -1,0 +1,11 @@
+<h2>StopSnd</h2>
+<p>Stops the sound playing on a channel.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>channel</b></td><td>integer expression, <b>required</b></td><td>Channel to silence; -1 stops every sound, including other players sounds.</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State 0, Quiet]
+type = StopSnd
+trigger1 = Time = 0
+channel = 0</pre>

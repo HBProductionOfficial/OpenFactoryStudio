@@ -1,0 +1,15 @@
+<h2>ProjGuarded</h2>
+<p>Old-style trigger: tells whether a projectile of the player was guarded. The ID can be appended to the name. Prefer ProjGuardedTime.</p>
+<h3>Format</h3>
+<pre>ProjGuarded[ID] = value
+ProjGuarded[ID] = value, op ticks</pre>
+<h3>Arguments</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>ID</b></td><td>Optional projectile ID written right after the name, e.g. <code>ProjGuarded1200</code>.</td></tr>
+<tr><td><b>value</b></td><td>1 to test that it happened, 0 that it did not.</td></tr>
+<tr><td><b>op ticks</b></td><td>Optional comparison of the ticks since it happened.</td></tr>
+</table>
+<h3>Returns</h3>
+<p>boolean (1 or 0)</p>
+<h3>Example</h3>
+<pre>trigger1 = ProjGuarded1200 = 1, &lt; 15</pre>

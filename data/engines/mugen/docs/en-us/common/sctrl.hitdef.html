@@ -1,0 +1,108 @@
+<h2>HitDef</h2>
+<p>Defines a single hit. When an attack box (Clsn1) of the player touches a hurt box (Clsn2) of an opponent while the HitDef is active, the hit is applied. Each hit of a multi-hit move needs its own HitDef.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>attr</b></td><td>hit attribute, <b>required</b></td><td>Hit attribute: the state type of the attack (S, C or A) and its class, two letters: N, S or H (normal, special, hyper) followed by A, T or P (attack, throw, projectile). Example: <code>S, NA</code>.</td></tr>
+<tr><td><b>hitflag</b></td><td>hit flags</td><td>States in which the opponent can be hit: H high, L low, A air, M (= HL), F falling, D lying down, plus + (only opponents already being hit) or - (only opponents not being hit). Default MAF.</td></tr>
+<tr><td><b>guardflag</b></td><td>guard flags</td><td>How the attack can be guarded: H, L, A or M. Empty (default) means it cannot be guarded.</td></tr>
+<tr><td><b>affectteam</b></td><td>one of: E, B, F</td><td>Who can be hit: E enemies (default), B both teams, F own team.</td></tr>
+<tr><td><b>animtype</b></td><td>one of: Light, Medium, Hard, Back, Up, DiagUp</td><td>Get-hit animation of the opponent: Light (default), Medium, Hard, Back (knocked off the feet), Up or DiagUp.</td></tr>
+<tr><td><b>air.animtype</b></td><td>one of: Light, Medium, Hard, Back, Up, DiagUp</td><td>Animation type used when the opponent is in the air. Defaults to animtype.</td></tr>
+<tr><td><b>fall.animtype</b></td><td>one of: Light, Medium, Hard, Back, Up, DiagUp</td><td>Animation type used when the opponent is falling. Defaults to Up when air.animtype is Up, Back otherwise.</td></tr>
+<tr><td><b>priority</b></td><td>expression, then Hit, Miss, Dodge</td><td>Priority from 1 to 7 (default 4), optionally followed by Hit, Miss or Dodge, which decides what happens when both players hit each other at the same priority.</td></tr>
+<tr><td><b>damage</b></td><td>2 integer expressions</td><td>Damage on hit, then damage when guarded. Default 0,0.</td></tr>
+<tr><td><b>pausetime</b></td><td>2 integer expressions</td><td>Ticks P1 freezes, then ticks P2 shakes, when the hit connects. Default 0,0.</td></tr>
+<tr><td><b>guard.pausetime</b></td><td>2 integer expressions</td><td>The same when the attack is guarded. Defaults to pausetime.</td></tr>
+<tr><td><b>sparkno</b></td><td>integer expression, S/F prefix allowed</td><td>Hit spark animation. Prefix with S to use the player AIR file. Defaults to the [Data] value.</td></tr>
+<tr><td><b>guard.sparkno</b></td><td>integer expression, S/F prefix allowed</td><td>Spark shown when guarded, with the same S prefix rule.</td></tr>
+<tr><td><b>sparkxy</b></td><td>2 integer expressions</td><td>Spark position: x from the front edge of P2 (negative goes inside), y relative to P1.</td></tr>
+<tr><td><b>hitsound</b></td><td>2 integer expressions, S/F prefix allowed</td><td>Sound group and number played on hit, from the common sound file; prefix S for the player sounds.</td></tr>
+<tr><td><b>guardsound</b></td><td>2 integer expressions, S/F prefix allowed</td><td>Sound played when guarded, with the same prefix rule.</td></tr>
+<tr><td><b>ground.type</b></td><td>one of: High, Low, Trip, None</td><td>How a grounded opponent reacts: High (head snaps back), Low (stomach), Trip (swept off the feet, use with fall) or None (no reaction besides the pause). Default High.</td></tr>
+<tr><td><b>air.type</b></td><td>one of: High, Low, Trip, None</td><td>Same for an airborne opponent. Defaults to ground.type.</td></tr>
+<tr><td><b>ground.slidetime</b></td><td>integer expression</td><td>Ticks the grounded opponent slides back after the shake.</td></tr>
+<tr><td><b>guard.slidetime</b></td><td>integer expression</td><td>Slide ticks when guarded. Defaults to guard.hittime.</td></tr>
+<tr><td><b>ground.hittime</b></td><td>integer expression</td><td>Ticks a grounded opponent stays in the hit state; the key value for combos.</td></tr>
+<tr><td><b>guard.hittime</b></td><td>integer expression</td><td>Hit time when guarded. Defaults to ground.hittime.</td></tr>
+<tr><td><b>air.hittime</b></td><td>integer expression</td><td>Ticks before an opponent hit in the air can guard again (when not falling). Default 20.</td></tr>
+<tr><td><b>guard.ctrltime</b></td><td>integer expression</td><td>Ticks before a guarding opponent regains control. Defaults to guard.slidetime.</td></tr>
+<tr><td><b>guard.dist</b></td><td>integer expression</td><td>Distance inside which the opponent starts guarding. Defaults to the [Size] value.</td></tr>
+<tr><td><b>yaccel</b></td><td>float expression</td><td>Downward acceleration given to the opponent. Default .35 in 320x240 space.</td></tr>
+<tr><td><b>ground.velocity</b></td><td>2 float expressions</td><td>X and y velocity of a grounded opponent after the hit; a non-zero y launches it.</td></tr>
+<tr><td><b>guard.velocity</b></td><td>float expression</td><td>X velocity of a guarding opponent. Defaults to the x of ground.velocity.</td></tr>
+<tr><td><b>air.velocity</b></td><td>2 float expressions</td><td>X and y velocity of an opponent hit in the air.</td></tr>
+<tr><td><b>airguard.velocity</b></td><td>2 float expressions</td><td>Velocity of an opponent guarding in the air. Defaults to 1.5 times the x and half the y of air.velocity.</td></tr>
+<tr><td><b>ground.cornerpush.veloff</b></td><td>float expression</td><td>Extra push-back for P1 when hitting a grounded opponent in the corner.</td></tr>
+<tr><td><b>air.cornerpush.veloff</b></td><td>float expression</td><td>Corner push-back when hitting an airborne opponent.</td></tr>
+<tr><td><b>down.cornerpush.veloff</b></td><td>float expression</td><td>Corner push-back when hitting a lying opponent.</td></tr>
+<tr><td><b>guard.cornerpush.veloff</b></td><td>float expression</td><td>Corner push-back when the attack is guarded.</td></tr>
+<tr><td><b>airguard.cornerpush.veloff</b></td><td>float expression</td><td>Corner push-back when the attack is guarded in the air.</td></tr>
+<tr><td><b>airguard.ctrltime</b></td><td>integer expression</td><td>Ticks before an opponent guarding in the air regains control.</td></tr>
+<tr><td><b>air.juggle</b></td><td>integer expression</td><td>Extra juggle points the hit needs (not the StateDef juggle). Mostly for projectiles.</td></tr>
+<tr><td><b>mindist</b></td><td>2 integer expressions</td><td>Closest x, y position of P2 relative to P1 after the hit.</td></tr>
+<tr><td><b>maxdist</b></td><td>2 integer expressions</td><td>Farthest x, y position of P2 relative to P1 after the hit.</td></tr>
+<tr><td><b>snap</b></td><td>2 integer expressions</td><td>Moves P2 to this x, y position relative to P1 on hit. TargetBind is usually better.</td></tr>
+<tr><td><b>p1sprpriority</b></td><td>integer expression <i>(WinMUGEN and later)</i></td><td>Drawing priority of P1 after contact. Default 1.</td></tr>
+<tr><td><b>p2sprpriority</b></td><td>integer expression <i>(WinMUGEN and later)</i></td><td>Drawing priority of P2 after contact. Default 0.</td></tr>
+<tr><td><b>sprpriority</b></td><td>integer expression <i>(deprecated since WinMUGEN)</i></td><td>Old name of p1sprpriority.</td></tr>
+<tr><td><b>p1facing</b></td><td>integer expression</td><td>-1 turns P1 around when the hit connects.</td></tr>
+<tr><td><b>p1getp2facing</b></td><td>integer expression</td><td>1 makes P1 face the same way as P2, -1 the opposite way. Takes precedence over p1facing.</td></tr>
+<tr><td><b>p2facing</b></td><td>integer expression</td><td>1 makes P2 face the same way as P1, -1 the opposite way.</td></tr>
+<tr><td><b>p1stateno</b></td><td>integer expression</td><td>State P1 changes to when the hit connects (it must be an attack state). -1 = no change.</td></tr>
+<tr><td><b>p2stateno</b></td><td>integer expression</td><td>State P2 changes to; P2 then runs P1's states (a custom state), mainly for throws. -1 = no change.</td></tr>
+<tr><td><b>p2getp1state</b></td><td>expression, 0 or 1</td><td>0 keeps P2 in its own state data even when p2stateno is used.</td></tr>
+<tr><td><b>forcestand</b></td><td>expression, 0 or 1</td><td>1 makes a crouching opponent stand. Defaults to 1 when ground.velocity has a y component.</td></tr>
+<tr><td><b>fall</b></td><td>expression, 0 or 1</td><td>1 makes the opponent fall down without recovering control in the air.</td></tr>
+<tr><td><b>fall.xvelocity</b></td><td>float expression</td><td>X velocity of the bounce when the falling opponent hits the ground.</td></tr>
+<tr><td><b>fall.yvelocity</b></td><td>float expression</td><td>Y velocity of that bounce. Default -4.5 in 320x240 space.</td></tr>
+<tr><td><b>fall.recover</b></td><td>expression, 0 or 1</td><td>0 prevents the opponent from recovering from the fall.</td></tr>
+<tr><td><b>fall.recovertime</b></td><td>integer expression</td><td>Ticks before the opponent may recover. Default 4.</td></tr>
+<tr><td><b>fall.damage</b></td><td>integer expression</td><td>Damage dealt when the falling opponent lands.</td></tr>
+<tr><td><b>air.fall</b></td><td>expression, 0 or 1</td><td>1 makes an opponent hit in the air fall. Defaults to fall.</td></tr>
+<tr><td><b>forcenofall</b></td><td>expression, 0 or 1</td><td>1 takes the opponent out of a fall. Ignored when fall is 1.</td></tr>
+<tr><td><b>down.velocity</b></td><td>2 float expressions</td><td>Velocity of an opponent hit while lying down. Defaults to air.velocity.</td></tr>
+<tr><td><b>down.hittime</b></td><td>integer expression</td><td>Slide ticks of an opponent hit while lying down (when not launched).</td></tr>
+<tr><td><b>down.bounce</b></td><td>expression, 0 or 1</td><td>1 makes an opponent hit while lying down bounce once using the fall velocities.</td></tr>
+<tr><td><b>id</b></td><td>integer expression</td><td>Target ID given to opponents hit by this HitDef; used by target redirection and target controllers. 0 (default) means none.</td></tr>
+<tr><td><b>chainID</b></td><td>integer expression</td><td>The hit only connects if P2 was last hit by a HitDef of this player with this id.</td></tr>
+<tr><td><b>nochainID</b></td><td>2 integer expressions</td><td>Up to two ids after which this hit cannot connect.</td></tr>
+<tr><td><b>hitonce</b></td><td>expression, 0 or 1</td><td>1 hits a single opponent and drops other targets. Default 1 for throws, 0 otherwise.</td></tr>
+<tr><td><b>kill</b></td><td>expression, 0 or 1</td><td>0 prevents the hit from KO-ing the opponent.</td></tr>
+<tr><td><b>guard.kill</b></td><td>expression, 0 or 1</td><td>0 prevents guard damage from KO-ing the opponent.</td></tr>
+<tr><td><b>fall.kill</b></td><td>expression, 0 or 1</td><td>0 prevents fall damage from KO-ing the opponent.</td></tr>
+<tr><td><b>numhits</b></td><td>integer expression</td><td>Hits added to the combo counter. Default 1.</td></tr>
+<tr><td><b>getpower</b></td><td>2 integer expressions</td><td>Power P1 gains on hit, then when guarded. Defaults depend on the damage and mugen.cfg.</td></tr>
+<tr><td><b>givepower</b></td><td>2 integer expressions</td><td>Power P2 gains on hit, then when guarded.</td></tr>
+<tr><td><b>palfx.time</b></td><td>integer expression</td><td>Ticks of a palette effect on P2 when hit. Default 0 (none).</td></tr>
+<tr><td><b>palfx.mul</b></td><td>3 integer expressions</td><td>PalFX mul for that effect.</td></tr>
+<tr><td><b>palfx.add</b></td><td>3 integer expressions</td><td>PalFX add for that effect.</td></tr>
+<tr><td><b>palfx.sinadd</b></td><td>4 integer expressions</td><td>PalFX sinadd for that effect.</td></tr>
+<tr><td><b>palfx.invertall</b></td><td>expression, 0 or 1</td><td>PalFX invertall for that effect.</td></tr>
+<tr><td><b>palfx.color</b></td><td>integer expression</td><td>PalFX color for that effect.</td></tr>
+<tr><td><b>envshake.time</b></td><td>integer expression</td><td>Ticks of a screen shake when the hit connects.</td></tr>
+<tr><td><b>envshake.freq</b></td><td>float expression</td><td>EnvShake freq of that shake.</td></tr>
+<tr><td><b>envshake.ampl</b></td><td>integer expression</td><td>EnvShake ampl of that shake.</td></tr>
+<tr><td><b>envshake.phase</b></td><td>float expression</td><td>EnvShake phase of that shake.</td></tr>
+<tr><td><b>fall.envshake.time</b></td><td>integer expression</td><td>Ticks of a screen shake when the falling opponent lands.</td></tr>
+<tr><td><b>fall.envshake.freq</b></td><td>float expression</td><td>Frequency of that shake.</td></tr>
+<tr><td><b>fall.envshake.ampl</b></td><td>integer expression</td><td>Amplitude of that shake.</td></tr>
+<tr><td><b>fall.envshake.phase</b></td><td>float expression</td><td>Phase of that shake.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>A HitDef stays active until it hits, the state changes (see hitdefpersist) or another HitDef replaces it.</li><li>Its behaviour is undefined in [Statedef -2] while the player is in a custom state.</li></ul>
+<h3>Example</h3>
+<pre>[State 210, Kick]
+type = HitDef
+trigger1 = Time = 0
+attr = S, NA
+damage = 35, 5
+animtype = Medium
+guardflag = MA
+pausetime = 10, 10
+sparkxy = -12, -55
+hitsound = 5, 1
+guardsound = 6, 0
+ground.slidetime = 10
+ground.hittime = 14
+ground.velocity = -5
+air.velocity = -3, -4</pre>

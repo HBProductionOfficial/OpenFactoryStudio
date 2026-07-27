@@ -1,0 +1,8 @@
+; TargetDrop: Removes targets from the target list
+[State 0, TargetDrop]
+type = TargetDrop
+trigger1 =
+;excludeID = -1                 ; keep targets with this id
+;keepone = 1                    ; 1 = keep only one target
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

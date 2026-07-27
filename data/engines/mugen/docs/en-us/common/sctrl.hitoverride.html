@@ -1,0 +1,19 @@
+<h2>HitOverride</h2>
+<p>When the player is hit by an attack matching the attributes, it goes to the given state instead of reacting normally. Up to 8 overrides can be active.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>attr</b></td><td>hit attribute, <b>required</b></td><td>Hit attribute string of the attacks to catch.</td></tr>
+<tr><td><b>stateno</b></td><td>integer expression, <b>required</b></td><td>State to go to when such an attack hits.</td></tr>
+<tr><td><b>slot</b></td><td>integer expression</td><td>Override slot, 0 to 7. Default 0.</td></tr>
+<tr><td><b>time</b></td><td>integer expression</td><td>Ticks the override stays; -1 until replaced. Default 1.</td></tr>
+<tr><td><b>forceair</b></td><td>expression, 0 or 1</td><td>1 sets the get-hit values as if the player was in the air.</td></tr>
+</table>
+<h3>Notes</h3>
+<ul><li>While an override is active, matching HitDefs that use p1stateno or give P2 the state data of P1 do not affect the player.</li></ul>
+<h3>Example</h3>
+<pre>[State 1500, Counter stance]
+type = HitOverride
+trigger1 = 1
+attr = SA, NA, SA
+stateno = 1510
+time = 1</pre>

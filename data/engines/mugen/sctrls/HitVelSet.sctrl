@@ -1,0 +1,8 @@
+; HitVelSet: Applies the get-hit velocity (old controller)
+[State 0, HitVelSet]
+type = HitVelSet
+trigger1 =
+x = 0                           ; x component
+y = 0                           ; y component
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

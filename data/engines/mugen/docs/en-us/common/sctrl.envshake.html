@@ -1,0 +1,15 @@
+<h2>EnvShake</h2>
+<p>Shakes the screen up and down.</p>
+<h3>Parameters</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>time</b></td><td>integer expression, <b>required</b></td><td>Ticks the shake lasts.</td></tr>
+<tr><td><b>freq</b></td><td>float expression</td><td>Speed of the shake, 0 (slow) to 180 (fast). Default 60.</td></tr>
+<tr><td><b>ampl</b></td><td>integer expression</td><td>Distance of the shake; negative values shake downwards first. The default depends on the coordinate space (-4 in 320x240).</td></tr>
+<tr><td><b>phase</b></td><td>float expression</td><td>Phase offset. Defaults to 0, or 90 when freq is 90 or more.</td></tr>
+</table>
+<h3>Example</h3>
+<pre>[State 1100, Impact]
+type = EnvShake
+trigger1 = AnimElem = 4
+time = 15
+ampl = -6</pre>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<snippet>
+    <field name="time" title="Default command time" type="int"/>
+    <field name="buffer" title="Default buffer time" type="int"/>
+    <code><![CDATA[[Defaults]
+; Ticks allowed to enter a whole command when it sets no time of its own
+command.time = @time
+; Ticks a completed command stays detected when it sets no buffer.time
+command.buffer.time = @buffer
+]]></code>
+</snippet>

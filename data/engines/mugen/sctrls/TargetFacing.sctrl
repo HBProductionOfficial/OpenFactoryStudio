@@ -1,0 +1,8 @@
+; TargetFacing: Turns targets relative to the player
+[State 0, TargetFacing]
+type = TargetFacing
+trigger1 =
+value = 0                       ; 1 same as player, -1 opposite
+;ID = 0                         ; identifier
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

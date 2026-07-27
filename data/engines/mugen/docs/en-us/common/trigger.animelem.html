@@ -1,0 +1,17 @@
+<h2>AnimElem</h2>
+<p>Old-style trigger: true on the tick an element of the current animation starts, or compares the time spent in that element.</p>
+<h3>Format</h3>
+<pre>AnimElem = n
+AnimElem = n, op ticks</pre>
+<h3>Arguments</h3>
+<table cellspacing="0" cellpadding="3">
+<tr><td><b>n</b></td><td>Element number (1 is the first element).</td></tr>
+<tr><td><b>op ticks</b></td><td>Optional comparison with the ticks since element n started, e.g. <code>&gt;= 2</code>.</td></tr>
+</table>
+<h3>Returns</h3>
+<p>boolean (1 or 0)</p>
+<h3>Notes</h3>
+<ul><li>The arguments must be constants. AnimElemTime is the expression-friendly alternative.</li></ul>
+<h3>Example</h3>
+<pre>trigger1 = AnimElem = 3
+trigger2 = AnimElem = 5, &gt;= 2</pre>

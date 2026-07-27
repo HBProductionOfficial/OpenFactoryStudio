@@ -1,0 +1,10 @@
+; Pause: Freezes the game for a while
+[State 0, Pause]
+type = Pause
+trigger1 =
+time = 30                       ; duration in ticks
+;endcmdbuftime = 0              ; command buffer at end (WinMUGEN+)
+;movetime = 0                   ; ticks the player may still move
+;pausebg = 1                    ; 0 = stage keeps moving (WinMUGEN+)
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

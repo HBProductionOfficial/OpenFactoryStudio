@@ -1,0 +1,6 @@
+; Gravity: Adds the player's yaccel constant to its y velocity
+[State 0, Gravity]
+type = Gravity
+trigger1 =
+;ignorehitpause = 0             ; 1 = also run during hit pauses
+;persistent = 1                 ; 0 = once per state, n = every n-th time

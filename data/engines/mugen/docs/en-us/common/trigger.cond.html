@@ -1,0 +1,11 @@
+<h2>Cond</h2>
+<p>Returns the second argument when the first is non-zero, the third otherwise. Only the chosen branch is evaluated.</p>
+<p><i>Available from M.U.G.E.N 1.0.</i></p>
+<h3>Format</h3>
+<pre>Cond(condition, if_true, if_false)</pre>
+<h3>Returns</h3>
+<p>type of the returned branch</p>
+<h3>Notes</h3>
+<ul><li>Bottom in the branch that is not taken does not matter, which makes Cond safer than IfElse.</li></ul>
+<h3>Example</h3>
+<pre>value = Cond(NumHelper(10) &gt; 0, (Helper(10), Life), Life)</pre>
