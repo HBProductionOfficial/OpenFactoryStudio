@@ -20,6 +20,7 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QScrollBar>
+#include <QTableView>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
@@ -349,6 +350,60 @@ private Q_SLOTS:
         QVERIFY(window.projectViews().isEmpty());
         QCOMPARE(m_context->history().entries().size(), 2);
         QCOMPARE(m_context->history().entries().first().name, QStringLiteral("Test Stage"));
+    }
+
+    void validationIssues()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("bad.def"), "[Info]\nname = \"Bad\"\nmugenversion = 1.0\n"
+                                           "[Files]\ncmd = bad.cmd\ncns = bad.cns\nsprite = bad.sff\n"
+                                           "anim = bad.air\n");
+        writeFile(dir.filePath("bad.cmd"), "[Command]\nname = \"x\"\ncommand = x\n");
+        writeFile(dir.filePath("bad.cns"), "[Data]\nlife = 1000\n"
+                                           "[Statedef 200]\ntype = Q\n"
+                                           "[State 200, 1]\ntype = ChangeState\ntrigger1 = 1\nvalue = 0\nbogus = 1\n");
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("bad.def")));
+        ActionRegistry& actions = m_context->actions();
+        actions.action("editor_st")->trigger();
+        ProjectView* view = window.currentProjectView();
+        QCOMPARE(view->currentEditor(), QStringLiteral("states"));
+
+        auto* issues = window.findChild<QTableView*>("issuesView");
+        QVERIFY(issues);
+        QTRY_COMPARE(issues->model()->rowCount(), 2);
+        QStringList messages;
+        for (int row = 0; row < 2; ++row)
+            messages << issues->model()->index(row, 0).data().toString();
+        messages.sort();
+        QCOMPARE(messages, (QStringList{"Unknown keyword 'Q'", "Unknown parameter 'bogus' for 'ChangeState' block"}));
+        QCOMPARE(issues->model()->index(0, 1).data().toString(), QStringLiteral("bad.cns"));
+        QCOMPARE(window.ofsStatusBar()->section(1), QStringLiteral("Syntax error count: 2"));
+
+        CodeEditor* editor = view->currentCodeEditor();
+        editor->goToLine(1);
+        actions.action("code_next_error")->trigger();
+        QCOMPARE(editor->cursorLine(), 4);
+        actions.action("code_next_error")->trigger();
+        QCOMPARE(editor->cursorLine(), 9);
+        actions.action("code_prev_error")->trigger();
+        QCOMPARE(editor->cursorLine(), 4);
+        actions.action("editor_cmd")->trigger();
+        int row = 0;
+        while (row < 2 && !issues->model()->index(row, 0).data().toString().startsWith("Unknown parameter"))
+            ++row;
+        Q_EMIT issues->doubleClicked(issues->model()->index(row, 2));
+        QCOMPARE(view->currentEditor(), QStringLiteral("states"));
+        QCOMPARE(view->currentCodeEditor()->cursorLine(), 9);
+
+        // The issues update after the edit pause.
+        QTextCursor cursor(editor->document()->findBlockByNumber(8));
+        cursor.select(QTextCursor::LineUnderCursor);
+        cursor.insertText("ctrl = 1");
+        QTRY_COMPARE(issues->model()->rowCount(), 1);
+        QTRY_COMPARE(window.ofsStatusBar()->section(1), QStringLiteral("Syntax error count: 1"));
+        editor->document()->setModified(false);
     }
 
 private:
