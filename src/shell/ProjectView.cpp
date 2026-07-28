@@ -252,6 +252,7 @@ void ProjectView::configureCodeEditor(CodeEditor* editor, const QString& editorI
     options.foldingMarkers = config.boolValue(QStringLiteral("code_folding_markers"), true);
     options.highlightLine = config.boolValue(QStringLiteral("code_highlight_line"), true);
     options.parenMatching = config.boolValue(QStringLiteral("code_paren_matching"), true);
+    options.highlightBlocks = config.boolValue(QStringLiteral("code_highlight_blocks"), false);
     editor->setOptions(options);
     editor->setSyntax(engine()->syntax(), engine()->syntaxFileType(*m_project, editorId));
     editor->setColorSet(m_context.theme().colorSet());

@@ -583,6 +583,35 @@ void CodeEditor::updateExtraSelections()
 {
     QList<QTextEdit::ExtraSelection> selections;
 
+    if (m_options.highlightBlocks) {
+        QTextBlock first = textCursor().block();
+        while (first.isValid()) {
+            const auto* blockData = CodeBlockData::get(first);
+            if (blockData && blockData->isHeader)
+                break;
+            first = first.previous();
+        }
+        if (first.isValid()) {
+            QTextBlock last = first;
+            for (QTextBlock b = first.next(); b.isValid(); b = b.next()) {
+                const auto* blockData = CodeBlockData::get(b);
+                if (blockData && blockData->isHeader)
+                    break;
+                last = b;
+            }
+            const QColor background = m_colors.color(QStringLiteral("background"), palette().color(QPalette::Base));
+            QColor tint = m_colors.color(QStringLiteral("block_range"), palette().color(QPalette::Highlight));
+            tint = QColor((background.red() + tint.red()) / 2, (background.green() + tint.green()) / 2,
+                          (background.blue() + tint.blue()) / 2);
+            QTextEdit::ExtraSelection block;
+            block.format.setBackground(tint);
+            block.format.setProperty(QTextFormat::FullWidthSelection, true);
+            block.cursor = QTextCursor(first);
+            block.cursor.setPosition(last.position() + last.length() - 1, QTextCursor::KeepAnchor);
+            selections << block;
+        }
+    }
+
     if (m_options.highlightLine && !isReadOnly()) {
         QTextEdit::ExtraSelection line;
         const QColor color = m_colors.color(QStringLiteral("line"), palette().color(QPalette::AlternateBase));

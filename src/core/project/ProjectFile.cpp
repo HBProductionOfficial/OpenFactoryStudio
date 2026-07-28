@@ -14,6 +14,9 @@ namespace OFS {
 
 namespace {
 QString s_fallbackEncoding = QStringLiteral("System");
+bool s_tabsToSpaces = false;
+bool s_spacesToTabs = false;
+int s_tabWidth = 4;
 } // namespace
 
 ProjectFile::ProjectFile(const QString& path, const QString& editorId, QObject* parent)
@@ -108,6 +111,51 @@ QString CodeFile::fallbackEncoding()
     return s_fallbackEncoding;
 }
 
+void CodeFile::setTabConversion(bool tabsToSpacesOnOpen, bool spacesToTabsOnSave, int tabWidth)
+{
+    s_tabsToSpaces = tabsToSpacesOnOpen;
+    s_spacesToTabs = spacesToTabsOnSave;
+    s_tabWidth = qMax(1, tabWidth);
+}
+
+QString CodeFile::expandTabs(const QString& text, int tabWidth)
+{
+    if (!text.contains(QLatin1Char('\t')))
+        return text;
+    QString result;
+    result.reserve(text.size() + text.size() / 4);
+    int column = 0;
+    for (QChar c : text) {
+        if (c == QLatin1Char('\t')) {
+            const int spaces = tabWidth - column % tabWidth;
+            result += QString(spaces, QLatin1Char(' '));
+            column += spaces;
+        } else {
+            result += c;
+            column = c == QLatin1Char('\n') ? 0 : column + 1;
+        }
+    }
+    return result;
+}
+
+QString CodeFile::tabifyIndentation(const QString& text, int tabWidth)
+{
+    QStringList lines = text.split(QLatin1Char('\n'));
+    for (QString& line : lines) {
+        int width = 0;
+        int end = 0;
+        while (end < line.size() && (line.at(end) == QLatin1Char(' ') || line.at(end) == QLatin1Char('\t'))) {
+            width = line.at(end) == QLatin1Char('\t') ? (width / tabWidth + 1) * tabWidth : width + 1;
+            ++end;
+        }
+        if (end == 0 || width < tabWidth)
+            continue;
+        line =
+            QString(width / tabWidth, QLatin1Char('\t')) + QString(width % tabWidth, QLatin1Char(' ')) + line.mid(end);
+    }
+    return lines.join(QLatin1Char('\n'));
+}
+
 void CodeFile::setFallbackEncoding(const QString& encoding)
 {
     s_fallbackEncoding = TextEncoding::isAvailable(encoding) ? encoding : QStringLiteral("System");
@@ -127,6 +175,8 @@ bool CodeFile::load(QString* error)
                    : text.contains(QLatin1Char('\n'))   ? QStringLiteral("\n")
                                                         : QStringLiteral("\r\n");
     text.replace(QLatin1String("\r\n"), QLatin1String("\n"));
+    if (s_tabsToSpaces)
+        text = expandTabs(text, s_tabWidth);
     m_document->setPlainText(text);
     m_document->setModified(false);
     return true;
@@ -144,6 +194,8 @@ bool CodeFile::saveAs(const QString& target, QString* error)
         bytes = m_original; // unchanged: write back exactly what was read
     } else {
         QString text = m_document->toPlainText();
+        if (s_spacesToTabs)
+            text = tabifyIndentation(text, s_tabWidth);
         if (m_lineEnding != QLatin1String("\n"))
             text.replace(QLatin1Char('\n'), m_lineEnding);
         bytes = m_bom + encode(text, m_encoding);

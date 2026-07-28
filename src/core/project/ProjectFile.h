@@ -70,6 +70,10 @@ public:
     static QString fallbackEncoding();
     static void setFallbackEncoding(const QString& encoding);
 
+    static void setTabConversion(bool tabsToSpacesOnOpen, bool spacesToTabsOnSave, int tabWidth = 4);
+    static QString expandTabs(const QString& text, int tabWidth);
+    static QString tabifyIndentation(const QString& text, int tabWidth);
+
 private:
     QTextDocument* m_document;
     QByteArray m_original;

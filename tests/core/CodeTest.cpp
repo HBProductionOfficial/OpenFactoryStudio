@@ -461,6 +461,49 @@ private Q_SLOTS:
         QVERIFY(!editor.isCompleting());
     }
 
+    void tabConversion()
+    {
+        QCOMPARE(CodeFile::expandTabs("a\tb\n\tc\n12345\td", 4), QStringLiteral("a   b\n    c\n12345   d"));
+        QCOMPARE(CodeFile::tabifyIndentation("    x = 1\n      y\n  z\n\t  w = \"a    b\"", 4),
+                 QStringLiteral("\tx = 1\n\t  y\n  z\n\t  w = \"a    b\""));
+
+        QTemporaryDir dir;
+        const QString path = dir.filePath("t.cns");
+        writeBytes(path, "[Data]\r\n\tlife = 1000\r\n");
+        CodeFile::setTabConversion(true, true);
+        CodeFile file(path, "states");
+        QString error;
+        QVERIFY(file.load(&error));
+        QCOMPARE(file.document()->toPlainText(), QStringLiteral("[Data]\n    life = 1000\n"));
+        QVERIFY(file.save(&error));
+        QCOMPARE(readBytes(path), QByteArray("[Data]\r\n\tlife = 1000\r\n"));
+        QTextCursor c(file.document());
+        c.movePosition(QTextCursor::End);
+        c.insertText("    power = 3000\n");
+        QVERIFY(file.save(&error));
+        QCOMPARE(readBytes(path), QByteArray("[Data]\r\n\tlife = 1000\r\n\tpower = 3000\r\n"));
+        CodeFile::setTabConversion(false, false);
+    }
+
+    void blockHighlight()
+    {
+        CodeEditor editor;
+        CodeEditor::Options options;
+        options.highlightBlocks = true;
+        options.highlightLine = false;
+        options.parenMatching = false;
+        editor.setOptions(options);
+        editor.setPlainText("[Data]\nlife = 1000\npower = 3000\n[Size]\nxscale = 1\n");
+        QCoreApplication::processEvents();
+        editor.goToLine(2);
+        const auto selections = editor.extraSelections();
+        QCOMPARE(selections.size(), 1);
+        QCOMPARE(selections.first().cursor.selectionStart(), 0);
+        QCOMPARE(selections.first().cursor.selectedText(), QString("[Data]") + QChar::ParagraphSeparator +
+                                                               "life = 1000" + QChar::ParagraphSeparator +
+                                                               "power = 3000");
+    }
+
     void editorCommentToggle()
     {
         CodeEditor editor;

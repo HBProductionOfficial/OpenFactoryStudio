@@ -32,6 +32,7 @@ public:
         bool foldingMarkers = true;
         bool highlightLine = true;
         bool parenMatching = true;
+        bool highlightBlocks = false;
     };
     void setOptions(const Options& options);
     const Options& options() const { return m_options; }
