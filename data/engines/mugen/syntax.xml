@@ -3090,6 +3090,7 @@
             <param name="sysexplod*.layerno" type="int"/>
             <param name="sysexplod*.scale" type="float2" optional="req,def"/>
         </block>
+        <!-- pX.pos and pX.name.pos are the names pX.offset and pX.name.offset had before 1.0 RC1. The engine still reads them. -->
         <block type="VS Screen">
             <param name="time" type="int"/>
             <param name="fadein.time" type="int"/>
