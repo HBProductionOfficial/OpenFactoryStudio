@@ -10,6 +10,8 @@
 #include <QStringConverter>
 #include <QTextDocument>
 
+#include <uchardet.h>
+
 namespace OFS {
 
 namespace {
@@ -89,6 +91,11 @@ QString CodeFile::decode(const QByteArray& data, QString* encoding, QByteArray* 
         *encoding = QStringLiteral("UTF-8");
         return text;
     }
+    const QString detected = detectEncoding(data);
+    if (!detected.isEmpty()) {
+        *encoding = detected;
+        return TextEncoding::decode(data, detected);
+    }
     bool ok = false;
     const QString decoded = TextEncoding::decode(data, s_fallbackEncoding, &ok);
     if (!ok) {
@@ -104,6 +111,41 @@ QByteArray CodeFile::encode(const QString& text, const QString& encoding)
     bool ok = false;
     const QByteArray bytes = TextEncoding::encode(text, encoding, &ok);
     return ok ? bytes : text.toUtf8();
+}
+
+QString CodeFile::detectEncoding(const QByteArray& data)
+{
+    uchardet_t detector = uchardet_new();
+    if (!detector)
+        return {};
+    QString name;
+    if (uchardet_handle_data(detector, data.constData(), size_t(data.size())) == 0) {
+        uchardet_data_end(detector);
+        name = QString::fromLatin1(uchardet_get_charset(detector));
+    }
+    uchardet_delete(detector);
+    // Only encodings the Encoding menu offers. The detector also knows rarer ones.
+    const int index = TextEncoding::indexOf(name);
+    if (index <= 0)
+        return {};
+    const QString codec = TextEncoding::all().at(index).codecName();
+    if (!TextEncoding::isAvailable(codec))
+        return {};
+    // With only a few non-ASCII bytes a single-byte guess is close to chance, because "café" fits
+    // any Latin code page. Multi-byte Asian encodings are still found reliably.
+    static const QStringList multiByte = {QStringLiteral("Shift_JIS"),   QStringLiteral("EUC-JP"),
+                                          QStringLiteral("ISO-2022-JP"), QStringLiteral("GBK"),
+                                          QStringLiteral("GB18030"),     QStringLiteral("GB2312"),
+                                          QStringLiteral("Big5"),        QStringLiteral("Big5-HKSCS"),
+                                          QStringLiteral("EUC-KR"),      QStringLiteral("windows-949")};
+    qsizetype high = 0;
+    for (char c : data) {
+        if (static_cast<unsigned char>(c) >= 0x80)
+            ++high;
+    }
+    if (high < 16 && !multiByte.contains(codec, Qt::CaseInsensitive))
+        return {};
+    return codec;
 }
 
 QString CodeFile::fallbackEncoding()

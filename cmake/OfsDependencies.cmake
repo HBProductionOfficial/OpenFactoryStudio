@@ -57,6 +57,23 @@ else()
     target_compile_options(ofs_lodepng PRIVATE -w)
 endif()
 
+FetchContent_Declare(uchardet
+    URL https://www.freedesktop.org/software/uchardet/releases/uchardet-0.0.8.tar.xz
+    URL_HASH SHA256=e97a60cfc00a1c147a674b097bb1422abd9fa78a2d9ce3f3fdcc2e78a34ac5f0
+    SOURCE_SUBDIR _ofs_no_build)
+FetchContent_MakeAvailable(uchardet)
+file(GLOB _ofs_uchardet_sources "${uchardet_SOURCE_DIR}/src/*.cpp" "${uchardet_SOURCE_DIR}/src/LangModels/*.cpp")
+add_library(ofs_uchardet STATIC ${_ofs_uchardet_sources})
+add_library(OFS::uchardet ALIAS ofs_uchardet)
+set_target_properties(ofs_uchardet PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(ofs_uchardet SYSTEM PUBLIC "$<BUILD_INTERFACE:${uchardet_SOURCE_DIR}/src>")
+target_compile_definitions(ofs_uchardet PRIVATE VERSION="0.0.8")
+if(MSVC)
+    target_compile_options(ofs_uchardet PRIVATE /W0)
+else()
+    target_compile_options(ofs_uchardet PRIVATE -w)
+endif()
+
 # --- Catch2 v3 (BSL-1.0), unit tests -----------------------------------------------------------
 if(OFS_BUILD_TESTS)
     FetchContent_Declare(Catch2

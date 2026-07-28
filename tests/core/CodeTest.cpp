@@ -246,6 +246,30 @@ private Q_SLOTS:
         QVERIFY(!ok);
     }
 
+    void encodingDetection()
+    {
+        const QString japanese =
+            QStringLiteral(u"; 立ちパンチ（弱）\n[State 200, 1]\ntype = ChangeState ; 状態を変える\n");
+        const QByteArray sjis = TextEncoding::encode(japanese, "Shift_JIS");
+        QString encoding;
+        QByteArray bom;
+        QCOMPARE(CodeFile::decode(sjis, &encoding, &bom), japanese);
+        QCOMPARE(encoding, QStringLiteral("Shift_JIS"));
+
+        const QString french = QStringLiteral(u"; Été, à côté du château, où l'élève préféré déçu reçoit "
+                                              u"des crêpes à la crème brûlée près de la forêt\nname = \"Hélène\"\n");
+        const QByteArray latin = TextEncoding::encode(french, "windows-1252");
+        QCOMPARE(CodeFile::decode(latin, &encoding, &bom), french);
+        QVERIFY2(encoding == QLatin1String("windows-1252") || encoding == QLatin1String("ISO-8859-1") ||
+                     encoding == QLatin1String("ISO-8859-15"),
+                 qPrintable(encoding));
+
+        CodeFile::setFallbackEncoding("windows-1252");
+        CodeFile::decode("name = \"caf\xE9\"", &encoding, &bom);
+        QCOMPARE(encoding, QStringLiteral("windows-1252"));
+        CodeFile::setFallbackEncoding("System");
+    }
+
     void codeFileEncodingChanges()
     {
         QTemporaryDir dir;

@@ -65,6 +65,7 @@ public:
     // detector, else the fallback encoding. Sets *encoding and *bom.
     static QString decode(const QByteArray& data, QString* encoding, QByteArray* bom);
     static QByteArray encode(const QString& text, const QString& encoding);
+    static QString detectEncoding(const QByteArray& data);
 
     // For files that are neither Unicode nor valid UTF-8. "System" by default.
     static QString fallbackEncoding();

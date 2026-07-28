@@ -99,4 +99,4 @@ target_link_libraries(ofscore
         Qt6::Core Qt6::Gui Qt6::Widgets
         OFS::formats
     PRIVATE
-        OFS::sol2 Qt6::Core5Compat)
+        OFS::sol2 OFS::uchardet Qt6::Core5Compat)
