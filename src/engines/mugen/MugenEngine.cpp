@@ -7,6 +7,7 @@
 #include "engines/mugen/MugenActions.h"
 #include "engines/mugen/MugenControls.h"
 #include "engines/mugen/MugenMenus.h"
+#include "engines/mugen/MugenOutline.h"
 #include "engines/mugen/MugenProject.h"
 #include "engines/mugen/MugenSyntax.h"
 
@@ -124,6 +125,11 @@ const CompletionModels* MugenEngine::completion() const
             qWarning("could not load %s: %s", qPrintable(path), qPrintable(error));
     }
     return m_completion.get();
+}
+
+QList<OutlineNode> MugenEngine::outline(const Project& project, const QString& editorId, const QString& text) const
+{
+    return mugenOutline(text, syntax(), syntaxFileType(project, editorId));
 }
 
 QStringList MugenEngine::codeTemplateDirs(const QString& editorId) const

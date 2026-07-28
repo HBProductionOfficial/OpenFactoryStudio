@@ -1,5 +1,6 @@
 #include "core/engine/Engine.h"
 
+#include "core/code/CodeOutline.h"
 #include "core/code/Snippet.h"
 
 #include "core/app/Paths.h"
@@ -72,6 +73,13 @@ QString Engine::documentationPage(const Project& project, const QString& kind, c
         }
     }
     return {};
+}
+
+QList<OutlineNode> Engine::outline(const Project& project, const QString& editorId, const QString& text) const
+{
+    Q_UNUSED(project);
+    Q_UNUSED(editorId);
+    return sectionOutline(text);
 }
 
 QStringList Engine::codeTemplateDirs(const QString& editorId) const

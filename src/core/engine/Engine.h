@@ -17,6 +17,7 @@ namespace OFS {
 
 class AppContext;
 class CompletionModels;
+struct OutlineNode;
 class Project;
 class SnippetLibrary;
 class SyntaxDatabase;
@@ -70,6 +71,8 @@ public:
     virtual QString syntaxFileType(const Project& project, const QString& editorId) const;
 
     virtual IssueList validate(const Project& project, const QString& editorId, const QString& text) const;
+
+    virtual QList<OutlineNode> outline(const Project& project, const QString& editorId, const QString& text) const;
 
     virtual const CompletionModels* completion() const { return nullptr; }
 

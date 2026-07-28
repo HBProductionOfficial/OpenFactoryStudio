@@ -1,5 +1,6 @@
 #include "engines/mugen/MugenSyntax.h"
 #include "core/syntax/SyntaxDatabase.h"
+#include "engines/mugen/MugenOutline.h"
 #include "engines/mugen/expr/Expression.h"
 
 #include <QTest>
@@ -293,6 +294,41 @@ private Q_SLOTS:
         QCOMPARE(issues.size(), 1);
         QCOMPARE(issues.first().line, 6);
         QVERIFY(issues.first().message.startsWith(QStringLiteral("Invalid command element")));
+    }
+
+    void outline()
+    {
+        const QString cns = QStringLiteral("[Data]\nlife = 1000\n[ja.Quotes]\nvictory1 = \"x\"\n"
+                                           "; Lose by Time Over\n[Statedef 170]\ntype = S\n"
+                                           "[State 170, 1]\ntype = ChangeAnim\ntrigger1 = 1\n\n"
+                                           ";-------\n[Statedef 180]\n\n[Statedef -3]\n");
+        const Outline tree = mugenOutline(cns, &m_db, QStringLiteral("state"));
+        QStringList texts;
+        for (const OutlineNode& node : tree)
+            texts << node.text;
+        QCOMPARE(texts, (QStringList{"Data", "Quotes [ja]", "170 - Lose by Time Over", "180", "-3"}));
+        QCOMPARE(tree[1].icon, QStringLiteral("st_quote"));
+        QCOMPARE(tree[2].icon, QStringLiteral("st_s"));
+        QCOMPARE(tree[2].line, 5);
+        QCOMPARE(tree[2].children.size(), 2);
+        QCOMPARE(tree[2].children[1].text, QStringLiteral("State 170, 1"));
+        QCOMPARE(tree[2].children[1].children.size(), 2);
+        QVERIFY(tree[3].icon.isEmpty());
+        QCOMPARE(tree[0].children.first().text, QStringLiteral("life = 1000"));
+        QCOMPARE(tree[0].children.first().icon, QStringLiteral("code_int"));
+
+        const QString cmd = QStringLiteral("[Remap]\nx = x\n[Defaults]\ncommand.time = 15\n"
+                                           "[Command]\nname = \"QCF_x\"\ncommand = ~D, DF, F, x\n"
+                                           "[Command]\nname = \"holdfwd\"\ncommand = /$F\n[Statedef -1]\n");
+        const Outline commands = mugenOutline(cmd);
+        texts.clear();
+        for (const OutlineNode& node : commands)
+            texts << node.text;
+        QCOMPARE(texts, (QStringList{"Remap", "Defaults", "Commands", "-1"}));
+        QCOMPARE(commands[2].children.size(), 2);
+        QCOMPARE(commands[2].children[0].text, QStringLiteral("QCF_x: ~D, DF, F, x"));
+        QCOMPARE(commands[2].children[0].icon, QStringLiteral("st_command"));
+        QCOMPARE(commands[2].children[1].line, 7);
     }
 
     void matchingRules()

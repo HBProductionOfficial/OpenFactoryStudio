@@ -32,6 +32,7 @@
 #include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
+#include <QTreeView>
 
 using namespace OFS;
 
@@ -452,6 +453,37 @@ private Q_SLOTS:
         QCOMPARE(popup->objectName(), QStringLiteral("docPopup"));
         QVERIFY(popup->findChild<QTextBrowser*>("docBrowser")->toPlainText().contains("ChangeState"));
         popup->close();
+    }
+
+    void codeBlockTree()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("tree.def"), "[Info]\nname = \"Tree\"\nmugenversion = 1.0\n"
+                                            "[Files]\ncns = tree.cns\nsprite = t.sff\nanim = t.air\n");
+        writeFile(dir.filePath("tree.cns"), "[Data]\nlife = 1000\n; Stand\n[Statedef 0]\ntype = S\n"
+                                            "[State 0, 1]\ntype = ChangeAnim\ntrigger1 = 1\nvalue = 0\n");
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("tree.def")));
+        m_context->actions().action("editor_st")->trigger();
+        ProjectView* view = window.currentProjectView();
+        QTreeView* tree = view->outlineTree("states");
+        QVERIFY(tree);
+        QCOMPARE(tree->objectName(), QStringLiteral("st_tree"));
+        QTRY_COMPARE(tree->model() ? tree->model()->rowCount() : 0, 2);
+        QCOMPARE(tree->model()->index(1, 0).data().toString(), QStringLiteral("0 - Stand"));
+
+        const QModelIndex stateDef = tree->model()->index(1, 0);
+        tree->setExpanded(stateDef, true);
+        Q_EMIT tree->clicked(stateDef);
+        CodeEditor* editor = view->currentCodeEditor();
+        QCOMPARE(editor->cursorLine(), 4);
+        QTextCursor cursor(editor->document()->findBlockByNumber(2));
+        cursor.select(QTextCursor::LineUnderCursor);
+        cursor.insertText("; Standing");
+        QTRY_COMPARE(tree->model()->index(1, 0).data().toString(), QStringLiteral("0 - Standing"));
+        QVERIFY(tree->isExpanded(tree->model()->index(1, 0)) == false); // new text makes it a new node
+        editor->document()->setModified(false);
     }
 
     void stateControllerList()

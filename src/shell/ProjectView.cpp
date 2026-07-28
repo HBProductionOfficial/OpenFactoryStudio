@@ -3,6 +3,7 @@
 #include "core/actions/ActionRegistry.h"
 #include "core/app/AppContext.h"
 #include "core/code/CodeEditor.h"
+#include "core/code/CodeOutline.h"
 #include "core/code/Snippet.h"
 #include "core/engine/Engine.h"
 #include "core/preset/ControlRegistry.h"
@@ -10,6 +11,7 @@
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
 #include "core/settings/Config.h"
+#include "core/theme/IconSet.h"
 #include "core/theme/ThemeManager.h"
 #include "core/widgets/EPanelWidget.h"
 #include "shell/BottomDock.h"
@@ -21,6 +23,7 @@
 #include <QFileInfo>
 #include <QHBoxLayout>
 #include <QScrollArea>
+#include <QSet>
 #include <QStackedWidget>
 #include <QStandardItemModel>
 #include <QTabBar>
@@ -179,6 +182,8 @@ void ProjectView::createEditor(const EditorInfo& info)
         tabs->setTabToolTip(index, QDir::toNativeSeparators(file));
     }
     connect(tabs, &QTabWidget::currentChanged, this, [this, tabs] {
+        if (auto* page = qobject_cast<CodePage*>(tabs->currentWidget()))
+            updateOutline(page);
         if (tabs == m_center->currentWidget())
             Q_EMIT currentFileChanged();
     });
@@ -326,7 +331,96 @@ void ProjectView::validate(CodePage* page)
         issue.file = path;
     page->setIssues(issues, m_context.theme().iconSet());
     m_issues.insert(path, issues);
+    updateOutline(page);
     Q_EMIT issuesChanged();
+}
+
+QTreeView* ProjectView::outlineTree(const QString& editorId) const
+{
+    QScrollArea* panel = m_editorPanels.value(editorId);
+    if (!panel || !panel->widget())
+        return nullptr;
+    for (QTreeView* tree : panel->widget()->findChildren<QTreeView*>()) {
+        if (tree->objectName().endsWith(QLatin1String("_tree")))
+            return tree;
+    }
+    return nullptr;
+}
+
+namespace {
+
+QString itemPath(const QStandardItem* item)
+{
+    QString path;
+    for (const QStandardItem* i = item; i; i = i->parent())
+        path.prepend(i->text() + QLatin1Char('\x1f'));
+    return path;
+}
+
+void collectExpanded(const QTreeView* tree, const QStandardItem* parent, QSet<QString>& expanded)
+{
+    for (int row = 0; row < parent->rowCount(); ++row) {
+        const QStandardItem* item = parent->child(row);
+        if (tree->isExpanded(item->index())) {
+            expanded.insert(itemPath(item));
+            collectExpanded(tree, item, expanded);
+        }
+    }
+}
+
+void addOutline(QStandardItem* parent, const QList<OutlineNode>& nodes, const IconSet& icons)
+{
+    for (const OutlineNode& node : nodes) {
+        auto* item = new QStandardItem(node.text);
+        item->setEditable(false);
+        item->setData(node.line, Qt::UserRole);
+        if (!node.icon.isEmpty())
+            item->setIcon(icons.icon(node.icon));
+        addOutline(item, node.children, icons);
+        parent->appendRow(item);
+    }
+}
+
+void restoreExpanded(QTreeView* tree, const QStandardItem* parent, const QSet<QString>& expanded)
+{
+    for (int row = 0; row < parent->rowCount(); ++row) {
+        const QStandardItem* item = parent->child(row);
+        if (expanded.contains(itemPath(item))) {
+            tree->setExpanded(item->index(), true);
+            restoreExpanded(tree, item, expanded);
+        }
+    }
+}
+
+} // namespace
+
+void ProjectView::updateOutline(CodePage* page)
+{
+    const QString editorId = page->property("editorId").toString();
+    QTabWidget* tabs = m_fileTabs.value(editorId);
+    QTreeView* tree = outlineTree(editorId);
+    if (!tabs || tabs->currentWidget() != page || !tree)
+        return;
+    auto* model = qobject_cast<QStandardItemModel*>(tree->model());
+    if (!model || model->parent() != tree) {
+        model = new QStandardItemModel(tree);
+        tree->setModel(model);
+        tree->setHeaderHidden(true);
+        tree->setEditTriggers(QAbstractItemView::NoEditTriggers);
+        connect(tree, &QTreeView::clicked, this, [this, editorId](const QModelIndex& index) {
+            const int line = index.data(Qt::UserRole).toInt();
+            QTabWidget* fileTabs = m_fileTabs.value(editorId);
+            auto* current = fileTabs ? qobject_cast<CodePage*>(fileTabs->currentWidget()) : nullptr;
+            if (current && line >= 0)
+                current->editor()->goToLine(line + 1);
+        });
+    }
+    QSet<QString> expanded;
+    collectExpanded(tree, model->invisibleRootItem(), expanded);
+    model->clear();
+    addOutline(model->invisibleRootItem(), engine()->outline(*m_project, editorId, page->editor()->toPlainText()),
+               m_context.theme().iconSet());
+    restoreExpanded(tree, model->invisibleRootItem(), expanded);
 }
 
 void ProjectView::validateAll()
@@ -463,6 +557,10 @@ void ProjectView::applyPreset(const Preset::Model& model)
     if (organizer != model.extraPanels.cend() && organizer->layout)
         builder.buildPanel(*organizer->layout, m_extraPanels.value(QStringLiteral("organizer"))->widget(), 22);
     updateRightPanel();
+    for (QTabWidget* tabs : std::as_const(m_fileTabs)) {
+        if (auto* page = qobject_cast<CodePage*>(tabs->currentWidget()))
+            updateOutline(page);
+    }
 }
 
 void ProjectView::setLeftPanelVisible(bool visible)

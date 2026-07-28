@@ -10,6 +10,8 @@ add_library(ofs_mugen_lib STATIC
     MugenEngine.cpp
     MugenMenus.h
     MugenMenus.cpp
+    MugenOutline.h
+    MugenOutline.cpp
     MugenProject.h
     MugenProject.cpp
     MugenSyntax.h

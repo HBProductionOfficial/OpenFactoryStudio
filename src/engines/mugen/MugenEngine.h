@@ -32,6 +32,7 @@ public:
     const SyntaxDatabase* syntax() const override;
     const CompletionModels* completion() const override;
     QStringList codeTemplateDirs(const QString& editorId) const override;
+    QList<OutlineNode> outline(const Project& project, const QString& editorId, const QString& text) const override;
 
 protected:
     QStringList documentationVariants(const Project& project) const override;
