@@ -21,6 +21,7 @@
 #include "core/theme/ThemeManager.h"
 #include "shell/BottomDock.h"
 #include "shell/CodePage.h"
+#include "shell/ControllerTemplatesWidget.h"
 #include "shell/MenuBuilder.h"
 #include "shell/ProjectView.h"
 #include "shell/QuickFindBar.h"
@@ -32,6 +33,7 @@
 #include "shell/dialogs/ClipboardContainer.h"
 #include "shell/dialogs/OptionsDialog.h"
 #include "shell/dialogs/SnippetFieldsDialog.h"
+#include "shell/dialogs/StateControllerDialog.h"
 
 #include <QAction>
 #include <QActionGroup>
@@ -386,6 +388,52 @@ void MainWindow::connectEditActions()
         setQuickFindOpen(true);
     });
     on("edit_find_replace_multi", [this] { showMultiLineFind(); });
+    auto currentTemplates = [this]() -> ControllerTemplatesWidget* {
+        ProjectView* view = currentProjectView();
+        CodePage* page = view ? view->currentCodePage() : nullptr;
+        return page ? qobject_cast<ControllerTemplatesWidget*>(page->sidePanel()) : nullptr;
+    };
+    auto editTemplate = [this, currentTemplates](bool create) {
+        ControllerTemplatesWidget* templates = currentTemplates();
+        if (!templates || (!create && templates->selectedName().isEmpty()))
+            return;
+        StateControllerDialog dialog(currentProjectView()->engine()->syntax(), this);
+        if (!create)
+            dialog.setText(templates->templateText(templates->selectedName()));
+        if (dialog.exec() != QDialog::Accepted)
+            return;
+        QString name = create ? StateControllerDialog::controllerType(dialog.text()) : templates->selectedName();
+        if (name.isEmpty()) {
+            bool ok = false;
+            name = QInputDialog::getText(this, tr("New State controller"), tr("Name:"), QLineEdit::Normal, {}, &ok)
+                       .trimmed();
+            if (!ok || name.isEmpty())
+                return;
+        }
+        if (create && templates->names().contains(name, Qt::CaseInsensitive) &&
+            QMessageBox::question(this, QApplication::applicationDisplayName(),
+                                  tr("A state controller named '%1' already exists. Replace it?").arg(name)) !=
+                QMessageBox::Yes)
+            return;
+        QString error;
+        if (!templates->saveTemplate(name, dialog.text(), &error))
+            QMessageBox::warning(this, QApplication::applicationDisplayName(), error);
+    };
+    on("st_sctrl_new", [editTemplate] { editTemplate(true); });
+    on("st_sctrl_edit", [editTemplate] { editTemplate(false); });
+    on("st_sctrl_delete", [this, currentTemplates] {
+        ControllerTemplatesWidget* templates = currentTemplates();
+        const QString name = templates ? templates->selectedName() : QString();
+        if (name.isEmpty())
+            return;
+        if (m_context.config().boolValue(QStringLiteral("confirm_delete"), true) &&
+            QMessageBox::question(this, QApplication::applicationDisplayName(),
+                                  tr("Delete the state controller '%1'?").arg(name)) != QMessageBox::Yes)
+            return;
+        QString error;
+        if (!templates->deleteTemplate(name, &error))
+            QMessageBox::warning(this, QApplication::applicationDisplayName(), error);
+    });
     on("code_snippet_insert", [this] {
         ProjectView* view = currentProjectView();
         CodePage* page = view ? view->currentCodePage() : nullptr;

@@ -7,8 +7,11 @@
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
 #include "core/widgets/EPanelWidget.h"
+#include "shell/CodePage.h"
+#include "shell/ControllerTemplatesWidget.h"
 #include "shell/ProjectView.h"
 #include "shell/StatusBar.h"
+#include "shell/dialogs/StateControllerDialog.h"
 
 #include <QAction>
 #include <QApplication>
@@ -17,6 +20,7 @@
 #include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QMenuBar>
 #include <QPlainTextEdit>
 #include <QPushButton>
@@ -448,6 +452,63 @@ private Q_SLOTS:
         QCOMPARE(popup->objectName(), QStringLiteral("docPopup"));
         QVERIFY(popup->findChild<QTextBrowser*>("docBrowser")->toPlainText().contains("ChangeState"));
         popup->close();
+    }
+
+    void stateControllerList()
+    {
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(m_dir.filePath("fighter.def")));
+        ActionRegistry& actions = m_context->actions();
+        actions.action("editor_st")->trigger();
+        ProjectView* view = window.currentProjectView();
+        CodePage* page = view->currentCodePage();
+        QVERIFY(page);
+        auto* templates = qobject_cast<ControllerTemplatesWidget*>(page->sidePanel());
+        QVERIFY(templates);
+        QCOMPARE(templates->names().size(), 91);
+        QCOMPARE(templates->names().first(), QStringLiteral("AfterImage"));
+        QVERIFY(templates->names().contains("StateDef"));
+        actions.action("editor_cmd")->trigger();
+        QVERIFY(!view->currentCodePage()->sidePanel());
+        actions.action("editor_st")->trigger();
+
+        CodeEditor* editor = page->editor();
+        editor->moveCursor(QTextCursor::End);
+        templates->selectName("ChangeState");
+        Q_EMIT templates->list()->itemDoubleClicked(templates->list()->currentItem());
+        QVERIFY(editor->toPlainText().contains("[State 0, ChangeState]\ntype = ChangeState\n"));
+
+        auto answerDialog = [](const QString& text) {
+            QTimer::singleShot(0, [text] {
+                auto* dialog = qobject_cast<StateControllerDialog*>(QApplication::activeModalWidget());
+                QVERIFY(dialog);
+                QCOMPARE(dialog->objectName(), QStringLiteral("SCtrlEdit"));
+                if (dialog->text().startsWith("[State ]"))
+                    QCOMPARE(dialog->text(), QStringLiteral("[State ]\ntype = "));
+                dialog->setText(text);
+                dialog->accept();
+            });
+        };
+        answerDialog("[State 0, Mine]\ntype = MyCustom\ntrigger1 = 1\n");
+        actions.action("st_sctrl_new")->trigger();
+        QVERIFY(templates->names().contains("MyCustom"));
+        QCOMPARE(templates->selectedName(), QStringLiteral("MyCustom"));
+        QVERIFY(templates->templatePath("MyCustom").startsWith(view->engine()->userDataDir()));
+        answerDialog("[State 0, Mine]\ntype = MyCustom\ntrigger1 = Time = 0\n");
+        actions.action("st_sctrl_edit")->trigger();
+        QCOMPARE(templates->templateText("MyCustom"),
+                 QStringLiteral("[State 0, Mine]\ntype = MyCustom\ntrigger1 = Time = 0\n"));
+        QFile saved(templates->templatePath("MyCustom"));
+        QVERIFY(saved.open(QIODevice::ReadOnly));
+        QVERIFY(saved.readAll().contains("\r\n"));
+        saved.close();
+        m_context->config().setValue("confirm_delete", false);
+        actions.action("st_sctrl_delete")->trigger();
+        m_context->config().setValue("confirm_delete", true);
+        QVERIFY(!templates->names().contains("MyCustom"));
+
+        editor->document()->setModified(false);
     }
 
 private:

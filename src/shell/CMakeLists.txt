@@ -4,6 +4,8 @@ add_library(ofsshell STATIC
     BottomDock.cpp
     CodePage.h
     CodePage.cpp
+    ControllerTemplatesWidget.h
+    ControllerTemplatesWidget.cpp
     DocumentationPopup.h
     DocumentationPopup.cpp
     MainWindow.h
@@ -38,6 +40,8 @@ add_library(ofsshell STATIC
     dialogs/MultiLineFindDialog.cpp
     dialogs/SnippetFieldsDialog.h
     dialogs/SnippetFieldsDialog.cpp
+    dialogs/StateControllerDialog.h
+    dialogs/StateControllerDialog.cpp
     dialogs/RunConfigDialog.h
     dialogs/RunConfigDialog.cpp
     dialogs/ShortcutEditor.h

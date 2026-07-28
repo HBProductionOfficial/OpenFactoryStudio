@@ -126,6 +126,13 @@ const CompletionModels* MugenEngine::completion() const
     return m_completion.get();
 }
 
+QStringList MugenEngine::codeTemplateDirs(const QString& editorId) const
+{
+    if (editorId != QLatin1String("states"))
+        return {};
+    return {dataDir() + QStringLiteral("/sctrls"), userDataDir() + QStringLiteral("/sctrls")};
+}
+
 QStringList MugenEngine::documentationVariants(const Project& project) const
 {
     // Version folders hold pages that differ from the common ones for that engine release.

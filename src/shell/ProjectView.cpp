@@ -14,6 +14,7 @@
 #include "core/widgets/EPanelWidget.h"
 #include "shell/BottomDock.h"
 #include "shell/CodePage.h"
+#include "shell/ControllerTemplatesWidget.h"
 #include "shell/DocumentationPopup.h"
 
 #include <QDir>
@@ -221,6 +222,13 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
         }
         page->setToolBarVisible(m_context.config().boolValue(QStringLiteral("show_code_bar"), true));
         page->setSnippets(engine()->snippets().names());
+        const QStringList templateDirs = engine()->codeTemplateDirs(info.id);
+        if (!templateDirs.isEmpty()) {
+            auto* templates = new ControllerTemplatesWidget(m_context.actions(), templateDirs);
+            templates->setVisible(m_context.config().boolValue(QStringLiteral("show_sctrl_list"), true));
+            connect(templates, &ControllerTemplatesWidget::insertRequested, page, &CodePage::insertText);
+            page->setSidePanel(templates);
+        }
         configureCodeEditor(editor, info.id);
         connect(editor, &CodeEditor::cursorPositionChanged, this, [this, editor] {
             if (editor == currentCodeEditor())

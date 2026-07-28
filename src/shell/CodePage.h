@@ -35,6 +35,11 @@ public:
     QString currentSnippet() const;
     void insertSnippet(const Snippet& snippet, const QHash<QString, QString>& values);
 
+    // The page takes ownership.
+    void setSidePanel(QWidget* panel);
+    QWidget* sidePanel() const { return m_sidePanel; }
+    void insertText(const QString& text);
+
     bool goToIssue(bool forward, bool deprecations);
 
 private:
@@ -42,6 +47,7 @@ private:
     QComboBox* m_snippets;
     QComboBox* m_navigator;
     CodeEditor* m_editor;
+    QWidget* m_sidePanel = nullptr;
     IssueList m_issues;
 };
 

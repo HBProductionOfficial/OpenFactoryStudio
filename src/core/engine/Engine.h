@@ -78,6 +78,8 @@ public:
     void setLanguage(const QString& language) { m_language = language; }
     QString language() const { return m_language; }
 
+    virtual QStringList codeTemplateDirs(const QString& editorId) const;
+
     SnippetLibrary& snippets();
     void reloadSnippets();
     QString userSnippetDir() const;

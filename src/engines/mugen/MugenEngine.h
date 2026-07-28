@@ -31,6 +31,7 @@ public:
     Project* openProject(const QString& filePath, QString* error) override;
     const SyntaxDatabase* syntax() const override;
     const CompletionModels* completion() const override;
+    QStringList codeTemplateDirs(const QString& editorId) const override;
 
 protected:
     QStringList documentationVariants(const Project& project) const override;

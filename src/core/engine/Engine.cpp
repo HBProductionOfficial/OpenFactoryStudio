@@ -74,6 +74,12 @@ QString Engine::documentationPage(const Project& project, const QString& kind, c
     return {};
 }
 
+QStringList Engine::codeTemplateDirs(const QString& editorId) const
+{
+    Q_UNUSED(editorId);
+    return {};
+}
+
 SnippetLibrary& Engine::snippets()
 {
     if (!m_snippets) {

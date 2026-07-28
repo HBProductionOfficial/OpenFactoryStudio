@@ -41,11 +41,15 @@ CodePage::CodePage(ActionRegistry& actions, QWidget* parent)
     }
     bar->addWidget(m_navigator, 1);
 
-    auto* layout = new QVBoxLayout(this);
+    auto* column = new QVBoxLayout;
+    column->setContentsMargins(0, 0, 0, 0);
+    column->setSpacing(0);
+    column->addWidget(m_toolBar);
+    column->addWidget(m_editor, 1);
+    auto* layout = new QHBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
-    layout->addWidget(m_toolBar);
-    layout->addWidget(m_editor, 1);
+    layout->addLayout(column, 1);
 
     connect(m_navigator, &QComboBox::activated, this, [this](int index) {
         if (index >= 0 && index < m_issues.size())
@@ -112,6 +116,26 @@ void CodePage::setSnippets(const QStringList& names)
 QString CodePage::currentSnippet() const
 {
     return m_snippets->currentText();
+}
+
+void CodePage::setSidePanel(QWidget* panel)
+{
+    delete m_sidePanel;
+    m_sidePanel = panel;
+    if (panel) {
+        panel->setParent(this);
+        static_cast<QHBoxLayout*>(layout())->addWidget(panel);
+    }
+}
+
+void CodePage::insertText(const QString& text)
+{
+    if (m_editor->isReadOnly())
+        return;
+    QTextCursor cursor = m_editor->textCursor();
+    cursor.insertText(text);
+    m_editor->setTextCursor(cursor);
+    m_editor->setFocus();
 }
 
 void CodePage::insertSnippet(const Snippet& snippet, const QHash<QString, QString>& values)
