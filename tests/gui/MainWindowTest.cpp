@@ -486,6 +486,25 @@ private Q_SLOTS:
         editor->document()->setModified(false);
     }
 
+    void projectExplorer()
+    {
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(m_dir.filePath("fighter.def")));
+        ProjectView* view = window.currentProjectView();
+        auto* explorer = view->findChild<QTreeView*>("projectExplorer");
+        QVERIFY(explorer);
+        QStringList names;
+        for (int row = 0; row < explorer->model()->rowCount(); ++row)
+            names << explorer->model()->index(row, 0).data().toString();
+        QCOMPARE(names, (QStringList{"fighter.air", "fighter.cmd", "fighter.cns", "fighter.def"}));
+        m_context->actions().action("editor_def")->trigger();
+        Q_EMIT explorer->doubleClicked(explorer->model()->index(1, 0));
+        QCOMPARE(view->currentEditor(), QStringLiteral("commands"));
+        Q_EMIT explorer->doubleClicked(explorer->model()->index(0, 0));
+        QCOMPARE(view->currentEditor(), QStringLiteral("animations"));
+    }
+
     void stateControllerList()
     {
         MainWindow window(*m_context);

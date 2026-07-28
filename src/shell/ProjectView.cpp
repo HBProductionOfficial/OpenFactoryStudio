@@ -89,8 +89,18 @@ ProjectView::ProjectView(Project* project, AppContext& context, QWidget* parent)
     m_left->setFixedWidth(kPanelWidth);
     m_explorer->setObjectName(QStringLiteral("projectExplorer"));
     m_explorer->setHeaderHidden(true);
-    m_explorer->setRootIsDecorated(false);
     m_explorer->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    connect(m_explorer, &QTreeView::doubleClicked, this, [this](const QModelIndex& index) {
+        const QString path = index.data(Qt::UserRole).toString();
+        if (showFileLine(path, 0))
+            return;
+        for (const QString& id : editorIds()) {
+            if (m_project->editorFiles(id).contains(path, Qt::CaseInsensitive)) {
+                setCurrentEditor(id);
+                return;
+            }
+        }
+    });
     auto* explorerHost = new QWidget(m_leftStack);
     auto* explorerLayout = new QVBoxLayout(explorerHost);
     explorerLayout->setContentsMargins(11, 11, 11, 11);
@@ -439,7 +449,8 @@ bool ProjectView::showFileLine(const QString& filePath, int line)
             setCurrentEditor(it.key());
             tabs->setCurrentIndex(i);
             if (auto* page = qobject_cast<CodePage*>(tabs->widget(i))) {
-                page->editor()->goToLine(line);
+                if (line > 0)
+                    page->editor()->goToLine(line);
                 page->editor()->setFocus();
             }
             return true;
