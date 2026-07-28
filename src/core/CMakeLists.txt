@@ -54,6 +54,8 @@ add_library(ofscore SHARED
     project/Project.cpp
     project/ProjectFile.h
     project/ProjectFile.cpp
+    project/ProjectSearch.h
+    project/ProjectSearch.cpp
     settings/Config.h
     settings/Config.cpp
     settings/History.h

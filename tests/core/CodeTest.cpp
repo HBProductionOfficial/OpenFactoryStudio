@@ -5,6 +5,7 @@
 #include "core/code/Snippet.h"
 #include "core/code/TextSearch.h"
 #include "core/project/ProjectFile.h"
+#include "core/project/ProjectSearch.h"
 #include "core/syntax/SyntaxDatabase.h"
 #include "core/text/Encodings.h"
 
@@ -483,6 +484,50 @@ private Q_SLOTS:
         QCOMPARE(editor.toPlainText(), QStringLiteral("x = const(da"));
         QTest::keyClicks(&editor, ")");
         QVERIFY(!editor.isCompleting());
+    }
+
+    void projectSearch()
+    {
+        QCOMPARE(ProjectSearch::splitPatterns("*.def, *.cmd, *.cns, *.st"),
+                 (QStringList{"*.def", "*.cmd", "*.cns", "*.st"}));
+        QCOMPARE(ProjectSearch::splitPatterns("*.def *.sff;*.air"), (QStringList{"*.def", "*.sff", "*.air"}));
+        QVERIFY(ProjectSearch::splitPatterns("  ").isEmpty());
+        QVERIFY(ProjectSearch::matchesPatterns("C:/x/KFM.CNS", {"*.def", "*.cns"}, {}));
+        QVERIFY(!ProjectSearch::matchesPatterns("C:/x/kfm.sff", {"*.def", "*.cns"}, {}));
+        QVERIFY(!ProjectSearch::matchesPatterns("C:/x/common1.cns", {"*.cns"}, {"common*"}));
+        QVERIFY(ProjectSearch::matchesPatterns("C:/x/any.bin", {}, {}));
+
+        const QString text = QStringLiteral("[Data]\nlife = 1000\n; life points\npower = 3000");
+        const QList<SearchHit> hits = ProjectSearch::find("f.cns", text, TextSearch("life", {}));
+        QCOMPARE(hits.size(), 2);
+        QCOMPARE(hits[0].line, 1);
+        QCOMPARE(hits[0].column, 0);
+        QCOMPARE(hits[0].lineText, QStringLiteral("life = 1000"));
+        QCOMPARE(hits[1].line, 2);
+        QCOMPARE(hits[1].column, 2);
+        QCOMPARE(hits[1].length, 4);
+
+        QTemporaryDir dir;
+        QDir().mkpath(dir.filePath("sub"));
+        writeBytes(dir.filePath("a.cns"), "[Data]\r\nlife = 1000\r\n");
+        writeBytes(dir.filePath("sub/b.cmd"), "life");
+        writeBytes(dir.filePath("sub/c.sff"), "life");
+        QCOMPARE(ProjectSearch::directoryFiles(dir.path(), {"*.cns", "*.cmd"}, {}).size(), 2);
+        QCOMPARE(ProjectSearch::directoryFiles(dir.path(), {}, {"*.sff"}).size(), 2);
+
+        SearchOptions regex;
+        regex.regExp = true;
+        QString error;
+        QCOMPARE(ProjectSearch::replaceAll({}, dir.filePath("a.cns"), TextSearch("(\\w+) = (\\d+)", regex), "%1 = 2%2",
+                                           &error),
+                 1);
+        QCOMPARE(readBytes(dir.filePath("a.cns")), QByteArray("[Data]\r\nlife = 21000\r\n"));
+        QCOMPARE(ProjectSearch::replaceAll({}, dir.filePath("a.cns"), TextSearch("absent", {}), "x", &error), 0);
+        bool ok = false;
+        QCOMPARE(ProjectSearch::fileText({}, dir.filePath("a.cns"), &ok), QStringLiteral("[Data]\nlife = 21000\n"));
+        QVERIFY(ok);
+        ProjectSearch::fileText({}, dir.filePath("missing.cns"), &ok);
+        QVERIFY(!ok);
     }
 
     void tabConversion()
