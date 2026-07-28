@@ -73,6 +73,8 @@ void AppContext::loadSettings()
 
 void AppContext::applySettings()
 {
+    for (Engine* engine : m_engines->engines())
+        engine->setLanguage(m_config->value(QStringLiteral("language"), QStringLiteral("en-us")));
     const QList<TextEncoding>& encodings = TextEncoding::all();
     const int codePage = m_config->intValue(QStringLiteral("default_codepage"), 0);
     CodeFile::setFallbackEncoding(codePage > 0 && codePage < int(encodings.size()) ? encodings[codePage].codecName()
@@ -89,6 +91,7 @@ void AppContext::initializeEngines(const QStringList& engineSearchDirs)
     QStringList dataDirs;
     for (Engine* engine : m_engines->engines()) {
         engine->initialize(*this);
+        engine->setLanguage(m_config->value(QStringLiteral("language"), QStringLiteral("en-us")));
         dataDirs << engine->dataDir();
     }
     m_theme->setEngineDataDirs(dataDirs);

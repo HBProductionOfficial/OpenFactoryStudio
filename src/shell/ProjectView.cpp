@@ -14,6 +14,7 @@
 #include "core/widgets/EPanelWidget.h"
 #include "shell/BottomDock.h"
 #include "shell/CodePage.h"
+#include "shell/DocumentationPopup.h"
 
 #include <QDir>
 #include <QFileInfo>
@@ -225,6 +226,12 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
             if (editor == currentCodeEditor())
                 Q_EMIT currentFileChanged();
         });
+        connect(editor, &CodeEditor::documentationRequested, this,
+                [this, editor](const QString& kind, const QString& name, const QPoint& globalPos) {
+                    const QString pagePath = engine()->documentationPage(*m_project, kind, name);
+                    if (!pagePath.isEmpty())
+                        DocumentationPopup::showPage(pagePath, globalPos, editor);
+                });
         return page;
     }
     auto* workspace = new QWidget;

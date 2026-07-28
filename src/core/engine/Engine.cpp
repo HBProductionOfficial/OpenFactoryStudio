@@ -48,6 +48,32 @@ IssueList Engine::validate(const Project&, const QString&, const QString&) const
     return {};
 }
 
+QStringList Engine::documentationVariants(const Project& project) const
+{
+    Q_UNUSED(project);
+    return {QStringLiteral("common")};
+}
+
+QString Engine::documentationPage(const Project& project, const QString& kind, const QString& name) const
+{
+    if (kind.isEmpty() || name.isEmpty())
+        return {};
+    const QString file = kind.toLower() + QLatin1Char('.') + name.toLower() + QStringLiteral(".html");
+    QStringList languages{m_language};
+    if (m_language.compare(QLatin1String("en-us"), Qt::CaseInsensitive) != 0)
+        languages << QStringLiteral("en-us");
+    for (const QString& root : {userDataDir(), dataDir()}) {
+        for (const QString& language : std::as_const(languages)) {
+            for (const QString& variant : documentationVariants(project)) {
+                const QString path = QStringLiteral("%1/docs/%2/%3/%4").arg(root, language, variant, file);
+                if (QFileInfo::exists(path))
+                    return path;
+            }
+        }
+    }
+    return {};
+}
+
 SnippetLibrary& Engine::snippets()
 {
     if (!m_snippets) {

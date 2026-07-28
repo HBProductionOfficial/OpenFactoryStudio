@@ -73,6 +73,11 @@ public:
 
     virtual const CompletionModels* completion() const { return nullptr; }
 
+    virtual QString documentationPage(const Project& project, const QString& kind, const QString& name) const;
+
+    void setLanguage(const QString& language) { m_language = language; }
+    QString language() const { return m_language; }
+
     SnippetLibrary& snippets();
     void reloadSnippets();
     QString userSnippetDir() const;
@@ -80,8 +85,12 @@ public:
     QString dataDir() const;
     QString userDataDir() const;
 
+protected:
+    virtual QStringList documentationVariants(const Project& project) const;
+
 private:
     std::unique_ptr<SnippetLibrary> m_snippets;
+    QString m_language = QStringLiteral("en-us");
 };
 
 class EnginePlugin

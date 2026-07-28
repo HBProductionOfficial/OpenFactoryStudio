@@ -8,6 +8,8 @@
 #include <QPlainTextEdit>
 #include <QPointer>
 
+#include <utility>
+
 class QCompleter;
 class QStringListModel;
 
@@ -57,6 +59,14 @@ public:
     void setCompletionModels(const CompletionModels* models);
     QCompleter* completer() const { return m_completer; }
     bool isCompleting() const;
+
+    // Ctrl+click target as ("sctrl" or "trigger", name). Empty kind when it is neither.
+    std::pair<QString, QString> documentationTarget(int position) const;
+
+Q_SIGNALS:
+    void documentationRequested(const QString& kind, const QString& name, const QPoint& globalPos);
+
+public:
     void revealPosition(int position);
 
     void toggleComment();
@@ -75,6 +85,7 @@ protected:
     void resizeEvent(QResizeEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
     void keyPressEventWithoutCompletion(QKeyEvent* event);
 
 private:
@@ -90,6 +101,7 @@ private:
 
     QWidget* m_gutter;
     QPointer<CodeHighlighter> m_highlighter;
+    const SyntaxDatabase* m_syntax = nullptr;
     Options m_options;
     ColorSet m_colors;
     QList<Marker> m_markers;

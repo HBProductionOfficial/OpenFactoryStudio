@@ -31,6 +31,11 @@ public:
     Project* openProject(const QString& filePath, QString* error) override;
     const SyntaxDatabase* syntax() const override;
     const CompletionModels* completion() const override;
+
+protected:
+    QStringList documentationVariants(const Project& project) const override;
+
+public:
     QString syntaxFileType(const Project& project, const QString& editorId) const override;
     IssueList validate(const Project& project, const QString& editorId, const QString& text) const override;
 

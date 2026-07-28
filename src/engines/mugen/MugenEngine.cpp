@@ -126,6 +126,19 @@ const CompletionModels* MugenEngine::completion() const
     return m_completion.get();
 }
 
+QStringList MugenEngine::documentationVariants(const Project& project) const
+{
+    // Version folders hold pages that differ from the common ones for that engine release.
+    const QString version = project.versionId();
+    if (version == QLatin1String("1.1") || version == QLatin1String("ext"))
+        return {QStringLiteral("1.1"), QStringLiteral("1.0"), QStringLiteral("common")};
+    if (version == QLatin1String("1.0"))
+        return {QStringLiteral("1.0"), QStringLiteral("common")};
+    if (version == QLatin1String("winbeta"))
+        return {QStringLiteral("win"), QStringLiteral("common")};
+    return {QStringLiteral("dos"), QStringLiteral("common")};
+}
+
 QString MugenEngine::syntaxFileType(const Project& project, const QString& editorId) const
 {
     if (editorId == QLatin1String("commands"))

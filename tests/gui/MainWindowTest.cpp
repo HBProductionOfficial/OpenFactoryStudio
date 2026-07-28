@@ -2,6 +2,7 @@
 #include "core/actions/ActionRegistry.h"
 #include "core/app/AppContext.h"
 #include "core/code/CodeEditor.h"
+#include "core/engine/Engine.h"
 #include "core/project/Project.h"
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
@@ -23,6 +24,7 @@
 #include <QTableView>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTextBrowser>
 #include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
@@ -404,6 +406,48 @@ private Q_SLOTS:
         QTRY_COMPARE(issues->model()->rowCount(), 1);
         QTRY_COMPARE(window.ofsStatusBar()->section(1), QStringLiteral("Syntax error count: 1"));
         editor->document()->setModified(false);
+    }
+
+    void documentationPopup()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("doc.def"), "[Info]\nname = \"Doc\"\nmugenversion = 1.1\n"
+                                           "[Files]\ncns = doc.cns\nsprite = doc.sff\nanim = doc.air\n");
+        writeFile(dir.filePath("doc.cns"),
+                  "[Statedef 0]\ntype = S\n"
+                  "[State 0, a]\ntype = ChangeState\ntrigger1 = AnimTime = 0\nvalue = 0 ; Time\n");
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("doc.def")));
+        m_context->actions().action("editor_st")->trigger();
+        ProjectView* view = window.currentProjectView();
+        CodeEditor* editor = view->currentCodeEditor();
+        QVERIFY(editor);
+        const QString text = editor->toPlainText();
+        auto target = [&](const char* word, int skip = 0) {
+            return editor->documentationTarget(int(text.indexOf(QLatin1String(word))) + skip);
+        };
+        QCOMPARE(target("ChangeState", 3), (std::pair<QString, QString>{"sctrl", "ChangeState"}));
+        QCOMPARE(target("AnimTime"), (std::pair<QString, QString>{"trigger", "AnimTime"}));
+        QCOMPARE(target("type = S").first, QString()); // a parameter name
+        QCOMPARE(target("Time\n").first, QString());   // inside a comment
+        QCOMPARE(target("S\n").first, QString());      // a StateDef type value
+
+        Engine* engine = view->engine();
+        QVERIFY(engine->documentationPage(*view->project(), "sctrl", "Explod").endsWith("/1.1/sctrl.explod.html"));
+        QVERIFY(engine->documentationPage(*view->project(), "sctrl", "changestate")
+                    .endsWith("/common/sctrl.changestate.html"));
+        QVERIFY(engine->documentationPage(*view->project(), "sctrl", "NoSuchController").isEmpty());
+
+        QTextCursor cursor(editor->document());
+        cursor.setPosition(int(text.indexOf("ChangeState")) + 2);
+        const QPoint point = editor->cursorRect(cursor).center();
+        QTest::mouseClick(editor->viewport(), Qt::LeftButton, Qt::ControlModifier, point);
+        auto* popup = qobject_cast<QFrame*>(QApplication::activePopupWidget());
+        QVERIFY(popup);
+        QCOMPARE(popup->objectName(), QStringLiteral("docPopup"));
+        QVERIFY(popup->findChild<QTextBrowser*>("docBrowser")->toPlainText().contains("ChangeState"));
+        popup->close();
     }
 
 private:

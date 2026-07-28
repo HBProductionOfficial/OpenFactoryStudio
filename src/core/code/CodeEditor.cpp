@@ -2,11 +2,14 @@
 
 #include "core/code/CodeBlockData.h"
 #include "core/code/CodeHighlighter.h"
+#include "core/code/CodeLine.h"
 #include "core/code/CompletionModels.h"
+#include "core/syntax/SyntaxDatabase.h"
 
 #include <QAbstractItemView>
 #include <QAbstractTextDocumentLayout>
 #include <QCompleter>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QScrollBar>
 #include <QStringListModel>
@@ -111,6 +114,7 @@ void CodeEditor::setCodeDocument(QTextDocument* doc)
 void CodeEditor::setSyntax(const SyntaxDatabase* syntax, const QString& fileType)
 {
     delete m_highlighter.data();
+    m_syntax = syntax;
     m_highlighter = new CodeHighlighter(document(), syntax, fileType);
     m_highlighter->setParent(this);
     m_highlighter->setColorSet(m_colors);
@@ -417,6 +421,63 @@ void CodeEditor::insertCompletion(const QString& word)
         text.remove(0, 1);
     range.insertText(text);
     setTextCursor(range);
+}
+
+std::pair<QString, QString> CodeEditor::documentationTarget(int position) const
+{
+    const QTextBlock block = document()->findBlock(position);
+    const QString text = block.text();
+    const int at = position - block.position();
+    if (!m_syntax || at < 0 || at > text.size())
+        return {};
+    auto isWordChar = [](QChar c) {
+        return c.isLetterOrNumber() || c == QLatin1Char('_');
+    };
+    int start = at;
+    int end = at;
+    while (start > 0 && isWordChar(text.at(start - 1)))
+        --start;
+    while (end < text.size() && isWordChar(text.at(end)))
+        ++end;
+    if (start == end)
+        return {};
+    const CodeLine line = CodeLine::parse(text);
+    if (line.kind != CodeLine::Kind::KeyValue || start < line.valueStart ||
+        (line.commentStart >= 0 && start >= line.commentStart))
+        return {};
+    const QString word = text.mid(start, end - start);
+
+    // "type = ChangeState" inside a [State ...] section names a controller.
+    if (line.key.compare(QLatin1String("type"), Qt::CaseInsensitive) == 0) {
+        for (QTextBlock b = block.previous(); b.isValid(); b = b.previous()) {
+            const CodeLine header = CodeLine::parse(b.text());
+            if (header.kind != CodeLine::Kind::Section)
+                continue;
+            const QString name = header.header.section(QLatin1Char(' '), 0, 0).section(QLatin1Char(','), 0, 0);
+            if (name.compare(QLatin1String("State"), Qt::CaseInsensitive) == 0)
+                return {QStringLiteral("sctrl"), word};
+            break;
+        }
+    }
+    if (const SyntaxTrigger* trigger = m_syntax->trigger(word)) {
+        QString name = trigger->name;
+        name.remove(QLatin1Char('*')); // "ProjHit*" covers "ProjHit1000"
+        return {QStringLiteral("trigger"), name};
+    }
+    return {};
+}
+
+void CodeEditor::mouseReleaseEvent(QMouseEvent* event)
+{
+    if (event->button() == Qt::LeftButton && (event->modifiers() & Qt::ControlModifier)) {
+        const auto [kind, name] = documentationTarget(cursorForPosition(event->position().toPoint()).position());
+        if (!kind.isEmpty()) {
+            Q_EMIT documentationRequested(kind, name, event->globalPosition().toPoint());
+            event->accept();
+            return;
+        }
+    }
+    QPlainTextEdit::mouseReleaseEvent(event);
 }
 
 void CodeEditor::keyPressEvent(QKeyEvent* event)

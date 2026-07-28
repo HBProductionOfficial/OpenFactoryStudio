@@ -4,6 +4,8 @@ add_library(ofsshell STATIC
     BottomDock.cpp
     CodePage.h
     CodePage.cpp
+    DocumentationPopup.h
+    DocumentationPopup.cpp
     MainWindow.h
     MainWindow.cpp
     MenuBuilder.h
