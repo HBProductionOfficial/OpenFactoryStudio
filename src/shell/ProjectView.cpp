@@ -2,6 +2,7 @@
 
 #include "core/actions/ActionRegistry.h"
 #include "core/app/AppContext.h"
+#include "core/code/CodeCompletion.h"
 #include "core/code/CodeEditor.h"
 #include "core/code/CodeOutline.h"
 #include "core/code/Snippet.h"
@@ -279,7 +280,8 @@ void ProjectView::configureCodeEditor(CodeEditor* editor, const QString& editorI
     editor->setOptions(options);
     editor->setSyntax(engine()->syntax(), engine()->syntaxFileType(*m_project, editorId));
     editor->setColorSet(m_context.theme().colorSet());
-    editor->setCompletionModels(engine()->completion());
+    editor->setCompletionProvider(std::make_unique<SyntaxCompletionProvider>(
+        engine()->syntax(), engine()->syntaxFileType(*m_project, editorId), engine()->completion()));
 }
 
 void ProjectView::refreshSnippets()

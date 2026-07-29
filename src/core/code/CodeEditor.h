@@ -8,6 +8,7 @@
 #include <QPlainTextEdit>
 #include <QPointer>
 
+#include <memory>
 #include <utility>
 
 class QCompleter;
@@ -15,7 +16,7 @@ class QStringListModel;
 
 namespace OFS {
 
-class CompletionModels;
+class CompletionProvider;
 class SyntaxDatabase;
 
 class OFS_CORE_EXPORT CodeEditor : public QPlainTextEdit
@@ -57,7 +58,7 @@ public:
     int cursorColumn() const;
     void goToLine(int line); // 1-based
 
-    void setCompletionModels(const CompletionModels* models);
+    void setCompletionProvider(std::unique_ptr<CompletionProvider> provider);
     QCompleter* completer() const { return m_completer; }
     bool isCompleting() const;
 
@@ -107,10 +108,9 @@ private:
     QList<Marker> m_markers;
     int m_baseFontSize = 10;
     int m_zoom = 0;
-    const CompletionModels* m_completionModels = nullptr;
+    std::unique_ptr<CompletionProvider> m_completion;
     QCompleter* m_completer = nullptr;
     QStringListModel* m_completionList = nullptr;
-    QStringList m_completionWords;
     int m_completionStart = -1;
 };
 

@@ -1,4 +1,5 @@
 #include "core/code/CodeBlockData.h"
+#include "core/code/CodeCompletion.h"
 #include "core/code/CodeEditor.h"
 #include "core/code/CodeLine.h"
 #include "core/code/CompletionModels.h"
@@ -454,48 +455,115 @@ private Q_SLOTS:
     {
         QTemporaryDir dir;
         writeBytes(dir.filePath("completer.xml"), "<completion>\n"
-                                                  "  <model prefix=\"type=\">\n"
-                                                  "    <word value=\" ChangeState\"/>\n"
-                                                  "    <word value=\" ChangeAnim\"/>\n"
-                                                  "    <word value=\" VelSet\"/>\n"
+                                                  "  <model prefix=\"type=\"><word value=\" ChangeState\"/></model>\n"
+                                                  "  <model prefix=\"const(\">\n"
+                                                  "    <word value=\"data.life)\"/><word value=\"data.attack)\"/>\n"
                                                   "  </model>\n"
-                                                  "  <model prefix=\"const(\"><word value=\"data.life)\"/></model>\n"
                                                   "</completion>\n");
         CompletionModels models;
         QVERIFY(models.load(dir.filePath("completer.xml")));
         QCOMPARE(models.models().size(), 2);
-        QVERIFY(models.match("type="));
         QVERIFY(models.match("  Type = "));
         QVERIFY(models.match("trigger1 = Const("));
         QVERIFY(!models.match("type=x"));
 
+        SyntaxDatabase db;
+        QVERIFY(db.loadFromData(R"(<syntax><file type="state">
+            <block type="StateDef"><param name="type" type="keyword" list="S,C,A,L,U"/><param name="anim" type="int"/></block>
+            <block type="State>ChangeState"><param name="value" type="expi"/></block>
+            <block type="State>ChangeAnim"><param name="value" type="expi"/></block>
+            <block type="State>ChangeAnim2"><param name="value" type="expi"/></block>
+            <block type="State>HitDef"><param name="priority" type="expkeyword" list="Hit,Miss,Dodge"/>
+              <param name="animtype" type="keyword" list="Light,Medium,Hard"/></block>
+          </file>
+          <trigger name="Time"/><trigger name="TimeMod" type="opint2"/><trigger name="AnimTime"/>
+          <trigger name="ProjHit*" type="opint"/></syntax>)"));
+
         CodeEditor editor;
-        editor.setCompletionModels(&models);
+        editor.setCompletionProvider(std::make_unique<SyntaxCompletionProvider>(&db, "state", &models));
         editor.show();
         QVERIFY(QTest::qWaitForWindowExposed(&editor));
+        auto popupWords = [&editor] {
+            QStringList words;
+            const QAbstractItemModel* model = editor.completer()->popup()->model();
+            for (int row = 0; row < model->rowCount(); ++row)
+                words << model->index(row, 0).data().toString();
+            return words;
+        };
+        auto start = [&editor](const QString& text) {
+            editor.setPlainText(text);
+            editor.moveCursor(QTextCursor::End);
+        };
+
+        start("[State 0, 1]\n");
         QTest::keyClicks(&editor, "type =");
         QVERIFY(editor.isCompleting());
-        QCOMPARE(editor.completer()->completionCount(), 3);
-        QTest::keyClicks(&editor, " Cha");
-        QCOMPARE(editor.completer()->completionCount(), 2);
-        QTest::keyClick(editor.completer()->popup(), Qt::Key_Down);
+        QCOMPARE(popupWords(), (QStringList{"ChangeAnim", "ChangeAnim2", "ChangeState", "HitDef"}));
         QTest::keyClick(editor.completer()->popup(), Qt::Key_Return);
         QVERIFY(!editor.isCompleting());
-        QCOMPARE(editor.toPlainText(), QStringLiteral("type = ChangeAnim"));
+        QCOMPARE(editor.document()->lastBlock().text(), QStringLiteral("type =ChangeAnim"));
 
-        editor.clear();
-        QTest::keyClicks(&editor, "type=");
+        start("[State 0, 1]\n");
+        QTest::keyClicks(&editor, "type = ChangeS");
         QVERIFY(editor.isCompleting());
+        QCOMPARE(popupWords().size(), 4);
+        QCOMPARE(editor.completer()->popup()->currentIndex().data().toString(), QStringLiteral("ChangeState"));
         QTest::keyClick(editor.completer()->popup(), Qt::Key_Tab);
-        QCOMPARE(editor.toPlainText(), QStringLiteral("type= ChangeState"));
+        QCOMPARE(editor.document()->lastBlock().text(), QStringLiteral("type = ChangeState"));
 
-        editor.clear();
-        QTest::keyClicks(&editor, "x = const(da");
+        start("[State 0, 1]\n");
+        QTest::keyClicks(&editor, "type=Zz");
         QVERIFY(editor.isCompleting());
+        QVERIFY(!editor.completer()->popup()->currentIndex().isValid());
+        QTest::keyClick(editor.completer()->popup(), Qt::Key_Return);
+        QVERIFY(!editor.isCompleting());
+        QCOMPARE(editor.document()->lastBlock().text(), QStringLiteral("type=Zz"));
+
+        start("[Statedef 0]\n");
+        QTest::keyClicks(&editor, "type=");
+        QCOMPARE(popupWords(), (QStringList{"A", "C", "L", "S", "U"}));
         QTest::keyClick(editor.completer()->popup(), Qt::Key_Escape);
         QVERIFY(!editor.isCompleting());
-        QCOMPARE(editor.toPlainText(), QStringLiteral("x = const(da"));
-        QTest::keyClicks(&editor, ")");
+        QCOMPARE(editor.document()->lastBlock().text(), QStringLiteral("type="));
+        start("[State 0, 1]\ntype = HitDef\n");
+        QTest::keyClicks(&editor, "priority = 3,");
+        QVERIFY(!editor.isCompleting());
+        QTest::keyClicks(&editor, " ");
+        QVERIFY(editor.isCompleting());
+        QCOMPARE(popupWords(), (QStringList{"Dodge", "Hit", "Miss"}));
+        QTest::keyClick(editor.completer()->popup(), Qt::Key_Return);
+        QCOMPARE(editor.document()->lastBlock().text(), QStringLiteral("priority = 3, Dodge"));
+        start("[Statedef 0]\n");
+        QTest::keyClicks(&editor, "anim = ");
+        QVERIFY(!editor.isCompleting());
+
+        start("[State 0, 1]\ntype = ChangeState\n");
+        QTest::keyClicks(&editor, "value = 1+const(");
+        QVERIFY(editor.isCompleting());
+        QCOMPARE(popupWords(), (QStringList{"data.attack", "data.life"}));
+        QTest::keyClicks(&editor, "data.l");
+        QTest::keyClick(editor.completer()->popup(), Qt::Key_Return);
+        QCOMPARE(editor.document()->lastBlock().text(), QStringLiteral("value = 1+const(data.life"));
+
+        start("[State 0, 1]\ntype = ChangeState\n");
+        QTest::keyClicks(&editor, "trigger1 = T");
+        QVERIFY(!editor.isCompleting());
+        QTest::keyClicks(&editor, "i");
+        QVERIFY(editor.isCompleting());
+        QCOMPARE(popupWords(), (QStringList{"AnimTime", "ProjHit", "Time", "TimeMod"}));
+        QCOMPARE(editor.completer()->popup()->currentIndex().data().toString(), QStringLiteral("Time"));
+        QTest::keyClicks(&editor, " ");
+        QVERIFY(!editor.isCompleting());
+        QCOMPARE(editor.document()->lastBlock().text(), QStringLiteral("trigger1 = Ti "));
+        start("[State 0, 1]\ntype = ChangeState\n");
+        QTest::keyClicks(&editor, "trigger1 = anim");
+        QTest::keyClick(editor.completer()->popup(), Qt::Key_Tab);
+        QCOMPARE(editor.document()->lastBlock().text(), QStringLiteral("trigger1 = AnimTime"));
+        start("[Statedef 0]\n");
+        QTest::keyClicks(&editor, "anim = Ti");
+        QVERIFY(!editor.isCompleting());
+        start("[State 0, 1]\ntype = ChangeState\n");
+        QTest::keyClicks(&editor, "value = \"Ti");
         QVERIFY(!editor.isCompleting());
     }
 
