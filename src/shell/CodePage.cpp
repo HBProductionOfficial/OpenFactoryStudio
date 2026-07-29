@@ -118,6 +118,13 @@ QString CodePage::currentSnippet() const
     return m_snippets->currentText();
 }
 
+void CodePage::setCurrentSnippet(const QString& name)
+{
+    const int index = m_snippets->findText(name, Qt::MatchFixedString);
+    if (index >= 0)
+        m_snippets->setCurrentIndex(index);
+}
+
 void CodePage::setSidePanel(QWidget* panel)
 {
     delete m_sidePanel;

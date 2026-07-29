@@ -496,26 +496,11 @@ void CodeEditor::keyPressEvent(QKeyEvent* event)
         }
     }
     const bool typed = !event->text().isEmpty() && event->text().at(0).isPrint();
-    keyPressEventWithoutCompletion(event);
+    QPlainTextEdit::keyPressEvent(event);
     if (typed || (isCompleting() && event->key() == Qt::Key_Backspace))
         updateCompletion(typed);
     else if (isCompleting() && event->key() != Qt::Key_Shift)
         m_completer->popup()->hide();
-}
-
-void CodeEditor::keyPressEventWithoutCompletion(QKeyEvent* event)
-{
-    if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) && event->modifiers() == Qt::NoModifier) {
-        const QString text = textCursor().block().text();
-        int indent = 0;
-        while (indent < text.size() && (text.at(indent) == QLatin1Char(' ') || text.at(indent) == QLatin1Char('\t')))
-            ++indent;
-        QPlainTextEdit::keyPressEvent(event);
-        if (indent > 0)
-            insertPlainText(text.left(indent));
-        return;
-    }
-    QPlainTextEdit::keyPressEvent(event);
 }
 
 void CodeEditor::paintGutter(QPaintEvent* event)

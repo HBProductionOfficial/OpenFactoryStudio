@@ -420,21 +420,34 @@ private Q_SLOTS:
         QCOMPARE(state->fields[2].valueTitles, (QStringList{"Standing", "Crouching", "Air"}));
         int cursor = -2;
         const QString text = state->expand({{"sdef", "200"}, {"sdefname", "Punch"}, {"kind", "S"}}, &cursor);
-        QCOMPARE(text, QStringLiteral("; Punch\n[Statedef 200]\ntype = S\n\n[State 200, end]\n  type = "
-                                      "ChangeState\n  value = "));
-        QCOMPARE(cursor, int(text.size()));
+        QCOMPARE(text, QStringLiteral("; Punch\n[Statedef 200]\ntype = S\n\n[State 200, end]\ntype = "
+                                      "ChangeState\nvalue = \n"));
+        QCOMPARE(cursor, int(text.size()) - 1);
         library.find("Command defaults")->expand({}, &cursor);
         QCOMPARE(cursor, -1);
 
         Snippet copy = *state;
+        copy.fields << SnippetField{"ratio", "Ratio", SnippetField::Type::Float, {}, {}};
         QVERIFY(copy.save(dir.filePath("user/Copy.xml")));
+        const QByteArray bytes = readBytes(dir.filePath("user/Copy.xml"));
+        QVERIFY(
+            bytes.startsWith("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<snippet>\r\n\r\n\t<field name=\"sdef\""));
+        QVERIFY(bytes.contains("\t<code>\r\n\t\t    ; @sdefname\r\n"));
+        QVERIFY(bytes.contains("value = CURSOR\r\n\t</code>\r\n\r\n</snippet>\r\n"));
+        QVERIFY(bytes.contains("type=\"float\""));
         Snippet reloaded;
         QVERIFY(reloaded.load(dir.filePath("user/Copy.xml")));
         QCOMPARE(reloaded.name, QStringLiteral("Copy"));
-        QCOMPARE(reloaded.code, state->code);
-        QCOMPARE(reloaded.fields.size(), 3);
+        QCOMPARE(reloaded.fields.size(), 4);
         QCOMPARE(reloaded.fields[2].values, (QStringList{"S", "C", "A"}));
         QCOMPARE(reloaded.fields[0].type, SnippetField::Type::Int);
+        QCOMPARE(reloaded.fields[3].type, SnippetField::Type::Float);
+        int reloadedCursor = -2;
+        QCOMPARE(reloaded.expand({{"sdef", "200"}, {"sdefname", "Punch"}, {"kind", "S"}}, &reloadedCursor), text);
+        QCOMPARE(reloadedCursor, int(text.size()) - 1);
+
+        QVERIFY(copy.saveTranslationSource(dir.filePath("copy.ts")));
+        QVERIFY(readBytes(dir.filePath("copy.ts")).contains("<source>Generic state</source>"));
     }
 
     void completion()

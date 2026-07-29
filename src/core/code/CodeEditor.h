@@ -87,7 +87,6 @@ protected:
     void wheelEvent(QWheelEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
-    void keyPressEventWithoutCompletion(QKeyEvent* event);
 
 private:
     friend class CodeGutter;

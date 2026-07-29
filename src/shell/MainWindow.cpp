@@ -32,6 +32,7 @@
 #include "shell/dialogs/CalculatorDialog.h"
 #include "shell/dialogs/ClipboardContainer.h"
 #include "shell/dialogs/OptionsDialog.h"
+#include "shell/dialogs/SnippetEditorDialog.h"
 #include "shell/dialogs/SnippetFieldsDialog.h"
 #include "shell/dialogs/StateControllerDialog.h"
 
@@ -434,6 +435,35 @@ void MainWindow::connectEditActions()
         if (!templates->deleteTemplate(name, &error))
             QMessageBox::warning(this, QApplication::applicationDisplayName(), error);
     });
+    auto editSnippet = [this](bool create) {
+        ProjectView* view = currentProjectView();
+        CodePage* page = view ? view->currentCodePage() : nullptr;
+        if (!page)
+            return;
+        Engine* engine = view->engine();
+        Snippet snippet;
+        if (!create) {
+            const Snippet* current = engine->snippets().find(page->currentSnippet());
+            if (!current)
+                return;
+            snippet = *current;
+        }
+        SnippetEditorDialog dialog(snippet, engine->userSnippetDir(), engine->syntax(), this);
+        connect(&dialog, &SnippetEditorDialog::saved, this, [this, engine](const QString& path) {
+            engine->reloadSnippets();
+            for (ProjectView* v : projectViews()) {
+                if (v->engine() == engine)
+                    v->refreshSnippets();
+            }
+            if (ProjectView* current = currentProjectView()) {
+                if (CodePage* p = current->currentCodePage())
+                    p->setCurrentSnippet(QFileInfo(path).completeBaseName());
+            }
+        });
+        dialog.exec();
+    };
+    on("code_snippet_new", [editSnippet] { editSnippet(true); });
+    on("code_snippet_edit", [editSnippet] { editSnippet(false); });
     on("code_snippet_insert", [this] {
         ProjectView* view = currentProjectView();
         CodePage* page = view ? view->currentCodePage() : nullptr;

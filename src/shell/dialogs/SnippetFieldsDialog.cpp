@@ -4,12 +4,11 @@
 
 #include <QComboBox>
 #include <QDialogButtonBox>
+#include <QDoubleSpinBox>
 #include <QFormLayout>
 #include <QLineEdit>
 #include <QSpinBox>
 #include <QVBoxLayout>
-
-#include <limits>
 
 namespace OFS {
 
@@ -25,7 +24,14 @@ SnippetFieldsDialog::SnippetFieldsDialog(const Snippet& snippet, QWidget* parent
         switch (field.type) {
         case SnippetField::Type::Int: {
             auto* spin = new QSpinBox(this);
-            spin->setRange(std::numeric_limits<int>::min(), std::numeric_limits<int>::max());
+            spin->setRange(-99999999, 99999999);
+            input = spin;
+            break;
+        }
+        case SnippetField::Type::Float: {
+            auto* spin = new QDoubleSpinBox(this);
+            spin->setRange(-99999999.0, 99999999.0);
+            spin->setDecimals(2);
             input = spin;
             break;
         }
@@ -53,6 +59,7 @@ SnippetFieldsDialog::SnippetFieldsDialog(const Snippet& snippet, QWidget* parent
     auto* layout = new QVBoxLayout(this);
     layout->addLayout(form);
     layout->addWidget(buttons);
+    setFixedWidth(300);
 }
 
 QHash<QString, QString> SnippetFieldsDialog::values() const
@@ -61,6 +68,8 @@ QHash<QString, QString> SnippetFieldsDialog::values() const
     for (auto it = m_inputs.cbegin(); it != m_inputs.cend(); ++it) {
         if (auto* spin = qobject_cast<QSpinBox*>(it.value()))
             result.insert(it.key(), QString::number(spin->value()));
+        else if (auto* real = qobject_cast<QDoubleSpinBox*>(it.value()))
+            result.insert(it.key(), QString::number(real->value(), 'f', real->decimals()));
         else if (auto* combo = qobject_cast<QComboBox*>(it.value()))
             result.insert(it.key(), combo->currentData().toString());
         else if (auto* edit = qobject_cast<QLineEdit*>(it.value()))

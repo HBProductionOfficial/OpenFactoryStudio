@@ -11,11 +11,13 @@
 #include "shell/ControllerTemplatesWidget.h"
 #include "shell/ProjectView.h"
 #include "shell/StatusBar.h"
+#include "shell/dialogs/SnippetEditorDialog.h"
 #include "shell/dialogs/StateControllerDialog.h"
 
 #include <QAction>
 #include <QApplication>
 #include <QDialog>
+#include <QDir>
 #include <QFile>
 #include <QInputDialog>
 #include <QLabel>
@@ -483,6 +485,38 @@ private Q_SLOTS:
         cursor.insertText("; Standing");
         QTRY_COMPARE(tree->model()->index(1, 0).data().toString(), QStringLiteral("0 - Standing"));
         QVERIFY(tree->isExpanded(tree->model()->index(1, 0)) == false); // new text makes it a new node
+        editor->document()->setModified(false);
+    }
+
+    void snippetEditor()
+    {
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(m_dir.filePath("fighter.def")));
+        ActionRegistry& actions = m_context->actions();
+        actions.action("editor_cmd")->trigger();
+        ProjectView* view = window.currentProjectView();
+        CodePage* page = view->currentCodePage();
+        const QString userDir = view->engine()->userSnippetDir();
+
+        QTimer::singleShot(0, this, [userDir] {
+            auto* dialog = qobject_cast<SnippetEditorDialog*>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            QCOMPARE(dialog->objectName(), QStringLiteral("SnipDlg"));
+            dialog->findChild<QPlainTextEdit*>("snipEdit")->setPlainText("[Command]\nname = \"CURSOR\"");
+            QVERIFY(dialog->saveTo(QDir(userDir).filePath("Zz test.xml")));
+            dialog->reject();
+        });
+        actions.action("code_snippet_new")->trigger();
+        QCOMPARE(page->currentSnippet(), QStringLiteral("Zz test"));
+
+        CodeEditor* editor = page->editor();
+        editor->moveCursor(QTextCursor::End);
+        actions.action("code_snippet_insert")->trigger(); // no fields, so no dialog
+        QVERIFY(editor->toPlainText().endsWith("[Command]\nname = \"\"\n"));
+        QCOMPARE(editor->textCursor().block().text(), QStringLiteral("name = \"\""));
+
+        QFile::remove(QDir(userDir).filePath("Zz test.xml"));
         editor->document()->setModified(false);
     }
 

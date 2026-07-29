@@ -15,6 +15,7 @@ struct OFS_CORE_EXPORT SnippetField
     enum class Type
     {
         Int,
+        Float,
         String,
         Items
     };
@@ -44,8 +45,12 @@ public:
     QString path;
 
     bool load(const QString& filePath, QString* error = nullptr);
+    // UTF-8, CRLF, tab indentation, code lines indented by two tabs.
     bool save(const QString& filePath, QString* error = nullptr) const;
+    bool saveTranslationSource(const QString& filePath, QString* error = nullptr) const;
 
+    // Drops the empty first line, left-trims every line, replaces @name and removes the CURSOR
+    // marker. *cursor gets the marker's offset, or -1.
     QString expand(const QHash<QString, QString>& values, int* cursor = nullptr) const;
 };
 

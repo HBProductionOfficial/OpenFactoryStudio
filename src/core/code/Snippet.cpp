@@ -5,7 +5,6 @@
 #include <QFileInfo>
 #include <QSaveFile>
 #include <QXmlStreamReader>
-#include <QXmlStreamWriter>
 
 #include <algorithm>
 
@@ -15,6 +14,8 @@ SnippetField::Type SnippetField::typeFromString(const QString& type)
 {
     if (type.compare(QLatin1String("int"), Qt::CaseInsensitive) == 0)
         return Type::Int;
+    if (type.compare(QLatin1String("float"), Qt::CaseInsensitive) == 0)
+        return Type::Float;
     if (type.compare(QLatin1String("items"), Qt::CaseInsensitive) == 0)
         return Type::Items;
     return Type::String;
@@ -25,6 +26,8 @@ QString SnippetField::typeToString(Type type)
     switch (type) {
     case Type::Int:
         return QStringLiteral("int");
+    case Type::Float:
+        return QStringLiteral("float");
     case Type::Items:
         return QStringLiteral("items");
     case Type::String:
@@ -101,34 +104,21 @@ bool Snippet::load(const QString& filePath, QString* error)
     return true;
 }
 
-bool Snippet::save(const QString& filePath, QString* error) const
+namespace {
+
+QString xmlEscaped(const QString& text, bool attribute)
+{
+    QString out = text.toHtmlEscaped();
+    if (!attribute)
+        out.replace(QLatin1String("&quot;"), QLatin1String("\""));
+    return out;
+}
+
+bool writeFile(const QString& filePath, const QByteArray& bytes, QString* error)
 {
     QDir().mkpath(QFileInfo(filePath).absolutePath());
     QSaveFile file(filePath);
-    if (!file.open(QIODevice::WriteOnly)) {
-        if (error)
-            *error = file.errorString();
-        return false;
-    }
-    QXmlStreamWriter xml(&file);
-    xml.setAutoFormatting(true);
-    xml.setAutoFormattingIndent(2);
-    xml.writeStartDocument();
-    xml.writeStartElement(QStringLiteral("snippet"));
-    for (const SnippetField& field : fields) {
-        xml.writeEmptyElement(QStringLiteral("field"));
-        xml.writeAttribute(QStringLiteral("name"), field.name);
-        xml.writeAttribute(QStringLiteral("title"), field.title);
-        xml.writeAttribute(QStringLiteral("type"), SnippetField::typeToString(field.type));
-        if (field.type == SnippetField::Type::Items) {
-            xml.writeAttribute(QStringLiteral("value"), field.values.join(QLatin1Char(',')));
-            xml.writeAttribute(QStringLiteral("value_title"), field.valueTitles.join(QLatin1Char(',')));
-        }
-    }
-    xml.writeTextElement(QStringLiteral("code"), code);
-    xml.writeEndElement();
-    xml.writeEndDocument();
-    if (!file.commit()) {
+    if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit()) {
         if (error)
             *error = file.errorString();
         return false;
@@ -136,26 +126,66 @@ bool Snippet::save(const QString& filePath, QString* error) const
     return true;
 }
 
+} // namespace
+
+bool Snippet::save(const QString& filePath, QString* error) const
+{
+    QStringList lines;
+    lines << QStringLiteral("<?xml version=\"1.0\" encoding=\"UTF-8\"?>") << QStringLiteral("<snippet>") << QString();
+    for (const SnippetField& field : fields) {
+        QString line = QStringLiteral("\t<field name=\"%1\" title=\"%2\" type=\"%3\"")
+                           .arg(xmlEscaped(field.name, true), xmlEscaped(field.title, true),
+                                SnippetField::typeToString(field.type));
+        if (field.type == SnippetField::Type::Items)
+            line += QStringLiteral(" value=\"%1\" value_title=\"%2\"")
+                        .arg(xmlEscaped(field.values.join(QLatin1Char(',')), true),
+                             xmlEscaped(field.valueTitles.join(QLatin1Char(',')), true));
+        lines << line + QStringLiteral(" />");
+    }
+    if (!fields.isEmpty())
+        lines << QString();
+    lines << QStringLiteral("\t<code>");
+    QString text = code;
+    text.replace(QLatin1String("\r\n"), QLatin1String("\n"));
+    QStringList codeLines = text.split(QLatin1Char('\n'));
+    if (codeLines.size() > 1 && codeLines.first().trimmed().isEmpty())
+        codeLines.removeFirst(); // the line break after <code> read from a file
+    while (codeLines.size() > 1 && codeLines.last().trimmed().isEmpty())
+        codeLines.removeLast(); // the line before </code> gives the final newline back on loading
+    for (const QString& line : std::as_const(codeLines))
+        lines << QStringLiteral("\t\t") + xmlEscaped(line, false);
+    lines << QStringLiteral("\t</code>") << QString() << QStringLiteral("</snippet>");
+    return writeFile(filePath, (lines.join(QStringLiteral("\r\n")) + QStringLiteral("\r\n")).toUtf8(), error);
+}
+
+bool Snippet::saveTranslationSource(const QString& filePath, QString* error) const
+{
+    const QString source = xmlEscaped(name, false);
+    const QString ts = QStringLiteral("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+                                      "<!DOCTYPE TS>\n"
+                                      "<TS version=\"2.0\">\n"
+                                      "<context>\n"
+                                      "\t<name>OFS::SnippetLibrary</name>\n"
+                                      "\t<message>\n"
+                                      "\t\t<source>%1</source>\n"
+                                      "\t\t<comment>%1</comment>\n"
+                                      "\t\t<translation type=\"unfinished\"></translation>\n"
+                                      "\t</message>\n"
+                                      "</context>\n"
+                                      "</TS>\n")
+                           .arg(source);
+    return writeFile(filePath, ts.toUtf8(), error);
+}
+
 QString Snippet::expand(const QHash<QString, QString>& values, int* cursor) const
 {
     QString text = code;
     text.replace(QLatin1String("\r\n"), QLatin1String("\n"));
     QStringList lines = text.split(QLatin1Char('\n'));
-    while (!lines.isEmpty() && lines.first().trimmed().isEmpty())
+    if (lines.size() > 1 && lines.first().trimmed().isEmpty())
         lines.removeFirst();
-    while (!lines.isEmpty() && lines.last().trimmed().isEmpty())
-        lines.removeLast();
-
-    int common = -1;
-    for (const QString& line : std::as_const(lines)) {
-        if (line.trimmed().isEmpty())
-            continue;
-        const int indent = indentOf(line);
-        common = common < 0 ? indent : std::min(common, indent);
-    }
-    for (QString& line : lines) {
-        line = line.mid(std::min<qsizetype>(std::max(common, 0), indentOf(line)));
-    }
+    for (QString& line : lines)
+        line = line.mid(indentOf(line));
     text = lines.join(QLatin1Char('\n'));
 
     // Longer names first, so "@sdefname" is not taken for "@sdef" followed by "name".

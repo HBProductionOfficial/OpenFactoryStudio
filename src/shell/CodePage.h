@@ -33,6 +33,7 @@ public:
 
     void setSnippets(const QStringList& names);
     QString currentSnippet() const;
+    void setCurrentSnippet(const QString& name);
     void insertSnippet(const Snippet& snippet, const QHash<QString, QString>& values);
 
     // The page takes ownership.
