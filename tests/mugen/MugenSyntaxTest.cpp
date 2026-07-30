@@ -310,11 +310,13 @@ private Q_SLOTS:
         QCOMPARE(tree[1].icon, QStringLiteral("st_quote"));
         QCOMPARE(tree[2].icon, QStringLiteral("st_s"));
         QCOMPARE(tree[2].line, 5);
-        QCOMPARE(tree[2].children.size(), 2);
-        QCOMPARE(tree[2].children[1].text, QStringLiteral("State 170, 1"));
-        QCOMPARE(tree[2].children[1].children.size(), 2);
+        QCOMPARE(tree[2].children.size(), 1);
+        QCOMPARE(tree[2].children[0].text, QStringLiteral("170 - 1"));
+        QCOMPARE(tree[2].children[0].children.size(), 2);
+        QCOMPARE(tree[2].children[0].children[1].text, QStringLiteral("trigger1"));
+        QCOMPARE(tree[2].children[0].children[1].icon, QStringLiteral("code_bool"));
         QVERIFY(tree[3].icon.isEmpty());
-        QCOMPARE(tree[0].children.first().text, QStringLiteral("life = 1000"));
+        QCOMPARE(tree[0].children.first().text, QStringLiteral("life"));
         QCOMPARE(tree[0].children.first().icon, QStringLiteral("code_int"));
 
         const QString cmd = QStringLiteral("[Remap]\nx = x\n[Defaults]\ncommand.time = 15\n"
@@ -326,7 +328,8 @@ private Q_SLOTS:
             texts << node.text;
         QCOMPARE(texts, (QStringList{"Remap", "Defaults", "Commands", "-1"}));
         QCOMPARE(commands[2].children.size(), 2);
-        QCOMPARE(commands[2].children[0].text, QStringLiteral("QCF_x: ~D, DF, F, x"));
+        QCOMPARE(commands[2].children[0].text, QStringLiteral("QCF_x"));
+        QCOMPARE(commands[2].children[0].children.size(), 2);
         QCOMPARE(commands[2].children[0].icon, QStringLiteral("st_command"));
         QCOMPARE(commands[2].children[1].line, 7);
     }

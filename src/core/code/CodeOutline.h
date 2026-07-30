@@ -17,6 +17,7 @@ struct OFS_CORE_EXPORT OutlineNode
 
 using Outline = QList<OutlineNode>;
 
+// The default outline: one entry per section header, with its parameter names (lower case) below.
 OFS_CORE_EXPORT Outline sectionOutline(const QString& text);
 
 } // namespace OFS

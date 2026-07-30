@@ -19,7 +19,7 @@ Outline sectionOutline(const QString& text)
             outline << node;
         } else if (line.kind == CodeLine::Kind::KeyValue && !outline.isEmpty()) {
             OutlineNode child;
-            child.text = line.key + QStringLiteral(" = ") + line.value;
+            child.text = line.key.toLower();
             child.line = n;
             outline.last().children << child;
         }

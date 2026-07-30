@@ -67,6 +67,7 @@ public:
     void validateAll();
     QTreeView* outlineTree(const QString& editorId) const;
     void updateOutline(CodePage* page);
+    void followCursorInOutline(CodePage* page);
     ProjectFile* currentFile() const;
     QList<ProjectFile*> editorFiles(const QString& editorId) const;
     QList<CodeEditor*> codeEditors() const;

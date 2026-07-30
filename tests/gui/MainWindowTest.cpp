@@ -511,6 +511,16 @@ private Q_SLOTS:
         cursor.insertText("; Standing");
         QTRY_COMPARE(tree->model()->index(1, 0).data().toString(), QStringLiteral("0 - Standing"));
         QVERIFY(tree->isExpanded(tree->model()->index(1, 0)) == false); // new text makes it a new node
+
+        m_context->config().setValue("auto_expand_tree", true);
+        tree->expand(tree->model()->index(0, 0));
+        editor->goToLine(9); // value = 0, in [State 0, 1]
+        const QModelIndex current = tree->currentIndex();
+        QCOMPARE(current.data().toString(), QStringLiteral("value"));
+        QCOMPARE(current.parent().data().toString(), QStringLiteral("0 - 1"));
+        QVERIFY(tree->isExpanded(current.parent().parent()));
+        QVERIFY(!tree->isExpanded(tree->model()->index(0, 0))); // [Data]
+        m_context->config().setValue("auto_expand_tree", false);
         editor->document()->setModified(false);
     }
 

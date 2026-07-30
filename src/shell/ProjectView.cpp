@@ -34,6 +34,8 @@
 #include <QTreeView>
 #include <QVBoxLayout>
 
+#include <functional>
+
 namespace OFS {
 
 namespace {
@@ -247,9 +249,11 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
             page->setSidePanel(templates);
         }
         configureCodeEditor(editor, info.id);
-        connect(editor, &CodeEditor::cursorPositionChanged, this, [this, editor] {
-            if (editor == currentCodeEditor())
-                Q_EMIT currentFileChanged();
+        connect(editor, &CodeEditor::cursorPositionChanged, this, [this, editor, page] {
+            if (editor != currentCodeEditor())
+                return;
+            followCursorInOutline(page);
+            Q_EMIT currentFileChanged();
         });
         connect(editor, &CodeEditor::documentationRequested, this,
                 [this, editor](const QString& kind, const QString& name, const QPoint&) {
@@ -354,6 +358,36 @@ void ProjectView::validate(CodePage* page)
     Q_EMIT issuesChanged();
 }
 
+void ProjectView::followCursorInOutline(CodePage* page)
+{
+    if (!m_context.config().boolValue(QStringLiteral("auto_expand_tree")))
+        return;
+    QTreeView* tree = outlineTree(page->property("editorId").toString());
+    auto* model = tree ? qobject_cast<QStandardItemModel*>(tree->model()) : nullptr;
+    if (!model)
+        return;
+    // Entries are in document order, so the last one starting at or before the caret line is the most specific.
+    const int line = page->editor()->cursorLine() - 1;
+    QStandardItem* best = nullptr;
+    std::function<void(QStandardItem*)> visit = [&](QStandardItem* parent) {
+        for (int row = 0; row < parent->rowCount(); ++row) {
+            QStandardItem* item = parent->child(row);
+            if (item->data(Qt::UserRole).toInt() > line)
+                return;
+            best = item;
+            visit(item);
+        }
+    };
+    visit(model->invisibleRootItem());
+    if (!best)
+        return;
+    tree->collapseAll();
+    for (QStandardItem* parent = best->parent(); parent; parent = parent->parent())
+        tree->expand(parent->index());
+    tree->setCurrentIndex(best->index());
+    tree->scrollTo(best->index());
+}
+
 QTreeView* ProjectView::outlineTree(const QString& editorId) const
 {
     QScrollArea* panel = m_editorPanels.value(editorId);
@@ -430,8 +464,10 @@ void ProjectView::updateOutline(CodePage* page)
             const int line = index.data(Qt::UserRole).toInt();
             QTabWidget* fileTabs = m_fileTabs.value(editorId);
             auto* current = fileTabs ? qobject_cast<CodePage*>(fileTabs->currentWidget()) : nullptr;
-            if (current && line >= 0)
+            if (current && line >= 0) {
                 current->editor()->goToLine(line + 1);
+                current->editor()->setFocus();
+            }
         });
     }
     QSet<QString> expanded;
