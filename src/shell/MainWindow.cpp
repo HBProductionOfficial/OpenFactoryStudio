@@ -22,6 +22,7 @@
 #include "shell/BottomDock.h"
 #include "shell/CodePage.h"
 #include "shell/ControllerTemplatesWidget.h"
+#include "shell/FileDialogs.h"
 #include "shell/MenuBuilder.h"
 #include "shell/ProjectView.h"
 #include "shell/QuickFindBar.h"
@@ -405,21 +406,21 @@ void MainWindow::connectEditActions()
             dialog.setText(templates->templateText(templates->selectedName()));
         if (dialog.exec() != QDialog::Accepted)
             return;
-        QString name = create ? StateControllerDialog::controllerType(dialog.text()) : templates->selectedName();
-        if (name.isEmpty()) {
-            bool ok = false;
-            name = QInputDialog::getText(this, tr("New State controller"), tr("Name:"), QLineEdit::Normal, {}, &ok)
-                       .trimmed();
-            if (!ok || name.isEmpty())
-                return;
-        }
-        if (create && templates->names().contains(name, Qt::CaseInsensitive) &&
-            QMessageBox::question(this, QApplication::applicationDisplayName(),
-                                  tr("A state controller named '%1' already exists. Replace it?").arg(name)) !=
-                QMessageBox::Yes)
-            return;
         QString error;
-        if (!templates->saveTemplate(name, dialog.text(), &error))
+        bool ok = false;
+        if (create) {
+            QDir().mkpath(templates->userDir());
+            QString path = FileDialogs::getSaveFileName(this, tr("Save State controller"), templates->userDir(),
+                                                        tr("State controller (*.sctrl)"));
+            if (path.isEmpty())
+                return;
+            if (QFileInfo(path).suffix().isEmpty())
+                path += QStringLiteral(".sctrl");
+            ok = templates->saveTemplateAs(path, dialog.text(), &error);
+        } else {
+            ok = templates->saveTemplate(templates->selectedName(), dialog.text(), &error);
+        }
+        if (!ok && !error.isEmpty())
             QMessageBox::warning(this, QApplication::applicationDisplayName(), error);
     };
     on("st_sctrl_new", [editTemplate] { editTemplate(true); });

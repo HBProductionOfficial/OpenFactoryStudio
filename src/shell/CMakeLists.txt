@@ -6,6 +6,8 @@ add_library(ofsshell STATIC
     CodePage.cpp
     ControllerTemplatesWidget.h
     ControllerTemplatesWidget.cpp
+    FileDialogs.h
+    FileDialogs.cpp
     DocumentationPopup.h
     DocumentationPopup.cpp
     MainWindow.h

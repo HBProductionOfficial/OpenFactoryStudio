@@ -27,7 +27,9 @@ public:
     void selectName(const QString& name);
 
     QString templateText(const QString& name) const;
+    bool saveTemplateAs(const QString& filePath, const QString& text, QString* error = nullptr);
     bool saveTemplate(const QString& name, const QString& text, QString* error = nullptr);
+    QString userDir() const;
     bool deleteTemplate(const QString& name, QString* error = nullptr);
     QString templatePath(const QString& name) const;
 

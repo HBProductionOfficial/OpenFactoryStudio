@@ -1,6 +1,7 @@
 #include "shell/dialogs/SnippetEditorDialog.h"
 
 #include "core/code/CodeHighlighter.h"
+#include "shell/FileDialogs.h"
 #include "shell/dialogs/SnippetFieldsDialog.h"
 
 #include <QApplication>
@@ -240,7 +241,7 @@ void SnippetEditorDialog::save()
         path = QDir(m_saveDir).filePath(m_snippet.name + QStringLiteral(".xml"));
     } else {
         QDir().mkpath(m_saveDir);
-        path = QFileDialog::getSaveFileName(this, tr("Save code snippet"), m_saveDir,
+        path = FileDialogs::getSaveFileName(this, tr("Save code snippet"), m_saveDir,
                                             tr("Extensible Markup Language (*.xml)"));
         if (path.isEmpty())
             return;
@@ -255,7 +256,7 @@ void SnippetEditorDialog::save()
 void SnippetEditorDialog::saveForTranslation()
 {
     const QString path =
-        QFileDialog::getSaveFileName(this, tr("Save for translation"), m_saveDir, tr("Qt translation sources (*.ts)"));
+        FileDialogs::getSaveFileName(this, tr("Save for translation"), m_saveDir, tr("Qt translation sources (*.ts)"));
     if (path.isEmpty())
         return;
     QString error;

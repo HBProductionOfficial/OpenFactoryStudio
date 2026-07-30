@@ -112,21 +112,57 @@ QString ControllerTemplatesWidget::templateText(const QString& name) const
     return text;
 }
 
-bool ControllerTemplatesWidget::saveTemplate(const QString& name, const QString& text, QString* error)
+QString ControllerTemplatesWidget::userDir() const
 {
-    if (m_dirs.isEmpty() || name.trimmed().isEmpty())
-        return false;
-    const QString dir = m_dirs.last();
-    QDir().mkpath(dir);
-    QSaveFile file(QDir(dir).filePath(name.trimmed() + kSuffix));
-    QString body = text;
-    body.replace(QLatin1String("\r\n"), QLatin1String("\n"));
-    body.replace(QLatin1Char('\n'), QLatin1String("\r\n"));
-    if (!file.open(QIODevice::WriteOnly) || file.write(body.toUtf8()) < 0 || !file.commit()) {
+    return m_dirs.isEmpty() ? QString() : m_dirs.last();
+}
+
+namespace {
+
+bool writeText(const QString& filePath, const QString& text, QString* error)
+{
+    QDir().mkpath(QFileInfo(filePath).absolutePath());
+    QSaveFile file(filePath);
+    const QByteArray bytes = text.toUtf8();
+    if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit()) {
         if (error)
             *error = file.errorString();
         return false;
     }
+    return true;
+}
+
+} // namespace
+
+bool ControllerTemplatesWidget::saveTemplateAs(const QString& filePath, const QString& text, QString* error)
+{
+    if (filePath.isEmpty() || !writeText(filePath, text, error))
+        return false;
+    reload();
+    selectName(QFileInfo(filePath).completeBaseName());
+    return true;
+}
+
+bool ControllerTemplatesWidget::saveTemplate(const QString& name, const QString& text, QString* error)
+{
+    if (m_dirs.isEmpty() || name.trimmed().isEmpty())
+        return false;
+    QString path = templatePath(name);
+    bool crlf = false;
+    if (!path.isEmpty()) {
+        QFile old(path);
+        if (old.open(QIODevice::ReadOnly))
+            crlf = old.readAll().contains("\r\n");
+    }
+    // Shipped templates are not changed in place: the user's copy overrides them.
+    if (path.isEmpty() || !path.startsWith(userDir(), Qt::CaseInsensitive))
+        path = QDir(userDir()).filePath(name.trimmed() + kSuffix);
+    QString body = text;
+    body.replace(QLatin1String("\r\n"), QLatin1String("\n"));
+    if (crlf)
+        body.replace(QLatin1Char('\n'), QLatin1String("\r\n"));
+    if (!writeText(path, body, error))
+        return false;
     reload();
     selectName(name.trimmed());
     return true;

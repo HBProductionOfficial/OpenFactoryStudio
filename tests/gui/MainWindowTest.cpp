@@ -9,6 +9,7 @@
 #include "core/widgets/EPanelWidget.h"
 #include "shell/CodePage.h"
 #include "shell/ControllerTemplatesWidget.h"
+#include "shell/FileDialogs.h"
 #include "shell/ProjectView.h"
 #include "shell/StatusBar.h"
 #include "shell/dialogs/SnippetEditorDialog.h"
@@ -611,23 +612,44 @@ private Q_SLOTS:
                 dialog->accept();
             });
         };
+        QString promptedDir;
+        FileDialogs::setSavePromptOverride([&promptedDir](const QString& caption, const QString& dir, const QString&) {
+            promptedDir = dir;
+            return caption == QLatin1String("Save State controller") ? QDir(dir).filePath("Mine") : QString();
+        });
         answerDialog("[State 0, Mine]\ntype = MyCustom\ntrigger1 = 1\n");
         actions.action("st_sctrl_new")->trigger();
-        QVERIFY(templates->names().contains("MyCustom"));
-        QCOMPARE(templates->selectedName(), QStringLiteral("MyCustom"));
-        QVERIFY(templates->templatePath("MyCustom").startsWith(view->engine()->userDataDir()));
+        FileDialogs::setSavePromptOverride({});
+        QVERIFY(promptedDir.startsWith(view->engine()->userDataDir()));
+        QVERIFY(templates->names().contains("Mine"));
+        QCOMPARE(templates->selectedName(), QStringLiteral("Mine"));
+        QFile created(templates->templatePath("Mine"));
+        QVERIFY(created.open(QIODevice::ReadOnly));
+        QCOMPARE(created.readAll(), QByteArray("[State 0, Mine]\ntype = MyCustom\ntrigger1 = 1\n"));
+        created.close();
+
         answerDialog("[State 0, Mine]\ntype = MyCustom\ntrigger1 = Time = 0\n");
         actions.action("st_sctrl_edit")->trigger();
-        QCOMPARE(templates->templateText("MyCustom"),
+        QCOMPARE(templates->templateText("Mine"),
                  QStringLiteral("[State 0, Mine]\ntype = MyCustom\ntrigger1 = Time = 0\n"));
-        QFile saved(templates->templatePath("MyCustom"));
-        QVERIFY(saved.open(QIODevice::ReadOnly));
-        QVERIFY(saved.readAll().contains("\r\n"));
-        saved.close();
+        templates->selectName("Width");
+        const QString shipped = templates->templatePath("Width");
+        answerDialog("[State 0, Width]\ntype = Width\ntrigger1 = 1\n");
+        actions.action("st_sctrl_edit")->trigger();
+        QVERIFY(templates->templatePath("Width") != shipped);
+        QFile copy(templates->templatePath("Width"));
+        QVERIFY(copy.open(QIODevice::ReadOnly));
+        QCOMPARE(copy.readAll(), QByteArray("[State 0, Width]\r\ntype = Width\r\ntrigger1 = 1\r\n"));
+        copy.close();
+        QVERIFY(QFile::remove(templates->templatePath("Width")));
+        templates->reload();
+
+        templates->selectName("Mine");
         m_context->config().setValue("confirm_delete", false);
         actions.action("st_sctrl_delete")->trigger();
         m_context->config().setValue("confirm_delete", true);
-        QVERIFY(!templates->names().contains("MyCustom"));
+        QVERIFY(!templates->names().contains("Mine"));
+        QVERIFY(templates->names().contains("Width"));
 
         editor->document()->setModified(false);
     }
