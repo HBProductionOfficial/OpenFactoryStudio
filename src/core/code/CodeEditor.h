@@ -72,6 +72,8 @@ public:
     void revealPosition(int position);
 
     void toggleComment();
+    void autoIndentSelection();
+    void autoFormatSelection();
     void foldAll();
     void unfoldAll();
     void toggleFold(int blockNumber);
@@ -97,12 +99,14 @@ private:
     void updateGutter(const QRect& rect, int dy);
     void updateExtraSelections();
     void setFolded(QTextBlock header, bool folded);
+    void formatSelection(bool format);
     void updateCompletion(bool typed);
     void insertCompletion(const QString& word);
 
     QWidget* m_gutter;
     QPointer<CodeHighlighter> m_highlighter;
     const SyntaxDatabase* m_syntax = nullptr;
+    QString m_fileType;
     Options m_options;
     ColorSet m_colors;
     QList<Marker> m_markers;

@@ -654,6 +654,27 @@ private Q_SLOTS:
                                                                "power = 3000");
     }
 
+    void editorAutoIndent()
+    {
+        CodeEditor editor;
+        const QString text = QStringLiteral("[State 0, 1]\n  type = Null\n\ttrigger1 = 1\nlast = 1");
+        editor.setPlainText(text);
+        QTextCursor c(editor.document());
+        c.setPosition(3);
+        c.setPosition(text.indexOf("trigger1") + 2, QTextCursor::KeepAnchor);
+        editor.setTextCursor(c);
+        editor.autoIndentSelection();
+        QCOMPARE(editor.toPlainText(), QStringLiteral("[State 0, 1]\ntype\t= Null\ntrigger1= 1\nlast = 1"));
+        QVERIFY(!editor.textCursor().hasSelection());
+        QCOMPARE(editor.cursorLine(), 3);
+        QCOMPARE(editor.textCursor().positionInBlock(), editor.textCursor().block().length() - 1);
+        editor.undo();
+        QCOMPARE(editor.toPlainText(), text);
+        editor.selectAll();
+        editor.autoFormatSelection();
+        QCOMPARE(editor.toPlainText(), QStringLiteral("[State 0, 1]\ntype\t= Null\ntrigger1= 1\nlast\t= 1"));
+    }
+
     void editorCommentToggle()
     {
         CodeEditor editor;

@@ -2,6 +2,7 @@
 
 #include "core/code/CodeBlockData.h"
 #include "core/code/CodeCompletion.h"
+#include "core/code/CodeFormatter.h"
 #include "core/code/CodeHighlighter.h"
 #include "core/code/CodeLine.h"
 #include "core/syntax/SyntaxDatabase.h"
@@ -116,6 +117,7 @@ void CodeEditor::setSyntax(const SyntaxDatabase* syntax, const QString& fileType
 {
     delete m_highlighter.data();
     m_syntax = syntax;
+    m_fileType = fileType;
     m_highlighter = new CodeHighlighter(document(), syntax, fileType);
     m_highlighter->setParent(this);
     m_highlighter->setColorSet(m_colors);
@@ -172,6 +174,45 @@ void CodeEditor::revealPosition(int position)
             break;
         }
     }
+}
+
+void CodeEditor::autoIndentSelection()
+{
+    formatSelection(false);
+}
+
+void CodeEditor::autoFormatSelection()
+{
+    formatSelection(true);
+}
+
+void CodeEditor::formatSelection(bool format)
+{
+    if (isReadOnly())
+        return;
+    const QTextCursor cursor = textCursor();
+    const QTextBlock firstBlock = document()->findBlock(cursor.selectionStart());
+    const QTextBlock lastBlock = document()->findBlock(cursor.selectionEnd());
+    QStringList lines;
+    for (QTextBlock b = document()->firstBlock(); b.isValid(); b = b.next())
+        lines << b.text();
+    const QStringList result =
+        CodeFormatter::process(lines, firstBlock.blockNumber(), lastBlock.blockNumber(),
+                               format ? CodeFormatter::Mode::Format : CodeFormatter::Mode::Indent,
+                               CodeFormatter::syntaxPredicate(m_syntax, m_fileType));
+    QTextCursor edit(document());
+    edit.setPosition(firstBlock.position());
+    edit.setPosition(lastBlock.position() + lastBlock.length() - 1, QTextCursor::KeepAnchor);
+    const QString text = result.join(QLatin1Char('\n'));
+    if (edit.selectedText() != QString(text).replace(QLatin1Char('\n'), QChar::ParagraphSeparator)) {
+        edit.beginEditBlock();
+        edit.insertText(text);
+        edit.endEditBlock();
+    } else {
+        edit.clearSelection();
+        edit.setPosition(lastBlock.position() + lastBlock.length() - 1);
+    }
+    setTextCursor(edit);
 }
 
 void CodeEditor::toggleComment()

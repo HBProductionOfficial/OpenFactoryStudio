@@ -375,6 +375,8 @@ void MainWindow::connectEditActions()
         };
     };
     on("code_comment", withCode([](CodeEditor* e) { e->toggleComment(); }));
+    on("code_autoindent", withCode([](CodeEditor* e) { e->autoIndentSelection(); }));
+    on("code_autoformat", withCode([](CodeEditor* e) { e->autoFormatSelection(); }));
     on("code_fold_all", withCode([](CodeEditor* e) { e->foldAll(); }));
     on("code_unfold_all", withCode([](CodeEditor* e) { e->unfoldAll(); }));
     on("code_goto", withCode([this](CodeEditor* e) { goToLineDialog(e); }));
