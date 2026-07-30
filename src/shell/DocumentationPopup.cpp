@@ -3,6 +3,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QKeyEvent>
 #include <QScreen>
 #include <QTextBrowser>
 #include <QUrl>
@@ -11,7 +12,7 @@
 namespace OFS {
 
 DocumentationPopup::DocumentationPopup(QWidget* parent)
-    : QFrame(parent, Qt::Popup)
+    : QFrame(parent, Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint)
     , m_browser(new QTextBrowser(this))
 {
     setObjectName(QStringLiteral("docPopup"));
@@ -23,7 +24,23 @@ DocumentationPopup::DocumentationPopup(QWidget* parent)
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(1, 1, 1, 1);
     layout->addWidget(m_browser);
-    resize(520, 360);
+    resize(640, 480);
+}
+
+bool DocumentationPopup::event(QEvent* event)
+{
+    if (event->type() == QEvent::WindowDeactivate)
+        close();
+    return QFrame::event(event);
+}
+
+void DocumentationPopup::keyPressEvent(QKeyEvent* event)
+{
+    if (event->key() == Qt::Key_Escape) {
+        close();
+        return;
+    }
+    QFrame::keyPressEvent(event);
 }
 
 bool DocumentationPopup::loadPage(const QString& filePath)
@@ -43,16 +60,16 @@ DocumentationPopup* DocumentationPopup::showPage(const QString& filePath, const 
         delete popup;
         return nullptr;
     }
-    QPoint pos = globalPos + QPoint(8, 8);
+    QPoint pos = globalPos;
     if (const QScreen* screen = QGuiApplication::screenAt(globalPos)) {
         const QRect area = screen->availableGeometry();
-        if (pos.x() + popup->width() > area.right())
-            pos.setX(qMax(area.left(), area.right() - popup->width()));
-        if (pos.y() + popup->height() > area.bottom())
-            pos.setY(qMax(area.top(), globalPos.y() - popup->height() - 8));
+        pos.setX(qBound(area.left(), pos.x(), qMax(area.left(), area.right() + 1 - popup->width())));
+        pos.setY(qBound(area.top(), pos.y(), qMax(area.top(), area.bottom() + 1 - popup->height())));
     }
     popup->move(pos);
     popup->show();
+    popup->raise();
+    popup->activateWindow();
     return popup;
 }
 

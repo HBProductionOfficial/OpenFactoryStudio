@@ -10,6 +10,8 @@
 #include <QAbstractItemView>
 #include <QAbstractTextDocumentLayout>
 #include <QCompleter>
+#include <QContextMenuEvent>
+#include <QMenu>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QRegularExpression>
@@ -506,6 +508,24 @@ std::pair<QString, QString> CodeEditor::documentationTarget(int position) const
         return {QStringLiteral("trigger"), name};
     }
     return {};
+}
+
+void CodeEditor::setCodeMenu(QMenu* menu)
+{
+    m_codeMenu = menu;
+}
+
+void CodeEditor::contextMenuEvent(QContextMenuEvent* event)
+{
+    QMenu* menu = createStandardContextMenu(event->pos());
+    if (m_codeMenu) {
+        menu->addSeparator();
+        menu->addMenu(m_codeMenu); // shared with Edit > Code: added without taking ownership
+    }
+    menu->exec(event->globalPos());
+    if (m_codeMenu)
+        menu->removeAction(m_codeMenu->menuAction());
+    delete menu;
 }
 
 void CodeEditor::mouseReleaseEvent(QMouseEvent* event)

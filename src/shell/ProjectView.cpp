@@ -20,6 +20,7 @@
 #include "shell/ControllerTemplatesWidget.h"
 #include "shell/DocumentationPopup.h"
 
+#include <QCursor>
 #include <QDir>
 #include <QFileInfo>
 #include <QHBoxLayout>
@@ -251,10 +252,10 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
                 Q_EMIT currentFileChanged();
         });
         connect(editor, &CodeEditor::documentationRequested, this,
-                [this, editor](const QString& kind, const QString& name, const QPoint& globalPos) {
+                [this, editor](const QString& kind, const QString& name, const QPoint&) {
                     const QString pagePath = engine()->documentationPage(*m_project, kind, name);
                     if (!pagePath.isEmpty())
-                        DocumentationPopup::showPage(pagePath, globalPos, editor);
+                        DocumentationPopup::showPage(pagePath, QCursor::pos(), editor);
                 });
         return page;
     }
@@ -323,6 +324,12 @@ QList<CodePage*> ProjectView::codePages() const
         }
     }
     return pages;
+}
+
+void ProjectView::setCodeMenu(QMenu* menu)
+{
+    for (CodeEditor* editor : codeEditors())
+        editor->setCodeMenu(menu);
 }
 
 void ProjectView::setCodeToolBarsVisible(bool visible)

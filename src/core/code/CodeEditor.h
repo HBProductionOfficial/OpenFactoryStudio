@@ -12,6 +12,7 @@
 #include <utility>
 
 class QCompleter;
+class QMenu;
 class QStringListModel;
 
 namespace OFS {
@@ -71,6 +72,7 @@ Q_SIGNALS:
 public:
     void revealPosition(int position);
 
+    void setCodeMenu(QMenu* menu);
     void toggleComment();
     void autoIndentSelection();
     void autoFormatSelection();
@@ -90,6 +92,7 @@ protected:
     void wheelEvent(QWheelEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
+    void contextMenuEvent(QContextMenuEvent* event) override;
 
 private:
     friend class CodeGutter;
@@ -107,6 +110,7 @@ private:
     QPointer<CodeHighlighter> m_highlighter;
     const SyntaxDatabase* m_syntax = nullptr;
     QString m_fileType;
+    QPointer<QMenu> m_codeMenu;
     Options m_options;
     ColorSet m_colors;
     QList<Marker> m_markers;

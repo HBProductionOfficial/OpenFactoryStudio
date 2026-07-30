@@ -16,6 +16,7 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QContextMenuEvent>
 #include <QDialog>
 #include <QDir>
 #include <QFile>
@@ -450,11 +451,36 @@ private Q_SLOTS:
         cursor.setPosition(int(text.indexOf("ChangeState")) + 2);
         const QPoint point = editor->cursorRect(cursor).center();
         QTest::mouseClick(editor->viewport(), Qt::LeftButton, Qt::ControlModifier, point);
-        auto* popup = qobject_cast<QFrame*>(QApplication::activePopupWidget());
+        QFrame* popup = nullptr;
+        for (QWidget* w : QApplication::topLevelWidgets()) {
+            if (w->objectName() == QLatin1String("docPopup") && w->isVisible())
+                popup = qobject_cast<QFrame*>(w);
+        }
         QVERIFY(popup);
-        QCOMPARE(popup->objectName(), QStringLiteral("docPopup"));
+        QCOMPARE(popup->size(), QSize(640, 480));
+        QVERIFY(popup->windowFlags() & Qt::WindowStaysOnTopHint);
         QVERIFY(popup->findChild<QTextBrowser*>("docBrowser")->toPlainText().contains("ChangeState"));
-        popup->close();
+        QTest::keyClick(popup, Qt::Key_Escape);
+        QTRY_VERIFY(!popup->isVisible());
+
+        // Two rounds, because the Code submenu must survive being shown.
+        for (int round = 0; round < 2; ++round) {
+            QStringList captions;
+            QTimer::singleShot(0, this, [&captions] {
+                auto* menu = qobject_cast<QMenu*>(QApplication::activePopupWidget());
+                QVERIFY(menu);
+                for (QAction* a : menu->actions())
+                    captions << (a->isSeparator() ? QStringLiteral("|") : a->text().section('\t', 0, 0));
+                menu->close();
+            });
+            QContextMenuEvent event(QContextMenuEvent::Mouse, QPoint(5, 5),
+                                    editor->viewport()->mapToGlobal(QPoint(5, 5)));
+            QApplication::sendEvent(editor->viewport(), &event);
+            QCOMPARE(captions.last(), QStringLiteral("Code"));
+            QCOMPARE(captions.at(captions.size() - 2), QStringLiteral("|"));
+        }
+        QVERIFY(window.findChild<QMenu*>("menu_code"));
+        QVERIFY(window.findChild<QMenu*>("menu_code")->menuAction()->isVisible());
     }
 
     void codeBlockTree()

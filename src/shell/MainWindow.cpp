@@ -896,6 +896,7 @@ bool MainWindow::openProject(const QString& filePath)
             refreshStatusBar();
     });
     connect(view, &ProjectView::modifiedChanged, this, [this, view] { updateProjectTab(view); });
+    view->setCodeMenu(m_menus->submenu(QStringLiteral("menu_code")));
     connect(view, &ProjectView::issuesChanged, this, [this] {
         refreshIssues();
         refreshStatusBar();
