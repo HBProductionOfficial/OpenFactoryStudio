@@ -13,6 +13,8 @@ add_library(ofsformats SHARED
     image/Image.cpp
     image/ImageOps.h
     image/ImageOps.cpp
+    codecs/Bmp.h
+    codecs/Bmp.cpp
     codecs/DecodeMode.h
     codecs/Gif.h
     codecs/Gif.cpp
