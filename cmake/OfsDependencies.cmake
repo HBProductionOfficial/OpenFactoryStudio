@@ -57,6 +57,30 @@ else()
     target_compile_options(ofs_lodepng PRIVATE -w)
 endif()
 
+# --- hqx (LGPL-2.1-or-later, used under the GPL) -------------------------------------------------
+# On Windows, DLL_EXPORT stops its header from marking the functions as DLL imports.
+FetchContent_Declare(hqx
+    URL https://github.com/grom358/hqx/archive/refs/tags/v1.2.tar.gz
+    URL_HASH SHA256=5a44f1745b7fb0321c1d244822d79505df7cf85cfe383ee70b16f5bcd6803396
+    SOURCE_SUBDIR _ofs_no_build)
+FetchContent_MakeAvailable(hqx)
+add_library(ofs_hqx STATIC
+    "${hqx_SOURCE_DIR}/src/init.c"
+    "${hqx_SOURCE_DIR}/src/hq2x.c"
+    "${hqx_SOURCE_DIR}/src/hq3x.c"
+    "${hqx_SOURCE_DIR}/src/hq4x.c")
+add_library(OFS::hqx ALIAS ofs_hqx)
+set_target_properties(ofs_hqx PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(ofs_hqx SYSTEM PUBLIC "$<BUILD_INTERFACE:${hqx_SOURCE_DIR}/src>")
+if(WIN32)
+    target_compile_definitions(ofs_hqx PRIVATE DLL_EXPORT)
+endif()
+if(MSVC)
+    target_compile_options(ofs_hqx PRIVATE /W0)
+else()
+    target_compile_options(ofs_hqx PRIVATE -w)
+endif()
+
 FetchContent_Declare(uchardet
     URL https://www.freedesktop.org/software/uchardet/releases/uchardet-0.0.8.tar.xz
     URL_HASH SHA256=e97a60cfc00a1c147a674b097bb1422abd9fa78a2d9ce3f3fdcc2e78a34ac5f0

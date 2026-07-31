@@ -11,7 +11,7 @@ ofs_add_test(NAME formats_crc CATCH2
 set(OFS_FORMATS_FIXTURES fixtures/FixtureFactory.h fixtures/FixtureFactory.cpp)
 
 ofs_add_test(NAME formats_util CATCH2
-    SOURCES formats/UtilTest.cpp formats/ImageTest.cpp ${OFS_FORMATS_FIXTURES}
+    SOURCES formats/UtilTest.cpp formats/ImageTest.cpp formats/ResizeTest.cpp ${OFS_FORMATS_FIXTURES}
     LIBS OFS::formats)
 
 ofs_add_test(NAME formats_codecs CATCH2
