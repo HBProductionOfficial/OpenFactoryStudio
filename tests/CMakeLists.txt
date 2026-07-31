@@ -20,6 +20,7 @@ ofs_add_test(NAME formats_codecs CATCH2
 
 ofs_add_test(NAME formats_documents CATCH2
     SOURCES
+        formats/MakerTest.cpp
         formats/PaletteFormatsTest.cpp
         formats/SffTest.cpp
         formats/SndWavFntTest.cpp

@@ -32,6 +32,11 @@ add_library(ofsformats SHARED
     codecs/Rle5.cpp
     codecs/Rle8.h
     codecs/Rle8.cpp
+    maker/MakerText.h
+    maker/SndMakerScript.h
+    maker/SndMakerScript.cpp
+    maker/SprMakerDef.h
+    maker/SprMakerDef.cpp
     palette/PaletteFormats.h
     palette/PaletteFormats.cpp
     sff/SffDocument.h
