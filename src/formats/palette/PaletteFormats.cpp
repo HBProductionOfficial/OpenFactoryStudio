@@ -1,13 +1,17 @@
 #include "formats/palette/PaletteFormats.h"
 
+#include "formats/codecs/Bmp.h"
+#include "formats/codecs/Gif.h"
 #include "formats/codecs/Pcx.h"
 #include "formats/codecs/Png.h"
 #include "formats/util/ByteReader.h"
 #include "formats/util/ByteWriter.h"
 
 #include <algorithm>
+#include <bit>
 #include <charconv>
 #include <cmath>
+#include <optional>
 #include <vector>
 
 namespace OFS::Formats {
@@ -68,6 +72,23 @@ Rgba fromLab(double l, double a, double b)
         return c <= 0.0031308 ? 12.92 * c : 1.055 * std::pow(c, 1.0 / 2.4) - 0.055;
     };
     return rgb(toByte(encode(rl)), toByte(encode(gl)), toByte(encode(bl)));
+}
+
+double unit(float value)
+{
+    return std::isfinite(value) ? std::clamp(static_cast<double>(value), 0.0, 1.0) : 0.0;
+}
+
+double finite(float value)
+{
+    return std::isfinite(value) ? static_cast<double>(value) : 0.0;
+}
+
+void writeUtf16Name(ByteWriter& out, const std::string& text)
+{
+    for (const char c : text)
+        out.u16be(static_cast<std::uint8_t>(c));
+    out.u16be(0);
 }
 
 std::vector<std::string_view> splitLines(std::string_view text)
@@ -299,6 +320,111 @@ Result<Palette> readAco(ByteSpan data)
     return best;
 }
 
+Bytes writeAco(const Palette& palette)
+{
+    const std::size_t count = std::min<std::size_t>(palette.size(), 0xFFFF);
+    ByteWriter out;
+    for (std::uint16_t version : {std::uint16_t{1}, std::uint16_t{2}}) {
+        out.u16be(version);
+        out.u16be(static_cast<std::uint16_t>(count));
+        for (std::size_t i = 0; i < count; ++i) {
+            out.u16be(0); // RGB
+            out.u16be(static_cast<std::uint16_t>(palette[i].r * 257));
+            out.u16be(static_cast<std::uint16_t>(palette[i].g * 257));
+            out.u16be(static_cast<std::uint16_t>(palette[i].b * 257));
+            out.u16be(0);
+            if (version == 2) {
+                const std::string name = std::to_string(i);
+                out.u32be(static_cast<std::uint32_t>(name.size() + 1));
+                writeUtf16Name(out, name);
+            }
+        }
+    }
+    return out.take();
+}
+
+Result<Palette> readAse(ByteSpan data)
+{
+    ByteReader r(data);
+    if (toText(r.bytes(4)) != "ASEF")
+        return Error{"not an Adobe Swatch Exchange (.ase) file"};
+    const std::uint16_t major = r.u16be();
+    r.u16be(); // minor version
+    const std::uint32_t blocks = r.u32be();
+    if (!r.ok())
+        return Error{"Adobe Swatch Exchange header is truncated"};
+    if (major != 1)
+        return Error{"unsupported Adobe Swatch Exchange version " + std::to_string(major)};
+    // Every block takes at least 6 bytes (type and length).
+    if (blocks > r.remaining() / 6)
+        return Error{"Adobe Swatch Exchange file is truncated"};
+
+    Palette palette;
+    for (std::uint32_t i = 0; i < blocks; ++i) {
+        const std::uint16_t type = r.u16be();
+        const std::uint32_t length = r.u32be();
+        if (!r.ok() || length > r.remaining())
+            return Error{"Adobe Swatch Exchange block is truncated"};
+        ByteReader block(r.bytes(length));
+        if (type != 0x0001) // group start (0xC001), group end (0xC002) and unknown blocks
+            continue;
+        const std::uint16_t nameLength = block.u16be(); // UTF-16 code units including the final 0
+        block.skip(std::size_t{nameLength} * 2);
+        const std::string model = toText(block.bytes(4));
+        auto value = [&block] {
+            return std::bit_cast<float>(block.u32be());
+        };
+        std::optional<Rgba> color;
+        if (model == "RGB ") {
+            const double red = unit(value());
+            const double green = unit(value());
+            const double blue = unit(value());
+            color = rgb(toByte(red), toByte(green), toByte(blue));
+        } else if (model == "CMYK") {
+            const double c = unit(value());
+            const double m = unit(value());
+            const double y = unit(value());
+            const double k = unit(value());
+            color = rgb(toByte((1 - c) * (1 - k)), toByte((1 - m) * (1 - k)), toByte((1 - y) * (1 - k)));
+        } else if (model == "LAB ") {
+            const double lightness = finite(value()) * 100.0;
+            const double a = finite(value());
+            const double b = finite(value());
+            color = fromLab(lightness, a, b);
+        } else if (model == "Gray") {
+            const double gray = unit(value());
+            color = rgb(toByte(gray), toByte(gray), toByte(gray));
+        }
+        block.u16be(); // color type: global, spot or normal
+        if (!block.ok())
+            return Error{"Adobe Swatch Exchange color entry is truncated"};
+        if (color)
+            palette.push_back(*color);
+    }
+    return palette;
+}
+
+Bytes writeAse(const Palette& palette)
+{
+    ByteWriter out;
+    out.text("ASEF");
+    out.u16be(1);
+    out.u16be(0);
+    out.u32be(static_cast<std::uint32_t>(palette.size()));
+    for (std::size_t i = 0; i < palette.size(); ++i) {
+        const std::string name = std::to_string(i);
+        out.u16be(0x0001);
+        out.u32be(static_cast<std::uint32_t>(2 + (name.size() + 1) * 2 + 4 + 12 + 2));
+        out.u16be(static_cast<std::uint16_t>(name.size() + 1));
+        writeUtf16Name(out, name);
+        out.text("RGB ");
+        for (const std::uint8_t channel : {palette[i].r, palette[i].g, palette[i].b})
+            out.u32be(std::bit_cast<std::uint32_t>(static_cast<float>(channel) / 255.0f));
+        out.u16be(2); // normal color
+    }
+    return out.take();
+}
+
 Result<Palette> paletteFromPcx(ByteSpan data)
 {
     auto header = readPcxHeader(data);
@@ -325,16 +451,52 @@ Result<Palette> paletteFromPng(ByteSpan data)
     return image->palette();
 }
 
+Result<Palette> paletteFromGif(ByteSpan data)
+{
+    auto gif = readGif(data, DecodeMode::Strict, 1);
+    if (!gif)
+        return gif.error();
+    if (!gif->globalPalette.empty())
+        return gif->globalPalette;
+    Palette palette = gif->frames.front().image.palette();
+    for (Rgba& c : palette)
+        c.a = 255;
+    return palette;
+}
+
+Result<Palette> paletteFromBmp(ByteSpan data)
+{
+    auto info = readBmpInfo(data);
+    if (!info)
+        return info.error();
+    if (info->bitsPerPixel > 8)
+        return Error{"BMP image has no palette (true color)"};
+    return std::move(info->palette);
+}
+
 Result<Palette> readPaletteFile(ByteSpan data, ActOrder actOrder)
 {
     const std::string head = toText(data.first(std::min<std::size_t>(data.size(), 12)));
+    const bool actSize = data.size() == kActSize || data.size() == kActSize + 4;
+    // An ACT file whose first colors happen to spell an image signature is still an ACT file.
+    auto orAct = [&](Result<Palette> result) {
+        if (!result && actSize)
+            return readAct(data, actOrder);
+        return result;
+    };
     if (head.rfind("\x89PNG", 0) == 0)
-        return paletteFromPng(data);
+        return orAct(paletteFromPng(data));
+    if (head.rfind("GIF8", 0) == 0)
+        return orAct(paletteFromGif(data));
+    if (head.rfind("BM", 0) == 0)
+        return orAct(paletteFromBmp(data));
     if (head.size() >= 12 && head.rfind("RIFF", 0) == 0 && head.substr(8, 4) == "PAL ")
         return readRiffPal(data);
     if (head.rfind("JASC-PAL", 0) == 0)
         return readJascPal(toText(data));
-    if (data.size() == kActSize || data.size() == kActSize + 4)
+    if (head.rfind("ASEF", 0) == 0)
+        return orAct(readAse(data));
+    if (actSize)
         return readAct(data, actOrder);
     if (!data.empty() && static_cast<std::uint8_t>(data[0]) == 0x0A)
         return paletteFromPcx(data);

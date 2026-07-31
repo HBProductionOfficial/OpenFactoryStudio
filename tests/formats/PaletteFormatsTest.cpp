@@ -1,10 +1,15 @@
 #include "formats/palette/PaletteFormats.h"
 #include "fixtures/FixtureFactory.h"
+#include "formats/codecs/Bmp.h"
+#include "formats/codecs/Gif.h"
 #include "formats/codecs/Pcx.h"
 #include "formats/codecs/Png.h"
 #include "formats/util/ByteWriter.h"
 
 #include <catch2/catch_test_macros.hpp>
+
+#include <bit>
+#include <string>
 
 using namespace OFS::Formats;
 using namespace OFS::Formats::Test;
@@ -181,4 +186,140 @@ TEST_CASE("palettes are extracted from PCX and PNG images", "[palette]")
     CHECK(sameRgb(*fromPng, img.palette()));
     CHECK(readPaletteFile(*png).ok());
     CHECK_FALSE(paletteFromPng(*encodePng(f.rgbaImage(2, 2))).ok());
+}
+
+TEST_CASE("ACO files written by us read back in order", "[palette][aco]")
+{
+    FixtureFactory f(0xAC0);
+    for (std::size_t count : {std::size_t{0}, std::size_t{1}, std::size_t{32}, std::size_t{256}}) {
+        const Palette palette = f.palette(count);
+        const Bytes file = writeAco(palette);
+        // A version 1 section (10 bytes per color), then version 2 with UTF-16 names.
+        std::size_t names = 0;
+        for (std::size_t i = 0; i < count; ++i)
+            names += 4 + (std::to_string(i).size() + 1) * 2;
+        CHECK(file.size() == 8 + count * 20 + names);
+        CHECK(static_cast<std::uint8_t>(file[1]) == 1);
+        auto back = readAco(file);
+        REQUIRE(back.ok());
+        CHECK(*back == palette);
+        if (count > 0)
+            CHECK(readPaletteFile(file).value() == palette);
+    }
+}
+
+TEST_CASE("ASE swatches round-trip and convert every color model", "[palette][ase]")
+{
+    FixtureFactory f(0xA5E);
+    for (std::size_t count : {std::size_t{0}, std::size_t{1}, std::size_t{256}}) {
+        const Palette palette = f.palette(count);
+        const Bytes file = writeAse(palette);
+        CHECK(toText(ByteSpan(file).first(4)) == "ASEF");
+        auto back = readAse(file);
+        REQUIRE(back.ok());
+        CHECK(*back == palette);
+        CHECK(readPaletteFile(file).value() == palette);
+    }
+
+    ByteWriter w;
+    w.text("ASEF");
+    w.u16be(1);
+    w.u16be(0);
+    w.u32be(7);
+    auto block = [&w](std::uint16_t type, const Bytes& body) {
+        w.u16be(type);
+        w.u32be(static_cast<std::uint32_t>(body.size()));
+        w.bytes(body);
+    };
+    auto entry = [](const char* model, std::initializer_list<float> values) {
+        ByteWriter b;
+        b.u16be(2); // name "x" and its terminator
+        b.u16be('x');
+        b.u16be(0);
+        b.text(model);
+        for (const float v : values)
+            b.u32be(std::bit_cast<std::uint32_t>(v));
+        b.u16be(2);
+        return b.take();
+    };
+    ByteWriter group;
+    group.u16be(2);
+    group.u16be('g');
+    group.u16be(0);
+    block(0xC001, group.take());
+    block(0x0001, entry("RGB ", {1.0f, 0.5f, 0.0f}));
+    block(0x0001, entry("CMYK", {0.0f, 0.0f, 0.0f, 1.0f}));
+    block(0x0001, entry("LAB ", {1.0f, 0.0f, 0.0f}));
+    block(0x0001, entry("Gray", {0.25f}));
+    block(0x0001, entry("XYZ ", {0.1f, 0.2f, 0.3f}));
+    block(0xC002, {});
+    auto colors = readAse(w.data());
+    REQUIRE(colors.ok());
+    REQUIRE(colors->size() == 4);
+    CHECK((*colors)[0] == rgb(255, 128, 0));
+    CHECK((*colors)[1] == rgb(0, 0, 0));
+    CHECK((*colors)[2].r >= 254);
+    CHECK((*colors)[3] == rgb(64, 64, 64));
+
+    CHECK_FALSE(readAse(toBytes("ASEF")).ok());
+    Bytes wrongVersion = writeAse(Palette{rgb(1, 2, 3)});
+    wrongVersion[5] = std::byte{2}; // major version 2
+    CHECK_FALSE(readAse(wrongVersion).ok());
+}
+
+TEST_CASE("palettes are extracted from GIF and BMP images", "[palette]")
+{
+    FixtureFactory f(0x61B);
+    const Palette global = f.palette(256);
+    GifDocument gif;
+    gif.globalPalette = global;
+    gif.frames.push_back(GifFrame{Image::indexed(2, 1, {0, 9}, global)});
+    auto gifBytes = writeGif(gif);
+    REQUIRE(gifBytes.ok());
+    auto fromGif = paletteFromGif(*gifBytes);
+    REQUIRE(fromGif.ok());
+    CHECK(*fromGif == global);
+    CHECK(readPaletteFile(*gifBytes).value() == global);
+
+    GifDocument local;
+    const Palette small = f.palette(5);
+    local.frames.push_back(GifFrame{Image::indexed(1, 1, {4}, small)});
+    local.frames.back().transparentIndex = 4;
+    auto localBytes = writeGif(local);
+    REQUIRE(localBytes.ok());
+    auto localPalette = paletteFromGif(*localBytes);
+    REQUIRE(localPalette.ok());
+    REQUIRE(localPalette->size() == 8);
+    for (std::size_t i = 0; i < 5; ++i)
+        CHECK((*localPalette)[i] == small[i]);
+
+    const Palette bmpPalette = f.palette(200);
+    auto bmp = encodeBmp(Image::indexed(3, 2, {0, 1, 2, 199, 4, 5}, bmpPalette));
+    REQUIRE(bmp.ok());
+    auto fromBmp = paletteFromBmp(*bmp);
+    REQUIRE(fromBmp.ok());
+    CHECK(*fromBmp == bmpPalette);
+    CHECK(readPaletteFile(*bmp).value() == bmpPalette);
+    auto trueColor = encodeBmp(f.rgbaImage(2, 2));
+    REQUIRE(trueColor.ok());
+    CHECK_FALSE(paletteFromBmp(*trueColor).ok());
+}
+
+TEST_CASE("an ACT file that looks like an image is still read as ACT", "[palette][act]")
+{
+    // The first bytes spell "BM" and "GIF8"a, the size says ACT.
+    Palette palette(256);
+    palette[255] = rgb('B', 'M', 0); // reversed order: index 255 is stored first
+    const Bytes bmpLike = writeAct(palette, ActOrder::Reversed);
+    auto read = readPaletteFile(bmpLike);
+    REQUIRE(read.ok());
+    CHECK(*read == palette);
+
+    Palette gifLike(256);
+    gifLike[0] = rgb('G', 'I', 'F');
+    gifLike[1] = rgb('8', 'a', 0);
+    const Bytes natural = writeAct(gifLike, ActOrder::Natural);
+    auto readNatural = readPaletteFile(natural, ActOrder::Natural);
+    REQUIRE(readNatural.ok());
+    CHECK(*readNatural == gifLike);
 }
