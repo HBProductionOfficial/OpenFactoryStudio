@@ -1,7 +1,10 @@
 // Each prefix gets its own buffer of exact size, so out-of-bounds reads are not hidden.
 
 #include "fixtures/FixtureFactory.h"
+#include "formats/codecs/Bmp.h"
+#include "formats/codecs/Gif.h"
 #include "formats/codecs/Lz5.h"
+#include "formats/codecs/Lzw.h"
 #include "formats/codecs/Pcx.h"
 #include "formats/codecs/Png.h"
 #include "formats/codecs/Rle5.h"
@@ -120,6 +123,120 @@ TEST_CASE("truncated images and palettes are rejected", "[truncation]")
         aco.u16be(0);
     }
     requireTruncationsRejected(aco.data(), [](ByteSpan d) { return readAco(d).ok(); });
+}
+
+TEST_CASE("truncated GIF, BMP and swatch files are rejected", "[truncation]")
+{
+    FixtureFactory f(8);
+    GifDocument gif;
+    gif.globalPalette = f.palette(32);
+    gif.loopCount = 0;
+    Image first = f.indexedImage(11, 6, 32, PixelPattern::Mixed);
+    first.setPalette(gif.globalPalette);
+    gif.frames.push_back(GifFrame{first});
+    gif.frames.back().delay = 5;
+    Image second = f.indexedImage(5, 9, 8, PixelPattern::Noise);
+    second.setPalette(f.palette(8));
+    gif.frames.push_back(GifFrame{second, 2, 1});
+    gif.frames.back().interlaced = true;
+    gif.frames.back().transparentIndex = 3;
+    auto gifBytes = writeGif(gif);
+    REQUIRE(gifBytes.ok());
+    requireTruncationsRejected(*gifBytes, [](ByteSpan d) { return readGif(d).ok(); });
+
+    const Image indexed = f.indexedImage(7, 5, 200, PixelPattern::Mixed);
+    requireTruncationsRejected(*encodeBmp(indexed), [](ByteSpan d) { return decodeBmp(d).ok(); });
+    for (BmpColor color : {BmpColor::Rgb, BmpColor::Rgba}) {
+        BmpEncodeOptions options;
+        options.color = color;
+        requireTruncationsRejected(*encodeBmp(f.rgbaImage(5, 3), options),
+                                   [](ByteSpan d) { return decodeBmp(d).ok(); });
+    }
+
+    const Palette palette = f.palette(20);
+    requireTruncationsRejected(writeAse(palette), [](ByteSpan d) { return readAse(d).ok(); });
+    // An ACO file may end after its version 1 section.
+    const Bytes aco = writeAco(palette);
+    const std::vector<std::size_t> accepted = acceptedPrefixes(aco, [](ByteSpan d) { return readAco(d).ok(); });
+    CHECK(accepted == std::vector<std::size_t>{4 + palette.size() * 10});
+
+    for (int bits : {2, 5, 8}) {
+        const std::vector<std::uint8_t> pixels = f.pixels(2000, 1 << bits, PixelPattern::Mixed);
+        auto code = encodeGifLzw(pixels, bits);
+        REQUIRE(code.ok());
+        requireTruncationsRejected(*code, [&](ByteSpan d) {
+            std::vector<std::uint8_t> out(pixels.size());
+            return decodeGifLzw(d, bits, out).ok();
+        });
+    }
+}
+
+TEST_CASE("damaged GIF, BMP and swatch files never crash the parsers", "[truncation][fuzz]")
+{
+    FixtureFactory f(9);
+    SplitMix64 rng(0x6B);
+
+    GifDocument gif;
+    gif.globalPalette = f.palette(64);
+    for (int i = 0; i < 3; ++i) {
+        Image frame = f.indexedImage(9 + i, 7, 64, f.randomPattern());
+        frame.setPalette(i == 1 ? f.palette(64) : gif.globalPalette);
+        gif.frames.push_back(GifFrame{frame, i, i});
+        gif.frames.back().transparentIndex = i == 2 ? 5 : -1;
+        gif.frames.back().disposal = static_cast<GifDisposal>(i + 1);
+        gif.frames.back().interlaced = i == 0;
+    }
+    auto gifBytes = writeGif(gif);
+    REQUIRE(gifBytes.ok());
+    mutate(*gifBytes, rng, 400, [](ByteSpan d) {
+        for (DecodeMode mode : {DecodeMode::Strict, DecodeMode::Lenient}) {
+            auto doc = readGif(d, mode);
+            if (!doc)
+                continue;
+            // Damaged headers can announce huge screens, which are slow to compose.
+            if (std::uint64_t(doc->width) * std::uint64_t(doc->height) > 100000)
+                continue;
+            (void)renderGifFrames(*doc);
+            (void)gifFrameOnScreen(*doc, 0);
+            (void)writeGif(*doc);
+        }
+        (void)decodeGif(d);
+        (void)paletteFromGif(d);
+    });
+
+    for (BmpColor color : {BmpColor::Automatic, BmpColor::Rgb, BmpColor::Rgba}) {
+        BmpEncodeOptions options;
+        options.color = color;
+        auto bmp = encodeBmp(f.indexedImage(6, 4, 16, PixelPattern::Noise), options);
+        REQUIRE(bmp.ok());
+        mutate(*bmp, rng, 300, [](ByteSpan d) {
+            (void)decodeBmp(d);
+            (void)paletteFromBmp(d);
+            // Lenient decoding allocates the announced size, which is slow for huge damaged headers.
+            auto info = readBmpInfo(d);
+            if (info && std::uint64_t(info->width) * std::uint64_t(info->height) <= 100000)
+                (void)decodeBmp(d, DecodeMode::Lenient);
+        });
+    }
+
+    mutate(writeAse(f.palette(12)), rng, 300, [](ByteSpan d) { (void)readAse(d); });
+    mutate(writeAco(f.palette(12)), rng, 300, [](ByteSpan d) { (void)readAco(d); });
+    auto code = encodeGifLzw(f.pixels(500, 16, PixelPattern::Mixed), 4);
+    REQUIRE(code.ok());
+    mutate(*code, rng, 300, [](ByteSpan d) {
+        std::vector<std::uint8_t> out(500);
+        (void)decodeGifLzw(d, 4, out);
+        (void)decodeGifLzw(d, 4, out, DecodeMode::Lenient);
+    });
+    for (const char* head : {"GIF89a", "BM", "ASEF", "\x89PNG", "RIFF", "JASC-PAL"}) {
+        for (int round = 0; round < 100; ++round) {
+            Bytes data = toBytes(head);
+            for (std::uint32_t k = 0, n = rng.below(64); k < n; ++k)
+                data.push_back(std::byte{rng.byte()});
+            (void)readPaletteFile(data);
+        }
+    }
+    SUCCEED("no crashes");
 }
 
 TEST_CASE("truncated sprite streams are rejected", "[truncation][codec]")
