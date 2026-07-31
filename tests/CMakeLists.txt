@@ -15,7 +15,7 @@ ofs_add_test(NAME formats_util CATCH2
     LIBS OFS::formats)
 
 ofs_add_test(NAME formats_codecs CATCH2
-    SOURCES formats/CodecTest.cpp ${OFS_FORMATS_FIXTURES}
+    SOURCES formats/CodecTest.cpp formats/GifTest.cpp ${OFS_FORMATS_FIXTURES}
     LIBS OFS::formats)
 
 ofs_add_test(NAME formats_documents CATCH2

@@ -14,8 +14,12 @@ add_library(ofsformats SHARED
     image/ImageOps.h
     image/ImageOps.cpp
     codecs/DecodeMode.h
+    codecs/Gif.h
+    codecs/Gif.cpp
     codecs/Lz5.h
     codecs/Lz5.cpp
+    codecs/Lzw.h
+    codecs/Lzw.cpp
     codecs/Pcx.h
     codecs/Pcx.cpp
     codecs/Png.h
