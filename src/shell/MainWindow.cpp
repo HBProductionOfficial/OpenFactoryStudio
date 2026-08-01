@@ -653,7 +653,7 @@ void MainWindow::quickFind(int operation)
     }
     m_quickFind->setNotFound(!found);
     if (!found)
-        QApplication::beep();
+        QMessageBox::information(this, tr("Find"), tr("Nothing found!"));
 }
 
 void MainWindow::showMultiLineFind()

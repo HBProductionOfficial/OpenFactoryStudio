@@ -28,6 +28,7 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMenuBar>
+#include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QScrollBar>
@@ -307,7 +308,15 @@ private Q_SLOTS:
         QVERIFY(editor->toPlainText().contains("anim = air.fighter"));
         bar->findChild<QToolButton*>("quickSearchRegExp")->setChecked(false);
         find->setText("no such text");
+        QString message;
+        QTimer::singleShot(0, this, [&message] {
+            auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            message = box->windowTitle() + QLatin1Char('|') + box->text();
+            box->accept();
+        });
         bar->findChild<QPushButton*>("quickSearchFindBut")->click();
+        QCOMPARE(message, QStringLiteral("Find|Nothing found!"));
         QVERIFY(find->property("notFound").toBool());
         bar->findChild<QToolButton*>("quickSearchClose")->click();
         QVERIFY(!bar->isVisible());
