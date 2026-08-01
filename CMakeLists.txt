@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.26...3.31)
 
 project(OpenFactoryStudio
-    VERSION 0.0.1
+    VERSION 0.3.0
     DESCRIPTION "Open Factory Studio - character, stage and screenpack editor for M.U.G.E.N"
     HOMEPAGE_URL "https://github.com/HBProductionOfficial/OpenFactoryStudio"
     LANGUAGES C CXX)

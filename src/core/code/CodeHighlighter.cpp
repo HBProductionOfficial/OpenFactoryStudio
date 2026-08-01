@@ -10,11 +10,6 @@ namespace OFS {
 
 namespace {
 
-QString sectionKey(const QString& header)
-{
-    return header.toLower();
-}
-
 const QStringList kRedirects = {QStringLiteral("parent"),    QStringLiteral("root"),    QStringLiteral("helper"),
                                 QStringLiteral("target"),    QStringLiteral("partner"), QStringLiteral("enemy"),
                                 QStringLiteral("enemynear"), QStringLiteral("playerid")};
@@ -66,19 +61,18 @@ void CodeHighlighter::setFileType(const QString& fileType)
 
 const CodeHighlighter::SectionInfo& CodeHighlighter::sectionInfo(const QString& header)
 {
-    const QString key = sectionKey(header);
+    const QString section = m_syntax ? m_syntax->sectionFor(m_fileType, header) : QString();
+    const QString key = section.isEmpty() ? QStringLiteral("\x01") + header.toLower() : section.toLower();
     auto it = m_sections.find(key);
     if (it != m_sections.end())
         return *it;
 
     SectionInfo info;
-    if (m_syntax) {
+    if (m_syntax && !section.isEmpty()) {
         if (const SyntaxFileType* ft = m_syntax->fileType(m_fileType)) {
             info.typed = m_syntax->isTypedSection(m_fileType, header);
-            for (const SyntaxBlock& b : ft->blocks) {
-                if (!SyntaxDatabase::headerMatchesSection(header, b.section))
-                    continue;
-                for (const SyntaxParam& p : m_syntax->params(m_fileType, b)) {
+            for (int index : ft->sectionBlocks.value(section.toLower())) {
+                for (const SyntaxParam& p : m_syntax->params(m_fileType, ft->blocks.at(index))) {
                     if (p.name.contains(QLatin1Char('*')))
                         info.wildcardParams.insert(p.name);
                     else

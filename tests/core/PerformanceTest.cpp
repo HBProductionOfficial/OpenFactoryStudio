@@ -65,6 +65,16 @@ private Q_SLOTS:
         QVERIFY2(ms < 20000, qPrintable(QString::number(ms)));
     }
 
+    void loadPlain()
+    {
+        QPlainTextEdit editor;
+        QElapsedTimer timer;
+        timer.start();
+        editor.setPlainText(m_text);
+        QCoreApplication::processEvents();
+        qInfo("loading 100k lines without highlighting: %lld ms", timer.elapsed());
+    }
+
     void loadAndHighlight()
     {
         CodeEditor editor;
