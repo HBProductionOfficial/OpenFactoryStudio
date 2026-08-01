@@ -1,13 +1,9 @@
 #include "shell/BottomDock.h"
 
-#include <QCheckBox>
-#include <QComboBox>
-#include <QGridLayout>
+#include "shell/AdvancedSearchPanel.h"
+
 #include <QHBoxLayout>
 #include <QHeaderView>
-#include <QLabel>
-#include <QLineEdit>
-#include <QPushButton>
 #include <QStackedWidget>
 #include <QStandardItemModel>
 #include <QTabBar>
@@ -58,7 +54,8 @@ BottomDock::BottomDock(QWidget* parent)
     m_engineOutput->setReadOnly(true);
 
     m_pages->addWidget(m_issues);
-    m_pages->addWidget(createAdvancedSearchPage());
+    m_advancedSearch = new AdvancedSearchPanel(this);
+    m_pages->addWidget(m_advancedSearch);
     m_pages->addWidget(m_engineOutput);
     m_pages->addWidget(createTwoTreesPage(
         {tr("Level"), tr("Function"), tr("File"), tr("Line")},
@@ -83,52 +80,6 @@ BottomDock::BottomDock(QWidget* parent)
     connect(m_tabs, &QTabBar::tabBarClicked, this, &BottomDock::onTabClicked);
     connect(m_tabs, &QTabBar::currentChanged, m_pages, &QStackedWidget::setCurrentIndex);
     updateArrow();
-}
-
-QWidget* BottomDock::createAdvancedSearchPage()
-{
-    auto* page = new QWidget(this);
-    page->setObjectName(QStringLiteral("advancedSearch"));
-    auto* grid = new QGridLayout(page);
-
-    auto* scope = new QComboBox(page);
-    scope->setObjectName(QStringLiteral("advsearch_scope"));
-    scope->addItems({tr("All projects"), tr("Current project"), tr("Current file"), tr("Opened files"),
-                     tr("Files in File system")});
-    auto* type = new QComboBox(page);
-    type->setObjectName(QStringLiteral("advsearch_type"));
-    type->addItems({tr("By string"), tr("Lazy syntax fix")});
-    auto* text = new QLineEdit(page);
-    text->setObjectName(QStringLiteral("advsearch_text"));
-    auto* filePattern = new QComboBox(page);
-    filePattern->setObjectName(QStringLiteral("advsearch_pattern"));
-    filePattern->setEditable(true);
-    filePattern->addItems({QStringLiteral("*.def, *.cmd, *.cns, *.st"),
-                           QStringLiteral("*.def *.sff *.snd *.air *.cns *.st *.* *.cmd *.*"), QStringLiteral("*")});
-    auto* exclusion = new QComboBox(page);
-    exclusion->setObjectName(QStringLiteral("advsearch_exclusion"));
-    exclusion->setEditable(true);
-
-    grid->addWidget(new QLabel(tr("Scope:"), page), 0, 0);
-    grid->addWidget(scope, 0, 1);
-    grid->addWidget(new QLabel(tr("Type:"), page), 0, 2);
-    grid->addWidget(type, 0, 3);
-    grid->addWidget(new QLabel(tr("Search for:"), page), 1, 0);
-    grid->addWidget(text, 1, 1, 1, 3);
-    grid->addWidget(new QCheckBox(tr("Case sensitive"), page), 2, 1);
-    grid->addWidget(new QCheckBox(tr("Whole words only"), page), 2, 2);
-    grid->addWidget(new QCheckBox(tr("Use Regular expression"), page), 2, 3);
-    grid->addWidget(new QLabel(tr("File pattern:"), page), 3, 0, 1, 2, Qt::AlignRight);
-    grid->addWidget(filePattern, 3, 2, 1, 2);
-    grid->addWidget(new QLabel(tr("Exclusion pattern:"), page), 4, 0, 1, 2, Qt::AlignRight);
-    grid->addWidget(exclusion, 4, 2, 1, 2);
-    grid->setRowStretch(5, 1);
-    auto* search = new QPushButton(tr("Search"), page);
-    auto* replace = new QPushButton(tr("Search && Replace"), page);
-    grid->addWidget(search, 6, 2);
-    grid->addWidget(replace, 6, 3);
-    grid->setColumnStretch(4, 1);
-    return page;
 }
 
 QWidget* BottomDock::createTwoTreesPage(const QStringList& left, const QStringList& right)

@@ -19,6 +19,7 @@
 #include "core/settings/History.h"
 #include "core/text/Encodings.h"
 #include "core/theme/ThemeManager.h"
+#include "shell/AdvancedSearchPanel.h"
 #include "shell/BottomDock.h"
 #include "shell/CodePage.h"
 #include "shell/ControllerTemplatesWidget.h"
@@ -206,6 +207,52 @@ void MainWindow::buildCentralArea()
 
     m_dock = new BottomDock(this);
     m_dock->hide();
+    AdvancedSearchPanel::Context search;
+    search.projects = [this] {
+        QList<Project*> projects;
+        for (ProjectView* view : projectViews())
+            projects << view->project();
+        return projects;
+    };
+    search.currentProject = [this]() -> Project* {
+        ProjectView* view = currentProjectView();
+        return view ? view->project() : nullptr;
+    };
+    search.currentFile = [this]() -> QString {
+        ProjectView* view = currentProjectView();
+        auto* file = view ? qobject_cast<CodeFile*>(view->currentFile()) : nullptr;
+        return file ? file->path() : QString();
+    };
+    search.syntaxFor = [this](const QString& path) -> std::pair<const SyntaxDatabase*, QString> {
+        for (ProjectView* view : projectViews()) {
+            for (const QString& id : view->editorIds()) {
+                if (view->project()->editorFiles(id).contains(path, Qt::CaseInsensitive))
+                    return {view->engine()->syntax(), view->engine()->syntaxFileType(*view->project(), id)};
+            }
+            if (view->project()->filePath().compare(path, Qt::CaseInsensitive) == 0)
+                return {view->engine()->syntax(),
+                        view->engine()->syntaxFileType(*view->project(), QStringLiteral("definitions"))};
+        }
+        return {nullptr, QString()};
+    };
+    search.openLocation = [this](const QString& path, int line, int column) {
+        for (ProjectView* view : projectViews()) {
+            for (int i = 0; i < m_projectTabs->count(); ++i) {
+                if (m_projectTabs->tabData(i).value<QObject*>() != view)
+                    continue;
+                if (!view->showFileLine(path, line))
+                    break;
+                m_projectTabs->setCurrentIndex(i);
+                if (CodeEditor* editor = view->currentCodeEditor()) {
+                    QTextCursor cursor = editor->textCursor();
+                    cursor.movePosition(QTextCursor::Right, QTextCursor::MoveAnchor, column);
+                    editor->setTextCursor(cursor);
+                }
+                return;
+            }
+        }
+    };
+    m_dock->advancedSearch()->setContext(search);
     m_quickFind = new QuickFindBar(m_context.config(), this);
     m_quickFind->hide();
     connect(m_quickFind, &QuickFindBar::findRequested, this, [this] { quickFind(0); });

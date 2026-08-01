@@ -10,6 +10,8 @@ class QToolButton;
 
 namespace OFS {
 
+class AdvancedSearchPanel;
+
 // Tabbed area at the bottom of the workspace: Issues, Advanced Search, Engine Output, Debugger and Watch. Collapsed, it
 // only shows the tab bar. The arrow button at the right toggles it.
 class BottomDock : public QWidget
@@ -36,6 +38,7 @@ public:
 
     QTextEdit* engineOutput() const { return m_engineOutput; }
     QTableView* issuesView() const { return m_issues; }
+    AdvancedSearchPanel* advancedSearch() const { return m_advancedSearch; }
 
     void setArrowIcons(const QIcon& up, const QIcon& down);
 
@@ -43,7 +46,6 @@ Q_SIGNALS:
     void expandedChanged(bool expanded);
 
 private:
-    QWidget* createAdvancedSearchPage();
     QWidget* createTwoTreesPage(const QStringList& left, const QStringList& right);
     void onTabClicked(int index);
     void updateArrow();
@@ -53,6 +55,7 @@ private:
     QStackedWidget* m_pages;
     QTableView* m_issues;
     QTextEdit* m_engineOutput;
+    AdvancedSearchPanel* m_advancedSearch;
     bool m_expanded = false;
     QIcon m_up;
     QIcon m_down;

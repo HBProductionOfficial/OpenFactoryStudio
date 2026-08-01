@@ -7,6 +7,7 @@
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
 #include "core/widgets/EPanelWidget.h"
+#include "shell/AdvancedSearchPanel.h"
 #include "shell/CodePage.h"
 #include "shell/ControllerTemplatesWidget.h"
 #include "shell/FileDialogs.h"
@@ -17,6 +18,7 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QComboBox>
 #include <QContextMenuEvent>
 #include <QDialog>
 #include <QDir>
@@ -29,6 +31,7 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QScrollBar>
+#include <QStandardItemModel>
 #include <QTableView>
 #include <QTemporaryDir>
 #include <QTest>
@@ -555,6 +558,82 @@ private Q_SLOTS:
 
         QFile::remove(QDir(userDir).filePath("Zz test.xml"));
         editor->document()->setModified(false);
+    }
+
+    void advancedSearch()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("adv.def"), "[Info]\nname = \"Adv\"\nmugenversion = 1.0\n"
+                                           "[Files]\ncmd = adv.cmd\ncns = adv.cns\nsprite = a.sff\nanim = a.air\n");
+        writeFile(dir.filePath("adv.cmd"), "[Command]\nname = \"x\"\ncommand = x\n; ChangeState here\n");
+        writeFile(dir.filePath("adv.cns"), "[Statedef 0]\ntype = S\n[State 0, 1]\ntype = ChangeState\n"
+                                           "trigger1 = 1\nvalue = 0\n[State 0, 2]\ntype = HitDef\ntrigger1 = 1\n"
+                                           "attr = S, NA\nanimtype = Med\n[State 0, 3]\ntype = ChangeState\n"
+                                           "trigger1 = 1\nvalue = 1\n");
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("adv.def")));
+        auto* panel = window.findChild<AdvancedSearchPanel*>("advancedSearch");
+        QVERIFY(panel);
+        auto* scope = panel->findChild<QComboBox*>("advsearch_scope");
+        auto* type = panel->findChild<QComboBox*>("advsearch_type");
+        auto* text = panel->findChild<QLineEdit*>("advsearch_text");
+        QVERIFY(!panel->findChild<QPushButton*>("advsearch_search")->isEnabled());
+
+        scope->setCurrentIndex(AdvancedSearchPanel::CurrentProject);
+        text->setText("changestate");
+        panel->search(false);
+        QVERIFY(panel->isShowingResults());
+        QCOMPARE(panel->hits().size(), 3);
+        const QAbstractItemModel* model = panel->resultsView()->model();
+        QCOMPARE(model->rowCount(), 2); // grouped by file
+        QCOMPARE(panel->findChild<QLabel*>("advsearch_count")->text(), QStringLiteral("3 matches found."));
+
+        ProjectView* view = window.currentProjectView();
+        QModelIndex cnsRow;
+        for (int row = 0; row < model->rowCount(); ++row) {
+            if (model->index(row, 0).data().toString().endsWith("adv.cns"))
+                cnsRow = model->index(row, 0);
+        }
+        QVERIFY(cnsRow.isValid());
+        Q_EMIT panel->resultsView()->doubleClicked(model->index(1, 0, cnsRow));
+        QCOMPARE(view->currentEditor(), QStringLiteral("states"));
+        QCOMPARE(view->currentCodeEditor()->cursorLine(), 13);
+        QCOMPARE(view->currentCodeEditor()->textCursor().positionInBlock(), 7);
+
+        panel->search(true);
+        auto* replaceModel = qobject_cast<QStandardItemModel*>(panel->resultsView()->model());
+        QStandardItem* cnsFile = nullptr;
+        for (int row = 0; row < replaceModel->rowCount(); ++row) {
+            if (replaceModel->item(row)->text().endsWith("adv.cns"))
+                cnsFile = replaceModel->item(row);
+        }
+        QVERIFY(cnsFile);
+        replaceModel->setData(cnsFile->child(1)->index(), Qt::Unchecked, Qt::CheckStateRole); // as a click does
+        QCOMPARE(cnsFile->checkState(), Qt::PartiallyChecked);
+        panel->findChild<QLineEdit*>("advsearch_replacement")->setText("SelfState");
+        QCOMPARE(panel->replaceChecked(), 2);
+        QVERIFY(!panel->isShowingResults());
+        CodeEditor* cns = view->currentCodeEditor();
+        QVERIFY(cns->toPlainText().contains("type = SelfState\ntrigger1 = 1\nvalue = 0"));
+        QVERIFY(cns->toPlainText().contains("type = ChangeState\ntrigger1 = 1\nvalue = 1"));
+        cns->undo();
+        QCOMPARE(cns->toPlainText().count("ChangeState"), 2);
+
+        type->setCurrentIndex(1);
+        QVERIFY(!text->isVisible());
+        scope->setCurrentIndex(AdvancedSearchPanel::CurrentFile);
+        panel->search(true);
+        QCOMPARE(panel->hits().size(), 1);
+        QCOMPARE(panel->hits().first().matched, QStringLiteral("Med"));
+        QCOMPARE(panel->hits().first().replacement, QStringLiteral("Medium"));
+        panel->replaceChecked();
+        QVERIFY(cns->toPlainText().contains("animtype = Medium"));
+
+        for (ProjectView* v : window.projectViews()) {
+            for (CodeEditor* e : v->codeEditors())
+                e->document()->setModified(false);
+        }
     }
 
     void projectExplorer()

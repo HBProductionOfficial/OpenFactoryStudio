@@ -1,5 +1,7 @@
 # The main window and app dialogs. Static so the GUI tests can link it without the executable.
 add_library(ofsshell STATIC
+    AdvancedSearchPanel.h
+    AdvancedSearchPanel.cpp
     BottomDock.h
     BottomDock.cpp
     CodePage.h

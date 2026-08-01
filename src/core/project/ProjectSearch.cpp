@@ -1,5 +1,6 @@
 #include "core/project/ProjectSearch.h"
 
+#include "core/code/CodeLine.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
 #include "core/syntax/SyntaxDatabase.h"
@@ -128,6 +129,9 @@ QList<SearchHit> find(const QString& path, const QString& text, const TextSearch
         hit.column = int(m.start - lineStart);
         hit.length = int(qMin(m.length, lineEnd - m.start));
         hit.lineText = text.mid(lineStart, lineEnd - lineStart);
+        hit.offset = int(m.start);
+        hit.matched = text.mid(m.start, m.length);
+        hit.captures = m.captures;
         hits << hit;
     }
     return hits;
@@ -162,6 +166,104 @@ int replaceAll(const QList<Project*>& projects, const QString& path, const TextS
     if (count > 0 && !file.save(error))
         return -1;
     return count;
+}
+
+int replaceHits(const QList<Project*>& projects, const QString& path, const QList<SearchHit>& hits, QString* error)
+{
+    QList<SearchHit> sorted = hits;
+    std::sort(sorted.begin(), sorted.end(), [](const SearchHit& a, const SearchHit& b) { return a.offset > b.offset; });
+    auto apply = [&sorted](QTextDocument* document) {
+        const QString text = document->toPlainText();
+        QTextCursor cursor(document);
+        int count = 0;
+        cursor.beginEditBlock();
+        for (const SearchHit& hit : std::as_const(sorted)) {
+            if (text.mid(hit.offset, hit.length) != hit.matched)
+                continue;
+            cursor.setPosition(hit.offset);
+            cursor.setPosition(hit.offset + hit.length, QTextCursor::KeepAnchor);
+            cursor.insertText(hit.replacement);
+            ++count;
+        }
+        cursor.endEditBlock();
+        return count;
+    };
+    if (CodeFile* open = openFile(projects, path))
+        return apply(open->document());
+    CodeFile file(path, QString());
+    if (!file.load(error))
+        return -1;
+    const int count = apply(file.document());
+    if (count > 0 && !file.save(error))
+        return -1;
+    return count;
+}
+
+QList<SearchHit> lazySyntaxFixes(const QString& path, const QString& text, const SyntaxDatabase* syntax,
+                                 const QString& fileType)
+{
+    QList<SearchHit> hits;
+    if (!syntax || fileType.isEmpty())
+        return hits;
+    const QStringList lines = text.split(QLatin1Char('\n'));
+    QString header;
+    QString typeValue;
+    int offset = 0;
+    for (int n = 0; n < lines.size(); offset += int(lines[n].size()) + 1, ++n) {
+        const QString& lineText = lines[n];
+        const CodeLine line = CodeLine::parse(lineText);
+        if (line.kind == CodeLine::Kind::Section) {
+            header = line.header;
+            typeValue.clear();
+            for (int m = n + 1; m < lines.size(); ++m) {
+                const CodeLine l = CodeLine::parse(lines[m]);
+                if (l.kind == CodeLine::Kind::Section)
+                    break;
+                if (l.kind == CodeLine::Kind::KeyValue &&
+                    l.key.compare(QLatin1String("type"), Qt::CaseInsensitive) == 0) {
+                    typeValue = l.value;
+                    break;
+                }
+            }
+            continue;
+        }
+        if (line.kind != CodeLine::Kind::KeyValue || header.isEmpty())
+            continue;
+        const SyntaxBlock* block = syntax->findBlock(fileType, header, typeValue);
+        const SyntaxParam* param = block ? syntax->param(fileType, *block, line.key) : nullptr;
+        if (!param || param->type.compare(QLatin1String("keyword"), Qt::CaseInsensitive) != 0 || param->list.isEmpty())
+            continue;
+        qsizetype from = line.valueStart;
+        for (const QString& part : line.value.split(QLatin1Char(','))) {
+            const QString word = part.trimmed();
+            const qsizetype at = lineText.indexOf(word, from);
+            if (at < 0)
+                break;
+            from = at + word.size();
+            QString full;
+            for (const QString& keyword : param->list) {
+                if (keyword.compare(word, Qt::CaseInsensitive) == 0) {
+                    full.clear();
+                    break;
+                }
+                if (!word.isEmpty() && keyword.startsWith(word, Qt::CaseInsensitive))
+                    full = full.isEmpty() ? keyword : QStringLiteral("\x01"); // \x01: ambiguous
+            }
+            if (full.isEmpty() || full == QLatin1String("\x01"))
+                continue;
+            SearchHit hit;
+            hit.filePath = path;
+            hit.line = n;
+            hit.column = int(at);
+            hit.length = int(word.size());
+            hit.lineText = lineText;
+            hit.offset = offset + int(at);
+            hit.matched = word;
+            hit.replacement = full;
+            hits << hit;
+        }
+    }
+    return hits;
 }
 
 } // namespace OFS::ProjectSearch
