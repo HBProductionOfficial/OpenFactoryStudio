@@ -33,7 +33,8 @@ ofs_add_test(NAME formats_corpus CATCH2 LABELS corpus TIMEOUT 3600
     LIBS OFS::formats)
 
 ofs_add_test(NAME formats_oracle CATCH2 LABELS oracle TIMEOUT 900
-    SOURCES formats/OracleTest.cpp formats/TestEnv.h ${OFS_FORMATS_FIXTURES}
+    SOURCES formats/OracleTest.cpp formats/MakerOracleTest.cpp formats/OracleTools.h formats/TestEnv.h
+        ${OFS_FORMATS_FIXTURES}
     LIBS OFS::formats)
 
 foreach(test IN ITEMS formats_util formats_codecs formats_documents formats_corpus formats_oracle)
