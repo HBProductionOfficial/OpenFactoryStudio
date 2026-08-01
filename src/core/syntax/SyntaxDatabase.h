@@ -47,6 +47,8 @@ struct SyntaxFileType
 {
     QString type;
     QList<SyntaxBlock> blocks;
+    QStringList sections;
+    QHash<QString, QList<int>> sectionBlocks;
 };
 
 struct SyntaxTrigger

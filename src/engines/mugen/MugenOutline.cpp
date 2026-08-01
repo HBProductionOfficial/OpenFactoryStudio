@@ -128,8 +128,7 @@ Outline mugenOutline(const QString& text, const SyntaxDatabase* syntax, const QS
     Owner owner = Owner::None;
     int commandsIndex = -1;
     int stateDefIndex = -1;
-    QString currentHeader;
-    QString typeValue;
+    const SyntaxBlock* currentBlock = nullptr;
 
     auto sectionType = [&lines](int from) {
         for (int m = from + 1; m < lines.size(); ++m) {
@@ -144,10 +143,9 @@ Outline mugenOutline(const QString& text, const SyntaxDatabase* syntax, const QS
     auto paramIcon = [&](const QString& key) -> QString {
         if (owner == Owner::Controller && isBuiltInTrigger(key))
             return QStringLiteral("code_bool");
-        if (!syntax || fileType.isEmpty())
+        if (!syntax || fileType.isEmpty() || !currentBlock)
             return {};
-        const SyntaxBlock* block = syntax->findBlock(fileType, currentHeader, typeValue);
-        const SyntaxParam* param = block ? syntax->param(fileType, *block, key) : nullptr;
+        const SyntaxParam* param = syntax->param(fileType, *currentBlock, key);
         if (!param)
             return {};
         if (key.contains(QLatin1String("version"), Qt::CaseInsensitive))
@@ -174,8 +172,9 @@ Outline mugenOutline(const QString& text, const SyntaxDatabase* syntax, const QS
         const CodeLine line = CodeLine::parse(lines[n]);
         if (line.kind == CodeLine::Kind::Section) {
             const QString word = line.header.section(QLatin1Char(' '), 0, 0).section(QLatin1Char(','), 0, 0);
-            currentHeader = line.header;
-            typeValue = sectionType(n);
+            const QString typeValue = sectionType(n);
+            currentBlock =
+                syntax && !fileType.isEmpty() ? syntax->findBlock(fileType, line.header, typeValue) : nullptr;
             OutlineNode node;
             node.line = n;
             if (word.compare(QLatin1String("Statedef"), Qt::CaseInsensitive) == 0) {

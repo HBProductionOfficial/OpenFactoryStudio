@@ -7,6 +7,8 @@
 #include <QRegularExpression>
 #include <QXmlStreamReader>
 
+#include <algorithm>
+
 namespace OFS {
 
 namespace {
@@ -125,6 +127,15 @@ bool SyntaxDatabase::loadFromData(const QByteArray& xml, QString* error)
                 }
                 ft.blocks << block;
             }
+            for (int i = 0; i < ft.blocks.size(); ++i) {
+                const QString section = ft.blocks.at(i).section;
+                QList<int>& indexes = ft.sectionBlocks[section.toLower()];
+                if (indexes.isEmpty())
+                    ft.sections << section;
+                indexes << i;
+            }
+            std::stable_sort(ft.sections.begin(), ft.sections.end(),
+                             [](const QString& a, const QString& b) { return literalLength(a) > literalLength(b); });
             const QString key = ft.type.toLower();
             if (!m_files.contains(key))
                 m_fileOrder << ft.type;
@@ -211,16 +222,11 @@ QString SyntaxDatabase::sectionFor(const QString& fileTypeName, const QString& h
     if (!ft)
         return {};
     const QString h = withoutLanguage(header);
-    QString best;
-    int bestLength = -1;
-    for (const SyntaxBlock& b : ft->blocks) {
-        const int length = literalLength(b.section);
-        if (length > bestLength && headerMatchesSection(h, b.section)) {
-            best = b.section;
-            bestLength = length;
-        }
+    for (const QString& section : ft->sections) {
+        if (headerMatchesSection(h, section))
+            return section;
     }
-    return best;
+    return {};
 }
 
 const SyntaxBlock* SyntaxDatabase::findBlock(const QString& fileTypeName, const QString& header,
@@ -232,9 +238,8 @@ const SyntaxBlock* SyntaxDatabase::findBlock(const QString& fileTypeName, const 
         return nullptr;
     const SyntaxBlock* plain = nullptr;
     QList<const SyntaxBlock*> typed;
-    for (const SyntaxBlock& b : ft->blocks) {
-        if (b.section.compare(section, Qt::CaseInsensitive) != 0)
-            continue;
+    for (int index : ft->sectionBlocks.value(section.toLower())) {
+        const SyntaxBlock& b = ft->blocks.at(index);
         if (b.typeName.isEmpty()) {
             if (!plain)
                 plain = &b;
@@ -277,8 +282,8 @@ bool SyntaxDatabase::hasPlainBlock(const QString& fileTypeName, const QString& h
     const QString section = sectionFor(fileTypeName, header);
     if (!ft || section.isEmpty())
         return false;
-    for (const SyntaxBlock& b : ft->blocks) {
-        if (b.typeName.isEmpty() && b.section.compare(section, Qt::CaseInsensitive) == 0)
+    for (int index : ft->sectionBlocks.value(section.toLower())) {
+        if (ft->blocks.at(index).typeName.isEmpty())
             return true;
     }
     return false;
@@ -291,9 +296,9 @@ QStringList SyntaxDatabase::sectionTypes(const QString& fileTypeName, const QStr
     const QString section = sectionFor(fileTypeName, header);
     if (!ft || section.isEmpty())
         return types;
-    for (const SyntaxBlock& b : ft->blocks) {
-        if (!b.typeName.isEmpty() && b.section.compare(section, Qt::CaseInsensitive) == 0 &&
-            !types.contains(b.typeName))
+    for (int index : ft->sectionBlocks.value(section.toLower())) {
+        const SyntaxBlock& b = ft->blocks.at(index);
+        if (!b.typeName.isEmpty() && !types.contains(b.typeName))
             types << b.typeName;
     }
     return types;
