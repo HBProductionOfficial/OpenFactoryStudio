@@ -23,7 +23,9 @@
 #include <QCursor>
 #include <QDir>
 #include <QFileInfo>
+#include <QFutureWatcher>
 #include <QHBoxLayout>
+#include <QPointer>
 #include <QScrollArea>
 #include <QSet>
 #include <QStackedWidget>
@@ -33,6 +35,7 @@
 #include <QTimer>
 #include <QTreeView>
 #include <QVBoxLayout>
+#include <QtConcurrent/QtConcurrentRun>
 
 #include <functional>
 
@@ -153,6 +156,11 @@ ProjectView::ProjectView(Project* project, AppContext& context, QWidget* parent)
 
 ProjectView::~ProjectView()
 {
+    // Worker thread analyses read the project, so let them finish first.
+    for (const QPointer<QFutureWatcher<Analysis>>& watcher : std::as_const(m_analyses)) {
+        if (watcher)
+            watcher->waitForFinished();
+    }
     disconnect(m_project, nullptr, this, nullptr);
     delete m_center;
     m_center = nullptr;
@@ -233,9 +241,9 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
             auto* timer = new QTimer(page);
             timer->setSingleShot(true);
             timer->setInterval(300);
-            connect(timer, &QTimer::timeout, this, [this, page] { validate(page); });
+            connect(timer, &QTimer::timeout, this, [this, page] { analyze(page); });
             connect(file->document(), &QTextDocument::contentsChanged, timer, qOverload<>(&QTimer::start));
-            QTimer::singleShot(0, this, [this, page] { validate(page); });
+            QTimer::singleShot(0, this, [this, page] { analyze(page); });
         } else {
             editor->setReadOnly(true);
         }
@@ -342,20 +350,60 @@ void ProjectView::setCodeToolBarsVisible(bool visible)
         page->setToolBarVisible(visible);
 }
 
-void ProjectView::validate(CodePage* page)
+ProjectView::Analysis ProjectView::computeAnalysis(const QString& editorId, const QString& text) const
+{
+    Analysis analysis;
+    analysis.issues = engine()->validate(*m_project, editorId, text);
+    analysis.outline = engine()->outline(*m_project, editorId, text);
+    return analysis;
+}
+
+void ProjectView::applyAnalysis(CodePage* page, Analysis analysis)
+{
+    const QString path = page->property("filePath").toString();
+    for (Issue& issue : analysis.issues)
+        issue.file = path;
+    page->setIssues(analysis.issues, m_context.theme().iconSet());
+    m_issues.insert(path, analysis.issues);
+    m_outlines.insert(path, analysis.outline);
+    updateOutline(page);
+    Q_EMIT issuesChanged();
+}
+
+void ProjectView::analyze(CodePage* page)
 {
     const QString path = page->property("filePath").toString();
     auto* file = qobject_cast<CodeFile*>(m_project->file(path));
     if (!file)
         return;
-    IssueList issues =
-        engine()->validate(*m_project, page->property("editorId").toString(), file->document()->toPlainText());
-    for (Issue& issue : issues)
-        issue.file = path;
-    page->setIssues(issues, m_context.theme().iconSet());
-    m_issues.insert(path, issues);
-    updateOutline(page);
-    Q_EMIT issuesChanged();
+    // One analysis per page at a time. Edits made meanwhile start another one when it ends.
+    if (page->property("analysisRunning").toBool()) {
+        page->setProperty("analysisPending", true);
+        return;
+    }
+    page->setProperty("analysisRunning", true);
+    page->setProperty("analysisPending", false);
+    const QString editorId = page->property("editorId").toString();
+    const QString text = file->document()->toPlainText();
+    const int revision = file->document()->revision();
+    QPointer<QTextDocument> document = file->document();
+
+    auto* watcher = new QFutureWatcher<Analysis>(page);
+    m_analyses << watcher;
+    connect(watcher, &QFutureWatcher<Analysis>::finished, this, [this, page, watcher, revision, document] {
+        m_analyses.removeAll(watcher);
+        watcher->deleteLater();
+        page->setProperty("analysisRunning", false);
+        // Results for an older text are dropped: a newer analysis follows.
+        if (document && document->revision() == revision)
+            applyAnalysis(page, watcher->result());
+        else
+            page->setProperty("analysisPending", true);
+        if (page->property("analysisPending").toBool())
+            analyze(page);
+    });
+    // The analysis runs in a worker thread so large files do not freeze the editor.
+    watcher->setFuture(QtConcurrent::run([this, editorId, text] { return computeAnalysis(editorId, text); }));
 }
 
 void ProjectView::followCursorInOutline(CodePage* page)
@@ -473,15 +521,19 @@ void ProjectView::updateOutline(CodePage* page)
     QSet<QString> expanded;
     collectExpanded(tree, model->invisibleRootItem(), expanded);
     model->clear();
-    addOutline(model->invisibleRootItem(), engine()->outline(*m_project, editorId, page->editor()->toPlainText()),
+    addOutline(model->invisibleRootItem(), m_outlines.value(page->property("filePath").toString()),
                m_context.theme().iconSet());
     restoreExpanded(tree, model->invisibleRootItem(), expanded);
 }
 
 void ProjectView::validateAll()
 {
-    for (CodePage* page : codePages())
-        validate(page);
+    for (CodePage* page : codePages()) {
+        auto* file = qobject_cast<CodeFile*>(m_project->file(page->property("filePath").toString()));
+        if (file)
+            applyAnalysis(page,
+                          computeAnalysis(page->property("editorId").toString(), file->document()->toPlainText()));
+    }
 }
 
 bool ProjectView::showFileLine(const QString& filePath, int line)

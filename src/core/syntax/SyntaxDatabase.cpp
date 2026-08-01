@@ -3,6 +3,7 @@
 #include "core/settings/Config.h"
 
 #include <QFile>
+#include <QMutexLocker>
 #include <QRegularExpression>
 #include <QXmlStreamReader>
 
@@ -382,6 +383,8 @@ void SyntaxDatabase::collectParams(const QString& fileTypeName, const SyntaxBloc
 QList<SyntaxParam> SyntaxDatabase::params(const QString& fileTypeName, const SyntaxBlock& block) const
 {
     const QString key = fileTypeName.toLower() + QLatin1Char('/') + block.name.toLower();
+    // Validation runs in worker threads. Cache entries never change once added.
+    QMutexLocker lock(&m_cacheMutex);
     auto it = m_paramCache.constFind(key);
     if (it != m_paramCache.cend())
         return *it;
@@ -397,6 +400,7 @@ const SyntaxParam* SyntaxDatabase::param(const QString& fileTypeName, const Synt
 {
     const QString key = fileTypeName.toLower() + QLatin1Char('/') + block.name.toLower();
     params(fileTypeName, block);
+    QMutexLocker lock(&m_cacheMutex);
     const QList<SyntaxParam>& list = m_paramCache[key];
     for (const SyntaxParam& p : list) {
         if (wildcardMatch(p.name, name))

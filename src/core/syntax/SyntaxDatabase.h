@@ -4,6 +4,7 @@
 
 #include <QHash>
 #include <QList>
+#include <QMutex>
 #include <QSet>
 #include <QString>
 #include <QStringList>
@@ -110,6 +111,7 @@ private:
     QList<SyntaxTrigger> m_triggers;
     QHash<QString, QStringList> m_consts;
     mutable QHash<QString, QList<SyntaxParam>> m_paramCache;
+    mutable QMutex m_cacheMutex;
 };
 
 } // namespace OFS

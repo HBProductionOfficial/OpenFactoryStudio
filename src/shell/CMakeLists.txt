@@ -55,7 +55,7 @@ add_library(ofsshell STATIC
 )
 add_library(OFS::shell ALIAS ofsshell)
 ofs_target_defaults(ofsshell)
-target_link_libraries(ofsshell PUBLIC OFS::core Qt6::Widgets Qt6::Network)
+target_link_libraries(ofsshell PUBLIC OFS::core Qt6::Widgets Qt6::Network Qt6::Concurrent)
 
 # The About dialog reads the GPL text and the icon from embedded copies so they work with any install layout.
 qt_add_resources(ofsshell "ofsshell_about"

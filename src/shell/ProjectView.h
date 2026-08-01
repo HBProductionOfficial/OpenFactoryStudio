@@ -1,9 +1,11 @@
 #pragma once
 
+#include "core/code/CodeOutline.h"
 #include "core/editors/EditorInfo.h"
 #include "core/preset/PresetModel.h"
 #include "core/syntax/Issue.h"
 
+#include <QFutureWatcher>
 #include <QHash>
 #include <QPointer>
 #include <QWidget>
@@ -83,7 +85,14 @@ private:
     void createEditor(const EditorInfo& info);
     QWidget* createFilePage(const EditorInfo& info, const QString& filePath);
     void configureCodeEditor(CodeEditor* editor, const QString& editorId);
-    void validate(CodePage* page);
+    struct Analysis
+    {
+        IssueList issues;
+        QList<OutlineNode> outline;
+    };
+    void analyze(CodePage* page);
+    Analysis computeAnalysis(const QString& editorId, const QString& text) const;
+    void applyAnalysis(CodePage* page, Analysis analysis);
     void updateTabTitles();
     void fillProjectExplorer();
     void updateRightPanel();
@@ -109,6 +118,8 @@ private:
     QHash<QString, QTabWidget*> m_fileTabs;
     QHash<QString, QScrollArea*> m_extraPanels;
     QHash<QString, IssueList> m_issues;
+    QHash<QString, QList<OutlineNode>> m_outlines;
+    QList<QPointer<QFutureWatcher<Analysis>>> m_analyses;
 };
 
 } // namespace OFS
