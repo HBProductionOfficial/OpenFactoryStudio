@@ -1,6 +1,7 @@
 // Elecbyte's sff2png.exe and sprmake2.exe check our SFF files and decoders (Windows, OFS_CORPUS_MUGEN).
 
 #include "fixtures/FixtureFactory.h"
+#include "formats/OracleTools.h"
 #include "formats/TestEnv.h"
 #include "formats/codecs/Png.h"
 #include "formats/sff/SffDocument.h"
@@ -24,50 +25,6 @@ using namespace OFS::Formats::Test;
 namespace {
 
 namespace fs = std::filesystem;
-
-std::string native(const fs::path& path)
-{
-    return path.string();
-}
-
-std::optional<fs::path> tool(const char* name)
-{
-#if defined(_WIN32)
-    const auto mugen = corpusDir("OFS_CORPUS_MUGEN");
-    if (!mugen)
-        return std::nullopt;
-    const fs::path exe = *mugen / name;
-    std::error_code ec;
-    if (!fs::is_regular_file(exe, ec))
-        return std::nullopt;
-    return exe;
-#else
-    (void)name;
-    return std::nullopt;
-#endif
-}
-
-fs::path freshDir(const std::string& name)
-{
-    const fs::path dir = fs::temp_directory_path() / "ofs-oracle" / name;
-    std::error_code ec;
-    fs::remove_all(dir, ec);
-    fs::create_directories(dir);
-    return dir;
-}
-
-int run(const fs::path& dir, const fs::path& exe, const std::string& args)
-{
-    const std::string command = "\"cd /d \"" + native(dir) + "\" && \"" + native(exe) + "\" " + args + " > \"" +
-                                native(dir / "log.txt") + "\" 2>&1\"";
-    return std::system(command.c_str());
-}
-
-std::string readLog(const fs::path& dir)
-{
-    auto text = readFile(dir / "log.txt");
-    return text ? toText(*text) : std::string();
-}
 
 std::string trim(const std::string& s)
 {
@@ -178,19 +135,19 @@ SffDocument oracleDocument(SffVersion version, std::uint64_t seed)
 
 void checkWithSff2png(SffVersion version, std::uint64_t seed)
 {
-    const auto sff2png = tool("sff2png.exe");
+    const auto sff2png = mugenTool("sff2png.exe");
     if (!sff2png)
         SKIP("OFS_CORPUS_MUGEN is not set or has no sff2png.exe (Windows only)");
 
-    const fs::path dir = freshDir(std::string("sff2png-") + std::string(sffVersionName(version)));
+    const fs::path dir = freshOracleDir(std::string("sff2png-") + std::string(sffVersionName(version)));
     const SffDocument doc = oracleDocument(version, seed);
     REQUIRE(doc.save(dir / "ours.sff").ok());
     auto ours = SffDocument::load(dir / "ours.sff");
     REQUIRE(ours.ok());
     fs::create_directories(dir / "out");
 
-    const int exitCode = run(dir, *sff2png, "ours.sff out/x");
-    INFO("sff2png log:\n" << readLog(dir));
+    const int exitCode = runTool(dir, *sff2png, "ours.sff out/x");
+    INFO("sff2png log:\n" << readToolLog(dir));
     REQUIRE(exitCode == 0);
     const std::vector<DefSprite> exported = readDefSprites(dir / "out" / "x-sff.def");
     REQUIRE(exported.size() == ours->sprites.size());
@@ -233,11 +190,11 @@ void checkWithSff2png(SffVersion version, std::uint64_t seed)
 std::set<SffCompression> checkWithSprmake2(const SffDocument& source, const std::string& name,
                                            const std::string& compress5)
 {
-    const auto sprmake2 = tool("sprmake2.exe");
+    const auto sprmake2 = mugenTool("sprmake2.exe");
     if (!sprmake2)
         SKIP("OFS_CORPUS_MUGEN is not set or has no sprmake2.exe (Windows only)");
 
-    const fs::path dir = freshDir("sprmake2-" + name + "-" + compress5);
+    const fs::path dir = freshOracleDir("sprmake2-" + name + "-" + compress5);
     std::ostringstream def;
     def << "[Output]\nfilename = out.sff\n\n"
         << "[Option]\n"
@@ -308,8 +265,8 @@ std::set<SffCompression> checkWithSprmake2(const SffDocument& source, const std:
         out << def.str();
     }
 
-    const int exitCode = run(dir, *sprmake2, "sprites.def");
-    INFO("sprmake2 log:\n" << readLog(dir));
+    const int exitCode = runTool(dir, *sprmake2, "sprites.def");
+    INFO("sprmake2 log:\n" << readToolLog(dir));
     REQUIRE(exitCode == 0);
     auto bytes = readFile(dir / "out.sff");
     REQUIRE(bytes.ok());
@@ -319,9 +276,9 @@ std::set<SffCompression> checkWithSprmake2(const SffDocument& source, const std:
 
     // Elecbyte's decoder reads sprmake2's file too (see the RLE5 note below).
     std::map<std::pair<int, int>, fs::path> exported;
-    if (const auto sff2png = tool("sff2png.exe")) {
+    if (const auto sff2png = mugenTool("sff2png.exe")) {
         fs::create_directories(dir / "check");
-        REQUIRE(run(dir, *sff2png, "out.sff check/c") == 0);
+        REQUIRE(runTool(dir, *sff2png, "out.sff check/c") == 0);
         for (const DefSprite& d : readDefSprites(dir / "check" / "c-sff.def"))
             exported[{d.group, d.number}] = dir / fs::path(d.file);
     }

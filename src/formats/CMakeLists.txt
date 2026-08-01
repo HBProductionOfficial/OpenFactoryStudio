@@ -13,9 +13,17 @@ add_library(ofsformats SHARED
     image/Image.cpp
     image/ImageOps.h
     image/ImageOps.cpp
+    image/Resize.h
+    image/Resize.cpp
+    codecs/Bmp.h
+    codecs/Bmp.cpp
     codecs/DecodeMode.h
+    codecs/Gif.h
+    codecs/Gif.cpp
     codecs/Lz5.h
     codecs/Lz5.cpp
+    codecs/Lzw.h
+    codecs/Lzw.cpp
     codecs/Pcx.h
     codecs/Pcx.cpp
     codecs/Png.h
@@ -24,6 +32,11 @@ add_library(ofsformats SHARED
     codecs/Rle5.cpp
     codecs/Rle8.h
     codecs/Rle8.cpp
+    maker/MakerText.h
+    maker/SndMakerScript.h
+    maker/SndMakerScript.cpp
+    maker/SprMakerDef.h
+    maker/SprMakerDef.cpp
     palette/PaletteFormats.h
     palette/PaletteFormats.cpp
     sff/SffDocument.h
@@ -40,6 +53,6 @@ add_library(ofsformats SHARED
 )
 add_library(OFS::formats ALIAS ofsformats)
 ofs_target_defaults(ofsformats)
-target_link_libraries(ofsformats PRIVATE ofs_lodepng)
+target_link_libraries(ofsformats PRIVATE ofs_lodepng ofs_hqx)
 target_compile_definitions(ofsformats PRIVATE OFS_FORMATS_LIBRARY)
 set_target_properties(ofsformats PROPERTIES PREFIX "" AUTOMOC OFF CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)

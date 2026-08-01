@@ -33,10 +33,18 @@ OFS_FORMATS_EXPORT std::string writeJascPal(const Palette& palette);
 
 // Photoshop .aco, version 1 and 2.
 OFS_FORMATS_EXPORT Result<Palette> readAco(ByteSpan data);
+OFS_FORMATS_EXPORT Bytes writeAco(const Palette& palette);
+
+OFS_FORMATS_EXPORT Result<Palette> readAse(ByteSpan data);
+OFS_FORMATS_EXPORT Bytes writeAse(const Palette& palette);
 
 OFS_FORMATS_EXPORT Result<Palette> paletteFromPcx(ByteSpan data);
 OFS_FORMATS_EXPORT Result<Palette> paletteFromPng(ByteSpan data);
+OFS_FORMATS_EXPORT Result<Palette> paletteFromGif(ByteSpan data);
+OFS_FORMATS_EXPORT Result<Palette> paletteFromBmp(ByteSpan data);
 
+// Detects the format from the content. A 768 or 772 byte file that only looks like an image is
+// read as ACT.
 OFS_FORMATS_EXPORT Result<Palette> readPaletteFile(ByteSpan data, ActOrder actOrder = ActOrder::Reversed);
 
 } // namespace OFS::Formats
