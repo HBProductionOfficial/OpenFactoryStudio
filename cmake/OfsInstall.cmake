@@ -15,7 +15,7 @@ else()
     set(CMAKE_INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}/openfactorystudio")
 endif()
 
-install(TARGETS ofs ofscore ofsformats ofslua
+install(TARGETS ofs ofscore ofsformats ofsaudio ofslua
     RUNTIME DESTINATION "${OFS_INSTALL_BINDIR}"
     LIBRARY DESTINATION "${OFS_INSTALL_LIBDIR}")
 

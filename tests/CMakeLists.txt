@@ -35,7 +35,14 @@ ofs_add_test(NAME formats_oracle CATCH2 LABELS oracle TIMEOUT 900
     SOURCES formats/OracleTest.cpp formats/TestEnv.h ${OFS_FORMATS_FIXTURES}
     LIBS OFS::formats)
 
-foreach(test IN ITEMS formats_util formats_codecs formats_documents formats_corpus formats_oracle)
+ofs_add_test(NAME formats_audio CATCH2
+    SOURCES
+        audio/AudioTestUtil.h
+        audio/SampleBufferTest.cpp
+        audio/AudioCodecTest.cpp
+    LIBS OFS::audio)
+
+foreach(test IN ITEMS formats_util formats_codecs formats_documents formats_corpus formats_oracle formats_audio)
     target_include_directories(test_${test} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 endforeach()
 
