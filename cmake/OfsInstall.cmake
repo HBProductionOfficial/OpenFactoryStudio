@@ -16,6 +16,7 @@ else()
 endif()
 
 install(TARGETS ofs ofscore ofsformats ofslua
+    BUNDLE DESTINATION .
     RUNTIME DESTINATION "${OFS_INSTALL_BINDIR}"
     LIBRARY DESTINATION "${OFS_INSTALL_LIBDIR}")
 

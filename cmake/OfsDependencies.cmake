@@ -81,11 +81,9 @@ else()
     target_compile_options(ofs_hqx PRIVATE -w)
 endif()
 
-FetchContent_Declare(uchardet
-    URL https://www.freedesktop.org/software/uchardet/releases/uchardet-0.0.8.tar.xz
-    URL_HASH SHA256=e97a60cfc00a1c147a674b097bb1422abd9fa78a2d9ce3f3fdcc2e78a34ac5f0
-    SOURCE_SUBDIR _ofs_no_build)
-FetchContent_MakeAvailable(uchardet)
+# --- uchardet (MPL-1.1 / GPL-2.0-or-later / LGPL-2.1-or-later, used under the GPL) ------------
+# Release 0.0.8 is vendored because its server refuses automated downloads.
+set(uchardet_SOURCE_DIR "${PROJECT_SOURCE_DIR}/third_party/uchardet")
 file(GLOB _ofs_uchardet_sources "${uchardet_SOURCE_DIR}/src/*.cpp" "${uchardet_SOURCE_DIR}/src/LangModels/*.cpp")
 add_library(ofs_uchardet STATIC ${_ofs_uchardet_sources})
 add_library(OFS::uchardet ALIAS ofs_uchardet)

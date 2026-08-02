@@ -50,8 +50,9 @@ runs:
     - name: Configure
       shell: bash
       run: |
-        export OFS_QT_DIR="$QT_ROOT_DIR"
-        if [ -n "$IQTA_TOOLS" ]; then export OFS_LLVM_MINGW="$IQTA_TOOLS/llvm-mingw1706_64"; fi
+        # CMake reads backslashes in paths as escapes, so use forward slashes.
+        export OFS_QT_DIR="$(printf '%s' "$QT_ROOT_DIR" | tr '\\' '/')"
+        if [ -n "$IQTA_TOOLS" ]; then export OFS_LLVM_MINGW="$(printf '%s' "$IQTA_TOOLS" | tr '\\' '/')/llvm-mingw1706_64"; fi
         cmake --preset ${{ inputs.preset }} -DOFS_WERROR=ON
 
     - name: Build
