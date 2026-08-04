@@ -40,6 +40,8 @@ ofs_add_test(NAME formats_audio CATCH2
         audio/AudioTestUtil.h
         audio/SampleBufferTest.cpp
         audio/AudioCodecTest.cpp
+        audio/ResamplerTest.cpp
+        audio/AudioEditTest.cpp
     LIBS OFS::audio)
 
 foreach(test IN ITEMS formats_util formats_codecs formats_documents formats_corpus formats_oracle formats_audio)
