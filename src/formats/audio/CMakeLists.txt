@@ -14,6 +14,8 @@ add_library(ofsaudio SHARED
     Resampler.cpp
     AudioEdit.h
     AudioEdit.cpp
+    WaveformPeaks.h
+    WaveformPeaks.cpp
 )
 add_library(OFS::audio ALIAS ofsaudio)
 ofs_target_defaults(ofsaudio)
