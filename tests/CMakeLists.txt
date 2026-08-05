@@ -49,6 +49,10 @@ foreach(test IN ITEMS formats_util formats_codecs formats_documents formats_corp
     target_include_directories(test_${test} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 endforeach()
 
+ofs_add_test(NAME core_audio
+    SOURCES core/AudioPlayerTest.cpp
+    LIBS OFS::core)
+
 ofs_add_test(NAME core_engines
     SOURCES core/EngineManagerTest.cpp
     LIBS OFS::core)

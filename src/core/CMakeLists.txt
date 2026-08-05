@@ -12,6 +12,10 @@ add_library(ofscore SHARED
     app/Languages.cpp
     app/Paths.h
     app/Paths.cpp
+    audio/AudioEngine.h
+    audio/AudioEngine.cpp
+    audio/SoundPlayer.h
+    audio/SoundPlayer.cpp
     code/CodeBlockData.h
     code/CodeBlockData.cpp
     code/CodeEditor.h
@@ -101,6 +105,6 @@ set_target_properties(ofscore PROPERTIES PREFIX "")
 target_link_libraries(ofscore
     PUBLIC
         Qt6::Core Qt6::Gui Qt6::Widgets
-        OFS::formats
+        OFS::formats OFS::audio
     PRIVATE
-        OFS::sol2 OFS::uchardet Qt6::Core5Compat)
+        OFS::sol2 OFS::uchardet ofs_miniaudio Qt6::Core5Compat)
