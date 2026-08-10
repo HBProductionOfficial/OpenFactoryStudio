@@ -56,3 +56,6 @@ ofs_target_defaults(ofsformats)
 target_link_libraries(ofsformats PRIVATE ofs_lodepng ofs_hqx)
 target_compile_definitions(ofsformats PRIVATE OFS_FORMATS_LIBRARY)
 set_target_properties(ofsformats PROPERTIES PREFIX "" AUTOMOC OFF CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN ON)
+
+# Separate so tools that only need the file formats don't pull in the audio codecs.
+add_subdirectory(audio)
