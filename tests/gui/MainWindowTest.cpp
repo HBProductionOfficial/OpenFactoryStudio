@@ -53,6 +53,21 @@ void writeFile(const QString& path, const QByteArray& data)
     f.write(data);
 }
 
+QString keyText(const char* keys)
+{
+    return QKeySequence(QString::fromLatin1(keys)).toString(QKeySequence::NativeText);
+}
+
+QString boxTitle(const QString& title)
+{
+#ifdef Q_OS_MACOS
+    Q_UNUSED(title);
+    return {};
+#else
+    return title;
+#endif
+}
+
 QStringList visibleMenuTitles(QMainWindow& window)
 {
     QStringList titles;
@@ -116,8 +131,8 @@ private Q_SLOTS:
         QVERIFY(!window.extraToolBar()->isVisible());
 
         ActionRegistry& actions = m_context->actions();
-        QCOMPARE(actions.action("file_new")->text(), QStringLiteral("New\t (Ctrl+N)"));
-        QCOMPARE(actions.action("file_open")->text(), QStringLiteral("Open...\t (Ctrl+O)"));
+        QCOMPARE(actions.action("file_new")->text(), "New\t (" + keyText("Ctrl+N") + ')');
+        QCOMPARE(actions.action("file_open")->text(), "Open...\t (" + keyText("Ctrl+O") + ')');
         QVERIFY(!actions.action("file_save")->isEnabled());
         QVERIFY(actions.action("edit_find_replace_multi")->isEnabled());
         QVERIFY(!actions.action("edit_undo")->isEnabled());
@@ -316,7 +331,7 @@ private Q_SLOTS:
             box->accept();
         });
         bar->findChild<QPushButton*>("quickSearchFindBut")->click();
-        QCOMPARE(message, QStringLiteral("Find|Nothing found!"));
+        QCOMPARE(message, boxTitle("Find") + "|Nothing found!");
         QVERIFY(find->property("notFound").toBool());
         bar->findChild<QToolButton*>("quickSearchClose")->click();
         QVERIFY(!bar->isVisible());

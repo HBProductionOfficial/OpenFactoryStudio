@@ -13,6 +13,16 @@
 
 using namespace OFS;
 
+namespace {
+
+// Native key text, so macOS shows the command symbol.
+QString keyText(const char* keys)
+{
+    return QKeySequence(QString::fromLatin1(keys)).toString(QKeySequence::NativeText);
+}
+
+} // namespace
+
 class ActionsPresetTest : public QObject
 {
     Q_OBJECT
@@ -151,15 +161,15 @@ private Q_SLOTS:
         QCOMPARE(open->statusTip(), QStringLiteral("Open a project"));
 
         actions.setKeys("file_open", QKeySequence("Ctrl+O"));
-        QCOMPARE(open->text(), QStringLiteral("Open...\t (Ctrl+O)"));
-        QCOMPARE(open->toolTip(), QStringLiteral("Open  (Ctrl+O)"));
+        QCOMPARE(open->text(), "Open...\t (" + keyText("Ctrl+O") + ')');
+        QCOMPARE(open->toolTip(), "Open  (" + keyText("Ctrl+O") + ')');
         QCOMPARE(actions.caption("file_open"), QStringLiteral("Open..."));
         QCOMPARE(actions.description("file_open"), QStringLiteral("Open a project"));
 
         QAction* add = actions.add("spr_add", "Add", "editor:sprites");
         actions.setKeys("spr_add", QKeySequence("Ctrl+A"));
         QVERIFY(add->shortcut().isEmpty());
-        QCOMPARE(add->text(), QStringLiteral("Add\t (Ctrl+A)"));
+        QCOMPARE(add->text(), "Add\t (" + keyText("Ctrl+A") + ')');
     }
 
     void rebuildingReplacesContent()
