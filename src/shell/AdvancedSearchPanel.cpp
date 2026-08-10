@@ -259,7 +259,7 @@ QWidget* AdvancedSearchPanel::createResults()
     layout->addWidget(m_results, 1);
 
     // Checking a file row checks its matches. The file row shows partly checked when only some are.
-    connect(m_model, &QStandardItemModel::itemChanged, this, [this](QStandardItem* item) {
+    connect(m_model, &QStandardItemModel::itemChanged, this, [](QStandardItem* item) {
         static bool updating = false;
         if (updating || !item->isCheckable())
             return;
