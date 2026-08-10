@@ -1,5 +1,7 @@
 #include "core/settings/SettingsImporter.h"
 
+#include "core/engine/RunConfiguration.h"
+
 #include "core/app/AppContext.h"
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
@@ -260,6 +262,13 @@ void SettingsImporter::importEngine(Config& engineConfig, Report& report) const
         }
         engineConfig.setValue(it.key(), it.value());
         ++report.engineValues;
+    }
+    bool found = false;
+    const QList<RunConfiguration> runs =
+        RunConfiguration::readFile(m_sourceDir + QStringLiteral("/mugen_config.xml"), &found);
+    if (found) {
+        RunConfiguration::save(engineConfig, runs);
+        report.engineValues += int(runs.size());
     }
 }
 

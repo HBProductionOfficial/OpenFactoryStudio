@@ -5,6 +5,7 @@
 #include "core/app/Paths.h"
 #include "core/engine/Engine.h"
 #include "core/engine/EngineManager.h"
+#include "core/engine/RunConfiguration.h"
 #include "core/preset/ControlRegistry.h"
 #include "core/project/ProjectFile.h"
 #include "core/settings/Config.h"
@@ -67,7 +68,8 @@ void AppContext::loadSettings()
     m_history->load(user + QStringLiteral("/history.xml"));
     m_theme->setSearchDirs({user, data});
     for (auto it = m_engineConfigs.cbegin(); it != m_engineConfigs.cend(); ++it)
-        it.value()->load(engineConfigDefaultsPath(it.key()), engineConfigUserPath(it.key()));
+        RunConfiguration::loadEngineSettings(*it.value(), engineConfigDefaultsPath(it.key()),
+                                             engineConfigUserPath(it.key()));
     applySettings();
 }
 
@@ -105,8 +107,9 @@ bool AppContext::saveSettings(QString* error) const
     bool ok = m_config->save(error);
     ok = m_shortcuts->save(ok ? error : nullptr) && ok;
     ok = m_history->save(ok ? error : nullptr) && ok;
-    for (const Config* engineConfig : std::as_const(m_engineConfigs))
-        ok = engineConfig->save(ok ? error : nullptr) && ok;
+    for (auto it = m_engineConfigs.cbegin(); it != m_engineConfigs.cend(); ++it)
+        ok = RunConfiguration::writeEngineSettings(*it.value(), engineConfigUserPath(it.key()), ok ? error : nullptr) &&
+             ok;
     return ok;
 }
 
@@ -116,7 +119,7 @@ Config& AppContext::engineConfig(const QString& engine) const
     if (it != m_engineConfigs.cend())
         return *it.value();
     auto* config = new Config(const_cast<AppContext*>(this));
-    config->load(engineConfigDefaultsPath(engine), engineConfigUserPath(engine));
+    RunConfiguration::loadEngineSettings(*config, engineConfigDefaultsPath(engine), engineConfigUserPath(engine));
     m_engineConfigs.insert(engine, config);
     return *config;
 }

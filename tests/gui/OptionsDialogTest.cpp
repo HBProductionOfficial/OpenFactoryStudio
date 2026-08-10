@@ -500,7 +500,7 @@ private Q_SLOTS:
         QVERIFY(page);
         Config& engine = f.context->engineConfig("mugen");
 
-        QCOMPARE(child<QLabel>(page, "engineMessage")->text(),
+        QCOMPARE(child<QLabel>(page, "eng_msg_lb")->text(),
                  QStringLiteral("Attention! All settings here auto apply when changed."));
         QStringList groups;
         for (const QGroupBox* group : page->findChildren<QGroupBox*>())
@@ -547,17 +547,16 @@ private Q_SLOTS:
     {
         RunConfigDialog add;
         QCOMPARE(add.windowTitle(), QStringLiteral("Add"));
-        auto* presets = child<QComboBox>(&add, "parameterPresets");
+        auto* presets = child<QComboBox>(&add, "eng_params_list");
         QCOMPARE(comboItems(presets),
                  (QStringList{"Current char vs KFM", "Current char vs KFM AI", "Current char vs current char",
                               "Current char vs current char AI", "Current motif", "KFM vs KFM on current Stage",
                               "KFM vs KFM on current motif"}));
-        QCOMPARE(child<QLineEdit>(&add, "parameters")->text(), QStringLiteral("%0 kfm"));
-        auto* buttons = add.findChild<QDialogButtonBox*>();
-        QVERIFY(!buttons->button(QDialogButtonBox::Ok)->isEnabled());
-        child<QLineEdit>(&add, "name")->setText("MUGEN");
-        child<QLineEdit>(&add, "executable")->setText("C:/mugen/mugen.exe");
-        QVERIFY(buttons->button(QDialogButtonBox::Ok)->isEnabled());
+        QCOMPARE(child<QLineEdit>(&add, "eng_params")->text(), QStringLiteral("%0 kfm"));
+        auto* buttons = add.findChild<QDialogButtonBox*>("buttonBox");
+        QVERIFY(buttons->button(QDialogButtonBox::Ok)->isEnabled()); // no field checks, same as Fighter Factory
+        child<QLineEdit>(&add, "eng_name")->setText("MUGEN");
+        child<QLineEdit>(&add, "eng_exe")->setText("C:/mugen/mugen.exe");
         presets->setCurrentIndex(4);
         Q_EMIT presets->activated(4);
         QCOMPARE(add.value(), (RunConfiguration{"MUGEN", "C:/mugen/mugen.exe", "", "-r %0"}));

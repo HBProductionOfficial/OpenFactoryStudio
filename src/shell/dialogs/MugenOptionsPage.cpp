@@ -1,5 +1,7 @@
 #include "shell/dialogs/MugenOptionsPage.h"
 
+#include "core/app/AppContext.h"
+
 #include "core/settings/Config.h"
 #include "core/settings/ShortcutSettings.h"
 #include "shell/dialogs/RunConfigDialog.h"
@@ -101,7 +103,7 @@ MugenOptionsPage::MugenOptionsPage(Config& config, QWidget* parent)
     setObjectName(QStringLiteral("engineTab"));
 
     auto* banner = new QLabel(tr("Attention! All settings here auto apply when changed."), this);
-    banner->setObjectName(QStringLiteral("engineMessage"));
+    banner->setObjectName(QStringLiteral("eng_msg_lb"));
     banner->setAlignment(Qt::AlignCenter);
     banner->setMinimumHeight(27);
     banner->setStyleSheet(QStringLiteral("QLabel#engineMessage { background-color: #fff9a0; color: #000000; }"));
@@ -286,8 +288,9 @@ void MugenOptionsPage::store(const QString& key, const QString& value)
 
 void MugenOptionsPage::save()
 {
+    // Run configurations are written as <engine> elements, same as Fighter Factory.
     if (!m_config.userPath().isEmpty())
-        m_config.save();
+        RunConfiguration::writeEngineSettings(m_config, m_config.userPath());
 }
 
 void MugenOptionsPage::setRunConfigurations(const QList<RunConfiguration>& runs)
@@ -387,8 +390,10 @@ void MugenOptionsPage::clearClicked()
 {
     if (m_runs.isEmpty())
         return;
-    if (QMessageBox::question(this, tr("Run configurations"), tr("Remove every run configuration?")) !=
-        QMessageBox::Yes)
+    const AppContext* context = AppContext::instance();
+    if ((!context || context->config().boolValue(QStringLiteral("confirm_delete"), true)) &&
+        QMessageBox::question(this, tr("Run configurations"), tr("Remove every run configuration?")) !=
+            QMessageBox::Yes)
         return;
     setRunConfigurations({});
 }

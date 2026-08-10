@@ -243,6 +243,55 @@ private Q_SLOTS:
         QVERIFY(!config.contains("run_1_name"));
     }
 
+    void runConfigurationFile()
+    {
+        QTemporaryDir dir;
+        const QString path = dir.filePath("mugen_config.xml");
+        Config config;
+        RunConfiguration::save(
+            config, {{"Desktop MUGEN", "C:\\Users\\szakr\\Desktop\\Mugen\\mugen.exe", "", "%0 kfm"},
+                     {"Desktop MUGEN stage", "C:\\Users\\szakr\\Desktop\\Mugen\\mugen.exe", "", "kfm kfm -s %0"}});
+        QVERIFY(RunConfiguration::writeEngineSettings(config, path));
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QByteArray expected =
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+            "<configuration>\n"
+            "    <engine name=\"Desktop MUGEN\">\n"
+            "        <param name=\"exe\" value=\"C:\\Users\\szakr\\Desktop\\Mugen\\mugen.exe\"/>\n"
+            "        <param name=\"icon\" value=\"\"/>\n"
+            "        <param name=\"params\" value=\"%0 kfm\"/>\n"
+            "    </engine>\n"
+            "    <engine name=\"Desktop MUGEN stage\">\n"
+            "        <param name=\"exe\" value=\"C:\\Users\\szakr\\Desktop\\Mugen\\mugen.exe\"/>\n"
+            "        <param name=\"icon\" value=\"\"/>\n"
+            "        <param name=\"params\" value=\"kfm kfm -s %0\"/>\n"
+            "    </engine>\n"
+            "</configuration>\n";
+        QCOMPARE(file.readAll(), expected);
+        file.close();
+
+        Config loaded;
+        loaded.setValue("clsn_attack", "#ff8000");
+        RunConfiguration::loadEngineSettings(loaded, QString(), path);
+        QCOMPARE(RunConfiguration::load(loaded).size(), 2);
+        QCOMPARE(RunConfiguration::load(loaded).at(1).parameters, QStringLiteral("kfm kfm -s %0"));
+        loaded.setValue("clsn_attack", "#ff8000");
+        QVERIFY(RunConfiguration::writeEngineSettings(loaded, path));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QByteArray rewritten = file.readAll();
+        QVERIFY(rewritten.contains(
+            "    <config name=\"clsn_attack\" value=\"#ff8000\"/>\n    <engine name=\"Desktop MUGEN\">"));
+        file.close();
+
+        RunConfiguration::save(loaded, {});
+        loaded.reset("clsn_attack");
+        QVERIFY(RunConfiguration::writeEngineSettings(loaded, path));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QCOMPARE(file.readAll(), QByteArray("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<configuration/>\n"));
+        QCOMPARE(RunConfiguration::parameterPresets().size(), 7);
+    }
+
     void encodings()
     {
         const QList<TextEncoding>& list = TextEncoding::all();
