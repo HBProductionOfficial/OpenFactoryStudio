@@ -5,6 +5,8 @@
 
 #include "core/app/Paths.h"
 
+#include <QDir>
+#include <QFile>
 #include <QFileInfo>
 
 namespace OFS {
@@ -72,6 +74,29 @@ QString Engine::documentationPage(const Project& project, const QString& kind, c
             }
         }
     }
+    return {};
+}
+
+void RunCopy::remove() const
+{
+    for (auto it = files.crbegin(); it != files.crend(); ++it)
+        QFile::remove(*it);
+    for (auto it = folders.crbegin(); it != folders.crend(); ++it)
+        QDir().rmdir(*it); // only when empty: files the copy did not create stay
+}
+
+RunCopy Engine::prepareRun(const Project& project, const QString& engineDir) const
+{
+    Q_UNUSED(project);
+    Q_UNUSED(engineDir);
+    RunCopy copy;
+    copy.error = tr("This engine cannot run projects.");
+    return copy;
+}
+
+QString Engine::runLogFile(const QString& engineDir) const
+{
+    Q_UNUSED(engineDir);
     return {};
 }
 

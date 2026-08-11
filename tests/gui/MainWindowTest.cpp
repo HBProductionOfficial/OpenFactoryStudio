@@ -3,6 +3,7 @@
 #include "core/app/AppContext.h"
 #include "core/code/CodeEditor.h"
 #include "core/engine/Engine.h"
+#include "core/engine/RunConfiguration.h"
 #include "core/project/Project.h"
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
@@ -37,6 +38,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTextBrowser>
+#include <QTextEdit>
 #include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
@@ -658,6 +660,58 @@ private Q_SLOTS:
             for (CodeEditor* e : v->codeEditors())
                 e->document()->setModified(false);
         }
+    }
+
+    void runInEngine()
+    {
+        QTemporaryDir engineDir;
+#ifdef Q_OS_WIN
+        const QString suffix = QStringLiteral(".exe");
+#else
+        const QString suffix;
+#endif
+        const QString exe = engineDir.filePath("mugen" + suffix);
+        QVERIFY(QFile::copy(QCoreApplication::applicationDirPath() + "/fake_mugen" + suffix, exe));
+        QDir().mkpath(engineDir.filePath("chars"));
+
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(m_dir.filePath("fighter.def")));
+        Config& engineConfig = m_context->engineConfig("mugen");
+        auto expectMessage = [this](const QString& title, const QString& text) {
+            QTimer::singleShot(0, this, [title, text] {
+                auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+                QVERIFY(box);
+                QCOMPARE(box->windowTitle(), boxTitle(title));
+                QCOMPARE(box->text(), text);
+                box->accept();
+            });
+        };
+
+        RunConfiguration::save(engineConfig, {});
+        expectMessage("Warning!", "Oops, you need to add an engine first. Do it in Tools / Options.");
+        window.runInEngine();
+        RunConfiguration::save(engineConfig, {{"Missing", engineDir.filePath("nothing.exe"), "", "%0 kfm"}});
+        expectMessage("Error!", "Executable not found!");
+        window.runInEngine();
+
+        RunConfiguration::save(engineConfig, {{"Test engine", QDir::toNativeSeparators(exe), "", "%0 kfm"}});
+        window.runInEngine();
+        QVERIFY(window.isEngineRunning() || QFileInfo::exists(engineDir.filePath("mugen.log")));
+        QTRY_VERIFY_WITH_TIMEOUT(!window.isEngineRunning(), 15000);
+        auto* output = window.findChild<QTextEdit*>("engineOutput");
+        QVERIFY(output);
+        const QString log = output->toPlainText();
+        QVERIFY2(log.contains("Arguments: ofs_0 kfm"), qPrintable(log));
+        QVERIFY2(log.contains("Character definition: found"), qPrintable(log));
+        // Compare canonical paths so short names (RUNNER~1) and symlinks (/private/var) match.
+        const QString folderLine = log.section("Working folder: ", 1).section('\n', 0, 0);
+        QVERIFY2(!folderLine.isEmpty(), qPrintable(log));
+        QCOMPARE(QFileInfo(folderLine).canonicalFilePath(), QFileInfo(engineDir.path()).canonicalFilePath());
+        QVERIFY(!QFileInfo::exists(engineDir.filePath("chars/ofs_0")));
+        QVERIFY(QFileInfo::exists(engineDir.filePath("chars")));
+
+        RunConfiguration::save(engineConfig, {});
     }
 
     void projectExplorer()

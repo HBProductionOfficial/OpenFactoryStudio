@@ -1,11 +1,13 @@
 #pragma once
 
+#include "core/engine/Engine.h"
 #include "core/preset/PresetModel.h"
 #include "shell/dialogs/MultiLineFindDialog.h"
 
 #include <QHash>
 #include <QMainWindow>
 #include <QPointer>
+#include <QProcess>
 
 #include <memory>
 
@@ -14,6 +16,7 @@ class QDockWidget;
 class QListWidget;
 class QMenu;
 class QPlainTextEdit;
+
 class QStackedWidget;
 class QTabBar;
 class QToolBar;
@@ -97,6 +100,13 @@ private:
     void multiLineFind(int operation, bool backward);
     void goToLineDialog(CodeEditor* editor);
 
+public:
+    void runInEngine();
+    bool isEngineRunning() const { return m_engineProcess != nullptr; }
+
+private:
+    void finishEngineRun(QProcess* process);
+
     AppContext& m_context;
     std::unique_ptr<MenuBuilder> m_menus;
     Preset::Model m_preset;
@@ -114,6 +124,9 @@ private:
     QListWidget* m_actionList = nullptr;
     UpdateChecker* m_updates = nullptr;
     QuickFindBar* m_quickFind = nullptr;
+    QPointer<QProcess> m_engineProcess;
+    RunCopy m_runCopy;
+    QString m_runLog;
     QPointer<MultiLineFindDialog> m_multiFind;
     bool m_welcomeTab = false;
 };

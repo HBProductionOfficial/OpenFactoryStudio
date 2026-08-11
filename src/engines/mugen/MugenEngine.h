@@ -32,6 +32,8 @@ public:
     const SyntaxDatabase* syntax() const override;
     const CompletionModels* completion() const override;
     QStringList codeTemplateDirs(const QString& editorId) const override;
+    RunCopy prepareRun(const Project& project, const QString& engineDir) const override;
+    QString runLogFile(const QString& engineDir) const override;
     QList<OutlineNode> outline(const Project& project, const QString& editorId, const QString& text) const override;
 
 protected:

@@ -26,6 +26,7 @@ public:
     virtual bool save(QString* error) { return saveAs(m_path, error); }
     virtual bool saveAs(const QString& path, QString* error) = 0;
     virtual bool isModified() const = 0;
+    virtual bool writeCopy(const QString& path, QString* error) const;
 
 Q_SIGNALS:
     void modifiedChanged(bool modified);
@@ -55,6 +56,7 @@ public:
     bool load(QString* error) override;
     bool saveAs(const QString& path, QString* error) override;
     bool isModified() const override;
+    bool writeCopy(const QString& path, QString* error) const override;
 
     QString encoding() const { return m_encoding; }
     bool reloadWithEncoding(const QString& encoding, QString* error);

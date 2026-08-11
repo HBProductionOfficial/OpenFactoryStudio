@@ -9,8 +9,10 @@
 #include "engines/mugen/MugenMenus.h"
 #include "engines/mugen/MugenOutline.h"
 #include "engines/mugen/MugenProject.h"
+#include "engines/mugen/MugenRun.h"
 #include "engines/mugen/MugenSyntax.h"
 
+#include <QDir>
 #include <QFileInfo>
 
 namespace OFS::Mugen {
@@ -130,6 +132,16 @@ const CompletionModels* MugenEngine::completion() const
 QList<OutlineNode> MugenEngine::outline(const Project& project, const QString& editorId, const QString& text) const
 {
     return mugenOutline(text, syntax(), syntaxFileType(project, editorId));
+}
+
+RunCopy MugenEngine::prepareRun(const Project& project, const QString& engineDir) const
+{
+    return prepareRunCopy(project, engineDir);
+}
+
+QString MugenEngine::runLogFile(const QString& engineDir) const
+{
+    return QDir(engineDir).filePath(QStringLiteral("mugen.log"));
 }
 
 QStringList MugenEngine::codeTemplateDirs(const QString& editorId) const

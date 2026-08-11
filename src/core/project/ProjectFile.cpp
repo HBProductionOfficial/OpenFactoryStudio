@@ -34,6 +34,19 @@ QString ProjectFile::fileName() const
     return QFileInfo(m_path).fileName();
 }
 
+bool ProjectFile::writeCopy(const QString& target, QString* error) const
+{
+    QDir().mkpath(QFileInfo(target).absolutePath());
+    QFile::remove(target);
+    QFile source(m_path);
+    if (!source.copy(target)) {
+        if (error)
+            *error = source.errorString();
+        return false;
+    }
+    return true;
+}
+
 CodeFile::CodeFile(const QString& path, const QString& editorId, QObject* parent)
     : ProjectFile(path, editorId, parent)
     , m_document(new QTextDocument(this))
@@ -221,6 +234,27 @@ bool CodeFile::load(QString* error)
         text = expandTabs(text, s_tabWidth);
     m_document->setPlainText(text);
     m_document->setModified(false);
+    return true;
+}
+
+bool CodeFile::writeCopy(const QString& target, QString* error) const
+{
+    QByteArray bytes = m_original;
+    if (isModified()) {
+        QString text = m_document->toPlainText();
+        if (s_spacesToTabs)
+            text = tabifyIndentation(text, s_tabWidth);
+        if (m_lineEnding != QLatin1String("\n"))
+            text.replace(QLatin1Char('\n'), m_lineEnding);
+        bytes = m_bom + encode(text, m_encoding);
+    }
+    QDir().mkpath(QFileInfo(target).absolutePath());
+    QSaveFile file(target);
+    if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit()) {
+        if (error)
+            *error = file.errorString();
+        return false;
+    }
     return true;
 }
 

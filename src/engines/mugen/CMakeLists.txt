@@ -14,6 +14,8 @@ add_library(ofs_mugen_lib STATIC
     MugenOutline.cpp
     MugenProject.h
     MugenProject.cpp
+    MugenRun.h
+    MugenRun.cpp
     MugenSyntax.h
     MugenSyntax.cpp
     expr/Expression.h

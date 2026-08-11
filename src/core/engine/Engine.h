@@ -34,6 +34,18 @@ struct ProjectTypeInfo
     QString name;
 };
 
+// Copy of a project made in the engine folder for Run in engine.
+struct OFS_CORE_EXPORT RunCopy
+{
+    QString name;
+    QStringList files;
+    QStringList folders;
+    QString error;
+
+    bool isValid() const { return error.isEmpty() && !name.isEmpty(); }
+    void remove() const;
+};
+
 // A game engine supported by the editor. Each one is a plugin under engines/<name>/ with its own
 // data folder. The Engine plugins document in docs explains how plugins work.
 class OFS_CORE_EXPORT Engine : public QObject
@@ -73,6 +85,9 @@ public:
     virtual IssueList validate(const Project& project, const QString& editorId, const QString& text) const;
 
     virtual QList<OutlineNode> outline(const Project& project, const QString& editorId, const QString& text) const;
+
+    virtual RunCopy prepareRun(const Project& project, const QString& engineDir) const;
+    virtual QString runLogFile(const QString& engineDir) const;
 
     virtual const CompletionModels* completion() const { return nullptr; }
 

@@ -11,6 +11,7 @@
 #include "core/code/TextSearch.h"
 #include "core/engine/Engine.h"
 #include "core/engine/EngineManager.h"
+#include "core/engine/RunConfiguration.h"
 #include "core/preset/PresetBuilder.h"
 #include "core/preset/PresetEngine.h"
 #include "core/project/Project.h"
@@ -34,6 +35,7 @@
 #include "shell/dialogs/CalculatorDialog.h"
 #include "shell/dialogs/ClipboardContainer.h"
 #include "shell/dialogs/OptionsDialog.h"
+#include "shell/dialogs/RunChooserDialog.h"
 #include "shell/dialogs/SnippetEditorDialog.h"
 #include "shell/dialogs/SnippetFieldsDialog.h"
 #include "shell/dialogs/StateControllerDialog.h"
@@ -46,6 +48,7 @@
 #include <QDesktopServices>
 #include <QDir>
 #include <QDockWidget>
+#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QInputDialog>
@@ -54,6 +57,7 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPlainTextEdit>
+#include <QProcess>
 #include <QScreen>
 #include <QStackedWidget>
 #include <QStandardItemModel>
@@ -121,6 +125,13 @@ MainWindow::MainWindow(AppContext& context, QWidget* parent)
 
 MainWindow::~MainWindow()
 {
+    // Stop a running engine so its copy of the project can be removed.
+    if (m_engineProcess) {
+        disconnect(m_engineProcess, nullptr, this, nullptr);
+        m_engineProcess->kill();
+        m_engineProcess->waitForFinished(3000);
+        m_runCopy.remove();
+    }
     // The dialog must not report being closed while the window goes away.
     if (m_multiFind) {
         disconnect(m_multiFind, nullptr, this, nullptr);
@@ -360,6 +371,7 @@ void MainWindow::connectActions()
         });
     });
     on("help_about", [this] { AboutDialog::showAbout(this); });
+    on("file_run", [this] { runInEngine(); });
     on("view_calculator", [this] { CalculatorDialog::showCalculator(this); });
     on("view_clipboard", [this] { ClipboardContainer::showClipboard(this); });
     on("ref_docs", [] { QDesktopServices::openUrl(QUrl(QStringLiteral(OFS_HOMEPAGE))); });
@@ -715,6 +727,79 @@ void MainWindow::goToLineDialog(CodeEditor* editor)
     dialog.setIntValue(editor->cursorLine());
     if (dialog.exec() == QDialog::Accepted)
         editor->goToLine(dialog.intValue());
+}
+
+void MainWindow::runInEngine()
+{
+    ProjectView* view = currentProjectView();
+    if (!view)
+        return;
+    if (m_engineProcess) {
+        QMessageBox::information(this, tr("Run in engine"), tr("The engine is already running."));
+        return;
+    }
+    Engine* engine = view->engine();
+    const QList<RunConfiguration> runs = RunConfiguration::load(m_context.engineConfig(engine->name()));
+    if (runs.isEmpty()) {
+        QMessageBox::warning(this, tr("Warning!"),
+                             tr("Oops, you need to add an engine first. Do it in Tools / Options."));
+        return;
+    }
+    int index = 0;
+    const QString lastKey = QStringLiteral("last_") + engine->displayName();
+    if (runs.size() > 1) {
+        RunChooserDialog chooser(runs, m_context.config().intValue(lastKey, 0), this);
+        if (chooser.exec() != QDialog::Accepted)
+            return;
+        index = chooser.selectedIndex();
+        m_context.config().setValue(lastKey, index);
+    }
+    const RunConfiguration& run = runs.at(index);
+    if (run.executable.trimmed().isEmpty() || !QFileInfo(run.executable).isFile()) {
+        QMessageBox::critical(this, tr("Error!"), tr("Executable not found!"));
+        return;
+    }
+    const QString engineDir = QFileInfo(run.executable).absolutePath();
+    RunCopy copy = engine->prepareRun(*view->project(), engineDir);
+    if (!copy.isValid()) {
+        QMessageBox::warning(this, tr("Run in engine"), copy.error);
+        return;
+    }
+    QString parameters = run.parameters;
+    parameters.replace(QStringLiteral("%0"), copy.name);
+
+    auto* process = new QProcess(this);
+    process->setProgram(run.executable);
+    process->setArguments(QProcess::splitCommand(parameters));
+    process->setWorkingDirectory(engineDir);
+    m_engineProcess = process;
+    m_runCopy = copy;
+    m_runLog = engine->runLogFile(engineDir);
+    connect(process, &QProcess::finished, this, [this, process] { finishEngineRun(process); });
+    connect(process, &QProcess::errorOccurred, this, [this, process](QProcess::ProcessError error) {
+        if (error != QProcess::FailedToStart)
+            return;
+        const QString message = process->errorString();
+        finishEngineRun(process);
+        QMessageBox::critical(this, tr("Error!"), message);
+    });
+    process->start();
+}
+
+void MainWindow::finishEngineRun(QProcess* process)
+{
+    if (process != m_engineProcess)
+        return;
+    QFile log(m_runLog);
+    if (!m_runLog.isEmpty() && log.open(QIODevice::ReadOnly)) {
+        QString text = QString::fromLocal8Bit(log.readAll());
+        text.replace(QLatin1String("\r\n"), QLatin1String("\n"));
+        m_dock->engineOutput()->setPlainText(text);
+    }
+    m_runCopy.remove();
+    m_runCopy = RunCopy();
+    m_engineProcess = nullptr;
+    process->deleteLater();
 }
 
 void MainWindow::refreshIssues()

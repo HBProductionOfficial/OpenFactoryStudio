@@ -155,6 +155,14 @@ ofs_add_test(NAME mugen_syntax
     SOURCES mugen/MugenSyntaxTest.cpp
     LIBS OFS::mugen)
 
+ofs_add_test(NAME mugen_run
+    SOURCES mugen/MugenRunTest.cpp
+    LIBS OFS::mugen)
+
+add_executable(fake_mugen stubs/fake_mugen.cpp)
+ofs_target_defaults(fake_mugen)
+add_dependencies(test_gui_mainwindow fake_mugen)
+
 
 find_package(Python3 COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
