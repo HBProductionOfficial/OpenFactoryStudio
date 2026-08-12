@@ -15,4 +15,8 @@ Outline mugenOutline(const QString& text, const SyntaxDatabase* syntax = nullptr
 
 QString valueTypeIcon(const QString& type);
 
+// "; Stand Light Punch" -> "Stand Light Punch". Empty for separators such as ";-----".
+QString commentName(const QString& line);
+QString stateTypeIcon(const QString& type);
+
 } // namespace OFS::Mugen

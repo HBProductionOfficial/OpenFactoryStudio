@@ -27,6 +27,7 @@
 #include <QHBoxLayout>
 #include <QPointer>
 #include <QScrollArea>
+#include <QScrollBar>
 #include <QSet>
 #include <QStackedWidget>
 #include <QStandardItemModel>
@@ -355,6 +356,7 @@ ProjectView::Analysis ProjectView::computeAnalysis(const QString& editorId, cons
     Analysis analysis;
     analysis.issues = engine()->validate(*m_project, editorId, text);
     analysis.outline = engine()->outline(*m_project, editorId, text);
+    analysis.variables = engine()->variableUsage(*m_project, editorId, text);
     return analysis;
 }
 
@@ -366,6 +368,7 @@ void ProjectView::applyAnalysis(CodePage* page, Analysis analysis)
     page->setIssues(analysis.issues, m_context.theme().iconSet());
     m_issues.insert(path, analysis.issues);
     m_outlines.insert(path, analysis.outline);
+    m_variables.insert(path, analysis.variables);
     updateOutline(page);
     Q_EMIT issuesChanged();
 }
@@ -412,7 +415,7 @@ void ProjectView::followCursorInOutline(CodePage* page)
         return;
     QTreeView* tree = outlineTree(page->property("editorId").toString());
     auto* model = tree ? qobject_cast<QStandardItemModel*>(tree->model()) : nullptr;
-    if (!model)
+    if (!model || tree->property("outlineMode").toString() == QLatin1String("variables"))
         return;
     // Entries are in document order, so the last one starting at or before the caret line is the most specific.
     const int line = page->editor()->cursorLine() - 1;
@@ -495,6 +498,20 @@ void restoreExpanded(QTreeView* tree, const QStandardItem* parent, const QSet<QS
 
 } // namespace
 
+bool ProjectView::showsVariables(CodePage* page) const
+{
+    const QAction* toggle = m_context.actions().action(QStringLiteral("st_var_list"));
+    return toggle && toggle->isChecked() && !m_variables.value(page->property("filePath").toString()).isEmpty();
+}
+
+void ProjectView::refreshOutlines()
+{
+    for (QTabWidget* tabs : std::as_const(m_fileTabs)) {
+        if (auto* page = qobject_cast<CodePage*>(tabs->currentWidget()))
+            updateOutline(page);
+    }
+}
+
 void ProjectView::updateOutline(CodePage* page)
 {
     const QString editorId = page->property("editorId").toString();
@@ -508,22 +525,42 @@ void ProjectView::updateOutline(CodePage* page)
         tree->setModel(model);
         tree->setHeaderHidden(true);
         tree->setEditTriggers(QAbstractItemView::NoEditTriggers);
-        connect(tree, &QTreeView::clicked, this, [this, editorId](const QModelIndex& index) {
+        connect(tree, &QTreeView::clicked, this, [this, editorId, tree](const QModelIndex& index) {
             const int line = index.data(Qt::UserRole).toInt();
             QTabWidget* fileTabs = m_fileTabs.value(editorId);
             auto* current = fileTabs ? qobject_cast<CodePage*>(fileTabs->currentWidget()) : nullptr;
-            if (current && line >= 0) {
+            if (!current || line < 0)
+                return;
+            if (tree->property("outlineMode").toString() == QLatin1String("variables"))
+                current->editor()->goToLineAtTop(line + 1);
+            else
                 current->editor()->goToLine(line + 1);
-                current->editor()->setFocus();
-            }
+            current->editor()->setFocus();
         });
     }
+    const QString shown = tree->property("outlineMode").toString();
+    const QString mode = showsVariables(page) ? QStringLiteral("variables") : QStringLiteral("code");
     QSet<QString> expanded;
     collectExpanded(tree, model->invisibleRootItem(), expanded);
+    if (!shown.isEmpty()) {
+        tree->setProperty(("expanded_" + shown).toLatin1().constData(),
+                          QStringList(expanded.cbegin(), expanded.cend()));
+        tree->setProperty(("scroll_" + shown).toLatin1().constData(), tree->verticalScrollBar()->value());
+    }
+    if (shown != mode) {
+        const QStringList saved = tree->property(("expanded_" + mode).toLatin1().constData()).toStringList();
+        expanded = QSet<QString>(saved.cbegin(), saved.cend());
+    }
+    const int scroll = tree->property(("scroll_" + mode).toLatin1().constData()).toInt();
+    tree->setProperty("outlineMode", mode);
     model->clear();
-    addOutline(model->invisibleRootItem(), m_outlines.value(page->property("filePath").toString()),
+    const QString path = page->property("filePath").toString();
+    addOutline(model->invisibleRootItem(),
+               mode == QLatin1String("variables") ? variableOutline(m_variables.value(path)) : m_outlines.value(path),
                m_context.theme().iconSet());
     restoreExpanded(tree, model->invisibleRootItem(), expanded);
+    tree->doItemsLayout();
+    tree->verticalScrollBar()->setValue(scroll);
 }
 
 void ProjectView::validateAll()

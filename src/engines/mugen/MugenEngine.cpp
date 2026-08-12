@@ -2,6 +2,7 @@
 
 #include "core/app/AppContext.h"
 #include "core/code/CompletionModels.h"
+#include "core/code/VariableUsage.h"
 #include "core/project/Project.h"
 #include "core/syntax/SyntaxDatabase.h"
 #include "engines/mugen/MugenActions.h"
@@ -11,6 +12,7 @@
 #include "engines/mugen/MugenProject.h"
 #include "engines/mugen/MugenRun.h"
 #include "engines/mugen/MugenSyntax.h"
+#include "engines/mugen/MugenVariables.h"
 
 #include <QDir>
 #include <QFileInfo>
@@ -132,6 +134,14 @@ const CompletionModels* MugenEngine::completion() const
 QList<OutlineNode> MugenEngine::outline(const Project& project, const QString& editorId, const QString& text) const
 {
     return mugenOutline(text, syntax(), syntaxFileType(project, editorId));
+}
+
+VariableUsage MugenEngine::variableUsage(const Project& project, const QString& editorId, const QString& text) const
+{
+    Q_UNUSED(project);
+    if (editorId != QLatin1String("states"))
+        return {};
+    return scanVariables(text);
 }
 
 RunCopy MugenEngine::prepareRun(const Project& project, const QString& engineDir) const

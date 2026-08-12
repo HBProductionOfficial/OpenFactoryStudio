@@ -21,6 +21,7 @@ struct OutlineNode;
 class Project;
 class SnippetLibrary;
 class SyntaxDatabase;
+struct VariableUsage;
 
 struct EngineVersion
 {
@@ -85,6 +86,7 @@ public:
     virtual IssueList validate(const Project& project, const QString& editorId, const QString& text) const;
 
     virtual QList<OutlineNode> outline(const Project& project, const QString& editorId, const QString& text) const;
+    virtual VariableUsage variableUsage(const Project& project, const QString& editorId, const QString& text) const;
 
     virtual RunCopy prepareRun(const Project& project, const QString& engineDir) const;
     virtual QString runLogFile(const QString& engineDir) const;

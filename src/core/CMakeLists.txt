@@ -26,6 +26,8 @@ add_library(ofscore SHARED
     code/CodeFormatter.cpp
     code/CodeOutline.h
     code/CodeOutline.cpp
+    code/VariableUsage.h
+    code/VariableUsage.cpp
     code/CompletionModels.h
     code/CompletionModels.cpp
     code/Snippet.h

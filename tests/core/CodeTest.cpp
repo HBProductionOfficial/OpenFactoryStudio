@@ -5,6 +5,7 @@
 #include "core/code/CompletionModels.h"
 #include "core/code/Snippet.h"
 #include "core/code/TextSearch.h"
+#include "core/code/VariableUsage.h"
 #include "core/project/ProjectFile.h"
 #include "core/project/ProjectSearch.h"
 #include "core/syntax/SyntaxDatabase.h"
@@ -705,6 +706,109 @@ private Q_SLOTS:
         QCOMPARE(editor.cursorLine(), 5);
         editor.unfoldAll();
         QVERIFY(editor.document()->findBlockByNumber(1).isVisible());
+    }
+    void variableUsageLog()
+    {
+        VariableUsage usage;
+        usage.integers.resize(60);
+        usage.floats.resize(40);
+        auto user = [](const char* number, const char* name) {
+            VariableUser u;
+            u.number = QString::fromLatin1(number);
+            u.name = QString::fromLatin1(name);
+            return u;
+        };
+        usage.integers[0] = {user("9203", "M4 9203 sysvar index"), user("9204", "M4 9204 sysfvar index")};
+        usage.integers[2] = {user("810", "Kung Fu Throw - Throwing the opponent")};
+        usage.integers[11] = {user("9205", "M4 9205 v param")};
+        usage.integers[12] = {user("9206", "M4 9206 var index")};
+        usage.integers[13] = {user("9207", "M4 9207 assign op")};
+        usage.integers[15] = {user("9209", "M4 9209 VarAdd v")};
+        usage.integers[16] = {user("9210", "M4 9210 VarRandom v")};
+        usage.integers[17] = {user("9211", "M4 9211 fvar assign op")};
+        usage.integers[18] = {user("9212", "M4 9212 ParentVarSet v")};
+        usage.floats[3] = {user("9201", "M4 9201 fv param")};
+        usage.floats[4] = {user("9202", "M4 9202 fvar index")};
+
+        const QString integerHeader =
+            QStringLiteral(";---------------------- Integer variable list ----------------------\n\n");
+        const QString floatHeader =
+            QStringLiteral(";---------------------- Float variable list ----------------------\n\n");
+
+        VariableLogOptions options;
+        QCOMPARE(variableLog(usage, options), integerHeader +
+                                                  QStringLiteral("; var(0):= 9203, 9204\n"
+                                                                 "; var(2):= 810\n"
+                                                                 ";var(11):= 9205\n"
+                                                                 ";var(12):= 9206\n"
+                                                                 ";var(13):= 9207\n"
+                                                                 ";var(15):= 9209\n"
+                                                                 ";var(16):= 9210\n"
+                                                                 ";var(17):= 9211\n"
+                                                                 ";var(18):= 9212\n\n") +
+                                                  floatHeader +
+                                                  QStringLiteral("; fvar(3):= 9201\n"
+                                                                 "; fvar(4):= 9202\n\n"));
+
+        options.format = VariableLogOptions::Format::NumberAndName;
+        options.onePerLine = true;
+        QCOMPARE(variableLog(usage, options),
+                 integerHeader +
+                     QStringLiteral("; var(0):= 9203 - M4 9203 sysvar index\n"
+                                    ";          9204 - M4 9204 sysfvar index\n"
+                                    "; var(2):= 810 - Kung Fu Throw - Throwing the opponent\n"
+                                    ";var(11):= 9205 - M4 9205 v param\n"
+                                    ";var(12):= 9206 - M4 9206 var index\n"
+                                    ";var(13):= 9207 - M4 9207 assign op\n"
+                                    ";var(15):= 9209 - M4 9209 VarAdd v\n"
+                                    ";var(16):= 9210 - M4 9210 VarRandom v\n"
+                                    ";var(17):= 9211 - M4 9211 fvar assign op\n"
+                                    ";var(18):= 9212 - M4 9212 ParentVarSet v\n\n") +
+                     floatHeader +
+                     QStringLiteral("; fvar(3):= 9201 - M4 9201 fv param\n"
+                                    "; fvar(4):= 9202 - M4 9202 fvar index\n\n"));
+
+        options.format = VariableLogOptions::Format::Name;
+        options.onePerLine = false;
+        options.onlyUsed = false;
+        options.floats = false;
+        QString expected = integerHeader + QStringLiteral("; var(0):=  M4 9203 sysvar index,  M4 9204 sysfvar index\n"
+                                                          "; var(1):= \n"
+                                                          "; var(2):=  Kung Fu Throw - Throwing the opponent\n");
+        for (int slot = 3; slot <= 9; ++slot)
+            expected += QStringLiteral("; var(%1):= \n").arg(slot);
+        expected += QStringLiteral(";var(10):= \n"
+                                   ";var(11):=  M4 9205 v param\n"
+                                   ";var(12):=  M4 9206 var index\n"
+                                   ";var(13):=  M4 9207 assign op\n"
+                                   ";var(14):= \n"
+                                   ";var(15):=  M4 9209 VarAdd v\n"
+                                   ";var(16):=  M4 9210 VarRandom v\n"
+                                   ";var(17):=  M4 9211 fvar assign op\n"
+                                   ";var(18):=  M4 9212 ParentVarSet v\n");
+        for (int slot = 19; slot <= 59; ++slot)
+            expected += QStringLiteral(";var(%1):= \n").arg(slot);
+        expected += QLatin1Char('\n');
+        QCOMPARE(variableLog(usage, options), expected);
+
+        options.integers = false;
+        QCOMPARE(variableLog(usage, options), QString());
+        usage.floats[3] = {user("1000", "")};
+        options.floats = true;
+        options.onlyUsed = true;
+        QVERIFY(variableLog(usage, options).contains(QStringLiteral("; fvar(3):=  1000\n")));
+
+        const Outline tree = variableOutline(usage);
+        QCOMPARE(tree.size(), 2);
+        QCOMPARE(tree[0].text, QStringLiteral("Integer"));
+        QCOMPARE(tree[0].children.size(), 60);
+        QCOMPARE(tree[1].text, QStringLiteral("Float"));
+        QCOMPARE(tree[1].children.size(), 40);
+        QCOMPARE(tree[0].children[2].text, QStringLiteral("2"));
+        QCOMPARE(tree[0].children[2].children.size(), 1);
+        QCOMPARE(tree[0].children[2].children[0].text, QStringLiteral("810 - Kung Fu Throw - Throwing the opponent"));
+        QCOMPARE(tree[1].children[3].children[0].text, QStringLiteral("1000"));
+        QVERIFY(tree[0].children[1].children.isEmpty());
     }
 };
 

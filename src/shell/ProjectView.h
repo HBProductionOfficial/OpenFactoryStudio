@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/code/CodeOutline.h"
+#include "core/code/VariableUsage.h"
 #include "core/editors/EditorInfo.h"
 #include "core/preset/PresetModel.h"
 #include "core/syntax/Issue.h"
@@ -70,6 +71,7 @@ public:
     QTreeView* outlineTree(const QString& editorId) const;
     void updateOutline(CodePage* page);
     void followCursorInOutline(CodePage* page);
+    void refreshOutlines();
     ProjectFile* currentFile() const;
     QList<ProjectFile*> editorFiles(const QString& editorId) const;
     QList<CodeEditor*> codeEditors() const;
@@ -89,7 +91,9 @@ private:
     {
         IssueList issues;
         QList<OutlineNode> outline;
+        VariableUsage variables;
     };
+    bool showsVariables(CodePage* page) const;
     void analyze(CodePage* page);
     Analysis computeAnalysis(const QString& editorId, const QString& text) const;
     void applyAnalysis(CodePage* page, Analysis analysis);
@@ -119,6 +123,7 @@ private:
     QHash<QString, QScrollArea*> m_extraPanels;
     QHash<QString, IssueList> m_issues;
     QHash<QString, QList<OutlineNode>> m_outlines;
+    QHash<QString, VariableUsage> m_variables;
     QList<QPointer<QFutureWatcher<Analysis>>> m_analyses;
 };
 

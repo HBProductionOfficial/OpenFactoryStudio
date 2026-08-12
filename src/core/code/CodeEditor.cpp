@@ -165,6 +165,14 @@ void CodeEditor::goToLine(int line)
     centerCursor();
 }
 
+void CodeEditor::goToLineAtTop(int line)
+{
+    const QTextBlock block = document()->findBlockByNumber(qBound(1, line, blockCount()) - 1);
+    revealPosition(block.position());
+    setTextCursor(QTextCursor(block));
+    verticalScrollBar()->setValue(block.firstLineNumber());
+}
+
 void CodeEditor::revealPosition(int position)
 {
     const QTextBlock block = document()->findBlock(position);

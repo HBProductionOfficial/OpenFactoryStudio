@@ -35,6 +35,7 @@ public:
     RunCopy prepareRun(const Project& project, const QString& engineDir) const override;
     QString runLogFile(const QString& engineDir) const override;
     QList<OutlineNode> outline(const Project& project, const QString& editorId, const QString& text) const override;
+    VariableUsage variableUsage(const Project& project, const QString& editorId, const QString& text) const override;
 
 protected:
     QStringList documentationVariants(const Project& project) const override;

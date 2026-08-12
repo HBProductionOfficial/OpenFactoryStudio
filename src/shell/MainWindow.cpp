@@ -39,6 +39,7 @@
 #include "shell/dialogs/SnippetEditorDialog.h"
 #include "shell/dialogs/SnippetFieldsDialog.h"
 #include "shell/dialogs/StateControllerDialog.h"
+#include "shell/dialogs/VariableLogDialog.h"
 
 #include <QAction>
 #include <QActionGroup>
@@ -482,6 +483,23 @@ void MainWindow::connectEditActions()
         if (!ok && !error.isEmpty())
             QMessageBox::warning(this, QApplication::applicationDisplayName(), error);
     };
+    on("st_var_list", [this] {
+        for (ProjectView* view : projectViews())
+            view->refreshOutlines();
+    });
+    on("st_var_log", [this] {
+        ProjectView* view = currentProjectView();
+        CodePage* page = view ? view->currentCodePage() : nullptr;
+        if (!page || page->editor()->isReadOnly())
+            return;
+        const VariableUsage usage = view->engine()->variableUsage(
+            *view->project(), page->property("editorId").toString(), page->editor()->toPlainText());
+        if (usage.isEmpty())
+            return;
+        VariableLogDialog dialog(this);
+        if (dialog.exec() == QDialog::Accepted)
+            page->insertText(variableLog(usage, dialog.options()));
+    });
     on("st_sctrl_new", [editTemplate] { editTemplate(true); });
     on("st_sctrl_edit", [editTemplate] { editTemplate(false); });
     on("st_sctrl_delete", [this, currentTemplates] {

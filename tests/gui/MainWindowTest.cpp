@@ -19,6 +19,7 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QContextMenuEvent>
 #include <QDialog>
@@ -32,6 +33,7 @@
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QRadioButton>
 #include <QScrollBar>
 #include <QStandardItemModel>
 #include <QTableView>
@@ -731,6 +733,103 @@ private Q_SLOTS:
         QCOMPARE(view->currentEditor(), QStringLiteral("commands"));
         Q_EMIT explorer->doubleClicked(explorer->model()->index(0, 0));
         QCOMPARE(view->currentEditor(), QStringLiteral("animations"));
+    }
+
+    void variableUsage()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("vars.def"), "[Info]\nname = \"Vars\"\nmugenversion = 1.0\n"
+                                            "[Files]\ncns = vars.cns\nsprite = v.sff\nanim = v.air\n");
+        QByteArray cns = "[Data]\nlife = 1000\n";
+        for (int i = 0; i < 100; ++i)
+            cns += "; filler\n";
+        cns += "; Throw\n[Statedef 810]\ntype = S\n[State 810, 1]\ntype = VarSet\ntrigger1 = 1\nv = 2\n"
+               "[State 810, 2]\ntype = Null\ntrigger1 = (fvar(5) := 1.5)\n";
+        for (int i = 0; i < 100; ++i)
+            cns += "; filler\n";
+        writeFile(dir.filePath("vars.cns"), cns);
+        MainWindow window(*m_context);
+        window.resize(1000, 700);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("vars.def")));
+        m_context->actions().action("editor_st")->trigger();
+        ProjectView* view = window.currentProjectView();
+        QTreeView* tree = view->outlineTree("states");
+        QVERIFY(tree);
+        QTRY_COMPARE(tree->model() ? tree->model()->rowCount() : 0, 2);
+        QCOMPARE(tree->model()->index(1, 0).data().toString(), QStringLiteral("810 - Throw"));
+        tree->expand(tree->model()->index(0, 0)); // [Data], checked again later
+
+        QAction* toggle = m_context->actions().action("st_var_list");
+        QVERIFY(toggle->isCheckable());
+        toggle->trigger();
+        QVERIFY(toggle->isChecked());
+        QAbstractItemModel* model = tree->model();
+        QCOMPARE(model->rowCount(), 2);
+        const QModelIndex integers = model->index(0, 0);
+        const QModelIndex floats = model->index(1, 0);
+        QCOMPARE(integers.data().toString(), QStringLiteral("Integer"));
+        QCOMPARE(floats.data().toString(), QStringLiteral("Float"));
+        QVERIFY(!tree->isExpanded(integers));
+        QCOMPARE(model->rowCount(integers), 60);
+        QCOMPARE(model->rowCount(floats), 40);
+        QCOMPARE(model->index(2, 0, integers).data().toString(), QStringLiteral("2"));
+        const QModelIndex throwState = model->index(0, 0, model->index(2, 0, integers));
+        QCOMPARE(throwState.data().toString(), QStringLiteral("810 - Throw"));
+        QCOMPARE(model->index(0, 0, model->index(5, 0, floats)).data().toString(), QStringLiteral("810 - Throw"));
+        QCOMPARE(model->rowCount(model->index(1, 0, integers)), 0);
+
+        CodeEditor* editor = view->currentCodeEditor();
+        tree->expand(integers);
+        tree->expand(model->index(2, 0, integers));
+        Q_EMIT tree->clicked(model->index(3, 0, integers));
+        QCOMPARE(editor->cursorLine(), 1);
+        Q_EMIT tree->clicked(throwState);
+        QCOMPARE(editor->cursorLine(), 104);
+        QCOMPARE(editor->textCursor().positionInBlock(), 0);
+        QVERIFY2(editor->cursorRect().top() < editor->fontMetrics().height() * 2,
+                 qPrintable(QString::number(editor->cursorRect().top())));
+
+        QTextCursor end(editor->document());
+        end.movePosition(QTextCursor::End);
+        end.insertText("[State 810, 3]\ntype = VarAdd\ntrigger1 = 1\nv = 7\n");
+        QTRY_COMPARE(tree->model()->rowCount(tree->model()->index(7, 0, tree->model()->index(0, 0))), 1);
+
+        toggle->trigger();
+        QCOMPARE(tree->model()->index(1, 0).data().toString(), QStringLiteral("810 - Throw"));
+        QVERIFY(tree->isExpanded(tree->model()->index(0, 0)));
+        toggle->trigger();
+        QCOMPARE(tree->model()->index(0, 0).data().toString(), QStringLiteral("Integer"));
+        QVERIFY(tree->isExpanded(tree->model()->index(0, 0)));
+        QVERIFY(tree->isExpanded(tree->model()->index(2, 0, tree->model()->index(0, 0))));
+
+        editor->goToLine(1);
+        const QString before = editor->toPlainText();
+        QTimer::singleShot(0, this, [] {
+            auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            QCOMPARE(dialog->objectName(), QStringLiteral("VarDlg"));
+            QCOMPARE(dialog->windowTitle(), QStringLiteral("Options"));
+            QVERIFY(dialog->findChild<QRadioButton*>("radioButton")->isChecked());
+            QVERIFY(dialog->findChild<QCheckBox*>("checkBox_3")->isChecked());
+            QVERIFY(!dialog->findChild<QCheckBox*>("checkBox_4")->isChecked());
+            dialog->findChild<QRadioButton*>("radioButton_3")->setChecked(true);
+            dialog->accept();
+        });
+        m_context->actions().action("st_var_log")->trigger();
+        const QString log = QStringLiteral(";---------------------- Integer variable list ----------------------\n\n"
+                                           "; var(2):= 810 - Throw\n"
+                                           "; var(7):= 810 - Throw\n\n"
+                                           ";---------------------- Float variable list ----------------------\n\n"
+                                           "; fvar(5):= 810 - Throw\n\n");
+        QCOMPARE(editor->toPlainText(), log + before);
+        QCOMPARE(editor->textCursor().position(), log.size());
+        editor->undo();
+        QCOMPARE(editor->toPlainText(), before);
+
+        toggle->trigger();
+        QVERIFY(!toggle->isChecked());
+        editor->document()->setModified(false);
     }
 
     void stateControllerList()

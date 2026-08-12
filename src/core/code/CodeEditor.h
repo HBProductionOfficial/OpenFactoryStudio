@@ -58,6 +58,7 @@ public:
     int cursorLine() const;
     int cursorColumn() const;
     void goToLine(int line); // 1-based
+    void goToLineAtTop(int line);
 
     void setCompletionProvider(std::unique_ptr<CompletionProvider> provider);
     QCompleter* completer() const { return m_completer; }

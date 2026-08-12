@@ -9,8 +9,6 @@
 
 namespace OFS::Mugen {
 
-namespace {
-
 QString commentName(const QString& line)
 {
     const CodeLine parsed = CodeLine::parse(line);
@@ -47,6 +45,8 @@ QString stateTypeIcon(const QString& type)
         return {};
     }
 }
+
+namespace {
 
 bool isBuiltInTrigger(const QString& key)
 {

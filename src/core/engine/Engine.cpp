@@ -2,6 +2,7 @@
 
 #include "core/code/CodeOutline.h"
 #include "core/code/Snippet.h"
+#include "core/code/VariableUsage.h"
 
 #include "core/app/Paths.h"
 
@@ -105,6 +106,14 @@ QList<OutlineNode> Engine::outline(const Project& project, const QString& editor
     Q_UNUSED(project);
     Q_UNUSED(editorId);
     return sectionOutline(text);
+}
+
+VariableUsage Engine::variableUsage(const Project& project, const QString& editorId, const QString& text) const
+{
+    Q_UNUSED(project);
+    Q_UNUSED(editorId);
+    Q_UNUSED(text);
+    return {};
 }
 
 QStringList Engine::codeTemplateDirs(const QString& editorId) const

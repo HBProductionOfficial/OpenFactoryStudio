@@ -1,8 +1,10 @@
 #include "engines/mugen/MugenSyntax.h"
 #include "core/syntax/SyntaxDatabase.h"
 #include "engines/mugen/MugenOutline.h"
+#include "engines/mugen/MugenVariables.h"
 #include "engines/mugen/expr/Expression.h"
 
+#include <QFile>
 #include <QTest>
 
 using namespace OFS;
@@ -417,6 +419,84 @@ private Q_SLOTS:
         QCOMPARE(messages("stage", "winbeta", info), QStringList{"3: Invalid parameter for current project version"});
         QCOMPARE(validateMugenCode(db, "stage", "winbeta", info).first().severity, Issue::Severity::Warning);
         QCOMPARE(messages("stage", QString(), info), QStringList());
+    }
+    void variables()
+    {
+        QString text = QStringLiteral("[Data]\nlife = 1000\n\n"
+                                      ";Kung Fu Throw - Throwing the opponent\n[Statedef 810]\ntype = S\n"
+                                      "[State 810, 1]\ntype = VarSet\ntrigger1 = !var(2)\nv = 2\n"
+                                      "[State 810, 2]\ntype = Null\ntrigger1 = var(2) = 1\ntrigger2 = (var(2) := 3)\n");
+        const char* forms[][3] = {
+            {"9201 fv param", "VarSet", "fv = 3"},
+            {"9202 fvar index", "VarSet", "fvar(4) = 1.5"},
+            {"9203 sysvar index", "VarSet", "sysvar(1) = 1"},
+            {"9204 sysfvar index", "VarSet", "sysfvar(2) = 1"},
+            {"9205 v param", "VarSet", "v = 11"},
+            {"9206 var index", "VarSet", "var(12) = 1"},
+            {"9207 assign op", "Null", "trigger1 = (var(13) := 4)"},
+            {"9208 read", "Null", "trigger1 = var(14) = 1"},
+            {"9209 VarAdd v", "VarAdd", "v = 15"},
+            {"9210 VarRandom v", "VarRandom", "v = 16"},
+            {"9211 fvar assign op", "Null", "trigger1 = (fvar(17) := 1.0)"},
+            {"9212 ParentVarSet v", "ParentVarSet", "v = 18"},
+            {"9213 out of range", "VarSet", "var(70) = 1"},
+            {"9214 ParentVarAdd fv", "ParentVarAdd", "fv = 19"},
+            {"9215 sysvar assign", "Null", "trigger1 = (sysvar(0) := 1) ; var(20) := 1 is a comment"},
+        };
+        for (const auto& form : forms) {
+            const QString name = QString::fromLatin1(form[0]);
+            text += QStringLiteral(";M4 %1\n[Statedef %2]\ntype = A\n[State %2, 1]\ntype = %3\ntrigger1 = 1\n%4\n")
+                        .arg(name, name.left(4), QString::fromLatin1(form[1]), QString::fromLatin1(form[2]));
+        }
+        text += QStringLiteral("[Statedef 9300]\n[State 9300, 1]\ntype = VarSet\nv = 21\n"
+                               "[Quotes]\nvictory1 = \"var(22) := 1\"\n");
+
+        const VariableUsage usage = Mugen::scanVariables(text);
+        QCOMPARE(usage.integers.size(), 60);
+        QCOMPARE(usage.floats.size(), 40);
+        auto numbers = [](const QList<VariableUser>& users) {
+            QStringList list;
+            for (const VariableUser& user : users)
+                list << user.number;
+            return list.join(QLatin1Char(','));
+        };
+        QStringList integers, floats;
+        for (int slot = 0; slot < 60; ++slot) {
+            if (!usage.integers[slot].isEmpty())
+                integers << QStringLiteral("%1=%2").arg(slot).arg(numbers(usage.integers[slot]));
+        }
+        for (int slot = 0; slot < 40; ++slot) {
+            if (!usage.floats[slot].isEmpty())
+                floats << QStringLiteral("%1=%2").arg(slot).arg(numbers(usage.floats[slot]));
+        }
+        QCOMPARE(integers,
+                 (QStringList{"2=810", "11=9205", "12=9206", "13=9207", "15=9209", "16=9210", "18=9212", "21=9300"}));
+        QCOMPARE(floats, (QStringList{"3=9201", "4=9202", "17=9211", "19=9214"}));
+
+        const VariableUser& throwState = usage.integers[2].first();
+        QCOMPARE(throwState.name, QStringLiteral("Kung Fu Throw - Throwing the opponent"));
+        QCOMPARE(throwState.icon, QStringLiteral("st_s"));
+        QCOMPARE(throwState.line, 4);
+        QCOMPARE(usage.floats[3].first().name, QStringLiteral("M4 9201 fv param"));
+        QCOMPARE(usage.floats[3].first().icon, QStringLiteral("st_a"));
+        QVERIFY(usage.integers[21].first().name.isEmpty());
+
+        QString crlf = text;
+        crlf.replace(QLatin1Char('\n'), QStringLiteral("\r\n"));
+        QCOMPARE(Mugen::scanVariables(crlf).integers[2].first().name, throwState.name);
+    }
+
+    void variablesKfm()
+    {
+        QFile file(qEnvironmentVariable("OFS_CORPUS_KFM") + QStringLiteral("/kfm.cns"));
+        if (qEnvironmentVariableIsEmpty("OFS_CORPUS_KFM") || !file.open(QIODevice::ReadOnly))
+            QSKIP("OFS_CORPUS_KFM is not set");
+        const VariableUsage usage = Mugen::scanVariables(QString::fromLatin1(file.readAll()));
+        for (int slot = 0; slot < 60; ++slot)
+            QCOMPARE(usage.integers[slot].size(), slot == 2 ? 1 : 0);
+        for (int slot = 0; slot < 40; ++slot)
+            QVERIFY(usage.floats[slot].isEmpty());
+        QCOMPARE(usage.integers[2].first().caption(), QStringLiteral("810 - Kung Fu Throw - Throwing the opponent"));
     }
 };
 
