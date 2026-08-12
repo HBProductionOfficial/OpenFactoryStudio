@@ -61,4 +61,4 @@ runs:
 
     - name: Test
       shell: bash
-      run: ctest --preset ${{ inputs.preset }}
+      run: ctest --preset ${{ inputs.preset }} --output-on-failure

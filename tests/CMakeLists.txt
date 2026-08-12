@@ -155,7 +155,7 @@ ofs_add_test(NAME mugen_syntax
     SOURCES mugen/MugenSyntaxTest.cpp
     LIBS OFS::mugen)
 
-ofs_add_test(NAME mugen_run
+ofs_add_test(NAME mugen_run GUI
     SOURCES mugen/MugenRunTest.cpp
     LIBS OFS::mugen)
 
