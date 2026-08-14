@@ -36,6 +36,8 @@ public:
     QString runLogFile(const QString& engineDir) const override;
     QList<OutlineNode> outline(const Project& project, const QString& editorId, const QString& text) const override;
     VariableUsage variableUsage(const Project& project, const QString& editorId, const QString& text) const override;
+    QStringList toolActions() const override;
+    void runTool(const QString& actionId, const ToolContext& context) override;
 
 protected:
     QStringList documentationVariants(const Project& project) const override;

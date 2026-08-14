@@ -159,6 +159,10 @@ ofs_add_test(NAME mugen_run GUI
     SOURCES mugen/MugenRunTest.cpp
     LIBS OFS::mugen)
 
+ofs_add_test(NAME mugen_tools GUI
+    SOURCES mugen/MugenToolsTest.cpp
+    LIBS OFS::mugen)
+
 add_executable(fake_mugen stubs/fake_mugen.cpp)
 ofs_target_defaults(fake_mugen)
 add_dependencies(test_gui_mainwindow fake_mugen)

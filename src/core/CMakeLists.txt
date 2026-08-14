@@ -101,6 +101,8 @@ add_library(ofscore SHARED
     widgets/EPanelWidget.cpp
     tools/Calculator.h
     tools/Calculator.cpp
+    script/LuaScript.h
+    script/LuaScript.cpp
     tools/ClipboardStore.h
     tools/ClipboardStore.cpp
 )

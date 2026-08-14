@@ -108,6 +108,12 @@ QList<OutlineNode> Engine::outline(const Project& project, const QString& editor
     return sectionOutline(text);
 }
 
+void Engine::runTool(const QString& actionId, const ToolContext& context)
+{
+    Q_UNUSED(actionId);
+    Q_UNUSED(context);
+}
+
 VariableUsage Engine::variableUsage(const Project& project, const QString& editorId, const QString& text) const
 {
     Q_UNUSED(project);

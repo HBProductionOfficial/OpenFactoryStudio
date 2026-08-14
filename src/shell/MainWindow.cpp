@@ -483,6 +483,12 @@ void MainWindow::connectEditActions()
         if (!ok && !error.isEmpty())
             QMessageBox::warning(this, QApplication::applicationDisplayName(), error);
     };
+    for (Engine* engine : m_context.engines().engines()) {
+        for (const QString& id : engine->toolActions()) {
+            if (QAction* a = actions.action(id))
+                connect(a, &QAction::triggered, this, [this, engine, id] { runEngineTool(engine, id); });
+        }
+    }
     on("st_var_list", [this] {
         for (ProjectView* view : projectViews())
             view->refreshOutlines();
@@ -802,6 +808,29 @@ void MainWindow::runInEngine()
         QMessageBox::critical(this, tr("Error!"), message);
     });
     process->start();
+}
+
+void MainWindow::runEngineTool(Engine* engine, const QString& actionId)
+{
+    ProjectView* view = currentProjectView();
+    if (!view || view->engine() != engine)
+        return;
+    ToolContext context;
+    context.parent = this;
+    context.project = view->project();
+    for (ProjectView* v : projectViews())
+        context.projects << v->project();
+    context.icon = [this](const QString& name) {
+        return m_context.theme().iconSet().icon(name);
+    };
+    if (CodePage* page = view->currentCodePage(); page && !page->editor()->isReadOnly()) {
+        QPointer<CodePage> target = page;
+        context.insertText = [target](const QString& text) {
+            if (target)
+                target->insertText(text);
+        };
+    }
+    engine->runTool(actionId, context);
 }
 
 void MainWindow::finishEngineRun(QProcess* process)

@@ -13,6 +13,7 @@
 #include "engines/mugen/MugenRun.h"
 #include "engines/mugen/MugenSyntax.h"
 #include "engines/mugen/MugenVariables.h"
+#include "engines/mugen/dialogs/ThrowCreatorDialog.h"
 
 #include <QDir>
 #include <QFileInfo>
@@ -142,6 +143,24 @@ VariableUsage MugenEngine::variableUsage(const Project& project, const QString& 
     if (editorId != QLatin1String("states"))
         return {};
     return scanVariables(text);
+}
+
+QStringList MugenEngine::toolActions() const
+{
+    return {QStringLiteral("st_throw")};
+}
+
+void MugenEngine::runTool(const QString& actionId, const ToolContext& context)
+{
+    if (!context.project || context.project->engine() != this)
+        return;
+    if (actionId == QLatin1String("st_throw")) {
+        ThrowCreatorDialog dialog(context.project, context.projects, dataDir() + QStringLiteral("/scripts/throw.lua"),
+                                  context.parent);
+        dialog.setInsertHandler(context.insertText);
+        dialog.setIcons(context.icon);
+        dialog.exec();
+    }
 }
 
 RunCopy MugenEngine::prepareRun(const Project& project, const QString& engineDir) const

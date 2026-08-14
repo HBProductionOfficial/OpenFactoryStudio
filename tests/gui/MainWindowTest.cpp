@@ -24,6 +24,7 @@
 #include <QContextMenuEvent>
 #include <QDialog>
 #include <QDir>
+#include <QDoubleSpinBox>
 #include <QFile>
 #include <QInputDialog>
 #include <QLabel>
@@ -35,6 +36,8 @@
 #include <QPushButton>
 #include <QRadioButton>
 #include <QScrollBar>
+#include <QSlider>
+#include <QSpinBox>
 #include <QStandardItemModel>
 #include <QTableView>
 #include <QTemporaryDir>
@@ -829,6 +832,101 @@ private Q_SLOTS:
 
         toggle->trigger();
         QVERIFY(!toggle->isChecked());
+        editor->document()->setModified(false);
+    }
+
+    void throwCreator()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("thrower.def"), "[Info]\nname = \"Thrower\"\nmugenversion = 1.0\n"
+                                               "[Files]\ncns = thrower.cns\nsprite = t.sff\nanim = thrower.air\n");
+        writeFile(dir.filePath("thrower.cns"), "[Data]\nlife = 1000\n");
+        writeFile(dir.filePath("thrower.air"), "; Standing\n[Begin Action 0]\n0,0, 0,0, -1\n\n"
+                                               "; Throw Attempt\n[Begin Action 800]\n800,0, 0,0, 3\n800,1, 0,0, 3\n"
+                                               "800,2, 0,0, 3\n\n"
+                                               "; Throw\n[Begin Action 810]\n810,0, 0,0, 5\n810,1, 0,0, 5\n"
+                                               "810,2, 0,0, 5\n810,3, 0,0, 5\n\n"
+                                               "; Thrown\n[Begin Action 820]\n5000,0, 0,0, 5\n5010,0, 4,0, 5, H\n");
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("thrower.def")));
+        m_context->actions().action("editor_st")->trigger();
+        CodeEditor* editor = window.currentProjectView()->currentCodeEditor();
+        QVERIFY(editor);
+        editor->moveCursor(QTextCursor::End);
+        const QString before = editor->toPlainText();
+
+        bool checked = false;
+        QTimer::singleShot(0, this, [&checked] {
+            auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            QCOMPARE(dialog->objectName(), QStringLiteral("ThrowDlg"));
+            QCOMPARE(dialog->windowTitle(), QStringLiteral("Throw Creator"));
+            auto combo = [dialog](const char* name) {
+                return dialog->findChild<QComboBox*>(name);
+            };
+            auto spin = [dialog](const char* name) {
+                return dialog->findChild<QSpinBox*>(name);
+            };
+            auto real = [dialog](const char* name) {
+                return dialog->findChild<QDoubleSpinBox*>(name);
+            };
+            QCOMPARE(combo("p1AnimStart")->currentText(), QStringLiteral("800 - Throw Attempt"));
+            QCOMPARE(combo("p1Anim")->currentText(), QStringLiteral("810 - Throw"));
+            QCOMPARE(combo("p1Anim")->count(), 4);
+            QCOMPARE(spin("p1SDef")->value(), 0);
+            QCOMPARE(spin("elem")->value(), 4);
+            auto* slider = dialog->findChild<QSlider*>("horizontalSlider");
+            QCOMPARE(slider->maximum(), 3);
+            QCOMPARE(real("bindX")->value(), 75.0);
+            QCOMPARE(real("bindX")->decimals(), 3);
+            QCOMPARE(combo("res")->currentText(), QStringLiteral("640x480"));
+            QCOMPARE(combo("res")->count(), 6);
+            QCOMPARE(combo("projs")->currentText(), QStringLiteral("Thrower"));
+            QCOMPARE(combo("p2Anim")->currentText(), QStringLiteral("820 - Thrown"));
+            QCOMPARE(spin("grp")->value(), 5000);
+            QCOMPARE(combo("flipList")->currentText(), QStringLiteral("No Flip"));
+
+            QVERIFY(dialog->findChild<QWidget*>("render"));
+            slider->setValue(1);
+            QCOMPARE(spin("grp")->value(), 5010);
+            QCOMPARE(combo("flipList")->currentText(), QStringLiteral("Flip H"));
+            real("bindX")->setValue(60);
+            spin("bindPriority")->setValue(2);
+            slider->setValue(0);
+            QCOMPARE(real("bindX")->value(), 75.0);
+            QCOMPARE(spin("bindPriority")->value(), 0);
+            slider->setValue(1);
+            QCOMPARE(real("bindX")->value(), 60.0);
+
+            spin("elem")->setValue(2);
+            QCOMPARE(slider->maximum(), 1);
+            dialog->findChild<QPushButton*>("ins")->click();
+            checked = true;
+        });
+        m_context->actions().action("st_throw")->trigger();
+        QVERIFY(checked);
+        const QString inserted = editor->toPlainText().mid(before.size());
+        QVERIFY2(inserted.startsWith("[Statedef 0]\ntype = S\nmovetype= A\nphysics = S\njuggle = 0\nvelset = 0, 0\n"
+                                     "anim = 800\n"),
+                 qPrintable(inserted.left(200)));
+        QVERIFY(inserted.contains("[Statedef 10]\ntype = S\nmovetype= A\nphysics = N\nanim = 810\n"));
+        QVERIFY(inserted.contains("[State 10, Bind 1]\ntype = TargetBind\ntrigger1 = AnimElem = 1\npos = 75.0, 0.0\n"));
+        QVERIFY(inserted.contains("[State 10, SprPriority]\ntype = SprPriority\ntrigger1 = AnimElem = 2\nvalue = 2\n\n"
+                                  "[State 10, Bind 2]\ntype = TargetBind\ntrigger1 = AnimElem = 2\npos = 60.0, 0.0\n"));
+        QVERIFY(!inserted.contains("Bind 3"));
+        QVERIFY(inserted.contains("[State 10, Hurt]\ntype = TargetLifeAdd\ntrigger1 = AnimElem = 2\n"));
+        QVERIFY(inserted.contains("[State 20, 1]\ntype = ChangeAnim2\ntrigger1 = Time = 0\nvalue = 820\n"));
+        QCOMPARE(editor->textCursor().position(), editor->document()->characterCount() - 1);
+
+        const QString after = editor->toPlainText();
+        QTimer::singleShot(0, this, [] {
+            auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            dialog->findChild<QPushButton*>("close")->click();
+        });
+        m_context->actions().action("st_throw")->trigger();
+        QCOMPARE(editor->toPlainText(), after);
         editor->document()->setModified(false);
     }
 

@@ -1,0 +1,172 @@
+[Statedef 0]
+type = S
+movetype= A
+physics = S
+juggle = 0
+velset = 0, 0
+anim = 800
+
+[State 0, 1]
+type = HitDef
+trigger1 = Time = 0
+attr = S, NT
+hitflag = M-
+priority = 1, Miss
+sparkno = -1
+p1sprpriority = 1
+p1facing = ifelse(command = "holdfwd", 1, -1)
+p2facing = 1
+p1stateno = 10
+p2stateno = 20
+guard.dist = 0
+fall = 1
+
+[State 0, 2]
+type = ChangeState
+trigger1 = AnimTime = 0
+value = 0
+ctrl = 1
+
+[Statedef 10]
+type = S
+movetype= A
+physics = N
+anim = 810
+poweradd = 60
+
+[State 10, Bind 1]
+type = TargetBind
+trigger1 = AnimElem = 1
+pos = 75.0, 0.0
+
+[State 10, Bind 2]
+type = TargetBind
+trigger1 = AnimElem = 2
+pos = 75.0, 0.0
+
+[State 10, Bind 3]
+type = TargetBind
+trigger1 = AnimElem = 3
+pos = 75.0, 0.0
+
+[State 10, Bind 4]
+type = TargetBind
+trigger1 = AnimElem = 4
+pos = 75.0, 0.0
+
+[State 10, Bind 5]
+type = TargetBind
+trigger1 = AnimElem = 5
+pos = 75.0, 0.0
+
+[State 10, Bind 6]
+type = TargetBind
+trigger1 = AnimElem = 6
+pos = 75.0, 0.0
+
+[State 10, Bind 7]
+type = TargetBind
+trigger1 = AnimElem = 7
+pos = 75.0, 0.0
+
+[State 10, Bind 8]
+type = TargetBind
+trigger1 = AnimElem = 8
+pos = 75.0, 0.0
+
+[State 10, Bind 9]
+type = TargetBind
+trigger1 = AnimElem = 9
+pos = 75.0, 0.0
+
+[State 10, Bind 10]
+type = TargetBind
+trigger1 = AnimElem = 10
+pos = 75.0, 0.0
+
+[State 10, Bind 11]
+type = TargetBind
+trigger1 = AnimElem = 11
+pos = 75.0, 0.0
+
+[State 10, Bind 12]
+type = TargetBind
+trigger1 = AnimElem = 12
+pos = 75.0, 0.0
+
+[State 10, Bind 13]
+type = TargetBind
+trigger1 = AnimElem = 13
+pos = 75.0, 0.0
+
+[State 10, Bind 14]
+type = TargetBind
+trigger1 = AnimElem = 14
+pos = 75.0, 0.0
+
+[State 10, Bind 15]
+type = TargetBind
+trigger1 = AnimElem = 15
+pos = 75.0, 0.0
+
+[State 10, Hurt]
+type = TargetLifeAdd
+trigger1 = AnimElem = 15
+value = -78
+
+[State 10, Throw]
+type = TargetState
+trigger1 = AnimElem = 15
+value = 21
+
+[State 10, State End]
+type = ChangeState
+trigger1 = AnimTime = 0
+value = 0
+ctrl = 1
+
+[Statedef 20]
+type = A
+movetype = H
+physics = N
+velset = 0,0
+
+[State 20, 1]
+type = ChangeAnim2
+trigger1 = Time = 0
+value = 820
+
+[Statedef 21]
+type = A
+movetype = H
+physics = N
+velset = 0,0
+poweradd = 40
+
+[State 21, 1] ;Gravity
+type = VelAdd
+trigger1 = 1
+y = .4
+
+[State 21, 2] ; Recover near ground (use ChangeState)
+type = ChangeState
+triggerall = Vel Y > 0
+triggerall = Pos Y >= -20
+triggerall = alive
+triggerall = CanRecover
+trigger1 = Command = "recovery"
+value = 5200 ;HITFALL_RECOVER
+
+[State 21, 3] ; Recover in mid air (use SelfState)
+type = SelfState
+triggerall = Vel Y > 0
+triggerall = alive
+triggerall = CanRecover
+trigger1 = Command = "recovery"
+value = 5210 ;HITFALL_AIRRECOVER
+
+[State 21, 4] ;Hit ground
+type = SelfState
+trigger1 = Vel Y > 0
+trigger1 = Pos Y >= 0
+value = 5100 ;Hit ground

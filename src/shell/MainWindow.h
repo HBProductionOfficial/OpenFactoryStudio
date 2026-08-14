@@ -106,6 +106,7 @@ public:
 
 private:
     void finishEngineRun(QProcess* process);
+    void runEngineTool(Engine* engine, const QString& actionId);
 
     AppContext& m_context;
     std::unique_ptr<MenuBuilder> m_menus;

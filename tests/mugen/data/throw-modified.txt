@@ -1,0 +1,127 @@
+[Statedef 1000]
+type = S
+movetype= A
+physics = S
+juggle = 0
+velset = 0, 0
+anim = 800
+
+[State 1000, 1]
+type = HitDef
+trigger1 = Time = 0
+attr = S, NT
+hitflag = M-
+priority = 1, Miss
+sparkno = -1
+p1sprpriority = 1
+p1facing = ifelse(command = "holdfwd", 1, -1)
+p2facing = 1
+p1stateno = 1010
+p2stateno = 1020
+guard.dist = 0
+fall = 1
+
+[State 1000, 2]
+type = ChangeState
+trigger1 = AnimTime = 0
+value = 0
+ctrl = 1
+
+[Statedef 1010]
+type = S
+movetype= A
+physics = N
+anim = 810
+poweradd = 60
+
+[State 1010, SprPriority]
+type = SprPriority
+trigger1 = AnimElem = 1
+value = 2
+
+[State 1010, Bind 1]
+type = TargetBind
+trigger1 = AnimElem = 1
+pos = 60.0, 0.0
+
+[State 1010, Bind 2]
+type = TargetBind
+trigger1 = AnimElem = 2
+pos = 40.0, -10.0
+
+[State 1010, Bind 3]
+type = TargetBind
+trigger1 = AnimElem = 3
+pos = 75.0, 0.0
+
+[State 1010, Bind 4]
+type = TargetBind
+trigger1 = AnimElem = 4
+pos = 75.0, 0.0
+
+[State 1010, Bind 5]
+type = TargetBind
+trigger1 = AnimElem = 5
+pos = 75.0, 0.0
+
+[State 1010, Hurt]
+type = TargetLifeAdd
+trigger1 = AnimElem = 5
+value = -78
+
+[State 1010, Throw]
+type = TargetState
+trigger1 = AnimElem = 5
+value = 1021
+
+[State 1010, State End]
+type = ChangeState
+trigger1 = AnimTime = 0
+value = 0
+ctrl = 1
+
+[Statedef 1020]
+type = A
+movetype = H
+physics = N
+velset = 0,0
+
+[State 1020, 1]
+type = ChangeAnim2
+trigger1 = Time = 0
+value = 820
+
+[Statedef 1021]
+type = A
+movetype = H
+physics = N
+velset = 3,-6
+poweradd = 40
+
+[State 1021, 1] ;Gravity
+type = VelAdd
+trigger1 = 1
+y = .4
+
+[State 1021, 2] ; Recover near ground (use ChangeState)
+type = ChangeState
+triggerall = Vel Y > 0
+triggerall = Pos Y >= -20
+triggerall = alive
+triggerall = CanRecover
+trigger1 = Command = "recovery"
+value = 5200 ;HITFALL_RECOVER
+
+[State 1021, 3] ; Recover in mid air (use SelfState)
+type = SelfState
+triggerall = Vel Y > 0
+triggerall = alive
+triggerall = CanRecover
+trigger1 = Command = "recovery"
+value = 5210 ;HITFALL_AIRRECOVER
+
+[State 1021, 4] ;Hit ground
+type = SelfState
+trigger1 = Vel Y > 0
+trigger1 = Pos Y >= 0
+value = 5100 ;Hit ground

@@ -5,13 +5,17 @@
 #include "core/editors/EditorInfo.h"
 #include "core/syntax/Issue.h"
 
+#include <QIcon>
 #include <QList>
 #include <QObject>
 #include <QString>
 #include <QStringList>
 #include <QtPlugin>
 
+#include <functional>
 #include <memory>
+
+class QWidget;
 
 namespace OFS {
 
@@ -45,6 +49,16 @@ struct OFS_CORE_EXPORT RunCopy
 
     bool isValid() const { return error.isEmpty() && !name.isEmpty(); }
     void remove() const;
+};
+
+// What an engine's own tool dialogs (like the Throw creator) work on.
+struct ToolContext
+{
+    QWidget* parent = nullptr;
+    Project* project = nullptr;
+    QList<Project*> projects;
+    std::function<void(const QString&)> insertText;
+    std::function<QIcon(const QString&)> icon;
 };
 
 // A game engine supported by the editor. Each one is a plugin under engines/<name>/ with its own
@@ -90,6 +104,9 @@ public:
 
     virtual RunCopy prepareRun(const Project& project, const QString& engineDir) const;
     virtual QString runLogFile(const QString& engineDir) const;
+
+    virtual QStringList toolActions() const { return {}; }
+    virtual void runTool(const QString& actionId, const ToolContext& context);
 
     virtual const CompletionModels* completion() const { return nullptr; }
 

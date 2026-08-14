@@ -4,13 +4,13 @@
 #include "core/project/ProjectFile.h"
 #include "core/project/ProjectSearch.h"
 #include "engines/mugen/DefFile.h"
+#include "engines/mugen/ProjectGraphics.h"
 
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QTextDocument>
 
 namespace OFS::Mugen {
 
@@ -86,18 +86,6 @@ QByteArray fileHash(const QString& path)
     return hash.result();
 }
 
-QString definitionText(const Project& project)
-{
-    if (const auto* file = qobject_cast<const CodeFile*>(project.file(project.filePath())))
-        return file->document()->toPlainText();
-    QFile file(project.filePath());
-    if (!file.open(QIODevice::ReadOnly))
-        return {};
-    QString encoding;
-    QByteArray bom;
-    return CodeFile::decode(file.readAll(), &encoding, &bom);
-}
-
 bool copyProjectFiles(const Project& project, const QString& dir, RunCopy& copy)
 {
     const QDir projectDir(project.directory());
@@ -140,7 +128,7 @@ RunCopy prepareRunCopy(const Project& project, const QString& engineDir)
         const QString stages = root + QStringLiteral("/stages");
         copy.name = freeName(stages);
         DefFile def;
-        def.parse(definitionText(project));
+        def.parse(projectFileText(project, project.filePath()));
         // The sprite and music files go where the definition says (paths from the engine folder).
         const QList<QPair<QString, QString>> referenced = {
             {def.value(QStringLiteral("BGdef"), QStringLiteral("spr")),

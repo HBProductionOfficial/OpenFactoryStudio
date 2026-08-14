@@ -1,5 +1,7 @@
 # The engine code is a static library so the tests can link it; the plugin wraps it.
 add_library(ofs_mugen_lib STATIC
+    AirFile.h
+    AirFile.cpp
     DefFile.h
     DefFile.cpp
     MugenActions.h
@@ -18,6 +20,14 @@ add_library(ofs_mugen_lib STATIC
     MugenRun.cpp
     MugenVariables.h
     MugenVariables.cpp
+    ThrowCreator.h
+    ThrowCreator.cpp
+    ProjectGraphics.h
+    ProjectGraphics.cpp
+    dialogs/AnimationPreview.h
+    dialogs/AnimationPreview.cpp
+    dialogs/ThrowCreatorDialog.h
+    dialogs/ThrowCreatorDialog.cpp
     MugenSyntax.h
     MugenSyntax.cpp
     expr/Expression.h
