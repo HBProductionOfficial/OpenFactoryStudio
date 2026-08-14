@@ -13,6 +13,7 @@
 #include "engines/mugen/MugenRun.h"
 #include "engines/mugen/MugenSyntax.h"
 #include "engines/mugen/MugenVariables.h"
+#include "engines/mugen/dialogs/OffsetViewerDialog.h"
 #include "engines/mugen/dialogs/ThrowCreatorDialog.h"
 
 #include <QDir>
@@ -147,7 +148,7 @@ VariableUsage MugenEngine::variableUsage(const Project& project, const QString& 
 
 QStringList MugenEngine::toolActions() const
 {
-    return {QStringLiteral("st_throw")};
+    return {QStringLiteral("st_throw"), QStringLiteral("st_offset")};
 }
 
 void MugenEngine::runTool(const QString& actionId, const ToolContext& context)
@@ -159,6 +160,9 @@ void MugenEngine::runTool(const QString& actionId, const ToolContext& context)
                                   context.parent);
         dialog.setInsertHandler(context.insertText);
         dialog.setIcons(context.icon);
+        dialog.exec();
+    } else if (actionId == QLatin1String("st_offset")) {
+        OffsetViewerDialog dialog(context.project, context.projects, context.parent);
         dialog.exec();
     }
 }

@@ -930,6 +930,29 @@ private Q_SLOTS:
         editor->document()->setModified(false);
     }
 
+    void offsetViewer()
+    {
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(m_dir.filePath("fighter.def")));
+        m_context->actions().action("editor_st")->trigger();
+        CodeEditor* editor = window.currentProjectView()->currentCodeEditor();
+        const QString before = editor->toPlainText();
+        bool shown = false;
+        QTimer::singleShot(0, this, [&shown] {
+            auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            QCOMPARE(dialog->objectName(), QStringLiteral("OffsetDlg"));
+            QVERIFY(dialog->findChild<QWidget*>("render"));
+            QVERIFY(!dialog->findChild<QPushButton*>());
+            shown = true;
+            dialog->reject();
+        });
+        m_context->actions().action("st_offset")->trigger();
+        QVERIFY(shown);
+        QCOMPARE(editor->toPlainText(), before);
+    }
+
     void stateControllerList()
     {
         MainWindow window(*m_context);

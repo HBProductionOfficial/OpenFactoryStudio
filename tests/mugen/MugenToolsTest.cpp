@@ -5,8 +5,10 @@
 #include "engines/mugen/ProjectGraphics.h"
 #include "engines/mugen/ThrowCreator.h"
 #include "engines/mugen/dialogs/AnimationPreview.h"
+#include "engines/mugen/dialogs/OffsetViewerDialog.h"
 #include "engines/mugen/dialogs/ThrowCreatorDialog.h"
 
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDir>
 #include <QDoubleSpinBox>
@@ -263,6 +265,89 @@ private Q_SLOTS:
             dialog.show();
             QVERIFY(QTest::qWaitForWindowExposed(&dialog));
             dialog.grab().save(grab + "/throw-creator.png");
+        }
+    }
+    void offsetViewer()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("a.def"), "[Info]\nname = \"A\"\nmugenversion = 1.0\n"
+                                         "[Files]\ncns = a.cns\nanim = a.air\n");
+        writeFile(dir.filePath("a.cns"), "[Data]\nlife = 1000\n");
+        writeFile(dir.filePath("a.air"), "; Standing\n[Begin Action 0]\n0,0, 0,0, 5\n0,1, 3,-2, 5, H\n\n"
+                                         "; Walk\n[Begin Action 20]\n20,0, 0,0, 5\n");
+        writeFile(dir.filePath("b.def"), "[Info]\nname = \"B\"\nlocalcoord = 640,480\nmugenversion = 1.1\n"
+                                         "[Files]\ncns = a.cns\nanim = b.air\n");
+        writeFile(dir.filePath("b.air"), "[Begin Action 5]\n5,0, 0,0, 5\n");
+        Mugen::MugenEngine engine;
+        QString error;
+        std::unique_ptr<Project> a(engine.openProject(dir.filePath("a.def"), &error));
+        QVERIFY2(a, qPrintable(error));
+        std::unique_ptr<Project> b(engine.openProject(dir.filePath("b.def"), &error));
+        QVERIFY2(b, qPrintable(error));
+
+        Mugen::OffsetViewerDialog dialog(a.get(), {a.get(), b.get()});
+        QCOMPARE(dialog.objectName(), QStringLiteral("OffsetDlg"));
+        QCOMPARE(dialog.windowTitle(), QStringLiteral("Offset viewer"));
+        QCOMPARE(child<QComboBox>(&dialog, "res")->currentText(), QStringLiteral("640x480"));
+        QVERIFY(child<QCheckBox>(&dialog, "fliph")->isChecked());
+        QVERIFY(!child<QCheckBox>(&dialog, "flipv")->isChecked());
+        QCOMPARE(child<QComboBox>(&dialog, "anim1")->currentText(), QStringLiteral("0 - Standing"));
+        QCOMPARE(child<QComboBox>(&dialog, "frame1")->count(), 2);
+        QCOMPARE(child<QDoubleSpinBox>(&dialog, "xoff")->value(), 100.0);
+        QCOMPARE(child<QDoubleSpinBox>(&dialog, "xoff")->minimum(), -65535.0);
+        QCOMPARE(child<QComboBox>(&dialog, "projs")->currentText(), QStringLiteral("A"));
+        QCOMPARE(child<QComboBox>(&dialog, "anim2")->currentText(), QStringLiteral("0 - Standing"));
+
+        Mugen::AnimationPreview* preview = dialog.preview();
+        QCOMPARE(preview->figures().size(), 2);
+        QCOMPARE(preview->figures()[0].position, QPointF(0, 0));
+        QCOMPARE(preview->figures()[1].position, QPointF(100, 0));
+        QVERIFY(preview->figures()[1].flipH);
+        QVERIFY(!preview->figures()[1].flipV);
+        child<QDoubleSpinBox>(&dialog, "yoff")->setValue(-20);
+        child<QCheckBox>(&dialog, "flipv")->setChecked(true);
+        QCOMPARE(preview->figures()[1].position, QPointF(100, -20));
+        QVERIFY(preview->figures()[1].flipV);
+        child<QCheckBox>(&dialog, "fliph")->setChecked(false);
+        QVERIFY(!preview->figures()[1].flipH);
+
+        child<QComboBox>(&dialog, "frame1")->setCurrentIndex(1);
+        QCOMPARE(preview->figures()[0].position, QPointF(6, -4));
+        QVERIFY(preview->figures()[0].flipH);
+        child<QCheckBox>(&dialog, "fliph")->setChecked(true);
+        child<QCheckBox>(&dialog, "flipv")->setChecked(false);
+        child<QComboBox>(&dialog, "frame2")->setCurrentIndex(1);
+        QCOMPARE(preview->figures()[1].position, QPointF(100 - 6, -20 - 4));
+        QVERIFY(!preview->figures()[1].flipH);
+
+        child<QComboBox>(&dialog, "projs")->setCurrentIndex(1);
+        QCOMPARE(child<QComboBox>(&dialog, "anim2")->currentText(), QStringLiteral("5"));
+        QCOMPARE(child<QComboBox>(&dialog, "frame2")->count(), 1);
+        QCOMPARE(preview->figures()[1].scale, 1.0);
+        QCOMPARE(preview->figures()[0].scale, 2.0);
+        child<QComboBox>(&dialog, "anim1")->setCurrentIndex(1);
+        QCOMPARE(child<QComboBox>(&dialog, "frame1")->count(), 1);
+    }
+
+    void offsetViewerKfm()
+    {
+        const QString kfm = qEnvironmentVariable("OFS_CORPUS_KFM");
+        if (kfm.isEmpty() || !QFileInfo::exists(kfm + "/kfm.def"))
+            QSKIP("OFS_CORPUS_KFM is not set");
+        Mugen::MugenEngine engine;
+        QString error;
+        std::unique_ptr<Project> project(engine.openProject(kfm + "/kfm.def", &error));
+        QVERIFY2(project, qPrintable(error));
+        Mugen::OffsetViewerDialog dialog(project.get(), {project.get()});
+        QCOMPARE(child<QComboBox>(&dialog, "anim1")->currentText(), QStringLiteral("0 - Standing Animation"));
+        QCOMPARE(child<QComboBox>(&dialog, "projs")->currentText(), QStringLiteral("Kung Fu Man"));
+        QVERIFY(!dialog.preview()->figures()[0].image.isNull());
+        QVERIFY(!dialog.preview()->figures()[1].image.isNull());
+        const QString grab = qEnvironmentVariable("OFS_GRAB_DIR");
+        if (!grab.isEmpty()) {
+            dialog.show();
+            QVERIFY(QTest::qWaitForWindowExposed(&dialog));
+            dialog.grab().save(grab + "/offset-viewer.png");
         }
     }
 };
