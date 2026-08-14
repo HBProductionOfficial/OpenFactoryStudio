@@ -20,6 +20,10 @@ struct EditorInfo
     QString switchAction; // e.g. "editor_def"
     WorkspaceType workspace = WorkspaceType::Code;
     QString extraPanel; // default right panel, empty for none
+    // File actions are <prefix>_new, _open, _save, _saveas and _saveas_utf8 ("st_new").
+    QString actionPrefix;
+    QString fileFilter;
+    QString defaultSuffix;
 
     QString scope() const { return QStringLiteral("editor:") + id; }
 };

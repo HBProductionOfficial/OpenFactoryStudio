@@ -74,18 +74,36 @@ void MugenEngine::initialize(AppContext& context)
 
 QList<EditorInfo> MugenEngine::editors() const
 {
+    auto editor = [](const QString& id, const QString& title, const char* switchAction, WorkspaceType workspace,
+                     const char* extraPanel, const char* prefix, const QString& filter, const char* suffix) {
+        EditorInfo info;
+        info.id = id;
+        info.title = title;
+        info.switchAction = QString::fromLatin1(switchAction);
+        info.workspace = workspace;
+        info.extraPanel = QString::fromLatin1(extraPanel);
+        info.actionPrefix = QString::fromLatin1(prefix);
+        info.fileFilter = filter;
+        info.defaultSuffix = QString::fromLatin1(suffix);
+        return info;
+    };
+    const QString all = tr("All files (*)");
     return {
-        {QStringLiteral("definitions"), tr("Definitions"), QStringLiteral("editor_def"), WorkspaceType::Code, {}},
-        {QStringLiteral("sprites"), tr("Sprites"), QStringLiteral("editor_spr"), WorkspaceType::Graphics,
-         QStringLiteral("palettes")},
-        {QStringLiteral("animations"), tr("Animations"), QStringLiteral("editor_anim"), WorkspaceType::Graphics,
-         QStringLiteral("thumbnails")},
-        {QStringLiteral("backgrounds"), tr("Backgrounds"), QStringLiteral("editor_bg"), WorkspaceType::Graphics,
-         QStringLiteral("controllers")},
-        {QStringLiteral("commands"), tr("Commands"), QStringLiteral("editor_cmd"), WorkspaceType::Code, {}},
-        {QStringLiteral("states"), tr("States"), QStringLiteral("editor_st"), WorkspaceType::Code, {}},
-        {QStringLiteral("sounds"), tr("Sounds"), QStringLiteral("editor_snd"), WorkspaceType::Sound, {}},
-        {QStringLiteral("emulator"), tr("Emulator"), QStringLiteral("editor_emul"), WorkspaceType::Emulator, {}},
+        editor(QStringLiteral("definitions"), tr("Definitions"), "editor_def", WorkspaceType::Code, "", "def",
+               tr("Definitions (*.def)") + QStringLiteral(";;") + all, "def"),
+        editor(QStringLiteral("sprites"), tr("Sprites"), "editor_spr", WorkspaceType::Graphics, "palettes", "spr",
+               tr("Sprites (*.sff)"), "sff"),
+        editor(QStringLiteral("animations"), tr("Animations"), "editor_anim", WorkspaceType::Graphics, "thumbnails",
+               "anim", tr("Animations (*.air)") + QStringLiteral(";;") + all, "air"),
+        editor(QStringLiteral("backgrounds"), tr("Backgrounds"), "editor_bg", WorkspaceType::Graphics, "controllers",
+               "", {}, ""),
+        editor(QStringLiteral("commands"), tr("Commands"), "editor_cmd", WorkspaceType::Code, "", "cmd",
+               tr("Commands (*.cmd)") + QStringLiteral(";;") + all, "cmd"),
+        editor(QStringLiteral("states"), tr("States"), "editor_st", WorkspaceType::Code, "", "st",
+               tr("States (*.cns *.st)") + QStringLiteral(";;") + all, "cns"),
+        editor(QStringLiteral("sounds"), tr("Sounds"), "editor_snd", WorkspaceType::Sound, "", "snd",
+               tr("Sounds (*.snd)"), "snd"),
+        editor(QStringLiteral("emulator"), tr("Emulator"), "editor_emul", WorkspaceType::Emulator, "", "", {}, ""),
     };
 }
 

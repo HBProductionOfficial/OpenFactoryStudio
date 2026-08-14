@@ -15,4 +15,7 @@ QString getSaveFileName(QWidget* parent, const QString& caption, const QString& 
 using SavePrompt = std::function<QString(const QString& caption, const QString& dir, const QString& filter)>;
 void setSavePromptOverride(SavePrompt prompt);
 
+QString getOpenFileName(QWidget* parent, const QString& caption, const QString& dir, const QString& filter);
+void setOpenPromptOverride(SavePrompt prompt);
+
 } // namespace OFS::FileDialogs

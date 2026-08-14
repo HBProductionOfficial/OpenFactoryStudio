@@ -25,6 +25,7 @@
 #include <QFileInfo>
 #include <QFutureWatcher>
 #include <QHBoxLayout>
+#include <QMenu>
 #include <QPointer>
 #include <QScrollArea>
 #include <QScrollBar>
@@ -231,7 +232,9 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
 {
     if (info.workspace == WorkspaceType::Code) {
         QString error;
-        CodeFile* file = QFileInfo::exists(filePath) ? m_project->codeFile(filePath, info.id, &error) : nullptr;
+        auto* file = qobject_cast<CodeFile*>(m_project->file(filePath));
+        if (!file && QFileInfo::exists(filePath))
+            file = m_project->codeFile(filePath, info.id, &error);
         auto* page = new CodePage(m_context.actions());
         page->setProperty("filePath", filePath);
         page->setProperty("editorId", info.id);
@@ -239,6 +242,8 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
         if (file) {
             editor->setCodeDocument(file->document());
             connect(file, &ProjectFile::modifiedChanged, this, [this] { Q_EMIT modifiedChanged(); });
+            connect(file, &ProjectFile::pathChanged, this,
+                    [this, page, file](const QString& oldPath) { fileRenamed(page, oldPath, file->path()); });
             auto* timer = new QTimer(page);
             timer->setSingleShot(true);
             timer->setInterval(300);
@@ -341,6 +346,7 @@ QList<CodePage*> ProjectView::codePages() const
 
 void ProjectView::setCodeMenu(QMenu* menu)
 {
+    m_codeMenu = menu;
     for (CodeEditor* editor : codeEditors())
         editor->setCodeMenu(menu);
 }
@@ -591,6 +597,92 @@ bool ProjectView::showFileLine(const QString& filePath, int line)
         }
     }
     return false;
+}
+
+ProjectFile* ProjectView::newFile(const QString& editorId)
+{
+    const EditorInfo info = engine()->editor(editorId);
+    if (info.id.isEmpty() || info.workspace != WorkspaceType::Code)
+        return nullptr;
+    const QDir dir(m_project->directory());
+    QString path;
+    for (int n = 1;; ++n) {
+        path = dir.filePath(QStringLiteral("untitled%1.%2").arg(n).arg(info.defaultSuffix));
+        if (!m_project->file(path) && !QFileInfo::exists(path))
+            break;
+    }
+    ProjectFile* file = m_project->newCodeFile(path, editorId);
+    addFileTab(info, file->path());
+    return file;
+}
+
+bool ProjectView::openFile(const QString& editorId, const QString& path, QString* error)
+{
+    const EditorInfo info = engine()->editor(editorId);
+    QTabWidget* tabs = m_fileTabs.value(editorId);
+    if (info.id.isEmpty() || info.workspace != WorkspaceType::Code || !tabs)
+        return false;
+    const QString target = QDir::fromNativeSeparators(QFileInfo(path).absoluteFilePath());
+    for (int i = 0; i < tabs->count(); ++i) {
+        if (QFileInfo(tabs->widget(i)->property("filePath").toString()) == QFileInfo(target)) {
+            setCurrentEditor(editorId);
+            tabs->setCurrentIndex(i);
+            return true;
+        }
+    }
+    CodeFile* file = m_project->addCodeFile(target, editorId, error);
+    if (!file)
+        return false;
+    addFileTab(info, file->path());
+    fillProjectExplorer();
+    return true;
+}
+
+void ProjectView::addFileTab(const EditorInfo& info, const QString& filePath)
+{
+    QTabWidget* tabs = m_fileTabs.value(info.id);
+    if (!tabs)
+        return;
+    if (tabs->count() == 1 && tabs->widget(0)->objectName() == QStringLiteral("workspace_") + info.id) {
+        QWidget* empty = tabs->widget(0);
+        tabs->removeTab(0);
+        empty->deleteLater();
+        tabs->tabBar()->show();
+    }
+    const int index = tabs->addTab(createFilePage(info, filePath), QFileInfo(filePath).fileName());
+    tabs->setTabToolTip(index, QDir::toNativeSeparators(filePath));
+    setCurrentEditor(info.id);
+    tabs->setCurrentIndex(index);
+    updateTabTitles();
+    if (auto* page = qobject_cast<CodePage*>(tabs->widget(index))) {
+        page->editor()->setCodeMenu(m_codeMenu);
+        page->editor()->setFocus();
+    }
+}
+
+void ProjectView::fileRenamed(CodePage* page, const QString& oldPath, const QString& newPath)
+{
+    page->setProperty("filePath", newPath);
+    if (QTabWidget* tabs = m_fileTabs.value(page->property("editorId").toString())) {
+        const int index = tabs->indexOf(page);
+        if (index >= 0)
+            tabs->setTabToolTip(index, QDir::toNativeSeparators(newPath));
+    }
+    if (m_issues.contains(oldPath)) {
+        IssueList issues = m_issues.take(oldPath);
+        for (Issue& issue : issues)
+            issue.file = newPath;
+        page->setIssues(issues, m_context.theme().iconSet());
+        m_issues.insert(newPath, issues);
+    }
+    if (m_outlines.contains(oldPath))
+        m_outlines.insert(newPath, m_outlines.take(oldPath));
+    if (m_variables.contains(oldPath))
+        m_variables.insert(newPath, m_variables.take(oldPath));
+    updateTabTitles();
+    fillProjectExplorer();
+    Q_EMIT issuesChanged();
+    Q_EMIT currentFileChanged();
 }
 
 ProjectFile* ProjectView::currentFile() const

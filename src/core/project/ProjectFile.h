@@ -22,8 +22,10 @@ public:
     QString fileName() const;
     QString editorId() const { return m_editorId; }
 
+    bool isUntitled() const { return m_untitled; }
+
     virtual bool load(QString* error) = 0;
-    virtual bool save(QString* error) { return saveAs(m_path, error); }
+    virtual bool save(QString* error);
     virtual bool saveAs(const QString& path, QString* error) = 0;
     virtual bool isModified() const = 0;
     virtual bool writeCopy(const QString& path, QString* error) const;
@@ -31,13 +33,16 @@ public:
 Q_SIGNALS:
     void modifiedChanged(bool modified);
     void saved();
+    void pathChanged(const QString& oldPath);
 
 protected:
-    void setPath(const QString& path) { m_path = path; }
+    void setPath(const QString& path);
+    void setUntitled(bool untitled) { m_untitled = untitled; }
 
 private:
     QString m_path;
     QString m_editorId;
+    bool m_untitled = false;
 };
 
 // A text file (definitions, commands, states, animations...). The text lives in a QTextDocument
@@ -54,6 +59,7 @@ public:
     QTextDocument* document() const { return m_document; }
 
     bool load(QString* error) override;
+    void createEmpty();
     bool saveAs(const QString& path, QString* error) override;
     bool isModified() const override;
     bool writeCopy(const QString& path, QString* error) const override;

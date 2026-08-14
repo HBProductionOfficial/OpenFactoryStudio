@@ -93,6 +93,8 @@ bool copyProjectFiles(const Project& project, const QString& dir, RunCopy& copy)
         const QString relative = projectDir.relativeFilePath(path);
         if (relative.startsWith(QLatin1String("..")) || QDir::isAbsolutePath(relative))
             continue; // outside the project folder: the engine finds it in its own folders
+        if (const ProjectFile* file = project.file(path); file && file->isUntitled())
+            continue; // a new document nothing refers to yet
         if (!put(project, path, dir + QLatin1Char('/') + relative, copy))
             return false;
     }

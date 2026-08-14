@@ -5,6 +5,7 @@
 #include "core/engine/Engine.h"
 #include "core/engine/RunConfiguration.h"
 #include "core/project/Project.h"
+#include "core/project/ProjectFile.h"
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
 #include "core/widgets/EPanelWidget.h"
@@ -39,6 +40,7 @@
 #include <QSlider>
 #include <QSpinBox>
 #include <QStandardItemModel>
+#include <QTabWidget>
 #include <QTableView>
 #include <QTemporaryDir>
 #include <QTest>
@@ -951,6 +953,86 @@ private Q_SLOTS:
         m_context->actions().action("st_offset")->trigger();
         QVERIFY(shown);
         QCOMPARE(editor->toPlainText(), before);
+    }
+
+    void editorFiles()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("files.def"), "[Info]\nname = \"Files\"\nmugenversion = 1.0\n"
+                                             "[Files]\ncmd = files.cmd\ncns = files.cns\n");
+        writeFile(dir.filePath("files.cmd"), "[Command]\nname = \"x\"\ncommand = x\n");
+        writeFile(dir.filePath("files.cns"), "[Data]\nlife = 1000\n");
+        writeFile(dir.filePath("other.st"), "[Statedef 5]\ntype = S\n");
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("files.def")));
+        ProjectView* view = window.currentProjectView();
+        ActionRegistry& actions = m_context->actions();
+        actions.action("editor_st")->trigger();
+        auto* tabs = view->findChild<QTabWidget*>("fileTabs_states");
+        QVERIFY(tabs);
+        QCOMPARE(tabs->count(), 1);
+
+        actions.action("st_new")->trigger();
+        QCOMPARE(tabs->count(), 2);
+        QCOMPARE(tabs->currentIndex(), 1);
+        QCOMPARE(tabs->tabText(1), QStringLiteral("untitled1.cns"));
+        ProjectFile* created = view->currentFile();
+        QVERIFY(created && created->isUntitled());
+        CodeEditor* editor = view->currentCodeEditor();
+        editor->insertPlainText("[Statedef 0]\ntype = S\n");
+
+        QStringList prompts;
+        QString answer;
+        FileDialogs::setSavePromptOverride([&](const QString& caption, const QString& path, const QString& filter) {
+            prompts << caption + "|" + QFileInfo(path).fileName() + "|" + filter;
+            return answer;
+        });
+        actions.action("st_save")->trigger();
+        QCOMPARE(prompts.size(), 1);
+        QCOMPARE(prompts[0], QStringLiteral("Save as|untitled1.cns|States (*.cns *.st);;All files (*)"));
+        QVERIFY(created->isUntitled());
+        answer = dir.filePath("brand.cns");
+        actions.action("st_save")->trigger();
+        QVERIFY(!created->isUntitled());
+        QVERIFY(QFileInfo::exists(dir.filePath("brand.cns")));
+        QCOMPARE(tabs->tabText(1), QStringLiteral("brand.cns"));
+        QCOMPARE(tabs->tabToolTip(1), QDir::toNativeSeparators(QDir::fromNativeSeparators(dir.filePath("brand.cns"))));
+        QVERIFY(view->project()->editorFiles("states").contains(QDir::fromNativeSeparators(dir.filePath("brand.cns"))));
+
+        editor->moveCursor(QTextCursor::End);
+        editor->insertPlainText("[State 0, 1]\ntype = NoSuchController\ntrigger1 = 1\n");
+        const QString brand = QDir::fromNativeSeparators(dir.filePath("brand.cns"));
+        QTRY_VERIFY(!view->issues().value(brand).isEmpty());
+
+        QString openDir;
+        FileDialogs::setOpenPromptOverride([&](const QString&, const QString& path, const QString&) {
+            openDir = path;
+            return dir.filePath("other.st");
+        });
+        actions.action("st_open")->trigger();
+        QCOMPARE(tabs->count(), 3);
+        QCOMPARE(tabs->tabText(tabs->currentIndex()), QStringLiteral("other.st"));
+        QCOMPARE(QDir(openDir), QDir(dir.path()));
+        actions.action("st_open")->trigger();
+        QCOMPARE(tabs->count(), 3);
+
+        answer = dir.filePath("other2.st");
+        actions.action("st_saveas")->trigger();
+        QVERIFY(QFileInfo::exists(dir.filePath("other2.st")));
+        QVERIFY(QFileInfo::exists(dir.filePath("other.st")));
+        QCOMPARE(tabs->tabText(tabs->currentIndex()), QStringLiteral("other2.st"));
+
+        actions.action("cmd_new")->trigger();
+        QCOMPARE(view->currentEditor(), QStringLiteral("commands"));
+        view->currentCodeEditor()->insertPlainText("[Command]\n");
+        answer = dir.filePath("more.cmd");
+        actions.action("file_save")->trigger();
+        QVERIFY(QFileInfo::exists(dir.filePath("more.cmd")));
+        QVERIFY(!view->project()->isModified());
+
+        FileDialogs::setSavePromptOverride({});
+        FileDialogs::setOpenPromptOverride({});
     }
 
     void stateControllerList()

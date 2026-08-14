@@ -6,6 +6,7 @@
 #include "core/code/Snippet.h"
 #include "core/code/TextSearch.h"
 #include "core/code/VariableUsage.h"
+#include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
 #include "core/project/ProjectSearch.h"
 #include "core/syntax/SyntaxDatabase.h"
@@ -175,6 +176,55 @@ private Q_SLOTS:
         QCOMPARE(CodeLine::parse("   ").kind, CodeLine::Kind::Blank);
         QCOMPARE(CodeLine::parse(" ; only").kind, CodeLine::Kind::Comment);
         QCOMPARE(CodeLine::tokenize(">= != := ** &&").size(), 5);
+    }
+
+    void untitledFiles()
+    {
+        QTemporaryDir dir;
+        Project project(nullptr, dir.filePath("x.def"));
+        const QString placeholder = QDir::fromNativeSeparators(dir.filePath("untitled1.cns"));
+        CodeFile* file = project.newCodeFile(placeholder, "states");
+        QVERIFY(file->isUntitled());
+        QVERIFY(!file->isModified());
+        QCOMPARE(file->encoding(), CodeFile::fallbackEncoding());
+        QCOMPARE(project.editorFiles("states"), QStringList{placeholder});
+        QCOMPARE(project.file(placeholder), file);
+
+        QTextCursor(file->document()).insertText("[Statedef 0]\ntype = S\n");
+        QString error;
+        QVERIFY(!file->save(&error));
+        QVERIFY(error.contains("untitled1.cns"));
+        QVERIFY(project.save(&error));
+        QVERIFY(!QFileInfo::exists(placeholder));
+        QVERIFY(file->isModified());
+
+        QStringList renames;
+        connect(file, &ProjectFile::pathChanged, this, [&renames](const QString& old) { renames << old; });
+        const QString target = QDir::fromNativeSeparators(dir.filePath("new.cns"));
+        QVERIFY2(file->saveAs(target, &error), qPrintable(error));
+        QVERIFY(!file->isUntitled());
+        QCOMPARE(renames, QStringList{placeholder});
+        QCOMPARE(file->path(), target);
+        QCOMPARE(project.editorFiles("states"), QStringList{target});
+        QFile saved(target);
+        QVERIFY(saved.open(QIODevice::ReadOnly));
+        QCOMPARE(saved.readAll(), QByteArray("[Statedef 0]\r\ntype = S\r\n"));
+        saved.close();
+
+        QVERIFY(file->save(&error));
+        QCOMPARE(renames.size(), 1);
+
+        {
+            QFile extraFile(dir.filePath("extra.st"));
+            QVERIFY(extraFile.open(QIODevice::WriteOnly));
+            extraFile.write("[Statedef 1]\r\n");
+        }
+        CodeFile* extra = project.addCodeFile(dir.filePath("extra.st"), "states", &error);
+        QVERIFY2(extra, qPrintable(error));
+        QCOMPARE(project.addCodeFile(dir.filePath("extra.st"), "states"), extra);
+        QCOMPARE(project.editorFiles("states").size(), 2);
+        QVERIFY(!project.addCodeFile(dir.filePath("missing.st"), "states", &error));
+        QCOMPARE(project.editorFiles("states").size(), 2);
     }
 
     void codeFileRoundTrip_data()

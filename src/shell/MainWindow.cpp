@@ -601,6 +601,10 @@ void MainWindow::connectEditActions()
         ProjectView* view = currentProjectView();
         if (!view)
             return;
+        for (ProjectFile* file : view->project()->files()) {
+            if (file->isUntitled() && file->isModified() && !saveFileAs(file))
+                return;
+        }
         QString error;
         if (!view->project()->save(&error))
             QMessageBox::warning(this, tr("Save"), error);
@@ -609,34 +613,34 @@ void MainWindow::connectEditActions()
         if (ProjectView* view = currentProjectView())
             saveFile(view->currentFile(), false);
     });
-    on("editor_saveas", [this] {
-        ProjectView* view = currentProjectView();
-        ProjectFile* file = view ? view->currentFile() : nullptr;
-        if (!file)
-            return;
-        const QString target = QFileDialog::getSaveFileName(this, tr("Save as"), file->path());
-        if (target.isEmpty())
-            return;
-        QString error;
-        if (!file->saveAs(target, &error))
-            QMessageBox::warning(this, tr("Save as"), error);
-    });
-    const struct
-    {
-        const char* save;
-        const char* utf8;
-        const char* editor;
-    } perEditor[] = {{"def_save", "def_saveas_utf8", "definitions"},
-                     {"cmd_save", "cmd_saveas_utf8", "commands"},
-                     {"st_save", "st_saveas_utf8", "states"},
-                     {"anim_save", "anim_saveas_utf8", "animations"},
-                     {"spr_save", nullptr, "sprites"},
-                     {"snd_save", nullptr, "sounds"}};
-    for (const auto& e : perEditor) {
-        const QString editor = QString::fromLatin1(e.editor);
-        on(e.save, [this, editor] { saveEditorFile(editor, false); });
-        if (e.utf8)
-            on(e.utf8, [this, editor] { saveEditorFile(editor, true); });
+    auto forCurrentEditor = [this](void (MainWindow::*fn)(const QString&)) {
+        return [this, fn] {
+            if (ProjectView* view = currentProjectView())
+                (this->*fn)(view->currentEditor());
+        };
+    };
+    on("editor_new", forCurrentEditor(&MainWindow::newEditorFile));
+    on("editor_open", forCurrentEditor(&MainWindow::openEditorFile));
+    on("editor_saveas", forCurrentEditor(&MainWindow::saveEditorFileAs));
+    for (Engine* engine : m_context.engines().engines()) {
+        for (const EditorInfo& info : engine->editors()) {
+            if (info.actionPrefix.isEmpty())
+                continue;
+            const QString editor = info.id;
+            auto action = [&actions, &info](const char* suffix) {
+                return actions.action(info.actionPrefix + QLatin1Char('_') + QLatin1String(suffix));
+            };
+            if (QAction* a = action("new"))
+                connect(a, &QAction::triggered, this, [this, editor] { newEditorFile(editor); });
+            if (QAction* a = action("open"))
+                connect(a, &QAction::triggered, this, [this, editor] { openEditorFile(editor); });
+            if (QAction* a = action("save"))
+                connect(a, &QAction::triggered, this, [this, editor] { saveEditorFile(editor, false); });
+            if (QAction* a = action("saveas"))
+                connect(a, &QAction::triggered, this, [this, editor] { saveEditorFileAs(editor); });
+            if (QAction* a = action("saveas_utf8"))
+                connect(a, &QAction::triggered, this, [this, editor] { saveEditorFile(editor, true); });
+        }
     }
 }
 
@@ -882,6 +886,11 @@ void MainWindow::saveFile(ProjectFile* file, bool asUtf8)
 {
     if (!file)
         return;
+    if (file->isUntitled()) {
+        if (saveFileAs(file) && asUtf8)
+            saveFile(file, true);
+        return;
+    }
     QString error;
     bool ok = false;
     if (auto* code = qobject_cast<CodeFile*>(file); code && asUtf8)
@@ -904,6 +913,57 @@ void MainWindow::saveEditorFile(const QString& editorId, bool asUtf8)
     const QList<ProjectFile*> files = view->editorFiles(editorId);
     if (!files.isEmpty())
         saveFile(files.first(), asUtf8);
+}
+
+void MainWindow::newEditorFile(const QString& editorId)
+{
+    if (ProjectView* view = currentProjectView())
+        view->newFile(editorId);
+}
+
+void MainWindow::openEditorFile(const QString& editorId)
+{
+    ProjectView* view = currentProjectView();
+    if (!view)
+        return;
+    const EditorInfo info = view->engine()->editor(editorId);
+    if (info.id.isEmpty() || info.workspace != WorkspaceType::Code)
+        return;
+    const QString key = editorId + QStringLiteral("_path");
+    const QString start = m_context.config().value(key, view->project()->directory());
+    const QString path = FileDialogs::getOpenFileName(this, tr("Open"), start, info.fileFilter);
+    if (path.isEmpty())
+        return;
+    m_context.config().setValue(key, QFileInfo(path).absolutePath());
+    QString error;
+    if (!view->openFile(editorId, path, &error))
+        QMessageBox::warning(this, tr("Open"), error);
+}
+
+void MainWindow::saveEditorFileAs(const QString& editorId)
+{
+    ProjectView* view = currentProjectView();
+    if (!view)
+        return;
+    saveFileAs(view->currentEditor() == editorId ? view->currentFile() : view->editorFiles(editorId).value(0));
+}
+
+bool MainWindow::saveFileAs(ProjectFile* file)
+{
+    auto* project = file ? qobject_cast<Project*>(file->parent()) : nullptr;
+    if (!project)
+        return false;
+    const EditorInfo info = project->engine()->editor(file->editorId());
+    const QString target = FileDialogs::getSaveFileName(this, tr("Save as"), file->path(), info.fileFilter);
+    if (target.isEmpty())
+        return false;
+    QString error;
+    if (!file->saveAs(target, &error)) {
+        QMessageBox::warning(this, tr("Save as"), error);
+        return false;
+    }
+    m_context.config().setValue(file->editorId() + QStringLiteral("_path"), QFileInfo(target).absolutePath());
+    return true;
 }
 
 void MainWindow::updateProjectTab(ProjectView* view)

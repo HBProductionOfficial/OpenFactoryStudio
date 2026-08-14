@@ -45,6 +45,8 @@ public:
     const QList<ProjectFile*>& files() const { return m_files; }
     ProjectFile* file(const QString& path) const;
     CodeFile* codeFile(const QString& path, const QString& editorId, QString* error = nullptr);
+    CodeFile* addCodeFile(const QString& path, const QString& editorId, QString* error = nullptr);
+    CodeFile* newCodeFile(const QString& placeholderPath, const QString& editorId);
 
     bool isModified() const;
     bool save(QString* error = nullptr);
@@ -61,6 +63,8 @@ protected:
     void setEditorFiles(const QString& editorId, const QStringList& files);
 
 private:
+    void adopt(ProjectFile* file);
+
     Engine* m_engine;
     QString m_filePath;
     QString m_name;

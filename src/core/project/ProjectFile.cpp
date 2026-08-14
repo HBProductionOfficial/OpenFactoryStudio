@@ -29,6 +29,26 @@ ProjectFile::ProjectFile(const QString& path, const QString& editorId, QObject* 
 
 ProjectFile::~ProjectFile() = default;
 
+bool ProjectFile::save(QString* error)
+{
+    if (m_untitled) {
+        if (error)
+            *error = tr("%1 has not been saved yet: choose a file name with Save as.").arg(fileName());
+        return false;
+    }
+    return saveAs(m_path, error);
+}
+
+void ProjectFile::setPath(const QString& path)
+{
+    m_untitled = false;
+    if (path == m_path)
+        return;
+    const QString old = m_path;
+    m_path = path;
+    Q_EMIT pathChanged(old);
+}
+
 QString ProjectFile::fileName() const
 {
     return QFileInfo(m_path).fileName();
@@ -235,6 +255,17 @@ bool CodeFile::load(QString* error)
     m_document->setPlainText(text);
     m_document->setModified(false);
     return true;
+}
+
+void CodeFile::createEmpty()
+{
+    setUntitled(true);
+    m_original.clear();
+    m_encoding = fallbackEncoding();
+    m_bom.clear();
+    m_lineEnding = QStringLiteral("\r\n");
+    m_document->clear();
+    m_document->setModified(false);
 }
 
 bool CodeFile::writeCopy(const QString& target, QString* error) const

@@ -10,6 +10,12 @@ SavePrompt& savePromptOverride()
     static SavePrompt prompt;
     return prompt;
 }
+
+SavePrompt& openPromptOverride()
+{
+    static SavePrompt prompt;
+    return prompt;
+}
 } // namespace
 
 QString getSaveFileName(QWidget* parent, const QString& caption, const QString& dir, const QString& filter)
@@ -22,6 +28,18 @@ QString getSaveFileName(QWidget* parent, const QString& caption, const QString& 
 void setSavePromptOverride(SavePrompt prompt)
 {
     savePromptOverride() = std::move(prompt);
+}
+
+QString getOpenFileName(QWidget* parent, const QString& caption, const QString& dir, const QString& filter)
+{
+    if (const SavePrompt& prompt = openPromptOverride())
+        return prompt(caption, dir, filter);
+    return QFileDialog::getOpenFileName(parent, caption, dir, filter);
+}
+
+void setOpenPromptOverride(SavePrompt prompt)
+{
+    openPromptOverride() = std::move(prompt);
 }
 
 } // namespace OFS::FileDialogs

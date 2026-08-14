@@ -79,9 +79,39 @@ CodeFile* Project::codeFile(const QString& path, const QString& editorId, QStrin
         delete f;
         return nullptr;
     }
-    connect(f, &ProjectFile::modifiedChanged, this, [this] { Q_EMIT modifiedChanged(isModified()); });
-    m_files << f;
+    adopt(f);
     return f;
+}
+
+CodeFile* Project::addCodeFile(const QString& path, const QString& editorId, QString* error)
+{
+    CodeFile* f = codeFile(path, editorId, error);
+    if (f && !m_editorFiles.value(editorId).contains(f->path()))
+        m_editorFiles[editorId] << f->path();
+    return f;
+}
+
+CodeFile* Project::newCodeFile(const QString& placeholderPath, const QString& editorId)
+{
+    auto* f = new CodeFile(placeholderPath, editorId, this);
+    f->createEmpty();
+    adopt(f);
+    m_editorFiles[editorId] << f->path();
+    return f;
+}
+
+void Project::adopt(ProjectFile* f)
+{
+    connect(f, &ProjectFile::modifiedChanged, this, [this] { Q_EMIT modifiedChanged(isModified()); });
+    connect(f, &ProjectFile::pathChanged, this, [this, f](const QString& oldPath) {
+        for (QStringList& paths : m_editorFiles) {
+            for (QString& path : paths) {
+                if (path == oldPath)
+                    path = f->path();
+            }
+        }
+    });
+    m_files << f;
 }
 
 bool Project::isModified() const
@@ -96,7 +126,7 @@ bool Project::isModified() const
 bool Project::save(QString* error)
 {
     for (ProjectFile* f : m_files) {
-        if (f->isModified() && !f->save(error))
+        if (f->isModified() && !f->isUntitled() && !f->save(error))
             return false;
     }
     return true;

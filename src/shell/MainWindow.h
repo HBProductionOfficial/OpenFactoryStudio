@@ -93,6 +93,10 @@ private:
     bool confirmClose(ProjectView* view);
     void saveFile(ProjectFile* file, bool asUtf8);
     void saveEditorFile(const QString& editorId, bool asUtf8);
+    void newEditorFile(const QString& editorId);
+    void openEditorFile(const QString& editorId);
+    void saveEditorFileAs(const QString& editorId);
+    bool saveFileAs(ProjectFile* file);
     QPlainTextEdit* searchTarget() const;
     void setQuickFindOpen(bool open);
     void quickFind(int operation);

@@ -73,6 +73,8 @@ public:
     void followCursorInOutline(CodePage* page);
     void refreshOutlines();
     ProjectFile* currentFile() const;
+    ProjectFile* newFile(const QString& editorId);
+    bool openFile(const QString& editorId, const QString& path, QString* error = nullptr);
     QList<ProjectFile*> editorFiles(const QString& editorId) const;
     QList<CodeEditor*> codeEditors() const;
     void reconfigureEditors();
@@ -86,6 +88,8 @@ Q_SIGNALS:
 private:
     void createEditor(const EditorInfo& info);
     QWidget* createFilePage(const EditorInfo& info, const QString& filePath);
+    void addFileTab(const EditorInfo& info, const QString& filePath);
+    void fileRenamed(CodePage* page, const QString& oldPath, const QString& newPath);
     void configureCodeEditor(CodeEditor* editor, const QString& editorId);
     struct Analysis
     {
@@ -125,6 +129,7 @@ private:
     QHash<QString, QList<OutlineNode>> m_outlines;
     QHash<QString, VariableUsage> m_variables;
     QList<QPointer<QFutureWatcher<Analysis>>> m_analyses;
+    QPointer<QMenu> m_codeMenu;
 };
 
 } // namespace OFS
