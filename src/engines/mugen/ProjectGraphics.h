@@ -29,6 +29,8 @@ public:
 
     const Project& project() const { return m_project; }
     const QList<AirAction>& animations() const { return m_animations; }
+    void reloadAnimations();
+    QString animationFile() const;
     // [Info] localcoord width, 320 when not given.
     int localWidth() const { return m_localWidth; }
 

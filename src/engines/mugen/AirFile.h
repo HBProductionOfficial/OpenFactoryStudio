@@ -2,6 +2,7 @@
 
 #include <QList>
 #include <QString>
+#include <QStringList>
 
 namespace OFS::Mugen {
 
@@ -13,8 +14,14 @@ struct AirFrame
     int x = 0;
     int y = 0;
     int time = 0;
-    QString flip;  // "", "H", "V" or "HV" as written
+    QString flip; // "", "H", "V" or "HV" as written
+    QStringList extra;
+    QString indent;
+    QString comment;
     int line = -1;
+
+    // "G,I, X,Y, T" plus ", flip" and any further fields, keeping the indent and comment.
+    QString text() const;
 };
 
 struct AirAction
@@ -33,5 +40,11 @@ struct AirAction
 QList<AirAction> readAnimations(const QString& text);
 
 const AirAction* findAnimation(const QList<AirAction>& actions, int number);
+
+// An element with time -1 lasts forever, so later ones never start.
+constexpr qint64 Never = -1;
+qint64 elementStart(const AirAction& action, int element);
+// After the end it stays on the last element (no looping).
+int elementAt(const AirAction& action, qint64 tick);
 
 } // namespace OFS::Mugen

@@ -1,17 +1,22 @@
 #include "engines/mugen/dialogs/ThrowCreatorDialog.h"
 
 #include "core/project/Project.h"
+#include "core/project/ProjectFile.h"
+#include "engines/mugen/AirEdits.h"
 #include "engines/mugen/ProjectGraphics.h"
+#include "engines/mugen/dialogs/AddAnimationDialog.h"
 #include "engines/mugen/dialogs/AnimationPreview.h"
 
 #include <QComboBox>
 #include <QDoubleSpinBox>
+#include <QFileInfo>
 #include <QGridLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QScreen>
 #include <QSlider>
 #include <QSpinBox>
 #include <QToolButton>
@@ -202,32 +207,51 @@ ThrowCreatorDialog::ThrowCreatorDialog(Project* project, const QList<Project*>& 
     layout->addWidget(controls);
     resize(804, 729);
 
-    fillAnimations(m_startAnim, *m_p1, DefaultStartAnim);
-    fillAnimations(m_throwAnim, *m_p1, DefaultThrowAnim);
-    const AirAction* throwing = selectedAnimation(m_throwAnim, m_p1.get());
-    setElementCount(throwing ? int(throwing->frames.size()) : 0);
+    // All three are the project's own animations. The thrown one plays with the opponent's sprites.
+    fillAnimations(m_startAnim, DefaultStartAnim);
+    fillAnimations(m_throwAnim, DefaultThrowAnim);
+    fillAnimations(m_thrownAnim, DefaultThrownAnim);
+    const QString air = m_p1->animationFile();
+    if (!air.isEmpty() && (project->file(air) || QFileInfo::exists(air)))
+        m_air = project->codeFile(air, QStringLiteral("animations"));
+    m_addAnim->setToolTip(tr("Add animation"));
+    m_insertFrame->setToolTip(tr("Insert frame"));
+    m_deleteFrame->setToolTip(tr("Remove current frame"));
+    m_addAnim->setEnabled(m_air != nullptr);
     m_opponents->setCurrentIndex(int(m_projects.indexOf(project)));
-    setOpponent(m_opponents->currentIndex());
+    m_p2 = std::make_unique<ProjectGraphics>(*project);
+    const AirAction* throwing = selectedAnimation(m_throwAnim);
+    setElementCount(throwing ? int(throwing->frames.size()) : 0);
 
     connect(m_throwAnim, &QComboBox::currentIndexChanged, this, [this] {
-        const AirAction* action = selectedAnimation(m_throwAnim, m_p1.get());
+        if (m_updating)
+            return;
+        const AirAction* action = selectedAnimation(m_throwAnim);
         setElementCount(action ? int(action->frames.size()) : 0);
     });
-    connect(m_startAnim, &QComboBox::currentIndexChanged, this, &ThrowCreatorDialog::updatePreview);
     connect(m_elements, &QSpinBox::valueChanged, this, [this](int count) {
         if (!m_updating)
             setElementCount(count);
     });
-    connect(m_element, &QSlider::valueChanged, this, &ThrowCreatorDialog::showElement);
+    connect(m_element, &QSlider::valueChanged, this, [this](int element) {
+        if (!m_updating)
+            showElement(element);
+    });
     for (QDoubleSpinBox* box : {m_bindX, m_bindY})
         connect(box, &QDoubleSpinBox::valueChanged, this, &ThrowCreatorDialog::storeBind);
     connect(m_priority, &QSpinBox::valueChanged, this, &ThrowCreatorDialog::storeBind);
-    connect(m_resolution, &QComboBox::currentIndexChanged, this, &ThrowCreatorDialog::updatePreview);
-    connect(m_opponents, &QComboBox::currentIndexChanged, this, &ThrowCreatorDialog::setOpponent);
-    connect(m_thrownAnim, &QComboBox::currentIndexChanged, this, [this] { showElement(m_element->value()); });
+    connect(m_resolution, &QComboBox::currentIndexChanged, this, &ThrowCreatorDialog::applyResolution);
+    connect(m_opponents, &QComboBox::currentIndexChanged, this, &ThrowCreatorDialog::setSpriteSource);
+    connect(m_thrownAnim, &QComboBox::currentIndexChanged, this, [this] {
+        if (!m_updating)
+            showElement(m_element->value());
+    });
     for (QSpinBox* box : {m_group, m_index})
-        connect(box, &QSpinBox::valueChanged, this, &ThrowCreatorDialog::updatePreview);
-    connect(m_flip, &QComboBox::currentIndexChanged, this, &ThrowCreatorDialog::updatePreview);
+        connect(box, &QSpinBox::valueChanged, this, &ThrowCreatorDialog::editFrame);
+    connect(m_flip, &QComboBox::currentIndexChanged, this, &ThrowCreatorDialog::editFrame);
+    connect(m_addAnim, &QToolButton::clicked, this, &ThrowCreatorDialog::addAnimation);
+    connect(m_insertFrame, &QToolButton::clicked, this, &ThrowCreatorDialog::insertFrame);
+    connect(m_deleteFrame, &QToolButton::clicked, this, &ThrowCreatorDialog::deleteFrame);
     connect(insertButton, &QPushButton::clicked, this, &ThrowCreatorDialog::insert);
     connect(closeButton, &QPushButton::clicked, this, &QDialog::reject);
 }
@@ -243,34 +267,34 @@ void ThrowCreatorDialog::setIcons(const std::function<QIcon(const QString&)>& ic
     m_deleteFrame->setIcon(icon(QStringLiteral("anim_frame_delete")));
 }
 
-void ThrowCreatorDialog::fillAnimations(QComboBox* combo, const ProjectGraphics& graphics, int preferred) const
+void ThrowCreatorDialog::fillAnimations(QComboBox* combo, int preferred) const
 {
     combo->clear();
     int current = 0;
-    for (const AirAction& action : graphics.animations()) {
-        if (action.number == preferred)
+    bool found = false;
+    for (const AirAction& action : m_p1->animations()) {
+        if (action.number == preferred && !found) {
             current = combo->count();
+            found = true;
+        }
         combo->addItem(action.caption(), action.number);
     }
     combo->setCurrentIndex(combo->count() > 0 ? current : -1);
 }
 
-const AirAction* ThrowCreatorDialog::selectedAnimation(const QComboBox* combo, const ProjectGraphics* graphics) const
+const AirAction* ThrowCreatorDialog::selectedAnimation(const QComboBox* combo) const
 {
-    if (!graphics || combo->currentIndex() < 0)
+    if (combo->currentIndex() < 0)
         return nullptr;
-    return findAnimation(graphics->animations(), combo->currentData().toInt());
+    return findAnimation(m_p1->animations(), combo->currentData().toInt());
 }
 
-void ThrowCreatorDialog::setOpponent(int index)
+void ThrowCreatorDialog::setSpriteSource(int index)
 {
     if (index < 0 || index >= m_projects.size())
         return;
     m_p2 = std::make_unique<ProjectGraphics>(*m_projects.at(index));
-    const bool updating = std::exchange(m_updating, true);
-    fillAnimations(m_thrownAnim, *m_p2, DefaultThrownAnim);
-    m_updating = updating;
-    showElement(m_element->value());
+    updatePreview();
 }
 
 void ThrowCreatorDialog::setElementCount(int count)
@@ -292,14 +316,22 @@ void ThrowCreatorDialog::showElement(int element)
     m_bindX->setValue(bind.x);
     m_bindY->setValue(bind.y);
     m_priority->setValue(bind.priority);
-    const AirAction* thrown = selectedAnimation(m_thrownAnim, m_p2.get());
-    if (thrown && element < thrown->frames.size()) {
-        const AirFrame& frame = thrown->frames.at(element);
+
+    const AirAction* throwing = selectedAnimation(m_throwAnim);
+    const int count = throwing ? int(throwing->frames.size()) : 0;
+    m_tick = count > 0 ? elementStart(*throwing, qMin(element, count - 1)) : 0;
+    const AirAction* thrown = selectedAnimation(m_thrownAnim);
+    m_frame = thrown ? elementAt(*thrown, m_tick) : -1;
+    if (m_frame >= 0) {
+        const AirFrame& frame = thrown->frames.at(m_frame);
         m_group->setValue(frame.group);
         m_index->setValue(frame.index);
-        m_flip->setCurrentIndex((thrown->flipsHorizontally(element) ? 1 : 0) +
-                                (thrown->flipsVertically(element) ? 2 : 0));
+        m_flip->setCurrentIndex((thrown->flipsHorizontally(m_frame) ? 1 : 0) +
+                                (thrown->flipsVertically(m_frame) ? 2 : 0));
     }
+    const bool editable = m_air && m_frame >= 0;
+    for (QWidget* w : std::initializer_list<QWidget*>{m_group, m_index, m_flip, m_insertFrame, m_deleteFrame})
+        w->setEnabled(editable);
     m_updating = updating;
     updatePreview();
 }
@@ -315,50 +347,121 @@ void ThrowCreatorDialog::storeBind()
     updatePreview();
 }
 
-int ThrowCreatorDialog::resolutionWidth() const
-{
-    return m_resolution->currentText().section(QLatin1Char('x'), 0, 0).toInt();
-}
-
 void ThrowCreatorDialog::updatePreview()
 {
     if (m_updating)
         return;
     const int element = m_element->value();
-    const double screen = resolutionWidth();
+    const double screen = m_preview->screenSize().width();
     QList<AnimationPreview::Figure> figures;
 
     AnimationPreview::Figure p1;
     p1.scale = screen / m_p1->localWidth();
     p1.cross = Qt::white;
-    if (const AirAction* throwing = selectedAnimation(m_throwAnim, m_p1.get());
-        throwing && element < throwing->frames.size()) {
-        const AirFrame& frame = throwing->frames.at(element);
+    if (const AirAction* throwing = selectedAnimation(m_throwAnim); throwing && !throwing->frames.isEmpty()) {
+        const int shown = qMin(element, int(throwing->frames.size()) - 1);
+        const AirFrame& frame = throwing->frames.at(shown);
         p1.image = m_p1->sprite(frame.group, frame.index, &p1.axis);
-        p1.flipH = throwing->flipsHorizontally(element);
-        p1.flipV = throwing->flipsVertically(element);
+        p1.flipH = throwing->flipsHorizontally(shown);
+        p1.flipV = throwing->flipsVertically(shown);
         p1.position = QPointF(frame.x, frame.y) * p1.scale;
     }
     figures << p1;
 
     AnimationPreview::Figure p2;
-    p2.scale = m_p2 ? screen / m_p2->localWidth() : 1.0;
+    p2.scale = screen / m_p2->localWidth();
     p2.cross = QColor(40, 90, 255);
     const ThrowBind bind = element < m_binds.size() ? m_binds.at(element) : ThrowBind();
     p2.position = QPointF(bind.x, bind.y) * p1.scale;
-    if (m_p2) {
-        p2.image = m_p2->sprite(m_group->value(), m_index->value(), &p2.axis);
-        const int flip = m_flip->currentIndex();
-        p2.flipH = !(flip & 1);
-        p2.flipV = (flip & 2) != 0;
-        if (const AirAction* thrown = selectedAnimation(m_thrownAnim, m_p2.get());
-            thrown && element < thrown->frames.size()) {
-            const AirFrame& frame = thrown->frames.at(element);
-            p2.position += QPointF(-frame.x, frame.y) * p2.scale;
-        }
+    p2.image = m_p2->sprite(m_group->value(), m_index->value(), &p2.axis);
+    const int flip = m_flip->currentIndex();
+    p2.flipH = !(flip & 1);
+    p2.flipV = (flip & 2) != 0;
+    if (const AirAction* thrown = selectedAnimation(m_thrownAnim); thrown && m_frame >= 0) {
+        const AirFrame& frame = thrown->frames.at(m_frame);
+        p2.position += QPointF(-frame.x, frame.y) * p2.scale;
     }
     figures << p2;
     m_preview->setFigures(figures);
+}
+
+void ThrowCreatorDialog::applyResolution()
+{
+    const QStringList size = m_resolution->currentText().split(QLatin1Char('x'));
+    m_preview->setScreenSize(QSize(size.value(0).toInt(), size.value(1).toInt()));
+    updatePreview();
+    const QPoint centre = geometry().center();
+    QSize wanted = sizeHint().expandedTo(minimumSizeHint());
+    const QRect available = screen() ? screen()->availableGeometry() : QRect();
+    if (available.isValid())
+        wanted = wanted.boundedTo(available.size());
+    resize(wanted);
+    if (isVisible() && available.isValid()) {
+        QRect frame(QPoint(), frameGeometry().size());
+        frame.moveCenter(centre);
+        frame.moveLeft(
+            qBound(available.left(), frame.left(), qMax(available.left(), available.right() - frame.width())));
+        frame.moveTop(qBound(available.top(), frame.top(), qMax(available.top(), available.bottom() - frame.height())));
+        move(frame.topLeft());
+    }
+}
+
+void ThrowCreatorDialog::editFrame()
+{
+    if (m_updating || !m_air || m_frame < 0)
+        return;
+    const AirAction* thrown = selectedAnimation(m_thrownAnim);
+    if (!thrown || m_frame >= thrown->frames.size())
+        return;
+    static const char* const flips[] = {"", "H", "V", "HV"};
+    AirFrame frame = thrown->frames.at(m_frame);
+    frame.group = m_group->value();
+    frame.index = m_index->value();
+    frame.flip = QString::fromLatin1(flips[qBound(0, m_flip->currentIndex(), 3)]);
+    AirEdits::setFrame(m_air->document(), frame);
+    reloadAnimations();
+}
+
+void ThrowCreatorDialog::insertFrame()
+{
+    const AirAction* thrown = selectedAnimation(m_thrownAnim);
+    if (m_air && thrown && AirEdits::splitFrame(m_air->document(), *thrown, m_tick))
+        reloadAnimations();
+}
+
+void ThrowCreatorDialog::deleteFrame()
+{
+    const AirAction* thrown = selectedAnimation(m_thrownAnim);
+    if (m_air && thrown && AirEdits::removeFrame(m_air->document(), *thrown, m_tick))
+        reloadAnimations();
+}
+
+void ThrowCreatorDialog::addAnimation()
+{
+    if (!m_air)
+        return;
+    QList<int> taken;
+    for (const AirAction& action : m_p1->animations())
+        taken << action.number;
+    AddAnimationDialog dialog(taken, m_thrownAnim->currentIndex() >= 0 ? m_thrownAnim->currentData().toInt() + 1 : 0,
+                              this);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+    AirEdits::appendAnimation(m_air->document(), dialog.number(), dialog.name(), dialog.time());
+    reloadAnimations();
+    const int added = m_thrownAnim->findData(dialog.number());
+    if (added >= 0)
+        m_thrownAnim->setCurrentIndex(added);
+}
+
+void ThrowCreatorDialog::reloadAnimations()
+{
+    m_p1->reloadAnimations();
+    const bool updating = std::exchange(m_updating, true);
+    for (QComboBox* combo : {m_startAnim, m_throwAnim, m_thrownAnim})
+        fillAnimations(combo, combo->currentData().toInt());
+    m_updating = updating;
+    showElement(m_element->value());
 }
 
 ThrowSettings ThrowCreatorDialog::settings() const

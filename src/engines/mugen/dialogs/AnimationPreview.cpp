@@ -29,6 +29,18 @@ void AnimationPreview::setFigures(const QList<Figure>& figures)
     update();
 }
 
+void AnimationPreview::setScreenSize(const QSize& size)
+{
+    m_screen = size;
+    updateGeometry();
+    update();
+}
+
+QSize AnimationPreview::sizeHint() const
+{
+    return {qMax(782, m_screen.width() - 22), qMax(200, m_screen.height() - 28)};
+}
+
 QRect AnimationPreview::viewport() const
 {
     return rect().adjusted(RulerSize, RulerSize, 0, 0);
@@ -36,8 +48,10 @@ QRect AnimationPreview::viewport() const
 
 QPointF AnimationPreview::origin() const
 {
-    const QRect view = viewport();
-    return {view.left() + std::round(view.width() * 0.4), view.top() + std::round(view.height() * 0.83)};
+    // The screen puts the players half way across and on the floor, at 170/240 of its height.
+    const double x = std::min(m_screen.width() / 2.0, width() / 2.0);
+    const double y = std::min(std::round(m_screen.height() * 170.0 / 240.0) + 1, height() - 24.0);
+    return {std::max(x, double(RulerSize) + 24), std::max(y, double(RulerSize) + 24)};
 }
 
 QPointF AnimationPreview::toWidget(const QPointF& units) const

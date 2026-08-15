@@ -5,7 +5,21 @@
 
 #include <QStringList>
 
+#include <limits>
+
 namespace OFS::Mugen {
+
+QString AirFrame::text() const
+{
+    QString line = indent + QStringLiteral("%1,%2, %3,%4, %5").arg(group).arg(index).arg(x).arg(y).arg(time);
+    if (!flip.isEmpty() || !extra.isEmpty())
+        line += QStringLiteral(", ") + flip;
+    for (const QString& field : extra)
+        line += QStringLiteral(", ") + field;
+    if (!comment.isEmpty())
+        line += QLatin1Char(' ') + comment;
+    return line;
+}
 
 QString AirAction::caption() const
 {
@@ -72,10 +86,49 @@ QList<AirAction> readAnimations(const QString& text)
             continue;
         if (fields.size() > 5)
             frame.flip = fields[5].trimmed();
+        for (qsizetype f = 6; f < fields.size(); ++f)
+            frame.extra << fields[f].trimmed();
+        for (QChar c : source) {
+            if (c != QLatin1Char(' ') && c != QLatin1Char('\t'))
+                break;
+            frame.indent += c;
+        }
+        if (line.commentStart >= 0)
+            frame.comment = source.mid(line.commentStart).trimmed();
         frame.line = n;
         actions.last().frames << frame;
     }
     return actions;
+}
+
+qint64 elementStart(const AirAction& action, int element)
+{
+    qint64 tick = 0;
+    for (int i = 0; i < element && i < action.frames.size(); ++i) {
+        if (action.frames.at(i).time < 0)
+            return Never;
+        tick += action.frames.at(i).time;
+    }
+    return tick;
+}
+
+int elementAt(const AirAction& action, qint64 tick)
+{
+    if (action.frames.isEmpty())
+        return -1;
+    if (tick == Never)
+        tick = std::numeric_limits<qint64>::max();
+    int element = 0;
+    qint64 start = 0;
+    for (int i = 0; i < action.frames.size(); ++i) {
+        if (start > tick)
+            break;
+        element = i;
+        if (action.frames.at(i).time < 0)
+            break; // an endless element, so the rest never start
+        start += action.frames.at(i).time;
+    }
+    return element;
 }
 
 const AirAction* findAnimation(const QList<AirAction>& actions, int number)

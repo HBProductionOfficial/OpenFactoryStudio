@@ -2,6 +2,8 @@
 add_library(ofs_mugen_lib STATIC
     AirFile.h
     AirFile.cpp
+    AirEdits.h
+    AirEdits.cpp
     DefFile.h
     DefFile.cpp
     MugenActions.h
@@ -24,6 +26,8 @@ add_library(ofs_mugen_lib STATIC
     ThrowCreator.cpp
     ProjectGraphics.h
     ProjectGraphics.cpp
+    dialogs/AddAnimationDialog.h
+    dialogs/AddAnimationDialog.cpp
     dialogs/AnimationPreview.h
     dialogs/AnimationPreview.cpp
     dialogs/OffsetViewerDialog.h

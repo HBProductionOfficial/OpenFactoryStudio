@@ -3,6 +3,7 @@
 #include "engines/mugen/ThrowCreator.h"
 
 #include <QDialog>
+#include <QPointer>
 
 #include <functional>
 #include <memory>
@@ -14,8 +15,9 @@ class QSpinBox;
 class QToolButton;
 
 namespace OFS {
+class CodeFile;
 class Project;
-}
+} // namespace OFS
 
 namespace OFS::Mugen {
 
@@ -42,21 +44,29 @@ public:
     AnimationPreview* preview() const { return m_preview; }
 
 private:
-    void fillAnimations(QComboBox* combo, const ProjectGraphics& graphics, int preferred) const;
-    const AirAction* selectedAnimation(const QComboBox* combo, const ProjectGraphics* graphics) const;
-    void setOpponent(int index);
+    void fillAnimations(QComboBox* combo, int preferred) const;
+    const AirAction* selectedAnimation(const QComboBox* combo) const;
+    void setSpriteSource(int index);
     void setElementCount(int count);
     void showElement(int element);
     void storeBind();
     void updatePreview();
+    void applyResolution();
     void insert();
-    int resolutionWidth() const;
+    void editFrame();
+    void insertFrame();
+    void deleteFrame();
+    void addAnimation();
+    void reloadAnimations();
 
     QList<Project*> m_projects;
     QString m_script;
     std::function<void(const QString&)> m_insert;
     std::unique_ptr<ProjectGraphics> m_p1;
     std::unique_ptr<ProjectGraphics> m_p2;
+    QPointer<CodeFile> m_air;
+    qint64 m_tick = 0;
+    int m_frame = -1;
     QList<ThrowBind> m_binds;
     bool m_updating = false;
 

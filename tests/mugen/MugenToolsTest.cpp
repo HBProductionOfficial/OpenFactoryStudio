@@ -1,23 +1,32 @@
 #include "core/project/Project.h"
+#include "core/project/ProjectFile.h"
 #include "core/script/LuaScript.h"
+#include "engines/mugen/AirEdits.h"
 #include "engines/mugen/AirFile.h"
 #include "engines/mugen/MugenEngine.h"
 #include "engines/mugen/ProjectGraphics.h"
 #include "engines/mugen/ThrowCreator.h"
+#include "engines/mugen/dialogs/AddAnimationDialog.h"
 #include "engines/mugen/dialogs/AnimationPreview.h"
 #include "engines/mugen/dialogs/OffsetViewerDialog.h"
 #include "engines/mugen/dialogs/ThrowCreatorDialog.h"
 
+#include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDir>
 #include <QDoubleSpinBox>
 #include <QFile>
+#include <QLineEdit>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QSlider>
 #include <QSpinBox>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTextDocument>
+#include <QTimer>
+#include <QToolButton>
 
 #include <memory>
 
@@ -170,15 +179,129 @@ private Q_SLOTS:
         QCOMPARE(findAnimation(actions, 5), &actions[1]);
         QCOMPARE(findAnimation(actions, 7), nullptr);
     }
+    void timeline()
+    {
+        Mugen::AirAction action;
+        for (int time : {2, 3, -1, 4}) {
+            Mugen::AirFrame frame;
+            frame.time = time;
+            action.frames << frame;
+        }
+        QCOMPARE(Mugen::elementStart(action, 0), qint64(0));
+        QCOMPARE(Mugen::elementStart(action, 2), qint64(5));
+        QCOMPARE(Mugen::elementStart(action, 3), Mugen::Never);
+        QCOMPARE(Mugen::elementAt(action, 0), 0);
+        QCOMPARE(Mugen::elementAt(action, 1), 0);
+        QCOMPARE(Mugen::elementAt(action, 2), 1);
+        QCOMPARE(Mugen::elementAt(action, 5), 2);
+        QCOMPARE(Mugen::elementAt(action, 1000), 2);
+        QCOMPARE(Mugen::elementAt(action, Mugen::Never), 2);
+        action.frames.removeAt(2);
+        QCOMPARE(Mugen::elementAt(action, 1000), 2);
+        QCOMPARE(Mugen::elementAt(Mugen::AirAction(), 0), -1);
+    }
+
+    void frameText()
+    {
+        const QList<Mugen::AirAction> actions =
+            Mugen::readAnimations("[Begin Action 1]\n5030,30, 0,0,-1\n  1,2, 3,4, 5, , A ; note\n7,8,0,0,9,h\n");
+        QCOMPARE(actions.size(), 1);
+        Mugen::AirFrame frame = actions[0].frames[0];
+        QCOMPARE(frame.text(), QStringLiteral("5030,30, 0,0, -1"));
+        frame.flip = "H";
+        QCOMPARE(frame.text(), QStringLiteral("5030,30, 0,0, -1, H"));
+        QCOMPARE(actions[0].frames[1].text(), QStringLiteral("  1,2, 3,4, 5, , A ; note"));
+        QCOMPARE(actions[0].frames[2].text(), QStringLiteral("7,8, 0,0, 9, h"));
+    }
+
+    void airEdits()
+    {
+        QTextDocument doc;
+        auto action = [&doc](int index = 0) {
+            return Mugen::readAnimations(doc.toPlainText()).value(index);
+        };
+        auto body = [&doc] {
+            return doc.toPlainText().section('\n', 1);
+        };
+
+        doc.setPlainText("[Begin Action 831]\n-1,0, 0,0, -1");
+        QVERIFY(Mugen::AirEdits::splitFrame(&doc, action(), 2));
+        QCOMPARE(body(), QStringLiteral("-1,0, 0,0, 2\n-1,0, 0,0, -1"));
+        QVERIFY(Mugen::AirEdits::splitFrame(&doc, action(), 15));
+        QCOMPARE(body(), QStringLiteral("-1,0, 0,0, 2\n-1,0, 0,0, 13\n-1,0, 0,0, -1"));
+        QVERIFY(Mugen::AirEdits::splitFrame(&doc, action(), 5));
+        QCOMPARE(body(), QStringLiteral("-1,0, 0,0, 2\n-1,0, 0,0, 3\n-1,0, 0,0, 10\n-1,0, 0,0, -1"));
+        QVERIFY(!Mugen::AirEdits::splitFrame(&doc, action(), 5));
+        doc.undo();
+        QCOMPARE(body(), QStringLiteral("-1,0, 0,0, 2\n-1,0, 0,0, 13\n-1,0, 0,0, -1"));
+
+        doc.setPlainText("[Begin Action 820]\n5030,40, 0,0, 5\nClsn2: 1\n Clsn2[0] = 1,2,3,4\n5030,30, 0,0, -1");
+        QVERIFY(Mugen::AirEdits::splitFrame(&doc, action(), 4));
+        QCOMPARE(body(),
+                 QStringLiteral("5030,40, 0,0, 4\n-1,0, 0,0, 1\nClsn2: 1\n Clsn2[0] = 1,2,3,4\n5030,30, 0,0, -1"));
+        doc.setPlainText("[Begin Action 5]\n5,0, 0,0, 4, H\n5,0,0,0,4");
+        QVERIFY(Mugen::AirEdits::splitFrame(&doc, action(), 15));
+        QCOMPARE(body(), QStringLiteral("5,0, 0,0, 4, H\n5,0, 0,0, 11\n-1,0, 0,0, -1"));
+
+        doc.setPlainText("[Begin Action 1]\n-1,0, 0,0, 2\n-1,0, 0,0, 3\n-1,0, 0,0, 10\n5071,10, 0,0, -1, H");
+        QVERIFY(Mugen::AirEdits::removeFrame(&doc, action(), 5));
+        QCOMPARE(body(), QStringLiteral("-1,0, 0,0, 2\n-1,0, 0,0, 13\n5071,10, 0,0, -1, H"));
+        doc.setPlainText("[Begin Action 1]\n5071,10, 0,0, 5, H\n-1,0, 0,0, -1");
+        QVERIFY(Mugen::AirEdits::removeFrame(&doc, action(), 20));
+        QCOMPARE(body(), QStringLiteral("5071,10, 0,0, -1, H"));
+        QVERIFY(!Mugen::AirEdits::removeFrame(&doc, action(), 20));
+        doc.setPlainText("[Begin Action 1]\n1,0, 0,0, 3\n2,0, 0,0, 4");
+        QVERIFY(!Mugen::AirEdits::removeFrame(&doc, action(), 1));
+        doc.setPlainText("[Begin Action 1]\nClsn2Default: 1\n Clsn2[0] = 0,0,1,1\n1,0, 0,0, 3\nClsn1: 1\n"
+                         " Clsn1[0] = 0,0,2,2\n2,0, 0,0, 4\n3,0, 0,0, 5\n\n[Begin Action 2]\n9,9,0,0,1");
+        QVERIFY(Mugen::AirEdits::removeFrame(&doc, action(), 3));
+        QCOMPARE(doc.toPlainText(), QStringLiteral("[Begin Action 1]\nClsn2Default: 1\n Clsn2[0] = 0,0,1,1\n"
+                                                   "1,0, 0,0, 7\n3,0, 0,0, 5\n\n[Begin Action 2]\n9,9,0,0,1"));
+        QVERIFY(Mugen::AirEdits::removeFrame(&doc, action(1), 0) == false);
+        doc.setPlainText("[Begin Action 1]\n1,0, 0,0, 3\n2,0, 0,0, 4");
+        QVERIFY(Mugen::AirEdits::removeFrame(&doc, action(), 3));
+        QCOMPARE(doc.toPlainText(), QStringLiteral("[Begin Action 1]\n1,0, 0,0, 7"));
+
+        Mugen::AirFrame frame = action().frames[0];
+        frame.group = 5071;
+        frame.flip = "HV";
+        Mugen::AirEdits::setFrame(&doc, frame);
+        QCOMPARE(body(), QStringLiteral("5071,0, 0,0, 7, HV"));
+
+        doc.setPlainText("[Begin Action 1]\n5300,1, 0,0, 8\n");
+        Mugen::AirEdits::appendAnimation(&doc, 830, "Test Thrown", 0);
+        QCOMPARE(doc.toPlainText(), QStringLiteral("[Begin Action 1]\n5300,1, 0,0, 8\n; Test Thrown\n"
+                                                   "[Begin Action 830]\n-1,0, 0,0, -1\n"));
+        doc.setPlainText("x");
+        Mugen::AirEdits::appendAnimation(&doc, 0, "", 7);
+        QCOMPARE(doc.toPlainText(), QStringLiteral("x\n[Begin Action 0]\n-1,0, 0,0, 7\n"));
+        doc.undo();
+        QCOMPARE(doc.toPlainText(), QStringLiteral("x"));
+    }
+
+    void previewScreen()
+    {
+        Mugen::AnimationPreview preview;
+        QCOMPARE(preview.sizeHint(), QSize(782, 452));
+        preview.resize(782, 452);
+        QCOMPARE(preview.origin(), QPointF(320, 341)); // half way across, at 170/240 of the height
+        preview.setScreenSize(QSize(320, 240));
+        QCOMPARE(preview.origin(), QPointF(160, 171));
+        preview.setScreenSize(QSize(1280, 720));
+        QCOMPARE(preview.sizeHint(), QSize(1258, 692));
+        QVERIFY(preview.origin().y() < 452);
+    }
+
     void throwCreatorDialog()
     {
         QTemporaryDir dir;
         writeFile(dir.filePath("thrower.def"), "[Info]\nname = \"Thrower\"\nmugenversion = 1.0\n"
                                                "[Files]\ncns = thrower.cns\nsprite = t.sff\nanim = thrower.air\n");
         writeFile(dir.filePath("thrower.cns"), "[Data]\nlife = 1000\n");
-        writeFile(dir.filePath("thrower.air"), "[Begin Action 0]\n0,0, 0,0, -1\n\n"
-                                               "; Throw\n[Begin Action 810]\n810,0, 0,0, 5\n810,1, 6,0, 5\n\n"
-                                               "; Thrown\n[Begin Action 820]\n5000,0, 0,0, 5\n5010,0, 4,0, 5, V\n");
+        const QByteArray air = "[Begin Action 0]\n0,0, 0,0, -1\n\n"
+                               "; Throw\n[Begin Action 810]\n810,0, 0,0, 3\n810,1, 6,0, 5\n810,2, 0,0, 4\n\n"
+                               "; Thrown\n[Begin Action 820]\n5000,0, 0,0, 5\n5010,0, 4,0, 5, V\n";
+        writeFile(dir.filePath("thrower.air"), air);
         writeFile(dir.filePath("big.def"), "[Info]\nname = \"Big\"\nlocalcoord = 640, 480\nmugenversion = 1.1\n"
                                            "[Files]\ncns = thrower.cns\nanim = big.air\n");
         writeFile(dir.filePath("big.air"), "; Big thrown\n[Begin Action 7]\n1,0, 2,0, 5\n");
@@ -192,49 +315,113 @@ private Q_SLOTS:
         Mugen::ThrowCreatorDialog dialog(thrower.get(), {thrower.get(), big.get()}, throwScript());
         QCOMPARE(child<QComboBox>(&dialog, "p1AnimStart")->currentText(), QStringLiteral("0"));
         QCOMPARE(child<QComboBox>(&dialog, "p1Anim")->currentText(), QStringLiteral("810 - Throw"));
-        QCOMPARE(child<QSpinBox>(&dialog, "elem")->value(), 2);
+        QCOMPARE(child<QComboBox>(&dialog, "p2Anim")->currentText(), QStringLiteral("820 - Thrown"));
+        QCOMPARE(child<QSpinBox>(&dialog, "elem")->value(), 3);
         QCOMPARE(child<QComboBox>(&dialog, "projs")->count(), 2);
         QCOMPARE(child<QComboBox>(&dialog, "projs")->currentText(), QStringLiteral("Thrower"));
+        QCOMPARE(child<QToolButton>(&dialog, "insFrame")->toolTip(), QStringLiteral("Insert frame"));
 
+        // Element 1 starts at tick 3, element 2 at tick 8.
         Mugen::AnimationPreview* preview = dialog.preview();
         auto* slider = child<QSlider>(&dialog, "horizontalSlider");
+        auto* group = child<QSpinBox>(&dialog, "grp");
         slider->setValue(1);
-        QCOMPARE(child<QSpinBox>(&dialog, "grp")->value(), 5010);
+        QCOMPARE(group->value(), 5000);
+        slider->setValue(2);
+        QCOMPARE(group->value(), 5010);
         QCOMPARE(child<QComboBox>(&dialog, "flipList")->currentText(), QStringLiteral("Flip V"));
-        QCOMPARE(preview->figures().size(), 2);
+        slider->setValue(1);
         QCOMPARE(preview->figures()[0].position, QPointF(12, 0));
         QCOMPARE(preview->figures()[0].scale, 2.0);
+        slider->setValue(2);
         QCOMPARE(preview->figures()[1].position, QPointF(75 * 2 - 4 * 2, 0));
         QVERIFY(preview->figures()[1].flipH);
         QVERIFY(preview->figures()[1].flipV);
         child<QComboBox>(&dialog, "res")->setCurrentText("1280x720");
+        QCOMPARE(preview->screenSize(), QSize(1280, 720));
         QCOMPARE(preview->figures()[1].position, QPointF(75 * 4 - 4 * 4, 0));
         child<QComboBox>(&dialog, "res")->setCurrentText("640x480");
 
         child<QComboBox>(&dialog, "projs")->setCurrentIndex(1);
-        QCOMPARE(child<QComboBox>(&dialog, "p2Anim")->currentText(), QStringLiteral("7 - Big thrown"));
-        slider->setValue(0);
-        QCOMPARE(child<QSpinBox>(&dialog, "grp")->value(), 1);
+        QCOMPARE(child<QComboBox>(&dialog, "p2Anim")->currentText(), QStringLiteral("820 - Thrown"));
         QCOMPARE(preview->figures()[1].scale, 1.0);
-        QCOMPARE(preview->figures()[1].position, QPointF(75 * 2 - 2, 0));
+        QCOMPARE(preview->figures()[1].position, QPointF(75 * 2 - 4, 0));
+        child<QComboBox>(&dialog, "projs")->setCurrentIndex(0);
+
+        auto* file = qobject_cast<CodeFile*>(thrower->file(dir.filePath("thrower.air")));
+        QVERIFY(file);
+        QTextDocument* text = file->document();
+        group->setValue(5011);
+        QVERIFY(text->toPlainText().contains("\n5011,0, 4,0, 5, V\n"));
+        QVERIFY(file->isModified());
+        text->undo();
+        QVERIFY(text->toPlainText().contains("\n5010,0, 4,0, 5, V\n"));
+        slider->setValue(1);
+        child<QToolButton>(&dialog, "insFrame")->click();
+        QVERIFY(text->toPlainText().contains("[Begin Action 820]\n5000,0, 0,0, 3\n-1,0, 0,0, 2\n5010,0"));
+        QCOMPARE(group->value(), -1);
+        child<QToolButton>(&dialog, "delFrame")->click();
+        QVERIFY(text->toPlainText().contains("[Begin Action 820]\n5000,0, 0,0, 5\n5010,0"));
+        QCOMPARE(group->value(), 5000);
+
+        bool asked = false;
+        QTimer::singleShot(0, this, [&asked] {
+            auto* add = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+            QVERIFY(add);
+            QCOMPARE(add->objectName(), QStringLiteral("AddAnim"));
+            QCOMPARE(add->windowTitle(), QStringLiteral("Add animation"));
+            QCOMPARE(add->findChild<QSpinBox*>("number")->value(), 821);
+            add->findChild<QLineEdit*>("name")->setText("Spin");
+            asked = true;
+            add->accept();
+        });
+        child<QToolButton>(&dialog, "addAnim")->click();
+        QVERIFY(asked);
+        QVERIFY(text->toPlainText().endsWith("5010,0, 4,0, 5, V\n; Spin\n[Begin Action 821]\n-1,0, 0,0, -1\n"));
+        QCOMPARE(child<QComboBox>(&dialog, "p2Anim")->currentText(), QStringLiteral("821 - Spin"));
+        QCOMPARE(child<QComboBox>(&dialog, "p1Anim")->count(), 4);
+        QCOMPARE(child<QComboBox>(&dialog, "p1Anim")->currentText(), QStringLiteral("810 - Throw"));
+        QCOMPARE(group->value(), -1);
+        QCOMPARE(child<QSpinBox>(&dialog, "elem")->value(), 3);
 
         child<QDoubleSpinBox>(&dialog, "bindX")->setValue(10);
-        child<QSpinBox>(&dialog, "elem")->setValue(4);
-        QCOMPARE(slider->maximum(), 3);
-        slider->setValue(3);
+        child<QSpinBox>(&dialog, "elem")->setValue(5);
+        QCOMPARE(slider->maximum(), 4);
+        slider->setValue(4);
         QCOMPARE(child<QDoubleSpinBox>(&dialog, "bindX")->value(), 75.0);
         const Mugen::ThrowSettings settings = dialog.settings();
-        QCOMPARE(settings.binds.size(), 4);
-        QCOMPARE(settings.binds[0].x, 10.0);
+        QCOMPARE(settings.binds.size(), 5);
+        QCOMPARE(settings.binds[1].x, 10.0);
         QCOMPARE(settings.startAnim, 0);
         QCOMPARE(settings.throwAnim, 810);
-        QCOMPARE(settings.thrownAnim, 7);
+        QCOMPARE(settings.thrownAnim, 821);
 
         QString inserted;
         dialog.setInsertHandler([&inserted](const QString& text) { inserted = text; });
         child<QPushButton>(&dialog, "ins")->click();
         QCOMPARE(dialog.result(), int(QDialog::Accepted));
         QCOMPARE(inserted, Mugen::throwStates(throwScript(), settings));
+        QVERIFY(inserted.contains("value = 821\n"));
+    }
+
+    void addAnimationDialog()
+    {
+        Mugen::AddAnimationDialog dialog({0, 5, 6}, 5);
+        QCOMPARE(dialog.number(), 7);
+        QCOMPARE(dialog.time(), 0);
+        QCOMPARE(dialog.findChild<QSpinBox*>("number")->minimum(), -300000);
+        dialog.findChild<QSpinBox*>("number")->setValue(6);
+        bool warned = false;
+        QTimer::singleShot(0, this, [&warned] {
+            auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            QVERIFY(box->text().contains("6"));
+            warned = true;
+            box->accept();
+        });
+        dialog.accept();
+        QVERIFY(warned);
+        QCOMPARE(dialog.result(), int(QDialog::Rejected));
     }
 
     void throwCreatorKfm()

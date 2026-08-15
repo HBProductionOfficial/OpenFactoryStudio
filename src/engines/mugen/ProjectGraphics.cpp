@@ -25,9 +25,7 @@ QString projectFileText(const Project& project, const QString& path)
 ProjectGraphics::ProjectGraphics(const Project& project)
     : m_project(project)
 {
-    const QString air = project.editorFiles(QStringLiteral("animations")).value(0);
-    if (!air.isEmpty())
-        m_animations = readAnimations(projectFileText(project, air));
+    reloadAnimations();
 
     DefFile def;
     def.parse(projectFileText(project, project.filePath()));
@@ -49,6 +47,17 @@ ProjectGraphics::ProjectGraphics(const Project& project)
 }
 
 ProjectGraphics::~ProjectGraphics() = default;
+
+QString ProjectGraphics::animationFile() const
+{
+    return m_project.editorFiles(QStringLiteral("animations")).value(0);
+}
+
+void ProjectGraphics::reloadAnimations()
+{
+    const QString air = animationFile();
+    m_animations = air.isEmpty() ? QList<AirAction>() : readAnimations(projectFileText(m_project, air));
+}
 
 QImage ProjectGraphics::sprite(int group, int index, QPoint* axis) const
 {
