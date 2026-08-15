@@ -11,14 +11,14 @@ namespace OFS::Mugen {
 
 QString AirFrame::text() const
 {
-    QString line = indent + QStringLiteral("%1,%2, %3,%4, %5").arg(group).arg(index).arg(x).arg(y).arg(time);
+    QString result = indent + QStringLiteral("%1,%2, %3,%4, %5").arg(group).arg(index).arg(x).arg(y).arg(time);
     if (!flip.isEmpty() || !extra.isEmpty())
-        line += QStringLiteral(", ") + flip;
+        result += QStringLiteral(", ") + flip;
     for (const QString& field : extra)
-        line += QStringLiteral(", ") + field;
+        result += QStringLiteral(", ") + field;
     if (!comment.isEmpty())
-        line += QLatin1Char(' ') + comment;
-    return line;
+        result += QLatin1Char(' ') + comment;
+    return result;
 }
 
 QString AirAction::caption() const
