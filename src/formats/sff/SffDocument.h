@@ -156,6 +156,8 @@ public:
     Status convertTo(SffVersion target, const SffConvertOptions& options = {});
 
     Result<Image> decodeSprite(std::size_t index, DecodeMode mode = DecodeMode::Lenient) const;
+    static Result<Image> decodePayload(const SffSprite& sprite, const Palette* palette,
+                                       DecodeMode mode = DecodeMode::Lenient);
     Result<Image> decodeSpriteRgba(std::size_t index, const Palette* palette = nullptr,
                                    DecodeMode mode = DecodeMode::Lenient) const;
 

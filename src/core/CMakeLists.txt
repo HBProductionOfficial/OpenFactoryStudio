@@ -103,6 +103,8 @@ add_library(ofscore SHARED
     tools/Calculator.cpp
     script/LuaScript.h
     script/LuaScript.cpp
+    sprites/SpriteDocument.h
+    sprites/SpriteDocument.cpp
     tools/ClipboardStore.h
     tools/ClipboardStore.cpp
 )

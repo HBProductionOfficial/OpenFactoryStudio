@@ -144,10 +144,14 @@ Result<Image> SffDocument::decodeSprite(std::size_t index, DecodeMode mode) cons
 {
     if (index >= sprites.size())
         return Error{"sprite index out of range"};
-    const std::size_t root = resolveLink(index);
-    const SffSprite& s = sprites[root];
-    const Palette* palette = spritePalette(index);
+    const SffSprite& s = sprites[resolveLink(index)];
+    if (!s.image && s.isLinked())
+        return Error{"sprite " + std::to_string(index) + " has an invalid link"};
+    return decodePayload(s, spritePalette(index), mode);
+}
 
+Result<Image> SffDocument::decodePayload(const SffSprite& s, const Palette* palette, DecodeMode mode)
+{
     auto withPalette = [&](Image image) {
         if (image.isIndexed() && palette)
             image.setPalette(*palette);
@@ -157,11 +161,11 @@ Result<Image> SffDocument::decodeSprite(std::size_t index, DecodeMode mode) cons
     if (s.image)
         return withPalette(*s.image);
     if (s.isLinked())
-        return Error{"sprite " + std::to_string(index) + " has an invalid link"};
+        return Error{"a linked sprite has no data of its own"};
 
     const std::size_t pixelCount = std::size_t{s.width} * s.height;
     if (pixelCount > kMaxDecodePixels)
-        return Error{"sprite " + std::to_string(index) + " is too large to decode"};
+        return Error{"sprite " + std::to_string(s.group) + "," + std::to_string(s.number) + " is too large to decode"};
     const ByteSpan data(s.data);
     auto unpackIndexed = [&](Result<std::vector<std::uint8_t>> pixels) -> Result<Image> {
         if (!pixels)
@@ -227,7 +231,7 @@ Result<Image> SffDocument::decodeSprite(std::size_t index, DecodeMode mode) cons
     case SffCompression::Invalid:
         break;
     }
-    return Error{"sprite " + std::to_string(index) + " uses unknown format " +
+    return Error{"sprite " + std::to_string(s.group) + "," + std::to_string(s.number) + " uses unknown format " +
                  std::to_string(static_cast<int>(s.compression))};
 }
 
