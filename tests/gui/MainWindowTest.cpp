@@ -1089,9 +1089,13 @@ private Q_SLOTS:
         QCOMPARE(int(moved.axisX), -1);
         QCOMPARE(int(moved.axisY), 3);
         QVERIFY(page->file()->isModified());
-        page->file()->undoStack()->undo();
+        workspace->setFocus();
+        m_context->actions().action("edit_undo")->trigger();
         QCOMPARE(int(page->file()->document().sprites()[0].header.axisX), 3);
         QVERIFY(!page->file()->isModified());
+        m_context->actions().action("edit_redo")->trigger();
+        QCOMPARE(int(page->file()->document().sprites()[0].header.axisX), -1);
+        page->file()->undoStack()->undo();
 
         page->setCurrent(1);
         page->setOnionSkin(0, 0.5);

@@ -28,6 +28,7 @@
 #include "shell/MenuBuilder.h"
 #include "shell/ProjectView.h"
 #include "shell/QuickFindBar.h"
+#include "shell/SpritePage.h"
 #include "shell/StatusBar.h"
 #include "shell/UpdateChecker.h"
 #include "shell/WelcomePage.h"
@@ -67,6 +68,7 @@
 #include <QTableView>
 #include <QTimer>
 #include <QToolBar>
+#include <QUndoStack>
 #include <QUrl>
 #include <QVBoxLayout>
 
@@ -421,8 +423,27 @@ void MainWindow::connectEditActions()
                 (l->*line)();
         };
     };
-    on("edit_undo", forText(&QPlainTextEdit::undo, &QLineEdit::undo));
-    on("edit_redo", forText(&QPlainTextEdit::redo, &QLineEdit::redo));
+    // Undo and Redo also act on the sprite file shown in the Sprites editor.
+    auto spriteUndo = [this]() -> QUndoStack* {
+        ProjectView* view = currentProjectView();
+        QTabWidget* tabs =
+            view ? view->findChild<QTabWidget*>(QStringLiteral("fileTabs_") + view->currentEditor()) : nullptr;
+        auto* page = tabs ? qobject_cast<SpritePage*>(tabs->currentWidget()) : nullptr;
+        return page && page->file() ? page->file()->undoStack() : nullptr;
+    };
+    auto undoRedo = [textTarget, spriteUndo](bool redo) {
+        return [textTarget, spriteUndo, redo] {
+            QWidget* w = textTarget();
+            if (auto* p = qobject_cast<QPlainTextEdit*>(w))
+                redo ? p->redo() : p->undo();
+            else if (auto* l = qobject_cast<QLineEdit*>(w))
+                redo ? l->redo() : l->undo();
+            else if (QUndoStack* stack = spriteUndo())
+                redo ? stack->redo() : stack->undo();
+        };
+    };
+    on("edit_undo", undoRedo(false));
+    on("edit_redo", undoRedo(true));
     on("edit_cut", forText(&QPlainTextEdit::cut, &QLineEdit::cut));
     on("edit_copy", forText(&QPlainTextEdit::copy, &QLineEdit::copy));
     on("edit_paste", forText(&QPlainTextEdit::paste, &QLineEdit::paste));
