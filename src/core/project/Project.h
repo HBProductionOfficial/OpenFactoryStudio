@@ -11,6 +11,7 @@ namespace OFS {
 
 class CodeFile;
 class Engine;
+class SpriteFile;
 class ProjectFile;
 
 // An open project: a .def file and the files it refers to. Engines subclass it for their format.
@@ -45,6 +46,7 @@ public:
     const QList<ProjectFile*>& files() const { return m_files; }
     ProjectFile* file(const QString& path) const;
     CodeFile* codeFile(const QString& path, const QString& editorId, QString* error = nullptr);
+    SpriteFile* spriteFile(const QString& path, const QString& editorId, QString* error = nullptr);
     CodeFile* addCodeFile(const QString& path, const QString& editorId, QString* error = nullptr);
     CodeFile* newCodeFile(const QString& placeholderPath, const QString& editorId);
 

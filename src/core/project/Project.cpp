@@ -2,6 +2,7 @@
 
 #include "core/engine/Engine.h"
 #include "core/project/ProjectFile.h"
+#include "core/sprites/SpriteFile.h"
 
 #include <QDir>
 #include <QFileInfo>
@@ -75,6 +76,19 @@ CodeFile* Project::codeFile(const QString& path, const QString& editorId, QStrin
     if (auto* existing = qobject_cast<CodeFile*>(file(path)))
         return existing;
     auto* f = new CodeFile(path, editorId, this);
+    if (!f->load(error)) {
+        delete f;
+        return nullptr;
+    }
+    adopt(f);
+    return f;
+}
+
+SpriteFile* Project::spriteFile(const QString& path, const QString& editorId, QString* error)
+{
+    if (auto* existing = qobject_cast<SpriteFile*>(file(path)))
+        return existing;
+    auto* f = new SpriteFile(path, editorId, this);
     if (!f->load(error)) {
         delete f;
         return nullptr;

@@ -8,12 +8,15 @@
 #include "core/project/ProjectFile.h"
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
+#include "core/sprites/SpriteDocument.h"
 #include "core/widgets/EPanelWidget.h"
+#include "core/widgets/GraphicsView.h"
 #include "shell/AdvancedSearchPanel.h"
 #include "shell/CodePage.h"
 #include "shell/ControllerTemplatesWidget.h"
 #include "shell/FileDialogs.h"
 #include "shell/ProjectView.h"
+#include "shell/SpritePage.h"
 #include "shell/StatusBar.h"
 #include "shell/dialogs/SnippetEditorDialog.h"
 #include "shell/dialogs/StateControllerDialog.h"
@@ -50,6 +53,7 @@
 #include <QToolBar>
 #include <QToolButton>
 #include <QTreeView>
+#include <QUndoStack>
 
 using namespace OFS;
 
@@ -1033,6 +1037,68 @@ private Q_SLOTS:
 
         FileDialogs::setSavePromptOverride({});
         FileDialogs::setOpenPromptOverride({});
+    }
+
+    void spritesWorkspace()
+    {
+        QTemporaryDir dir;
+        // Two sprites: 0,0 (6x4, axis 3,4) and 0,1.
+        SpriteDocument doc;
+        doc.palettes() << SpriteDocument::makePalette(1, 1, Formats::grayscalePalette(256));
+        for (int n = 0; n < 2; ++n) {
+            SpriteEntry entry;
+            entry.header.number = std::uint16_t(n);
+            entry.header.axisX = 3;
+            entry.header.axisY = 4;
+            entry.pixels = SpriteDocument::makePixels(
+                Formats::Image::indexed(6, 4, std::vector<std::uint8_t>(24, std::uint8_t(n + 5))));
+            entry.palette = doc.palettes()[0];
+            doc.sprites() << entry;
+        }
+        Formats::SffDocument sff = doc.toSff();
+        sff.version = Formats::SffVersion::V2;
+        const auto bytes = sff.write();
+        QVERIFY(bytes.ok());
+        writeFile(dir.filePath("spr.sff"),
+                  QByteArray(reinterpret_cast<const char*>(bytes.value().data()), qsizetype(bytes.value().size())));
+        writeFile(dir.filePath("spr.def"), "[Info]\nname = \"Spr\"\nmugenversion = 1.0\n"
+                                           "[Files]\ncns = spr.cns\nsprite = spr.sff\n");
+        writeFile(dir.filePath("spr.cns"), "[Data]\nlife = 1000\n");
+
+        MainWindow window(*m_context);
+        window.resize(1000, 700);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("spr.def")));
+        m_context->actions().action("editor_spr")->trigger();
+        ProjectView* view = window.currentProjectView();
+        auto* page = view->findChild<SpritePage*>();
+        QVERIFY(page);
+        QCOMPARE(page->file()->document().spriteCount(), 2);
+        GraphicsView* workspace = page->view();
+        QCOMPARE(workspace->images().size(), 1);
+        QCOMPARE(workspace->images()[0].topLeft, QPoint(-3, -4));
+        QCOMPARE(workspace->images()[0].image.size(), QSize(6, 4));
+
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        const QPoint on = workspace->toWidget(QPointF(0, -2)).toPoint();
+        QTest::mousePress(workspace, Qt::LeftButton, {}, on);
+        QTest::mouseMove(workspace, on + QPoint(2, 0));
+        QTest::mouseMove(workspace, on + QPoint(4, 1));
+        QTest::mouseRelease(workspace, Qt::LeftButton, {}, on + QPoint(4, 1));
+        const auto& moved = page->file()->document().sprites()[0].header;
+        QCOMPARE(int(moved.axisX), -1);
+        QCOMPARE(int(moved.axisY), 3);
+        QVERIFY(page->file()->isModified());
+        page->file()->undoStack()->undo();
+        QCOMPARE(int(page->file()->document().sprites()[0].header.axisX), 3);
+        QVERIFY(!page->file()->isModified());
+
+        page->setCurrent(1);
+        page->setOnionSkin(0, 0.5);
+        QCOMPARE(workspace->images().size(), 2);
+        QCOMPARE(workspace->images()[0].opacity, 0.5);
+        page->setCurrent(7); // clamped
+        QCOMPARE(page->current(), 1);
     }
 
     void stateControllerList()

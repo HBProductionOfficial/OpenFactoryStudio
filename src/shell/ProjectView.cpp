@@ -12,6 +12,7 @@
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
 #include "core/settings/Config.h"
+#include "core/sprites/SpriteFile.h"
 #include "core/theme/IconSet.h"
 #include "core/theme/ThemeManager.h"
 #include "core/widgets/EPanelWidget.h"
@@ -19,6 +20,7 @@
 #include "shell/CodePage.h"
 #include "shell/ControllerTemplatesWidget.h"
 #include "shell/DocumentationPopup.h"
+#include "shell/SpritePage.h"
 
 #include <QCursor>
 #include <QDir>
@@ -276,6 +278,16 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
                         DocumentationPopup::showPage(pagePath, QCursor::pos(), editor);
                 });
         return page;
+    }
+    if (info.id == QLatin1String("sprites") && QFileInfo::exists(filePath)) {
+        QString error;
+        if (SpriteFile* file = m_project->spriteFile(filePath, info.id, &error)) {
+            auto* page = new SpritePage(file);
+            page->setProperty("filePath", filePath);
+            page->setProperty("editorId", info.id);
+            connect(file, &ProjectFile::modifiedChanged, this, [this] { Q_EMIT modifiedChanged(); });
+            return page;
+        }
     }
     auto* workspace = new QWidget;
     workspace->setObjectName(QStringLiteral("workspace_") + info.id);

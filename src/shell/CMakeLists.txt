@@ -18,6 +18,8 @@ add_library(ofsshell STATIC
     MenuBuilder.cpp
     ProjectView.h
     ProjectView.cpp
+    SpritePage.h
+    SpritePage.cpp
     StatusBar.h
     StatusBar.cpp
     UpdateChecker.h
