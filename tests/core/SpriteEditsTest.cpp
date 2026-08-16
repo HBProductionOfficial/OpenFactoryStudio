@@ -1,9 +1,12 @@
 #include "core/sprites/SpriteEdits.h"
 #include "core/sprites/SpriteDocument.h"
 #include "core/sprites/SpriteFile.h"
+#include "core/sprites/SpriteImages.h"
 #include "fixtures/FixtureFactory.h"
+#include "formats/codecs/Png.h"
 
 #include <QFile>
+#include <QImage>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
@@ -178,6 +181,105 @@ private Q_SLOTS:
         QCOMPARE(doc.image(2).indexAt(0, 0), std::uint8_t(0));
         QCOMPARE(doc.image(3).indexAt(0, 0), std::uint8_t(255));
         QCOMPARE(doc.sprites()[3].palette, doc.sprites()[4].palette);
+    }
+
+    void fileNames()
+    {
+        int group = -1;
+        int index = -1;
+        QVERIFY(identifiersFromFileName("1000_2.png", &group, &index));
+        QCOMPARE(group, 1000);
+        QCOMPARE(index, 2);
+        QVERIFY(identifiersFromFileName("C:/x/kfm 200-15.pcx", &group, &index));
+        QCOMPARE(group, 200);
+        QCOMPARE(index, 15);
+        QVERIFY(identifiersFromFileName("5,0.bmp", &group, &index));
+        QCOMPARE(group, 5);
+        QVERIFY(!identifiersFromFileName("stand.png", &group, &index));
+        QVERIFY(!identifiersFromFileName("1_2_x.png", &group, &index));
+        QVERIFY(!identifiersFromFileName("70000_1.png", &group, &index));
+    }
+
+    void imageFiles()
+    {
+        QTemporaryDir dir;
+        Palette colors = grayscalePalette(256);
+        colors[3] = {10, 20, 30, 255};
+        const Image indexed = Image::indexed(3, 2, {0, 3, 3, 1, 2, 3}, colors);
+        const auto png = encodePng(indexed);
+        QVERIFY(png.ok());
+        writeFile(dir.filePath("a.png"), toBytes(png.value()));
+        QString error;
+        const Image loaded = loadImageFile(dir.filePath("a.png"), &error);
+        QVERIFY2(loaded.isIndexed(), qPrintable(error));
+        QVERIFY(loaded.pixelBuffer() == indexed.pixelBuffer());
+        QCOMPARE(loaded.palette()[3].r, std::uint8_t(10));
+
+        QImage qt(4, 4, QImage::Format_RGB32);
+        qt.fill(Qt::blue);
+        QVERIFY(qt.save(dir.filePath("b.jpg"), "JPG"));
+        const Image jpg = loadImageFile(dir.filePath("b.jpg"), &error);
+        QVERIFY2(jpg.isRgba(), qPrintable(error));
+        QCOMPARE(jpg.width(), 4);
+
+        writeFile(dir.filePath("c.png"), "nope");
+        QVERIFY(loadImageFile(dir.filePath("c.png"), &error).pixelBuffer().empty());
+        QVERIFY(!error.isEmpty());
+    }
+
+    void addingSprites()
+    {
+        SpriteDocument doc = sample();
+        Palette colors = grayscalePalette(256);
+        colors[1] = {1, 2, 3, 255};
+        const Image image = Image::indexed(4, 4, {0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1}, colors);
+
+        AddSpritesOptions options;
+        options.group = 50;
+        options.index = 0;
+        options.indexStep = 10;
+        options.axisAnchor = 7;
+        QList<int> added = addSprites(doc, 0, {{"a.png", image}, {"b.png", image}}, options);
+        QCOMPARE(added, (QList<int>{1, 2}));
+        QCOMPARE(doc.sprites()[1].number(), 0);
+        QCOMPARE(doc.sprites()[2].number(), 10);
+        QCOMPARE(int(doc.sprites()[1].header.axisX), 2);
+        QCOMPARE(int(doc.sprites()[1].header.axisY), 4);
+        QCOMPARE(doc.palettes().size(), 2);
+        QCOMPARE(doc.sprites()[1].palette, doc.sprites()[2].palette);
+
+        options.detectFromFileName = true;
+        options.index = 100;
+        added = addSprites(doc, doc.spriteCount() - 1, {{"9_3.png", image}, {"x.png", image}}, options);
+        QCOMPARE(doc.sprites()[added[0]].group(), 9);
+        QCOMPARE(doc.sprites()[added[0]].number(), 3);
+        QCOMPARE(doc.sprites()[added[1]].number(), 100);
+
+        options = {};
+        options.axisAnchor = 0;
+        options.crop = AddSpritesOptions::Crop::BeforeAxis;
+        added = addSprites(doc, -1, {{"c.png", image}}, options);
+        QCOMPARE(added, QList<int>{0});
+        QCOMPARE(doc.sprites()[0].width(), 3);
+        QCOMPARE(int(doc.sprites()[0].header.axisX), 0);
+        options.crop = AddSpritesOptions::Crop::AfterAxis;
+        added = addSprites(doc, -1, {{"d.png", image}}, options);
+        QCOMPARE(doc.sprites()[0].width(), 3);
+        QCOMPARE(int(doc.sprites()[0].header.axisX), -1);
+        QCOMPARE(int(doc.sprites()[0].header.axisY), -1);
+
+        options = {};
+        options.palette = AddSpritesOptions::Palette::Exchange;
+        options.paletteGroup = 1;
+        options.paletteIndex = 1;
+        added = addSprites(doc, -1, {{"e.png", image}}, options);
+        QCOMPARE(doc.sprites()[0].palette, doc.palettes()[0]);
+        QCOMPARE(doc.image(0).indexAt(1, 1), std::uint8_t(1));
+        options.palette = AddSpritesOptions::Palette::Force;
+        added = addSprites(doc, -1, {{"f.png", image}}, options);
+        QCOMPARE(doc.sprites()[0].palette, doc.palettes()[0]);
+        QCOMPARE(doc.image(0).indexAt(1, 1), std::uint8_t(4));
+        QCOMPARE(doc.image(0).indexAt(0, 0), std::uint8_t(0));
     }
 
     void spriteFile()

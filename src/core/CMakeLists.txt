@@ -111,6 +111,8 @@ add_library(ofscore SHARED
     sprites/SpriteEdits.cpp
     sprites/SpriteFile.h
     sprites/SpriteFile.cpp
+    sprites/SpriteImages.h
+    sprites/SpriteImages.cpp
     tools/ClipboardStore.h
     tools/ClipboardStore.cpp
 )
