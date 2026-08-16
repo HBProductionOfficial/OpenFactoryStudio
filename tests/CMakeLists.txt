@@ -54,6 +54,9 @@ ofs_add_test(NAME formats_audio_corpus CATCH2 LABELS corpus TIMEOUT 3600
 ofs_add_test(NAME core_sprites
     SOURCES core/SpriteDocumentTest.cpp ${OFS_FORMATS_FIXTURES}
     LIBS OFS::core)
+ofs_add_test(NAME core_graphics_view GUI
+    SOURCES core/GraphicsViewTest.cpp
+    LIBS OFS::core)
 ofs_add_test(NAME core_sprite_edits
     SOURCES core/SpriteEditsTest.cpp ${OFS_FORMATS_FIXTURES}
     LIBS OFS::core)

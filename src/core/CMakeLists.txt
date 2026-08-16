@@ -99,6 +99,8 @@ add_library(ofscore SHARED
     theme/ThemeManager.cpp
     widgets/EPanelWidget.h
     widgets/EPanelWidget.cpp
+    widgets/GraphicsView.h
+    widgets/GraphicsView.cpp
     tools/Calculator.h
     tools/Calculator.cpp
     script/LuaScript.h
