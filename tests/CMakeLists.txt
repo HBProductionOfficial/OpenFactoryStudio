@@ -54,9 +54,12 @@ ofs_add_test(NAME formats_audio_corpus CATCH2 LABELS corpus TIMEOUT 3600
 ofs_add_test(NAME core_sprites
     SOURCES core/SpriteDocumentTest.cpp ${OFS_FORMATS_FIXTURES}
     LIBS OFS::core)
+ofs_add_test(NAME core_sprite_edits
+    SOURCES core/SpriteEditsTest.cpp ${OFS_FORMATS_FIXTURES}
+    LIBS OFS::core)
 
 foreach(test IN ITEMS formats_util formats_codecs formats_documents formats_corpus formats_oracle formats_audio
-                      formats_audio_corpus core_sprites)
+                      formats_audio_corpus core_sprites core_sprite_edits)
     target_include_directories(test_${test} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 endforeach()
 

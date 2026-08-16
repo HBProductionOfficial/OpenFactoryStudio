@@ -105,6 +105,10 @@ add_library(ofscore SHARED
     script/LuaScript.cpp
     sprites/SpriteDocument.h
     sprites/SpriteDocument.cpp
+    sprites/SpriteEdits.h
+    sprites/SpriteEdits.cpp
+    sprites/SpriteFile.h
+    sprites/SpriteFile.cpp
     tools/ClipboardStore.h
     tools/ClipboardStore.cpp
 )
