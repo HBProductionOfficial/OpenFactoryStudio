@@ -32,6 +32,18 @@ public:
         Picture,
     };
 
+    // What zooming keeps in place.
+    enum class ZoomCenter
+    {
+        Axis,
+        Workspace,
+    };
+
+    static QList<double> largeZoomRange(); // 0.25, 0.5, 1 ... 8
+    static QList<double> smallZoomRange(); // 0.25, 0.5, 1 ... 4
+    // Sky and grid over a floor. At offset (-426, -416) its floor line sits on the axis.
+    static QImage defaultBackground();
+
     explicit GraphicsView(QWidget* parent = nullptr);
 
     void setImages(const QList<Image>& images);
@@ -46,7 +58,8 @@ public:
     void zoomOut();
     void zoomReset();
     void zoomFit();
-    void setZoomAtCursor(bool atCursor) { m_zoomAtCursor = atCursor; }
+    void setZoomCenter(ZoomCenter center) { m_zoomCenter = center; }
+    ZoomCenter zoomCenter() const { return m_zoomCenter; }
 
     // Widget position.
     QPoint origin() const { return m_origin; }
@@ -120,6 +133,8 @@ private:
         HorizontalGuide,
     };
     void zoomTo(int index, const QPointF& anchor);
+    QPointF zoomAnchor() const;
+    void drawCross(QPainter& p);
     QRect contentRect() const;
     void drawBackground(QPainter& p, const QRect& area);
     void drawGuides(QPainter& p, const QRect& area);
@@ -130,10 +145,10 @@ private:
     QList<Image> m_images;
     QList<double> m_zoomLevels;
     int m_zoomIndex = 0;
-    bool m_zoomAtCursor = true;
+    ZoomCenter m_zoomCenter = ZoomCenter::Axis;
     QPoint m_origin{320, 360};
-    Background m_background = Background::Checker;
-    QColor m_backgroundColor{96, 96, 96};
+    Background m_background = Background::Color;
+    QColor m_backgroundColor{64, 64, 64};
     QImage m_backgroundPicture;
     QPoint m_backgroundOffset;
     bool m_rulers = true;

@@ -322,8 +322,12 @@ Status SffDocument::convertTo(SffVersion target, const SffConvertOptions& option
     if (familyChange) {
         header.fill(0);
         raw = SffDocumentRaw{};
-        for (SffSprite& s : sprites)
+        for (SffSprite& s : sprites) {
+            // The comment bytes hold the sprite's name, so they stay with it.
+            const auto comment = s.raw.v1Reserved;
             s.raw = SffSpriteRaw{};
+            s.raw.v1Reserved = comment;
+        }
     }
 
     if (version == SffVersion::V1 && target != SffVersion::V1) {

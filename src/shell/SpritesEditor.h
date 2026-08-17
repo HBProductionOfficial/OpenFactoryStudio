@@ -34,6 +34,7 @@ private:
     void applyIdentifiers();
     void applyAxis();
     void updateOnion();
+    void updateOnionLabel();
 
     AppContext& m_context;
     QPointer<SpritePage> m_page;

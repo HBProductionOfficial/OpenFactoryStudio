@@ -90,9 +90,18 @@ Image channel(const Image& rgba, int which)
     const std::span<const std::uint8_t> in = rgba.pixels();
     for (std::size_t i = 0; i < pixels.size(); ++i)
         pixels[i] = in[i * 4 + 3] == 0 ? 0 : in[i * 4 + std::size_t(which)];
-    Image image = Image::indexed(rgba.width(), rgba.height(), std::move(pixels));
-    image.setPalette(grayscalePalette(256));
-    return image;
+    return Image::indexed(rgba.width(), rgba.height(), std::move(pixels));
+}
+
+Palette ramp(int which)
+{
+    Palette colors(256);
+    for (int i = 0; i < 256; ++i) {
+        const auto v = std::uint8_t(i);
+        colors[std::size_t(i)] = {which == 0 ? v : std::uint8_t(0), which == 1 ? v : std::uint8_t(0),
+                                  which == 2 ? v : std::uint8_t(0), 255};
+    }
+    return colors;
 }
 
 } // namespace
@@ -166,7 +175,6 @@ int duplicate(SpriteDocument& doc, int index)
     if (!valid(doc, index))
         return -1;
     SpriteEntry copy = doc.sprites()[index];
-    copy.header.number = std::uint16_t(freeNumber(doc, copy.group(), copy.number() + 1));
     copy.header.linkedIndex = -1;
     copy.header.raw = {};
     doc.sprites().insert(index + 1, copy);
@@ -240,22 +248,34 @@ int splitChannels(SpriteDocument& doc, int index)
     if (rgba.pixelBuffer().empty())
         return -1;
     const SpriteEntry original = doc.sprites()[index];
-    const SpritePalettePtr gray = paletteFor(doc, grayscalePalette(256), original.group(), original.number());
-    int position = index;
+    static const char* const names[] = {" R", " G", " B"};
     for (int which = 0; which < 3; ++which) {
         SpriteEntry entry = original;
-        entry.pixels = SpriteDocument::makePixels(channel(rgba, which));
-        entry.palette = gray;
+        const int number = std::min(original.number() + which, 0xFFFF);
+        entry.header.number = std::uint16_t(number);
         entry.header.linkedIndex = -1;
+        entry.pixels = SpriteDocument::makePixels(channel(rgba, which));
+        entry.name = QString::fromLatin1(names[which]);
+        const Palette colors = ramp(which);
+        entry.palette = nullptr;
+        for (const SpritePalettePtr& p : doc.palettes()) {
+            if (p->palette.colors.size() == colors.size() && sameRgb(p->palette.colors, colors)) {
+                entry.palette = p;
+                break;
+            }
+        }
+        if (!entry.palette) {
+            entry.palette = SpriteDocument::makePalette(original.group(), number, colors);
+            doc.palettes() << entry.palette;
+        }
         if (which == 0) {
             doc.sprites()[index] = entry;
-            continue;
+        } else {
+            entry.header.raw = {};
+            doc.sprites().insert(index + which, entry);
         }
-        entry.header.raw = {};
-        entry.header.number = std::uint16_t(freeNumber(doc, original.group(), original.number() + 1));
-        doc.sprites().insert(++position, entry);
     }
-    return position;
+    return index + 2;
 }
 
 } // namespace OFS::SpriteEdits

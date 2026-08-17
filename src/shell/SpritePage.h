@@ -7,6 +7,7 @@
 
 namespace OFS {
 
+class Config;
 class GraphicsView;
 
 // Sprites editor workspace for one sprite file. Dragging the sprite moves its axis, one undo step per drag. In image
@@ -26,6 +27,8 @@ public:
     // Shows palette index 0 opaque. It is normally transparent.
     void setShowTransparent(bool show);
     void setOnionSkin(int index, double opacity);
+    // The zoom level and origin are saved to `config` as they change.
+    void applySettings(Config& config);
 
 Q_SIGNALS:
     void currentChanged(int index);
@@ -41,6 +44,7 @@ private:
     int m_onion = -1;
     double m_onionOpacity = 0.74;
     QPoint m_dragOffset;
+    bool m_settingsApplied = false;
 };
 
 } // namespace OFS

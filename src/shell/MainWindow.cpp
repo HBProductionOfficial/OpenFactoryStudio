@@ -20,6 +20,7 @@
 #include "core/settings/History.h"
 #include "core/text/Encodings.h"
 #include "core/theme/ThemeManager.h"
+#include "core/widgets/GraphicsView.h"
 #include "shell/AdvancedSearchPanel.h"
 #include "shell/BottomDock.h"
 #include "shell/CodePage.h"
@@ -322,7 +323,7 @@ void MainWindow::connectActions()
         {"view_organizer", "show_organizer", false},        {"view_actions", "show_action_list", false},
         {"view_code_bar", "show_code_bar", true},           {"view_rulers", "show_rulers", true},
         {"view_guide_lines", "show_guides", false},         {"view_attack_box", "show_attack_box", true},
-        {"view_collision_box", "show_collision_box", true},
+        {"view_collision_box", "show_collision_box", true}, {"view_main_cross", "show_cross1", true},
     };
     for (const Toggle& t : toggles) {
         QAction* a = actions.action(QString::fromLatin1(t.action));
@@ -338,6 +339,8 @@ void MainWindow::connectActions()
                 view->setOrganizerVisible(m_context.config().boolValue(QStringLiteral("show_organizer"), false));
             }
             m_actionListDock->setVisible(m_context.config().boolValue(QStringLiteral("show_action_list"), false));
+            for (ProjectView* view : projectViews())
+                view->reconfigureEditors();
         });
     }
 
@@ -623,9 +626,28 @@ void MainWindow::connectEditActions()
         }
         view->showFileLine(first.data(Qt::UserRole).toString(), first.data(Qt::UserRole + 2).toInt() + 1);
     });
-    on("view_zoomin", withCode([](CodeEditor* e) { e->zoomIn(); }));
-    on("view_zoomout", withCode([](CodeEditor* e) { e->zoomOut(); }));
-    on("view_zoomreset", withCode([](CodeEditor* e) { e->resetZoom(); }));
+    auto currentWorkspace = [this]() -> GraphicsView* {
+        ProjectView* view = currentProjectView();
+        QTabWidget* tabs =
+            view ? view->findChild<QTabWidget*>(QStringLiteral("fileTabs_") + view->currentEditor()) : nullptr;
+        auto* page = tabs ? qobject_cast<SpritePage*>(tabs->currentWidget()) : nullptr;
+        return page ? page->view() : nullptr;
+    };
+    auto zoom = [this, currentWorkspace](void (GraphicsView::*graphic)(), std::function<void(CodeEditor*)> code) {
+        return [this, currentWorkspace, graphic, code] {
+            if (GraphicsView* workspace = currentWorkspace()) {
+                (workspace->*graphic)();
+            } else if (code) {
+                if (ProjectView* view = currentProjectView(); view && view->currentCodeEditor())
+                    code(view->currentCodeEditor());
+            }
+        };
+    };
+    on("view_zoomin", zoom(&GraphicsView::zoomIn, [](CodeEditor* e) { e->zoomIn(); }));
+    on("view_zoomout", zoom(&GraphicsView::zoomOut, [](CodeEditor* e) { e->zoomOut(); }));
+    on("view_zoomreset", zoom(&GraphicsView::zoomReset, [](CodeEditor* e) { e->resetZoom(); }));
+    on("view_zoomfit", zoom(&GraphicsView::zoomFit, {}));
+    on("view_center_origin", zoom(&GraphicsView::centerOrigin, {}));
 
     // Saving
     on("file_save", [this] {

@@ -15,6 +15,18 @@ SffSprite payloadOf(const SffSprite& sprite)
     return payload;
 }
 
+// The name stored in SFF v1 comment bytes: up to the first zero byte.
+QString nameFromComment(const std::array<std::uint8_t, 13>& bytes)
+{
+    QByteArray text;
+    for (std::uint8_t b : bytes) {
+        if (b == 0)
+            break;
+        text += char(b);
+    }
+    return QString::fromLatin1(text);
+}
+
 SffSprite headerOf(const SffSprite& sprite)
 {
     SffSprite header = sprite;
@@ -53,6 +65,8 @@ SpriteDocument SpriteDocument::fromSff(const SffDocument& sff)
         const SffSprite& s = sff.sprites[i];
         SpriteEntry entry;
         entry.header = headerOf(s);
+        if (sff.version == SffVersion::V1)
+            entry.name = nameFromComment(s.raw.v1Reserved);
         entry.pixels = pixels[sff.resolveLink(i)];
         if (!entry.pixels) // a broken link: keep the sprite, without pixels
             entry.pixels = std::make_shared<SpritePixels>(SpritePixels{payloadOf(s)});
@@ -115,6 +129,11 @@ SffDocument SpriteDocument::toSff() const
             s.linkedIndex = first.value();
         }
         s.paletteIndex = entry.palette ? paletteIndex.value(entry.palette.get(), 0) : 0;
+        if (nameFromComment(s.raw.v1Reserved) != entry.name) {
+            s.raw.v1Reserved.fill(0);
+            const QByteArray text = entry.name.toLatin1().left(13);
+            std::copy(text.cbegin(), text.cend(), s.raw.v1Reserved.begin());
+        }
         sff.sprites.push_back(std::move(s));
     }
     return sff;
@@ -164,8 +183,13 @@ Image SpriteDocument::image(int index, const Palette* palette) const
 
 Image SpriteDocument::imageRgba(int index, const Palette* palette, bool showTransparent) const
 {
-    const Image indexedOrRgba = image(index, palette);
-    return indexedOrRgba.toRgba(!showTransparent);
+    Image rgba = image(index, palette).toRgba(!showTransparent);
+    if (showTransparent && rgba.isRgba()) {
+        std::vector<std::uint8_t>& pixels = rgba.pixelBuffer();
+        for (std::size_t i = 3; i < pixels.size(); i += 4)
+            pixels[i] = 255;
+    }
+    return rgba;
 }
 
 SpritePixelsPtr SpriteDocument::makePixels(Image image)
@@ -173,8 +197,17 @@ SpritePixelsPtr SpriteDocument::makePixels(Image image)
     SffSprite payload;
     payload.width = std::uint16_t(std::clamp(image.width(), 0, 0xFFFF));
     payload.height = std::uint16_t(std::clamp(image.height(), 0, 0xFFFF));
-    payload.colorDepth = image.isIndexed() ? 8 : 32;
-    payload.compression = image.isIndexed() ? SffCompression::Rle8 : SffCompression::Png32;
+    bool opaque = true;
+    if (image.isRgba()) {
+        const std::vector<std::uint8_t>& pixels = image.pixelBuffer();
+        for (std::size_t i = 3; i < pixels.size() && opaque; i += 4)
+            opaque = pixels[i] == 255;
+    }
+    payload.colorDepth = image.isIndexed() ? 8 : opaque ? 24 : 32;
+    // Invalid lets the writer choose the indexed compression from the colors used.
+    payload.compression = image.isIndexed() ? SffCompression::Invalid
+                          : opaque          ? SffCompression::Png24
+                                            : SffCompression::Png32;
     payload.image = std::move(image);
     return std::make_shared<SpritePixels>(SpritePixels{std::move(payload)});
 }

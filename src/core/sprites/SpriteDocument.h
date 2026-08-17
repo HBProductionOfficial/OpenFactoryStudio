@@ -31,6 +31,8 @@ struct SpriteEntry
     Formats::SffSprite header;
     SpritePixelsPtr pixels;
     SpritePalettePtr palette;
+    // The 13 comment bytes of SFF v1 sprites, kept in memory for other versions.
+    QString name;
 
     int group() const { return header.group; }
     int number() const { return header.number; }
@@ -64,6 +66,8 @@ public:
     Formats::Image image(int index, const Formats::Palette* palette = nullptr) const;
     Formats::Image imageRgba(int index, const Formats::Palette* palette = nullptr, bool showTransparent = false) const;
 
+    // Encoded when the file is written. Indexed images use LZ5 under 32 colors, else RLE8.
+    // True-color images use PNG24 when opaque, else PNG32.
     static SpritePixelsPtr makePixels(Formats::Image image);
     static SpritePalettePtr makePalette(int group, int number, Formats::Palette colors);
 

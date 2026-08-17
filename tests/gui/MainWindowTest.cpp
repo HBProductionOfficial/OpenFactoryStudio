@@ -1080,11 +1080,16 @@ private Q_SLOTS:
         QCOMPARE(workspace->images()[0].image.size(), QSize(6, 4));
 
         QVERIFY(QTest::qWaitForWindowExposed(&window));
-        const QPoint on = workspace->toWidget(QPointF(0, -2)).toPoint();
+        // Center the axis and scale the drag by the zoom, so distances are in sprite pixels.
+        workspace->centerOrigin();
+        const QPoint on = workspace->toWidget(QPointF(0.5, -1.5)).toPoint();
+        const auto by = [workspace, on](double dx, double dy) {
+            return on + QPointF(dx * workspace->zoom(), dy * workspace->zoom()).toPoint();
+        };
         QTest::mousePress(workspace, Qt::LeftButton, {}, on);
-        QTest::mouseMove(workspace, on + QPoint(2, 0));
-        QTest::mouseMove(workspace, on + QPoint(4, 1));
-        QTest::mouseRelease(workspace, Qt::LeftButton, {}, on + QPoint(4, 1));
+        QTest::mouseMove(workspace, by(2, 0));
+        QTest::mouseMove(workspace, by(4, 1));
+        QTest::mouseRelease(workspace, Qt::LeftButton, {}, by(4, 1));
         const auto& moved = page->file()->document().sprites()[0].header;
         QCOMPARE(int(moved.axisX), -1);
         QCOMPARE(int(moved.axisY), 3);
@@ -1123,7 +1128,9 @@ private Q_SLOTS:
         ActionRegistry& actions = m_context->actions();
         actions.action("spr_next")->trigger();
         QCOMPARE(page->current(), 1);
-        actions.action("spr_prev_grp")->trigger();
+        actions.action("spr_prev_grp")->trigger(); // already in the first group
+        QCOMPARE(page->current(), 1);
+        actions.action("spr_next_grp")->trigger(); // wraps to the first sprite
         QCOMPARE(page->current(), 0);
         actions.action("spr_pos_left")->trigger(); // moving the sprite left grows the axis
         QCOMPARE(int(page->file()->document().sprites()[0].header.axisX), 11);
@@ -1131,7 +1138,7 @@ private Q_SLOTS:
         actions.action("spr_duplicate")->trigger();
         QCOMPARE(page->file()->document().spriteCount(), 3);
         QCOMPARE(page->current(), 1);
-        QCOMPARE(number->value(), 2);
+        QCOMPARE(number->value(), 0);
         m_context->config().setValue("confirm_delete", false);
         actions.action("spr_delete")->trigger();
         m_context->config().setValue("confirm_delete", true);

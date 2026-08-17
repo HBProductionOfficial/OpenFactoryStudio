@@ -17,10 +17,19 @@ namespace OFS {
 
 namespace {
 
-QString compressionName(Formats::SffCompression compression)
+int bitDepth(const SpriteEntry& entry)
 {
-    return QString::fromLatin1(Formats::sffCompressionName(compression).data(),
-                               qsizetype(Formats::sffCompressionName(compression).size()));
+    const Formats::SffSprite& payload = entry.pixels->payload;
+    if (payload.image)
+        return payload.image->isIndexed() ? 8 : (payload.colorDepth == 24 ? 24 : 32);
+    switch (payload.compression) {
+    case Formats::SffCompression::Png24:
+        return 24;
+    case Formats::SffCompression::Png32:
+        return 32;
+    default:
+        return 8;
+    }
 }
 
 template <typename T>
@@ -52,6 +61,20 @@ void SpritesEditor::bindPanel(QWidget* panel)
     m_onionLabel = control<QLabel>(panel, "spr_onion_lb");
     m_name = control<QLineEdit>(panel, "spr_name");
 
+    if (m_name) {
+        m_name->setMaxLength(13);
+        connect(m_name, &QLineEdit::editingFinished, this, [this] {
+            if (m_updating || !m_page)
+                return;
+            const int index = m_page->current();
+            const SpriteDocument& current = m_page->file()->document();
+            if (index < 0 || index >= current.spriteCount() || current.sprites()[index].name == m_name->text())
+                return;
+            SpriteDocument doc = current;
+            doc.sprites()[index].name = m_name->text();
+            m_page->file()->apply(tr("Sprite name"), doc);
+        });
+    }
     if (m_selector)
         connect(m_selector, &QScrollBar::valueChanged, this, [this](int value) {
             if (!m_updating && m_page)
@@ -148,19 +171,28 @@ void SpritesEditor::refresh()
             m_decompress->setChecked(SpriteEdits::decompressesOnLoad(*doc, current));
         }
         if (m_info) {
-            QString info = QStringLiteral("%1x%2, %3")
-                               .arg(entry.width())
-                               .arg(entry.height())
-                               .arg(compressionName(entry.pixels->payload.compression));
-            const int shared = int(doc->linkedSprites(current).size());
-            if (shared > 1)
-                info += tr(", shared by %1 sprites").arg(shared);
-            m_info->setText(info);
+            const bool shared = doc->linkedSprites(current).size() > 1;
+            m_info->setText(QStringLiteral("%1 x %2 px (%3 bit) - %4")
+                                .arg(entry.width())
+                                .arg(entry.height())
+                                .arg(bitDepth(entry))
+                                .arg(shared ? tr("shared") : tr("unique")));
         }
-    } else if (m_info) {
-        m_info->clear();
+        if (m_name) {
+            // The name is the SFF v1 comment: editable in v1 files only, kept for the others.
+            m_name->setEnabled(doc->version() == Formats::SffVersion::V1);
+            m_name->setText(entry.name);
+        }
+    } else {
+        if (m_info)
+            m_info->clear();
+        if (m_name) {
+            m_name->clear();
+            m_name->setEnabled(false);
+        }
     }
     m_updating = updating;
+    updateOnionLabel();
 }
 
 void SpritesEditor::applyIdentifiers()
@@ -188,7 +220,7 @@ void SpritesEditor::applyAxis()
         return;
     SpriteDocument doc = m_page->file()->document();
     SpriteEdits::setAxis(doc, index, m_axisX->value(), m_axisY->value());
-    m_page->file()->apply(tr("Sprite axis"), doc);
+    m_page->file()->applyAxisChange(index, doc);
 }
 
 void SpritesEditor::updateOnion()
@@ -199,10 +231,26 @@ void SpritesEditor::updateOnion()
     const int index = on && m_onionSelector ? m_onionSelector->value() : -1;
     m_page->setOnionSkin(index,
                          m_context.config().value(QStringLiteral("onion_opacity"), QStringLiteral("0.74")).toDouble());
-    if (m_onionLabel) {
-        const int count = m_page->file()->document().spriteCount();
-        m_onionLabel->setText(on && count > 0 ? QStringLiteral("%1 / %2").arg(index + 1).arg(count) : QString());
+    updateOnionLabel();
+}
+
+void SpritesEditor::updateOnionLabel()
+{
+    if (!m_onionLabel || !m_onionSelector)
+        return;
+    // "1 / 281 (9000, 1)": the onion-skin sprite's position and identifiers.
+    const SpriteDocument* doc = m_page ? &m_page->file()->document() : nullptr;
+    const int index = m_onionSelector->value();
+    if (!doc || index < 0 || index >= doc->spriteCount()) {
+        m_onionLabel->clear();
+        return;
     }
+    const SpriteEntry& entry = doc->sprites()[index];
+    m_onionLabel->setText(QStringLiteral("%1 / %2 (%3, %4)")
+                              .arg(index + 1)
+                              .arg(doc->spriteCount())
+                              .arg(entry.group())
+                              .arg(entry.number()));
 }
 
 bool SpritesEditor::perform(const QString& id)
@@ -213,7 +261,7 @@ bool SpritesEditor::perform(const QString& id)
     const SpriteDocument& doc = file->document();
     const int current = m_page->current();
     const int count = doc.spriteCount();
-    auto groupStart = [&doc](int index) {
+    auto runStart = [&doc](int index) {
         int i = index;
         while (i > 0 && doc.sprites()[i - 1].group() == doc.sprites()[index].group())
             --i;
@@ -225,14 +273,17 @@ bool SpritesEditor::perform(const QString& id)
         m_page->setCurrent(current + 1);
     } else if (id == QLatin1String("spr_prev_grp")) {
         if (count > 0) {
-            const int start = groupStart(current);
-            m_page->setCurrent(start > 0 ? groupStart(start - 1) : 0);
+            const int start = runStart(current);
+            if (start > 0)
+                m_page->setCurrent(runStart(start - 1));
         }
     } else if (id == QLatin1String("spr_next_grp")) {
-        int i = current;
-        while (i < count - 1 && doc.sprites()[i + 1].group() == doc.sprites()[current].group())
-            ++i;
-        m_page->setCurrent(i + 1 < count ? i + 1 : current);
+        if (count > 0) {
+            int i = current;
+            while (i < count - 1 && doc.sprites()[i + 1].group() == doc.sprites()[current].group())
+                ++i;
+            m_page->setCurrent(i + 1 < count ? i + 1 : 0);
+        }
     } else if (id.startsWith(QLatin1String("spr_pos_"))) {
         // Moving the sprite one pixel on screen moves its axis the other way.
         const QString direction = id.mid(8);
@@ -241,17 +292,23 @@ bool SpritesEditor::perform(const QString& id)
         if (current < count && (dx || dy)) {
             SpriteDocument edited = doc;
             SpriteEdits::moveAxes(edited, {current}, dx, dy);
-            file->apply(tr("Move sprite"), edited);
+            file->applyAxisChange(current, edited);
         }
     } else if (id == QLatin1String("spr_delete")) {
         if (current >= count)
             return true;
-        if (m_context.config().boolValue(QStringLiteral("confirm_delete"), true) &&
-            QMessageBox::question(m_page, tr("Delete"),
-                                  tr("Delete the sprite %1,%2?")
-                                      .arg(doc.sprites()[current].group())
-                                      .arg(doc.sprites()[current].number())) != QMessageBox::Yes)
-            return true;
+        if (m_context.config().boolValue(QStringLiteral("confirm_delete"), true)) {
+            QMessageBox box(QMessageBox::Question, tr("Delete"), tr("Do you really want to delete the sprite?"),
+                            QMessageBox::Yes | QMessageBox::No, m_page);
+            box.setDefaultButton(QMessageBox::Yes);
+            auto* dontAsk = new QCheckBox(tr("Don't show this again"), &box);
+            box.setCheckBox(dontAsk);
+            const bool yes = box.exec() == QMessageBox::Yes;
+            if (dontAsk->isChecked())
+                m_context.config().setValue(QStringLiteral("confirm_delete"), false);
+            if (!yes)
+                return true;
+        }
         SpriteDocument edited = doc;
         SpriteEdits::remove(edited, {current});
         file->apply(tr("Delete sprite"), edited);

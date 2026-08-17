@@ -37,14 +37,15 @@ private Q_SLOTS:
         QCOMPARE(view.origin(), QPoint(200, 150));
         QCOMPARE(view.toWidget(QPointF(10, -5)), QPointF(220, 140));
         view.setZoomIndex(100);
-        QCOMPARE(view.zoom(), 32.0);
+        QCOMPARE(view.zoom(), 8.0);
+        QCOMPARE(GraphicsView::smallZoomRange().last(), 4.0);
         view.zoomReset();
         QCOMPARE(view.zoom(), 1.0);
         view.setZoomLevels({1, 2, 4});
         QCOMPARE(view.zoomIndex(), 0);
     }
 
-    void wheelZoomKeepsCursorPoint()
+    void wheelZoom()
     {
         GraphicsView view;
         view.resize(400, 300);
@@ -52,12 +53,20 @@ private Q_SLOTS:
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
         const QPoint cursor(250, 100);
-        const QPointF before = view.toUnits(cursor);
-        QWheelEvent wheel(cursor, view.mapToGlobal(cursor), QPoint(), QPoint(0, 120), Qt::NoButton, Qt::NoModifier,
-                          Qt::NoScrollPhase, false);
-        QApplication::sendEvent(&view, &wheel);
+        auto wheel = [&view, cursor](int delta) {
+            QWheelEvent event(cursor, view.mapToGlobal(cursor), QPoint(), QPoint(0, delta), Qt::NoButton,
+                              Qt::NoModifier, Qt::NoScrollPhase, false);
+            QApplication::sendEvent(&view, &event);
+        };
+        wheel(120);
         QCOMPARE(view.zoom(), 2.0);
-        QCOMPARE(view.toUnits(cursor), before);
+        QCOMPARE(view.origin(), QPoint(200, 150));
+        view.setZoomCenter(GraphicsView::ZoomCenter::Workspace);
+        const QPointF middle(20 + 380 / 2, 20 + 280 / 2);
+        const QPointF before = view.toUnits(middle);
+        wheel(-120);
+        QCOMPARE(view.zoom(), 1.0);
+        QVERIFY((view.toUnits(middle) - before).manhattanLength() < 1.0);
     }
 
     void dragging()

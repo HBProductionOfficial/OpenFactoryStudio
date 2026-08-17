@@ -103,7 +103,7 @@ private Q_SLOTS:
         QCOMPARE(SpriteEdits::freeNumber(doc, 1, 0), 1);
         const int copy = SpriteEdits::duplicate(doc, 0);
         QCOMPARE(copy, 1);
-        QCOMPARE(doc.sprites()[1].number(), 2);
+        QCOMPARE(doc.sprites()[1].number(), 0);
         QCOMPARE(doc.linkedSprites(0), (QList<int>{0, 1, 2}));
         const SffDocument sff = doc.toSff();
         QCOMPARE(sff.sprites[1].linkedIndex, 0);
@@ -180,7 +180,67 @@ private Q_SLOTS:
         QCOMPARE(doc.sprites()[4].number(), 2);
         QCOMPARE(doc.image(2).indexAt(0, 0), std::uint8_t(0));
         QCOMPARE(doc.image(3).indexAt(0, 0), std::uint8_t(255));
-        QCOMPARE(doc.sprites()[3].palette, doc.sprites()[4].palette);
+        QCOMPARE(doc.image(4).indexAt(0, 0), std::uint8_t(0));
+        QCOMPARE(doc.linkedSprites(3), QList<int>{3});
+        QCOMPARE(doc.sprites()[2].name, QStringLiteral(" R"));
+        QCOMPARE(doc.sprites()[3].name, QStringLiteral(" G"));
+        QCOMPARE(doc.sprites()[4].name, QStringLiteral(" B"));
+        QCOMPARE(doc.palettes().size(), 4);
+        QCOMPARE(int(doc.sprites()[3].palette->palette.number), 1);
+        QCOMPARE(doc.sprites()[3].palette->palette.colors[200].g, std::uint8_t(200));
+        QCOMPARE(doc.sprites()[3].palette->palette.colors[200].r, std::uint8_t(0));
+        SpriteEdits::splitChannels(doc, 0);
+        QCOMPARE(doc.palettes().size(), 4);
+        QCOMPARE(doc.sprites()[1].palette, doc.sprites()[5].palette);
+    }
+
+    void namesAndTransparency()
+    {
+        // SFF v1 keeps names in the comment bytes.
+        SpriteDocument doc = sample();
+        doc.sprites()[0].name = "abcdefghijklmnop";
+        SffDocument sff = doc.toSff();
+        QVERIFY(sff.convertTo(SffVersion::V1).ok());
+        const auto bytes = sff.write();
+        QVERIFY(bytes.ok());
+        auto reread = SffDocument::read(ByteSpan(bytes.value()));
+        QVERIFY(reread.ok());
+        const SpriteDocument back = SpriteDocument::fromSff(reread.value());
+        QCOMPARE(back.sprites()[0].name, QStringLiteral("abcdefghijklm"));
+        QCOMPARE(back.sprites()[1].name, QString());
+
+        SpriteEntry rgba;
+        rgba.pixels = SpriteDocument::makePixels(Image::rgba(1, 1, {10, 20, 30, 0}));
+        doc.sprites() << rgba;
+        QCOMPARE(doc.imageRgba(3).colorAt(0, 0).a, std::uint8_t(0));
+        QCOMPARE(doc.imageRgba(3, nullptr, true).colorAt(0, 0).a, std::uint8_t(255));
+        QCOMPARE(doc.imageRgba(0, nullptr, true).colorAt(0, 0).a, std::uint8_t(255));
+    }
+
+    void newSpriteCompression()
+    {
+        // A few colors are stored LZ5, more RLE8, opaque true color PNG24, with alpha PNG32.
+        SpriteDocument doc;
+        doc.palettes() << SpriteDocument::makePalette(1, 1, grayscalePalette(256));
+        auto add = [&doc](Image image) {
+            SpriteEntry entry;
+            entry.header.number = std::uint16_t(doc.spriteCount());
+            entry.pixels = SpriteDocument::makePixels(std::move(image));
+            entry.palette = doc.palettes()[0];
+            doc.sprites() << entry;
+        };
+        add(Image::indexed(2, 1, {1, 3}));
+        add(Image::indexed(2, 1, {1, 200}));
+        add(Image::rgba(1, 1, {1, 2, 3, 255}));
+        add(Image::rgba(1, 1, {1, 2, 3, 100}));
+        const auto bytes = doc.toSff().write();
+        QVERIFY(bytes.ok());
+        auto sff = SffDocument::read(ByteSpan(bytes.value()));
+        QVERIFY(sff.ok());
+        QCOMPARE(sff.value().sprites[0].compression, SffCompression::Lz5);
+        QCOMPARE(sff.value().sprites[1].compression, SffCompression::Rle8);
+        QCOMPARE(sff.value().sprites[2].compression, SffCompression::Png24);
+        QCOMPARE(sff.value().sprites[3].compression, SffCompression::Png32);
     }
 
     void fileNames()
@@ -332,6 +392,23 @@ private Q_SLOTS:
         SpriteFile converted(v1, "sprites");
         QVERIFY(converted.load(&error));
         QCOMPARE(converted.document().version(), SffVersion::V1);
+
+        file.undoStack()->clear();
+        const int steps = file.undoStack()->count();
+        for (int dx : {1, 1, -1}) {
+            SpriteDocument moved = file.document();
+            SpriteEdits::moveAxes(moved, {2}, dx, 0);
+            file.applyAxisChange(2, moved);
+        }
+        QCOMPARE(file.undoStack()->count(), steps + 1);
+        SpriteDocument other = file.document();
+        SpriteEdits::moveAxes(other, {3}, 0, 1);
+        file.applyAxisChange(3, other);
+        QCOMPARE(file.undoStack()->count(), steps + 2);
+        const int x = file.document().sprites()[2].header.axisX;
+        file.undoStack()->undo();
+        file.undoStack()->undo();
+        QCOMPARE(int(file.document().sprites()[2].header.axisX), x - 1);
 
         writeFile(dir.filePath("bad.sff"), "not a sprite file");
         SpriteFile bad(dir.filePath("bad.sff"), "sprites");

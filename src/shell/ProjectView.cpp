@@ -290,6 +290,7 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
         QString error;
         if (SpriteFile* file = m_project->spriteFile(filePath, info.id, &error)) {
             auto* page = new SpritePage(file);
+            page->applySettings(m_context.config());
             page->setProperty("filePath", filePath);
             page->setProperty("editorId", info.id);
             connect(file, &ProjectFile::modifiedChanged, this, [this] { Q_EMIT modifiedChanged(); });
@@ -333,6 +334,8 @@ void ProjectView::reconfigureEditors()
 {
     for (auto it = m_fileTabs.cbegin(); it != m_fileTabs.cend(); ++it) {
         for (int i = 0; i < it.value()->count(); ++i) {
+            if (auto* sprites = qobject_cast<SpritePage*>(it.value()->widget(i)))
+                sprites->applySettings(m_context.config());
             if (auto* page = qobject_cast<CodePage*>(it.value()->widget(i)))
                 configureCodeEditor(page->editor(), it.key());
         }

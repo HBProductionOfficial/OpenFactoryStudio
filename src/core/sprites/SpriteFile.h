@@ -28,6 +28,8 @@ public:
     QUndoStack* undoStack() const { return m_undo; }
 
     void apply(const QString& text, const SpriteDocument& after);
+    // Back-to-back axis changes of one sprite (spins, 1 px moves, dragging) merge into one step.
+    void applyAxisChange(int index, const SpriteDocument& after);
 
 Q_SIGNALS:
     void documentChanged();
