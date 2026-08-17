@@ -29,6 +29,7 @@ class CodePage;
 class Engine;
 class Project;
 class ProjectFile;
+class SpritesEditor;
 
 // Everything below the project tab bar for one open project.
 class ProjectView : public QWidget
@@ -77,6 +78,8 @@ public:
     bool openFile(const QString& editorId, const QString& path, QString* error = nullptr);
     QList<ProjectFile*> editorFiles(const QString& editorId) const;
     QList<CodeEditor*> codeEditors() const;
+    // Panel controllers, nullptr when the project does not have that editor.
+    SpritesEditor* spritesEditor() const { return m_sprites; }
     void reconfigureEditors();
 
 Q_SIGNALS:
@@ -130,6 +133,7 @@ private:
     QHash<QString, VariableUsage> m_variables;
     QList<QPointer<QFutureWatcher<Analysis>>> m_analyses;
     QPointer<QMenu> m_codeMenu;
+    SpritesEditor* m_sprites = nullptr;
 };
 
 } // namespace OFS

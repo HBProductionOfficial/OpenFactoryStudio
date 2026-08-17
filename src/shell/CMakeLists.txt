@@ -20,6 +20,8 @@ add_library(ofsshell STATIC
     ProjectView.cpp
     SpritePage.h
     SpritePage.cpp
+    SpritesEditor.h
+    SpritesEditor.cpp
     StatusBar.h
     StatusBar.cpp
     UpdateChecker.h

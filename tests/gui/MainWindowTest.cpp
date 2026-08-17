@@ -1103,6 +1103,41 @@ private Q_SLOTS:
         QCOMPARE(workspace->images()[0].opacity, 0.5);
         page->setCurrent(7); // clamped
         QCOMPARE(page->current(), 1);
+        page->setOnionSkin(-1, 1.0);
+
+        auto* group = view->findChild<QSpinBox*>("spr_grp");
+        auto* number = view->findChild<QSpinBox*>("spr_num");
+        auto* axisX = view->findChild<QSpinBox*>("spr_xaxis");
+        auto* selector = view->findChild<QScrollBar*>("spr_sel");
+        QVERIFY(group && number && axisX && selector);
+        QCOMPARE(number->value(), 1);
+        QCOMPARE(selector->maximum(), 1);
+        QCOMPARE(selector->value(), 1);
+        selector->setValue(0);
+        QCOMPARE(page->current(), 0);
+        QCOMPARE(number->value(), 0);
+        axisX->setValue(10);
+        QCOMPARE(int(page->file()->document().sprites()[0].header.axisX), 10);
+        QCOMPARE(workspace->images().last().topLeft, QPoint(-10, -4));
+
+        ActionRegistry& actions = m_context->actions();
+        actions.action("spr_next")->trigger();
+        QCOMPARE(page->current(), 1);
+        actions.action("spr_prev_grp")->trigger();
+        QCOMPARE(page->current(), 0);
+        actions.action("spr_pos_left")->trigger(); // moving the sprite left grows the axis
+        QCOMPARE(int(page->file()->document().sprites()[0].header.axisX), 11);
+        QCOMPARE(axisX->value(), 11);
+        actions.action("spr_duplicate")->trigger();
+        QCOMPARE(page->file()->document().spriteCount(), 3);
+        QCOMPARE(page->current(), 1);
+        QCOMPARE(number->value(), 2);
+        m_context->config().setValue("confirm_delete", false);
+        actions.action("spr_delete")->trigger();
+        m_context->config().setValue("confirm_delete", true);
+        QCOMPARE(page->file()->document().spriteCount(), 2);
+        while (page->file()->isModified())
+            page->file()->undoStack()->undo();
     }
 
     void stateControllerList()

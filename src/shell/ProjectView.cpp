@@ -21,6 +21,7 @@
 #include "shell/ControllerTemplatesWidget.h"
 #include "shell/DocumentationPopup.h"
 #include "shell/SpritePage.h"
+#include "shell/SpritesEditor.h"
 
 #include <QCursor>
 #include <QDir>
@@ -207,9 +208,15 @@ void ProjectView::createEditor(const EditorInfo& info)
         const int index = tabs->addTab(createFilePage(info, file), QFileInfo(file).fileName());
         tabs->setTabToolTip(index, QDir::toNativeSeparators(file));
     }
+    if (info.id == QLatin1String("sprites")) {
+        m_sprites = new SpritesEditor(m_context, this);
+        m_sprites->setPage(qobject_cast<SpritePage*>(tabs->currentWidget()));
+    }
     connect(tabs, &QTabWidget::currentChanged, this, [this, tabs] {
         if (auto* page = qobject_cast<CodePage*>(tabs->currentWidget()))
             updateOutline(page);
+        if (m_sprites && tabs->objectName() == QLatin1String("fileTabs_sprites"))
+            m_sprites->setPage(qobject_cast<SpritePage*>(tabs->currentWidget()));
         if (tabs == m_center->currentWidget())
             Q_EMIT currentFileChanged();
     });
@@ -806,6 +813,8 @@ void ProjectView::applyPreset(const Preset::Model& model)
     if (organizer != model.extraPanels.cend() && organizer->layout)
         builder.buildPanel(*organizer->layout, m_extraPanels.value(QStringLiteral("organizer"))->widget(), 22);
     updateRightPanel();
+    if (m_sprites)
+        m_sprites->bindPanel(m_editorPanels.value(QStringLiteral("sprites"))->widget());
     for (QTabWidget* tabs : std::as_const(m_fileTabs)) {
         if (auto* page = qobject_cast<CodePage*>(tabs->currentWidget()))
             updateOutline(page);

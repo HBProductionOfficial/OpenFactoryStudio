@@ -29,6 +29,7 @@
 #include "shell/ProjectView.h"
 #include "shell/QuickFindBar.h"
 #include "shell/SpritePage.h"
+#include "shell/SpritesEditor.h"
 #include "shell/StatusBar.h"
 #include "shell/UpdateChecker.h"
 #include "shell/WelcomePage.h"
@@ -509,6 +510,15 @@ void MainWindow::connectEditActions()
             if (QAction* a = actions.action(id))
                 connect(a, &QAction::triggered, this, [this, engine, id] { runEngineTool(engine, id); });
         }
+    }
+    // Sprites editor actions.
+    for (const char* id : {"spr_prev", "spr_next", "spr_prev_grp", "spr_next_grp", "spr_pos_left", "spr_pos_up",
+                           "spr_pos_right", "spr_pos_down", "spr_delete", "spr_duplicate", "spr_crop"}) {
+        const QString action = QString::fromLatin1(id);
+        on(id, [this, action] {
+            if (ProjectView* view = currentProjectView(); view && view->spritesEditor())
+                view->spritesEditor()->perform(action);
+        });
     }
     on("st_var_list", [this] {
         for (ProjectView* view : projectViews())
