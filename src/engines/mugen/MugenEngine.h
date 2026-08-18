@@ -37,6 +37,9 @@ public:
     QList<OutlineNode> outline(const Project& project, const QString& editorId, const QString& text) const override;
     VariableUsage variableUsage(const Project& project, const QString& editorId, const QString& text) const override;
     QStringList toolActions() const override;
+    void scaleContactBoxes(Project& project, const QList<QPair<int, int>>& sprites, double widthScale,
+                           double heightScale) override;
+    bool hasContactBoxes() const override { return true; }
     void runTool(const QString& actionId, const ToolContext& context) override;
 
 protected:

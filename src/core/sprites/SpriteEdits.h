@@ -16,8 +16,8 @@ OFS_CORE_EXPORT void setAxis(SpriteDocument& doc, int index, int x, int y);
 OFS_CORE_EXPORT void moveAxes(SpriteDocument& doc, const QList<int>& indexes, int dx, int dy);
 
 OFS_CORE_EXPORT void remove(SpriteDocument& doc, QList<int> indexes);
-OFS_CORE_EXPORT int removeGroup(SpriteDocument& doc, int group);
-OFS_CORE_EXPORT int renameGroup(SpriteDocument& doc, int from, int to);
+OFS_CORE_EXPORT int removeGroup(SpriteDocument& doc, int group, int first = -1, int last = -1);
+OFS_CORE_EXPORT int renameGroup(SpriteDocument& doc, int from, int to, int first = -1, int last = -1);
 
 OFS_CORE_EXPORT int freeNumber(const SpriteDocument& doc, int group, int start = 0);
 OFS_CORE_EXPORT int duplicate(SpriteDocument& doc, int index);

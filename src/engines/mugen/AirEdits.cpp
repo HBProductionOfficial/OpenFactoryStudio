@@ -110,6 +110,66 @@ bool removeFrame(QTextDocument* document, const AirAction& action, qint64 tick)
     return true;
 }
 
+int scaleContactBoxes(QTextDocument* document, const QList<QPair<int, int>>& sprites, double widthScale,
+                      double heightScale)
+{
+    QTextCursor cursor(document);
+    cursor.beginEditBlock();
+    int changed = 0;
+    bool inDefault = false;
+    QList<int> pending;
+    for (QTextBlock block = document->begin(); block.isValid(); block = block.next()) {
+        const CodeLine line = CodeLine::parse(block.text());
+        if (line.kind == CodeLine::Kind::Section) {
+            pending.clear();
+            inDefault = false;
+            continue;
+        }
+        if (line.kind == CodeLine::Kind::KeyValue && line.key.startsWith(QLatin1String("clsn"), Qt::CaseInsensitive)) {
+            if (line.index.isEmpty())
+                inDefault = line.key.endsWith(QLatin1String("default"), Qt::CaseInsensitive);
+            else if (!inDefault)
+                pending << block.blockNumber();
+            continue;
+        }
+        if (line.kind != CodeLine::Kind::Raw)
+            continue;
+        const QStringList fields = line.value.split(QLatin1Char(','));
+        bool okGroup = false;
+        bool okIndex = false;
+        const int group = fields.value(0).trimmed().toInt(&okGroup);
+        const int index = fields.value(1).trimmed().toInt(&okIndex);
+        if (fields.size() >= 5 && okGroup && okIndex && sprites.contains(qMakePair(group, index))) {
+            for (int number : std::as_const(pending)) {
+                const QTextBlock boxBlock = document->findBlockByNumber(number);
+                const CodeLine box = CodeLine::parse(boxBlock.text());
+                const QStringList values = box.value.split(QLatin1Char(','));
+                if (values.size() < 4)
+                    continue;
+                const int x1 = values[0].trimmed().toInt();
+                const int y1 = values[1].trimmed().toInt();
+                const int x2 = values[2].trimmed().toInt();
+                const int y2 = values[3].trimmed().toInt();
+                const int left = qRound(std::min(x1, x2) * widthScale);
+                const int top = qRound(std::min(y1, y2) * heightScale);
+                const int width = qRound((std::abs(x2 - x1) + 1) * widthScale);
+                const int height = qRound((std::abs(y2 - y1) + 1) * heightScale);
+                const QString text = QStringLiteral("  %1[%2] = %3, %4, %5, %6")
+                                         .arg(box.key, box.index)
+                                         .arg(left)
+                                         .arg(top)
+                                         .arg(left + width - 1)
+                                         .arg(top + height - 1);
+                replaceLine(cursor, number, text);
+                ++changed;
+            }
+        }
+        pending.clear();
+    }
+    cursor.endEditBlock();
+    return changed;
+}
+
 void appendAnimation(QTextDocument* document, int number, const QString& name, int time)
 {
     const QString text = document->toPlainText();

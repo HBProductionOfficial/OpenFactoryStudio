@@ -138,18 +138,29 @@ void remove(SpriteDocument& doc, QList<int> indexes)
         doc.sprites().removeAt(index);
 }
 
-int removeGroup(SpriteDocument& doc, int group)
+namespace {
+
+bool inGroup(const SpriteEntry& entry, int group, int first, int last)
+{
+    if (entry.group() != group)
+        return false;
+    return first < 0 || (entry.number() >= first && entry.number() <= last);
+}
+
+} // namespace
+
+int removeGroup(SpriteDocument& doc, int group, int first, int last)
 {
     const qsizetype before = doc.sprites().size();
-    doc.sprites().removeIf([group](const SpriteEntry& entry) { return entry.group() == group; });
+    doc.sprites().removeIf([&](const SpriteEntry& entry) { return inGroup(entry, group, first, last); });
     return int(before - doc.sprites().size());
 }
 
-int renameGroup(SpriteDocument& doc, int from, int to)
+int renameGroup(SpriteDocument& doc, int from, int to, int first, int last)
 {
     int moved = 0;
     for (SpriteEntry& entry : doc.sprites()) {
-        if (entry.group() == from) {
+        if (inGroup(entry, from, first, last)) {
             entry.header.group = std::uint16_t(std::clamp(to, 0, 0xFFFF));
             ++moved;
         }

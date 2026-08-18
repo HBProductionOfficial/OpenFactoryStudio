@@ -279,6 +279,25 @@ private Q_SLOTS:
         QCOMPARE(doc.toPlainText(), QStringLiteral("x"));
     }
 
+    void contactBoxes()
+    {
+        QTextDocument doc;
+        doc.setPlainText("[Begin Action 200]\nClsn2Default: 1\n Clsn2[0] = 1, 2, 3, 4\n200,0, 0,0, 3\n"
+                         "Clsn1: 1\n Clsn1[0] =  16,-80, 61,-71\nClsn2: 3\n Clsn2[0] =  19,  0,-10,-80\n"
+                         " Clsn2[1] =   6,-94, 18,-78\n Clsn2[2] =  19,-80, 61,-71\n200,2, 0,0, 3\n"
+                         "Clsn1: 1\n Clsn1[0] = 0,0,1,1\n200,3, 0,0, 3\n");
+        QCOMPARE(Mugen::AirEdits::scaleContactBoxes(&doc, {{200, 2}}, 2.0, 2.0), 4);
+        QCOMPARE(doc.toPlainText(), QStringLiteral("[Begin Action 200]\nClsn2Default: 1\n Clsn2[0] = 1, 2, 3, 4\n"
+                                                   "200,0, 0,0, 3\nClsn1: 1\n  Clsn1[0] = 32, -160, 123, -141\n"
+                                                   "Clsn2: 3\n  Clsn2[0] = -20, -160, 39, 1\n"
+                                                   "  Clsn2[1] = 12, -188, 37, -155\n"
+                                                   "  Clsn2[2] = 38, -160, 123, -141\n200,2, 0,0, 3\n"
+                                                   "Clsn1: 1\n Clsn1[0] = 0,0,1,1\n200,3, 0,0, 3\n"));
+        doc.undo();
+        QVERIFY(doc.toPlainText().contains(" Clsn1[0] =  16,-80, 61,-71\n"));
+        QCOMPARE(Mugen::AirEdits::scaleContactBoxes(&doc, {{999, 0}}, 2.0, 2.0), 0);
+    }
+
     void previewScreen()
     {
         Mugen::AnimationPreview preview;

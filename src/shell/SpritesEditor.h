@@ -31,6 +31,7 @@ public:
 
 private:
     void refresh();
+    bool performDialog(const QString& actionId);
     void applyIdentifiers();
     void applyAxis();
     void updateOnion();

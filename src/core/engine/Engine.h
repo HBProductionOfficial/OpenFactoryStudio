@@ -8,6 +8,7 @@
 #include <QIcon>
 #include <QList>
 #include <QObject>
+#include <QPair>
 #include <QString>
 #include <QStringList>
 #include <QtPlugin>
@@ -104,6 +105,11 @@ public:
 
     virtual RunCopy prepareRun(const Project& project, const QString& engineDir) const;
     virtual QString runLogFile(const QString& engineDir) const;
+
+    // Called after the Sprites editor resized sprites, so boxes drawn on them scale too.
+    virtual void scaleContactBoxes(Project& project, const QList<QPair<int, int>>& sprites, double widthScale,
+                                   double heightScale);
+    virtual bool hasContactBoxes() const { return false; }
 
     virtual QStringList toolActions() const { return {}; }
     virtual void runTool(const QString& actionId, const ToolContext& context);

@@ -108,6 +108,15 @@ QList<OutlineNode> Engine::outline(const Project& project, const QString& editor
     return sectionOutline(text);
 }
 
+void Engine::scaleContactBoxes(Project& project, const QList<QPair<int, int>>& sprites, double widthScale,
+                               double heightScale)
+{
+    Q_UNUSED(project);
+    Q_UNUSED(sprites);
+    Q_UNUSED(widthScale);
+    Q_UNUSED(heightScale);
+}
+
 void Engine::runTool(const QString& actionId, const ToolContext& context)
 {
     Q_UNUSED(actionId);

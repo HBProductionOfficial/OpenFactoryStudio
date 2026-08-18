@@ -2,6 +2,8 @@
 
 #include "engines/mugen/AirFile.h"
 
+#include <QPair>
+
 class QTextDocument;
 
 namespace OFS::Mugen::AirEdits {
@@ -15,6 +17,10 @@ bool splitFrame(QTextDocument* document, const AirAction& action, qint64 tick);
 
 // The removed element's time goes to the previous one.
 bool removeFrame(QTextDocument* document, const AirAction& action, qint64 tick);
+
+// Only an element's own boxes change, by their inclusive width and height.
+int scaleContactBoxes(QTextDocument* document, const QList<QPair<int, int>>& sprites, double widthScale,
+                      double heightScale);
 
 void appendAnimation(QTextDocument* document, int number, const QString& name, int time);
 

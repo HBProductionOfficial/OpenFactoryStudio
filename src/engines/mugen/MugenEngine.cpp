@@ -4,7 +4,9 @@
 #include "core/code/CompletionModels.h"
 #include "core/code/VariableUsage.h"
 #include "core/project/Project.h"
+#include "core/project/ProjectFile.h"
 #include "core/syntax/SyntaxDatabase.h"
+#include "engines/mugen/AirEdits.h"
 #include "engines/mugen/MugenActions.h"
 #include "engines/mugen/MugenControls.h"
 #include "engines/mugen/MugenMenus.h"
@@ -162,6 +164,16 @@ VariableUsage MugenEngine::variableUsage(const Project& project, const QString& 
     if (editorId != QLatin1String("states"))
         return {};
     return scanVariables(text);
+}
+
+void MugenEngine::scaleContactBoxes(Project& project, const QList<QPair<int, int>>& sprites, double widthScale,
+                                    double heightScale)
+{
+    const QString air = project.editorFiles(QStringLiteral("animations")).value(0);
+    if (air.isEmpty() || (!project.file(air) && !QFileInfo::exists(air)))
+        return;
+    if (CodeFile* file = project.codeFile(air, QStringLiteral("animations")))
+        AirEdits::scaleContactBoxes(file->document(), sprites, widthScale, heightScale);
 }
 
 QStringList MugenEngine::toolActions() const

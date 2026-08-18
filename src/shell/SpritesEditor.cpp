@@ -1,12 +1,21 @@
 #include "shell/SpritesEditor.h"
 
 #include "core/app/AppContext.h"
+#include "core/engine/Engine.h"
+#include "core/project/Project.h"
 #include "core/settings/Config.h"
 #include "core/sprites/SpriteEdits.h"
+#include "core/sprites/SpriteExport.h"
 #include "core/sprites/SpriteFile.h"
+#include "core/sprites/SpriteImages.h"
+#include "shell/FileDialogs.h"
 #include "shell/SpritePage.h"
+#include "shell/dialogs/SpriteDialogs.h"
 
 #include <QCheckBox>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
@@ -319,12 +328,160 @@ bool SpritesEditor::perform(const QString& id)
         const int copy = SpriteEdits::duplicate(edited, current);
         file->apply(tr("Duplicate sprite"), edited);
         m_page->setCurrent(copy);
-    } else if (id == QLatin1String("spr_crop")) {
+    } else if (!performDialog(id)) {
+        return false;
+    }
+    return true;
+}
+
+namespace {
+
+const char* const ImageFilters =
+    "All supported (*.pcx *.png *.gif *.bmp);;Personal Computer eXchange (*.pcx);;"
+    "Portable Network Graphic (*.png);;Graphics Interchange Format (*.gif);;Bitmap (*.bmp)";
+const char* const SaveImageFilters = "Portable Network Graphic (*.png);;Graphics Interchange Format (*.gif);;"
+                                     "Personal Computer eXchange (*.pcx);;Bitmap (*.bmp)";
+
+bool samePixels(const SpriteDocument& a, const SpriteDocument& b)
+{
+    if (a.spriteCount() != b.spriteCount())
+        return false;
+    for (int i = 0; i < a.spriteCount(); ++i) {
+        if (a.sprites()[i].pixels != b.sprites()[i].pixels ||
+            a.sprites()[i].header.axisX != b.sprites()[i].header.axisX ||
+            a.sprites()[i].header.axisY != b.sprites()[i].header.axisY)
+            return false;
+    }
+    return true;
+}
+
+} // namespace
+
+bool SpritesEditor::performDialog(const QString& id)
+{
+    SpriteFile* file = m_page->file();
+    const SpriteDocument& doc = file->document();
+    const int current = m_page->current();
+    const int count = doc.spriteCount();
+    const int currentGroup = current < count ? doc.sprites()[current].group() : 0;
+    QWidget* parent = m_page->window();
+    Config& config = m_context.config();
+    const QString imageFolder = config.value(QStringLiteral("spr_path"), QFileInfo(file->path()).absolutePath());
+
+    if (id == QLatin1String("spr_crop")) {
+        RangeDialog range(currentGroup, parent);
+        if (range.exec() != QDialog::Accepted)
+            return true;
+        SpriteDocument edited = doc;
+        SpriteEdits::crop(edited, range.sprites(doc, current));
+        if (!samePixels(edited, doc)) // a crop that changes nothing is no step
+            file->apply(tr("Crop image"), edited);
+    } else if (id == QLatin1String("spr_resize")) {
+        ResizeDialog dialog(currentGroup, parent);
+        if (dialog.exec() != QDialog::Accepted)
+            return true;
+        const QList<int> sprites = dialog.sprites(doc, current);
+        SpriteDocument edited = doc;
+        SpriteEdits::resize(edited, sprites, dialog.widthScale(), dialog.heightScale(), dialog.filter());
+        if (samePixels(edited, doc))
+            return true;
+        file->apply(tr("Resize"), edited);
+        // The frames showing these sprites can have their collision boxes scaled too.
+        auto* project = qobject_cast<Project*>(file->parent());
+        if (project && project->engine() && project->engine()->hasContactBoxes() &&
+            QMessageBox::question(parent, tr("Scale contact boxes"),
+                                  tr("Do you want to scale contact boxes of frames that use these sprites?"),
+                                  QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes) == QMessageBox::Yes) {
+            QList<QPair<int, int>> identifiers;
+            for (int index : sprites)
+                identifiers << qMakePair(doc.sprites()[index].group(), doc.sprites()[index].number());
+            project->engine()->scaleContactBoxes(*project, identifiers, dialog.widthScale(), dialog.heightScale());
+        }
+    } else if (id == QLatin1String("spr_delete_grp") || id == QLatin1String("spr_rename_grp")) {
+        const bool rename = id == QLatin1String("spr_rename_grp");
+        GroupDialog dialog(rename ? GroupDialog::Kind::Rename : GroupDialog::Kind::Delete, currentGroup, parent);
+        if (dialog.exec() != QDialog::Accepted)
+            return true;
+        SpriteDocument edited = doc;
+        const int changed =
+            rename ? SpriteEdits::renameGroup(edited, dialog.group(), dialog.newGroup(), dialog.first(), dialog.last())
+                   : SpriteEdits::removeGroup(edited, dialog.group(), dialog.first(), dialog.last());
+        if (changed > 0)
+            file->apply(rename ? tr("Rename group") : tr("Delete group"), edited);
+    } else if (id == QLatin1String("spr_align")) {
+        AlignmentDialog dialog(doc, current, parent);
+        connect(&dialog, &AlignmentDialog::applyRequested, this, [file](const QList<int>& sprites, int dx, int dy) {
+            if (sprites.isEmpty() || (dx == 0 && dy == 0))
+                return;
+            SpriteDocument edited = file->document();
+            SpriteEdits::moveAxes(edited, sprites, dx, dy);
+            file->apply(tr("Alignment tool"), edited);
+        });
+        dialog.exec();
+    } else if (id == QLatin1String("spr_openimg")) {
+        if (current >= count)
+            return true;
+        const QString path =
+            FileDialogs::getOpenFileName(parent, tr("Change image..."), imageFolder, QString::fromLatin1(ImageFilters));
+        if (path.isEmpty())
+            return true;
+        config.setValue(QStringLiteral("spr_path"), QFileInfo(path).absolutePath());
+        QString error;
+        Formats::Image image = loadImageFile(path, &error);
+        if (image.pixelBuffer().empty()) {
+            QMessageBox::warning(parent, tr("Change image..."), error);
+            return true;
+        }
+        SpriteDocument edited = doc;
+        SpriteEdits::setImage(edited, current, std::move(image));
+        file->apply(tr("Change image"), edited);
+    } else if (id == QLatin1String("spr_saveimgas")) {
+        const QString path = FileDialogs::getSaveFileName(parent, tr("Save image..."), imageFolder,
+                                                          QString::fromLatin1(SaveImageFilters));
+        if (path.isEmpty())
+            return true;
+        ItemsDialog items(doc, current, parent);
+        if (items.exec() != QDialog::Accepted || items.sprites().isEmpty())
+            return true;
+        config.setValue(QStringLiteral("spr_path"), QFileInfo(path).absolutePath());
+        const QString suffix = QFileInfo(path).suffix().isEmpty() ? QStringLiteral("png") : QFileInfo(path).suffix();
+        QString error;
+        if (saveSpriteImages(doc, items.sprites(), path, suffix, &error).size() != items.sprites().size())
+            QMessageBox::warning(parent, tr("Save image..."), error);
+    } else if (id == QLatin1String("spr_saveimg_aligned")) {
+        RangeDialog range(currentGroup, parent);
+        if (range.exec() != QDialog::Accepted)
+            return true;
+        const QList<int> sprites = range.sprites(doc, current);
+        if (sprites.isEmpty())
+            return true;
+        const QString path = FileDialogs::getSaveFileName(parent, tr("Save image (aligned)..."), imageFolder,
+                                                          QString::fromLatin1(SaveImageFilters));
+        if (path.isEmpty())
+            return true;
+        config.setValue(QStringLiteral("spr_path"), QFileInfo(path).absolutePath());
+        const QString suffix = QFileInfo(path).suffix().isEmpty() ? QStringLiteral("png") : QFileInfo(path).suffix();
+        const AlignedImages aligned = alignSprites(doc, sprites);
+        QString error;
+        if (saveAlignedImages(doc, sprites, aligned, path, suffix, &error).size() != sprites.size()) {
+            QMessageBox::warning(parent, tr("Save image (aligned)..."), error);
+            return true;
+        }
+        if (QMessageBox::question(parent, tr("Perfect axis"),
+                                  tr("The axis is X: %1, Y: %2. Do you want to save this information to a file?")
+                                      .arg(aligned.axis.x())
+                                      .arg(aligned.axis.y()),
+                                  QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::Yes) {
+            QFile axis(QFileInfo(path).dir().filePath(QStringLiteral("axis.txt")));
+            if (axis.open(QIODevice::WriteOnly))
+                axis.write(axisFileText(aligned.axis));
+        }
+    } else if (id == QLatin1String("spr_split_channels")) {
         if (current >= count)
             return true;
         SpriteDocument edited = doc;
-        SpriteEdits::crop(edited, {current});
-        file->apply(tr("Crop image"), edited);
+        SpriteEdits::splitChannels(edited, current);
+        file->apply(tr("Split channels"), edited);
     } else {
         return false;
     }

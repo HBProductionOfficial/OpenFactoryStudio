@@ -50,6 +50,8 @@ add_library(ofsshell STATIC
     dialogs/SnippetEditorDialog.cpp
     dialogs/SnippetFieldsDialog.h
     dialogs/SnippetFieldsDialog.cpp
+    dialogs/SpriteDialogs.h
+    dialogs/SpriteDialogs.cpp
     dialogs/StateControllerDialog.h
     dialogs/StateControllerDialog.cpp
     dialogs/VariableLogDialog.h

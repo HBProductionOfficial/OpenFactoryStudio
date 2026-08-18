@@ -1,11 +1,13 @@
 #include "core/sprites/SpriteEdits.h"
 #include "core/sprites/SpriteDocument.h"
+#include "core/sprites/SpriteExport.h"
 #include "core/sprites/SpriteFile.h"
 #include "core/sprites/SpriteImages.h"
 #include "fixtures/FixtureFactory.h"
 #include "formats/codecs/Png.h"
 
 #include <QFile>
+#include <QFileInfo>
 #include <QImage>
 #include <QSignalSpy>
 #include <QTemporaryDir>
@@ -94,6 +96,66 @@ private Q_SLOTS:
         SpriteEdits::remove(doc, {2, 0, 2, 7});
         QCOMPARE(doc.spriteCount(), 1);
         QCOMPARE(doc.sprites()[0].number(), 1);
+    }
+
+    void groupIntervals()
+    {
+        SpriteDocument doc = sample();
+        for (int n = 2; n <= 6; ++n) {
+            SpriteEntry entry = doc.sprites()[0];
+            entry.header.number = std::uint16_t(n);
+            doc.sprites() << entry;
+        }
+        QCOMPARE(SpriteEdits::removeGroup(doc, 0, 3, 5), 3);
+        QCOMPARE(doc.findSprite(0, 4), -1);
+        QVERIFY(doc.findSprite(0, 6) >= 0);
+        QCOMPARE(SpriteEdits::renameGroup(doc, 0, 7, 1, 2), 2);
+        QVERIFY(doc.findSprite(7, 1) >= 0);
+        QVERIFY(doc.findSprite(0, 0) >= 0);
+    }
+
+    void imageExport()
+    {
+        QTemporaryDir dir;
+        SpriteDocument doc = sample();
+        QString error;
+        QStringList written = saveSpriteImages(doc, {2}, dir.filePath("one"), "png", &error);
+        QCOMPARE(written, QStringList{dir.filePath("one.png")});
+        QVERIFY(loadImageFile(written[0]).isIndexed());
+        written = saveSpriteImages(doc, {0, 2}, dir.filePath("multi.pcx"), "pcx", &error);
+        QCOMPARE(written, (QStringList{dir.filePath("multi_0-0.pcx"), dir.filePath("multi_1-0.pcx")}));
+        QCOMPARE(loadImageFile(written[1]).width(), 3);
+        QVERIFY(saveSpriteImages(doc, {1}, dir.filePath("g.gif"), "gif", &error).size() == 1);
+        QVERIFY(saveSpriteImages(doc, {1}, dir.filePath("b.bmp"), "bmp", &error).size() == 1);
+
+        // Group 11 sizes from Fighter Factory.
+        SpriteDocument group;
+        group.palettes() << doc.palettes()[0];
+        const int sizes[][4] = {{49, 92, 17, 91}, {49, 80, 17, 79}, {50, 75, 18, 73}};
+        for (const auto& size : sizes) {
+            SpriteEntry entry;
+            entry.header.group = 11;
+            entry.header.number = std::uint16_t(group.spriteCount());
+            entry.header.axisX = std::int16_t(size[2]);
+            entry.header.axisY = std::int16_t(size[3]);
+            entry.pixels = SpriteDocument::makePixels(Image::indexed(
+                size[0], size[1], std::vector<std::uint8_t>(std::size_t(size[0]) * std::size_t(size[1]), 1)));
+            entry.palette = group.palettes()[0];
+            group.sprites() << entry;
+        }
+        const AlignedImages aligned = alignSprites(group, {0, 1, 2});
+        QCOMPARE(aligned.axis, QPoint(18, 91));
+        QCOMPARE(aligned.images.size(), 3);
+        for (const Image& image : aligned.images) {
+            QCOMPARE(image.width(), 50);
+            QCOMPARE(image.height(), 93);
+        }
+        QCOMPARE(aligned.images[0].indexAt(0, 0), std::uint8_t(0));
+        QCOMPARE(aligned.images[0].indexAt(1, 0), std::uint8_t(1));
+        QCOMPARE(axisFileText(aligned.axis), QByteArray("X axis: 18\r\nY axis: 91"));
+        written = saveAlignedImages(group, {0, 1, 2}, aligned, dir.filePath("al.png"), "png", &error);
+        QCOMPARE(written.size(), 3);
+        QCOMPARE(QFileInfo(written[2]).fileName(), QStringLiteral("al_11-2.png"));
     }
 
     void duplicates()
