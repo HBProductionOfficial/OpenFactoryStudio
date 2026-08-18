@@ -9,6 +9,7 @@
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
 #include "core/sprites/SpriteDocument.h"
+#include "core/sprites/SpriteFile.h"
 #include "core/widgets/EPanelWidget.h"
 #include "core/widgets/GraphicsView.h"
 #include "shell/AdvancedSearchPanel.h"
@@ -1145,6 +1146,138 @@ private Q_SLOTS:
         QCOMPARE(page->file()->document().spriteCount(), 2);
         while (page->file()->isModified())
             page->file()->undoStack()->undo();
+    }
+
+    void spritesDialogs()
+    {
+        QTemporaryDir dir;
+        // Sprites 0,0, 0,1 and 10,0 are 8x6 with a one pixel transparent border. Action 200 shows 0,0.
+        SpriteDocument doc;
+        doc.palettes() << SpriteDocument::makePalette(1, 1, Formats::grayscalePalette(256));
+        std::vector<std::uint8_t> bordered(48, 0);
+        for (int y = 1; y <= 4; ++y)
+            for (int x = 1; x <= 6; ++x)
+                bordered[std::size_t(y * 8 + x)] = 5;
+        const int ids[][2] = {{0, 0}, {0, 1}, {10, 0}};
+        for (const auto& id : ids) {
+            SpriteEntry entry;
+            entry.header.group = std::uint16_t(id[0]);
+            entry.header.number = std::uint16_t(id[1]);
+            entry.header.axisX = 4;
+            entry.header.axisY = 6;
+            entry.pixels = SpriteDocument::makePixels(Formats::Image::indexed(8, 6, bordered));
+            entry.palette = doc.palettes()[0];
+            doc.sprites() << entry;
+        }
+        Formats::SffDocument sff = doc.toSff();
+        sff.version = Formats::SffVersion::V2;
+        const auto bytes = sff.write();
+        QVERIFY(bytes.ok());
+        writeFile(dir.filePath("d.sff"),
+                  QByteArray(reinterpret_cast<const char*>(bytes.value().data()), qsizetype(bytes.value().size())));
+        writeFile(dir.filePath("d.def"), "[Info]\nname = \"D\"\nmugenversion = 1.0\n"
+                                         "[Files]\ncns = d.cns\nsprite = d.sff\nanim = d.air\n");
+        writeFile(dir.filePath("d.cns"), "[Data]\nlife = 1000\n");
+        writeFile(dir.filePath("d.air"), "[Begin Action 200]\nClsn1: 1\n Clsn1[0] = 1, 2, 3, 4\n0,0, 0,0, 5\n");
+
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("d.def")));
+        ActionRegistry& actions = m_context->actions();
+        actions.action("editor_spr")->trigger();
+        auto* page = window.currentProjectView()->findChild<SpritePage*>();
+        QVERIFY(page);
+        SpriteFile* file = page->file();
+        auto modal = [] {
+            return QApplication::activeModalWidget();
+        };
+
+        QTimer::singleShot(0, this, [modal] {
+            QWidget* range = modal();
+            QVERIFY(range);
+            QCOMPARE(range->objectName(), QStringLiteral("SaveItem"));
+            QCOMPARE(range->windowTitle(), QStringLiteral("Range"));
+            QVERIFY(range->findChild<QRadioButton*>("cur")->isChecked());
+            range->findChild<QRadioButton*>("all")->setChecked(true);
+            qobject_cast<QDialog*>(range)->accept();
+        });
+        actions.action("spr_crop")->trigger();
+        QCOMPARE(file->document().sprites()[2].width(), 6);
+        QCOMPARE(int(file->document().sprites()[2].header.axisX), 3);
+        QCOMPARE(file->undoStack()->count(), 1);
+
+        QTimer::singleShot(0, this, [this, modal] {
+            QWidget* resize = modal();
+            QVERIFY(resize);
+            QCOMPARE(resize->objectName(), QStringLiteral("ResizeSpr"));
+            QCOMPARE(resize->findChild<QDoubleSpinBox*>("xscale")->value(), 1.0);
+            resize->findChild<QDoubleSpinBox*>("xscale")->setValue(2);
+            resize->findChild<QDoubleSpinBox*>("yscale")->setValue(2);
+            QTimer::singleShot(0, this, [modal] {
+                auto* box = qobject_cast<QMessageBox*>(modal());
+                QVERIFY(box);
+                QCOMPARE(box->windowTitle(), QStringLiteral("Scale contact boxes"));
+                box->button(QMessageBox::Yes)->click();
+            });
+            qobject_cast<QDialog*>(resize)->accept();
+        });
+        page->setCurrent(0);
+        actions.action("spr_resize")->trigger();
+        QCOMPARE(file->document().sprites()[0].width(), 12);
+        QCOMPARE(file->document().sprites()[1].width(), 6); // only the current one
+        auto* air = qobject_cast<CodeFile*>(window.currentProjectView()->project()->file(dir.filePath("d.air")));
+        QVERIFY(air);
+        QVERIFY2(air->document()->toPlainText().contains("  Clsn1[0] = 2, 4, 7, 9\n"),
+                 qPrintable(air->document()->toPlainText()));
+
+        QTimer::singleShot(0, this, [modal] {
+            QWidget* dialog = modal();
+            QVERIFY(dialog);
+            QCOMPARE(dialog->objectName(), QStringLiteral("DelGrp"));
+            QCOMPARE(dialog->findChild<QSpinBox*>("Grp")->value(), 0);
+            dialog->findChild<QSpinBox*>("Grp")->setValue(10);
+            qobject_cast<QDialog*>(dialog)->accept();
+        });
+        actions.action("spr_delete_grp")->trigger();
+        QCOMPARE(file->document().spriteCount(), 2);
+
+        const int steps = file->undoStack()->count();
+        const int axisX = file->document().sprites()[0].header.axisX;
+        QTimer::singleShot(0, this, [modal] {
+            QWidget* dialog = modal();
+            QVERIFY(dialog);
+            QCOMPARE(dialog->windowTitle(), QStringLiteral("Alignment tool"));
+            dialog->findChild<QSpinBox*>("xVal")->setValue(5);
+            dialog->findChild<QPushButton*>("pushButton")->click();
+            dialog->findChild<QPushButton*>("pushButton")->click();
+            dialog->findChild<QPushButton*>("pushButton_2")->click();
+        });
+        actions.action("spr_align")->trigger();
+        QCOMPARE(int(file->document().sprites()[0].header.axisX), axisX + 10);
+        QCOMPARE(file->undoStack()->count(), steps + 2);
+
+        actions.action("spr_split_channels")->trigger();
+        QCOMPARE(file->document().spriteCount(), 4);
+        QCOMPARE(file->document().sprites()[0].name, QStringLiteral(" R"));
+
+        FileDialogs::setSavePromptOverride([&dir](const QString& caption, const QString&, const QString& filter) {
+            return caption == QLatin1String("Save image...") && filter.startsWith("Portable Network Graphic (*.png)")
+                       ? dir.filePath("exp.png")
+                       : QString();
+        });
+        QTimer::singleShot(0, this, [modal] {
+            QWidget* items = modal();
+            QVERIFY(items);
+            QCOMPARE(items->objectName(), QStringLiteral("ItemsDlg"));
+            qobject_cast<QDialog*>(items)->accept();
+        });
+        actions.action("spr_saveimgas")->trigger();
+        FileDialogs::setSavePromptOverride({});
+        QVERIFY(QFileInfo::exists(dir.filePath("exp.png")));
+
+        while (file->undoStack()->canUndo())
+            file->undoStack()->undo();
+        air->document()->setModified(false);
     }
 
     void stateControllerList()
