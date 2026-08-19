@@ -18,6 +18,7 @@
 #include "core/project/ProjectFile.h"
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
+#include "core/sprites/SpriteFile.h"
 #include "core/text/Encodings.h"
 #include "core/theme/ThemeManager.h"
 #include "core/widgets/GraphicsView.h"
@@ -518,7 +519,8 @@ void MainWindow::connectEditActions()
     for (const char* id : {"spr_prev",    "spr_next",      "spr_prev_grp",        "spr_next_grp",       "spr_pos_left",
                            "spr_pos_up",  "spr_pos_right", "spr_pos_down",        "spr_delete",         "spr_duplicate",
                            "spr_crop",    "spr_resize",    "spr_delete_grp",      "spr_rename_grp",     "spr_align",
-                           "spr_openimg", "spr_saveimgas", "spr_saveimg_aligned", "spr_split_channels", "spr_add"}) {
+                           "spr_openimg", "spr_saveimgas", "spr_saveimg_aligned", "spr_split_channels", "spr_add",
+                           "spr_export",  "spr_import"}) {
         const QString action = QString::fromLatin1(id);
         on(id, [this, action] {
             if (ProjectView* view = currentProjectView(); view && view->spritesEditor())
@@ -1005,6 +1007,10 @@ void MainWindow::saveEditorFileAs(const QString& editorId)
 
 bool MainWindow::saveFileAs(ProjectFile* file)
 {
+    if (auto* sprites = qobject_cast<SpriteFile*>(file)) {
+        ProjectView* view = currentProjectView();
+        return view && view->spritesEditor() && view->spritesEditor()->saveAs(sprites, this);
+    }
     auto* project = file ? qobject_cast<Project*>(file->parent()) : nullptr;
     if (!project)
         return false;

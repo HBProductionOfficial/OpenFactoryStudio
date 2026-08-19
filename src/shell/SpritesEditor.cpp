@@ -8,6 +8,7 @@
 #include "core/sprites/SpriteExport.h"
 #include "core/sprites/SpriteFile.h"
 #include "core/sprites/SpriteImages.h"
+#include "core/sprites/SpriteTransfer.h"
 #include "shell/FileDialogs.h"
 #include "shell/SpritePage.h"
 #include "shell/dialogs/SpriteDialogs.h"
@@ -358,6 +359,73 @@ bool samePixels(const SpriteDocument& a, const SpriteDocument& b)
 
 } // namespace
 
+std::function<AddSpritesOptions::Conflict(int, int)> SpritesEditor::conflictPrompt(QWidget* parent)
+{
+    return [parent](int group, int index) {
+        QMessageBox box(QMessageBox::Question, tr("Conflict"),
+                        tr("The index %1 of the group %2 is already in use. Do you want to use the next available "
+                           "index?\nOtherwise, choose Discard to skip this sprite or No to insert as is.")
+                            .arg(index)
+                            .arg(group),
+                        QMessageBox::Yes | QMessageBox::YesToAll | QMessageBox::Discard | QMessageBox::No |
+                            QMessageBox::NoToAll,
+                        parent);
+        box.setDefaultButton(QMessageBox::Yes);
+        switch (box.exec()) {
+        case QMessageBox::YesToAll:
+            return AddSpritesOptions::Conflict::NextFreeForAll;
+        case QMessageBox::Discard:
+            return AddSpritesOptions::Conflict::Skip;
+        case QMessageBox::No:
+            return AddSpritesOptions::Conflict::AsIs;
+        case QMessageBox::NoToAll:
+            return AddSpritesOptions::Conflict::AsIsForAll;
+        default:
+            return AddSpritesOptions::Conflict::NextFree;
+        }
+    };
+}
+
+bool SpritesEditor::saveAs(SpriteFile* file, QWidget* parent)
+{
+    SpriteFormatDialog format(file->document().version(), parent);
+    if (format.exec() != QDialog::Accepted)
+        return false;
+    const Formats::SffVersion version = format.version();
+    if (version != Formats::SffVersion::V201 && SpriteEdits::hasTrueColor(file->document())) {
+        if (QMessageBox::question(parent, tr("Convert sprites to 8-bit"),
+                                  tr("This version doesn't support 24/32-bit sprites. Do you want to convert these "
+                                     "sprites to 8-bit automatically using an optimized palette?"),
+                                  QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes) != QMessageBox::Yes)
+            return false;
+        SpriteDocument converted = file->document();
+        SpriteEdits::convertToIndexed(converted);
+        file->apply(tr("Convert sprites to 8-bit"), converted);
+    }
+    const QString path = FileDialogs::getSaveFileName(parent, tr("Save sprites as..."), file->path(),
+                                                      tr("Sprites (*.sff);;All files (*.*)"));
+    if (path.isEmpty())
+        return false;
+    auto* project = qobject_cast<Project*>(file->parent());
+    const QString folder = project ? QDir(project->directory()).absolutePath() + QLatin1Char('/') : QString();
+    const bool inside = project && QFileInfo(path).absoluteFilePath().startsWith(folder, Qt::CaseInsensitive);
+    QString error;
+    bool written = false;
+    if (inside) {
+        written = file->saveAs(path, version, &error);
+    } else {
+        if (QMessageBox::question(parent, tr("External file!"),
+                                  tr("This file isn't a child of the project directory, so will be ignored on 'Run in "
+                                     "engine', 'Backup' and 'Save as' functions. Do you want to save it as copy?"),
+                                  QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes)
+            return false;
+        written = file->writeCopy(path, version, &error);
+    }
+    if (!written)
+        QMessageBox::warning(parent, tr("Save sprites as..."), error);
+    return written;
+}
+
 void SpritesEditor::addSprites(QWidget* parent, const QString& imageFolder)
 {
     SpriteFile* file = m_page->file();
@@ -393,29 +461,7 @@ void SpritesEditor::addSprites(QWidget* parent, const QString& imageFolder)
                                  7777, 0, 65535, 1, &ok);
         return ok ? group : 7777;
     };
-    options.askConflict = [parent](int group, int index) {
-        QMessageBox box(QMessageBox::Question, tr("Conflict"),
-                        tr("The index %1 of the group %2 is already in use. Do you want to use the next available "
-                           "index?\nOtherwise, choose Discard to skip this sprite or No to insert as is.")
-                            .arg(index)
-                            .arg(group),
-                        QMessageBox::Yes | QMessageBox::YesToAll | QMessageBox::Discard | QMessageBox::No |
-                            QMessageBox::NoToAll,
-                        parent);
-        box.setDefaultButton(QMessageBox::Yes);
-        switch (box.exec()) {
-        case QMessageBox::YesToAll:
-            return AddSpritesOptions::Conflict::NextFreeForAll;
-        case QMessageBox::Discard:
-            return AddSpritesOptions::Conflict::Skip;
-        case QMessageBox::No:
-            return AddSpritesOptions::Conflict::AsIs;
-        case QMessageBox::NoToAll:
-            return AddSpritesOptions::Conflict::AsIsForAll;
-        default:
-            return AddSpritesOptions::Conflict::NextFree;
-        }
-    };
+    options.askConflict = conflictPrompt(parent);
     options.askShare = [parent, file](const QString& fileName, int existing) {
         const SpriteEntry& other = file->document().sprites()[existing];
         return QMessageBox::question(parent, tr("Share"),
@@ -564,6 +610,47 @@ bool SpritesEditor::performDialog(const QString& id)
         }
     } else if (id == QLatin1String("spr_add")) {
         addSprites(parent, imageFolder);
+    } else if (id == QLatin1String("spr_export")) {
+        SpriteExportDialog dialog(parent);
+        if (dialog.exec() != QDialog::Accepted)
+            return true;
+        QList<int> sprites;
+        for (int i = 0; i < count; ++i) {
+            if (dialog.group() < 0 || doc.sprites()[i].group() == dialog.group())
+                sprites << i;
+        }
+        QString path = FileDialogs::getSaveFileName(parent, tr("Export..."), imageFolder,
+                                                    tr("Fighter Factory Export (*.ffe);;Elecbyte SprMaker 2 (*.def)"));
+        if (path.isEmpty())
+            return true;
+        if (QFileInfo(path).suffix().isEmpty())
+            path += QStringLiteral(".ffe");
+        config.setValue(QStringLiteral("spr_path"), QFileInfo(path).absolutePath());
+        const SpriteListFormat format = QFileInfo(path).suffix().compare(QLatin1String("def"), Qt::CaseInsensitive) == 0
+                                            ? SpriteListFormat::SprMaker2
+                                            : SpriteListFormat::Ffe;
+        QString error;
+        if (!exportSprites(doc, sprites, path, format, &error))
+            QMessageBox::warning(parent, tr("Export..."), error);
+    } else if (id == QLatin1String("spr_import")) {
+        const QString path =
+            FileDialogs::getOpenFileName(parent, tr("Import..."), imageFolder, tr("Fighter Factory Export (*.ffe)"));
+        if (path.isEmpty())
+            return true;
+        config.setValue(QStringLiteral("spr_path"), QFileInfo(path).absolutePath());
+        AddSpritesOptions options;
+        options.askConflict = conflictPrompt(parent);
+        SpriteDocument edited = doc;
+        QString error;
+        const QList<int> added = importFfe(edited, current, path, options, &error);
+        if (!error.isEmpty()) {
+            QMessageBox::warning(parent, tr("Import..."), error);
+            return true;
+        }
+        if (!added.isEmpty()) {
+            file->apply(tr("Import"), edited);
+            m_page->setCurrent(added.last());
+        }
     } else if (id == QLatin1String("spr_split_channels")) {
         if (current >= count)
             return true;

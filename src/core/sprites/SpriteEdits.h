@@ -32,6 +32,10 @@ OFS_CORE_EXPORT void resize(SpriteDocument& doc, const QList<int>& indexes, doub
 OFS_CORE_EXPORT void setDecompressOnLoad(SpriteDocument& doc, int index, bool decompress);
 OFS_CORE_EXPORT bool decompressesOnLoad(const SpriteDocument& doc, int index);
 
+// Versions before 1.1 cannot store true-color sprites.
+OFS_CORE_EXPORT bool hasTrueColor(const SpriteDocument& doc);
+OFS_CORE_EXPORT int convertToIndexed(SpriteDocument& doc);
+
 // Splits into " R", " G" and " B" sprites, each with a black to full color ramp palette.
 OFS_CORE_EXPORT int splitChannels(SpriteDocument& doc, int index);
 

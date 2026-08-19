@@ -1,6 +1,7 @@
 #include "core/sprites/SpriteEdits.h"
 
 #include "formats/image/ImageOps.h"
+#include "formats/image/Quantize.h"
 
 #include <QHash>
 #include <QPoint>
@@ -249,6 +250,45 @@ void setDecompressOnLoad(SpriteDocument& doc, int index, bool decompress)
 bool decompressesOnLoad(const SpriteDocument& doc, int index)
 {
     return valid(doc, index) && (doc.sprites()[index].pixels->payload.flags & 1u) != 0;
+}
+
+bool hasTrueColor(const SpriteDocument& doc)
+{
+    for (int i = 0; i < doc.spriteCount(); ++i) {
+        const Formats::SffSprite& payload = doc.sprites()[i].pixels->payload;
+        if (payload.image ? !payload.image->isIndexed()
+                          : !sffIsIndexed(payload.compression) && payload.compression != SffCompression::Invalid)
+            return true;
+    }
+    return false;
+}
+
+int convertToIndexed(SpriteDocument& doc)
+{
+    QHash<const SpritePixels*, SpriteEntry> converted;
+    int changed = 0;
+    for (int i = 0; i < doc.spriteCount(); ++i) {
+        SpriteEntry& entry = doc.sprites()[i];
+        const auto done = converted.constFind(entry.pixels.get());
+        if (done != converted.cend()) {
+            entry.pixels = done->pixels;
+            entry.palette = done->palette;
+            entry.header.linkedIndex = -1;
+            ++changed;
+            continue;
+        }
+        const Image image = doc.image(i);
+        if (image.pixelBuffer().empty() || image.isIndexed())
+            continue;
+        const SpritePixels* old = entry.pixels.get();
+        Image indexed = quantize(image);
+        entry.palette = paletteFor(doc, indexed.palette(), entry.group(), entry.number());
+        entry.pixels = SpriteDocument::makePixels(std::move(indexed));
+        entry.header.linkedIndex = -1;
+        converted.insert(old, entry);
+        ++changed;
+    }
+    return changed;
 }
 
 int splitChannels(SpriteDocument& doc, int index)

@@ -23,6 +23,7 @@ public:
     bool saveAs(const QString& path, Formats::SffVersion version, QString* error);
     bool isModified() const override;
     bool writeCopy(const QString& path, QString* error) const override;
+    bool writeCopy(const QString& path, Formats::SffVersion version, QString* error) const;
 
     const SpriteDocument& document() const { return m_document; }
     QUndoStack* undoStack() const { return m_undo; }

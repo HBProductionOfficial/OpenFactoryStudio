@@ -294,6 +294,8 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
             page->setProperty("filePath", filePath);
             page->setProperty("editorId", info.id);
             connect(file, &ProjectFile::modifiedChanged, this, [this] { Q_EMIT modifiedChanged(); });
+            connect(file, &ProjectFile::pathChanged, this,
+                    [this, page, file](const QString& oldPath) { fileRenamed(page, oldPath, file->path()); });
             return page;
         }
     }
@@ -682,7 +684,7 @@ void ProjectView::addFileTab(const EditorInfo& info, const QString& filePath)
     }
 }
 
-void ProjectView::fileRenamed(CodePage* page, const QString& oldPath, const QString& newPath)
+void ProjectView::fileRenamed(QWidget* page, const QString& oldPath, const QString& newPath)
 {
     page->setProperty("filePath", newPath);
     if (QTabWidget* tabs = m_fileTabs.value(page->property("editorId").toString())) {
@@ -694,7 +696,8 @@ void ProjectView::fileRenamed(CodePage* page, const QString& oldPath, const QStr
         IssueList issues = m_issues.take(oldPath);
         for (Issue& issue : issues)
             issue.file = newPath;
-        page->setIssues(issues, m_context.theme().iconSet());
+        if (auto* code = qobject_cast<CodePage*>(page))
+            code->setIssues(issues, m_context.theme().iconSet());
         m_issues.insert(newPath, issues);
     }
     if (m_outlines.contains(oldPath))

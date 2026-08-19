@@ -137,7 +137,12 @@ bool SpriteFile::isModified() const
 
 bool SpriteFile::writeCopy(const QString& target, QString* error) const
 {
-    const QByteArray bytes = bytesToWrite(m_document.version(), error);
+    return writeCopy(target, m_document.version(), error);
+}
+
+bool SpriteFile::writeCopy(const QString& target, Formats::SffVersion version, QString* error) const
+{
+    const QByteArray bytes = bytesToWrite(version, error);
     if (bytes.isEmpty())
         return false;
     QFile file(target);

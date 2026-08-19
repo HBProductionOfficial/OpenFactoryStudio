@@ -92,7 +92,7 @@ private:
     void createEditor(const EditorInfo& info);
     QWidget* createFilePage(const EditorInfo& info, const QString& filePath);
     void addFileTab(const EditorInfo& info, const QString& filePath);
-    void fileRenamed(CodePage* page, const QString& oldPath, const QString& newPath);
+    void fileRenamed(QWidget* page, const QString& oldPath, const QString& newPath);
     void configureCodeEditor(CodeEditor* editor, const QString& editorId);
     struct Analysis
     {

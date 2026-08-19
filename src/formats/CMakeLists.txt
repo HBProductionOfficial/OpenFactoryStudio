@@ -13,6 +13,8 @@ add_library(ofsformats SHARED
     image/Image.cpp
     image/ImageOps.h
     image/ImageOps.cpp
+    image/Quantize.h
+    image/Quantize.cpp
     image/ImageFile.h
     image/ImageFile.cpp
     image/Resize.h

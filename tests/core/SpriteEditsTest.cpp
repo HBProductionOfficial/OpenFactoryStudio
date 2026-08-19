@@ -3,8 +3,10 @@
 #include "core/sprites/SpriteExport.h"
 #include "core/sprites/SpriteFile.h"
 #include "core/sprites/SpriteImages.h"
+#include "core/sprites/SpriteTransfer.h"
 #include "fixtures/FixtureFactory.h"
 #include "formats/codecs/Png.h"
+#include "formats/image/Quantize.h"
 
 #include <QFile>
 #include <QFileInfo>
@@ -449,6 +451,104 @@ private Q_SLOTS:
         QCOMPARE(doc.sprites()[4].palette->palette.colors[0].r, std::uint8_t(255));
     }
 
+    void quantizing()
+    {
+        Image few = Image::rgba(3, 1, {255, 0, 0, 255, 0, 255, 0, 255, 9, 9, 9, 0});
+        Image indexed = quantize(few);
+        QVERIFY(indexed.isIndexed());
+        QCOMPARE(indexed.palette().size(), std::size_t(32));
+        QCOMPARE(indexed.indexAt(2, 0), std::uint8_t(0));
+        QCOMPARE(indexed.colorAt(0, 0).r, std::uint8_t(255));
+        QCOMPARE(indexed.colorAt(1, 0).g, std::uint8_t(255));
+        std::vector<std::uint8_t> pixels;
+        for (int i = 0; i < 4096; ++i)
+            pixels.insert(pixels.end(), {std::uint8_t(i % 64 * 4), std::uint8_t(i / 64 * 4), 128, 255});
+        indexed = quantize(Image::rgba(64, 64, pixels));
+        QCOMPARE(indexed.palette().size(), std::size_t(256));
+        QVERIFY(indexed.maxIndex() <= 255);
+        int worst = 0;
+        for (int i = 0; i < 4096; ++i) {
+            const Rgba c = indexed.colorAt(i % 64, i / 64);
+            worst = std::max(worst, std::abs(int(c.r) - pixels[std::size_t(i) * 4]) +
+                                        std::abs(int(c.g) - pixels[std::size_t(i) * 4 + 1]));
+        }
+        QVERIFY2(worst < 40, qPrintable(QString::number(worst)));
+
+        SpriteDocument doc = sample();
+        QVERIFY(!SpriteEdits::hasTrueColor(doc));
+        SpriteEntry rgb;
+        rgb.header.group = 9101;
+        rgb.pixels = SpriteDocument::makePixels(few);
+        doc.sprites() << rgb;
+        QVERIFY(SpriteEdits::hasTrueColor(doc));
+        QCOMPARE(SpriteEdits::convertToIndexed(doc), 1);
+        QVERIFY(!SpriteEdits::hasTrueColor(doc));
+        QCOMPARE(int(doc.sprites()[3].palette->palette.group), 9101);
+        QCOMPARE(doc.sprites()[3].palette->palette.colors.size(), std::size_t(32));
+    }
+
+    void exporting()
+    {
+        QTemporaryDir dir;
+        SpriteDocument doc = sample();
+        doc.palettes() << SpriteDocument::makePalette(1, 2, grayscalePalette(32));
+        doc.sprites()[2].palette = doc.palettes()[1];
+        QString error;
+        QVERIFY2(exportSprites(doc, {0, 1, 2}, dir.filePath("all.ffe"), SpriteListFormat::Ffe, &error),
+                 qPrintable(error));
+        QFile ffe(dir.filePath("all.ffe"));
+        QVERIFY(ffe.open(QIODevice::ReadOnly));
+        QCOMPARE(QString::fromUtf8(ffe.readAll()),
+                 QStringLiteral(";0 always import the palette, 1 import only if all colors doesn't match to any "
+                                "existing palette\nnoDuplicatePal = 0\n\n"
+                                "[PaletteDef]\ngroup = 1\nnumber = 1\nfile = 1-1.act\n\n"
+                                "[PaletteDef]\ngroup = 1\nnumber = 2\nfile = 1-2.act\n\n"
+                                "[SpriteDef]\ngroup = 0\nimage = 0\nxaxis = 2\nyaxis = 3\nflags = 0\npalette = 1,1\n"
+                                "file = 0-0.png\n\n"
+                                "[SpriteDef]\ngroup = 0\nimage = 1\nxaxis = 2\nyaxis = 3\nflags = 0\npalette = 1,1\n"
+                                "file = 0-0.png\n\n"
+                                "[SpriteDef]\ngroup = 1\nimage = 0\nxaxis = 0\nyaxis = 0\nflags = 0\npalette = 1,2\n"
+                                "file = 1-0.png\n"));
+        QVERIFY(QFileInfo::exists(dir.filePath("0-0.png")));
+        QVERIFY(!QFileInfo::exists(dir.filePath("0-1.png")));
+        QFile act(dir.filePath("1-1.act"));
+        QVERIFY(act.open(QIODevice::ReadOnly));
+        const QByteArray colors = act.readAll();
+        QCOMPARE(colors.size(), 768);
+        QCOMPARE(quint8(colors[765]), quint8(0)); // entry 0 (black) comes last
+        QCOMPARE(quint8(colors[762]), quint8(255));
+        act.close();
+        ffe.close();
+
+        QVERIFY(exportSprites(doc, {0, 2}, dir.filePath("sm2.def"), SpriteListFormat::SprMaker2, &error));
+        QFile def(dir.filePath("sm2.def"));
+        QVERIFY(def.open(QIODevice::ReadOnly));
+        QCOMPARE(
+            QString::fromUtf8(def.readAll()),
+            QStringLiteral("[Output]\r\n;filename = sm2.sff\r\n\r\n[Option]\r\nsprite.compress.5 = lz5\r\n"
+                           "sprite.compress.8 = png8\r\nsprite.compress.24 = png24\r\nsprite.compress.32 = png32\r\n"
+                           "sprite.decompressonload = 0\r\npal.reversepng = 0\r\n\r\n[Pal]\r\n"
+                           "1,1, 1-1.act, 0,255\r\n1,2, 1-2.act, 0,31\r\n\r\n[Sprite]\r\n"
+                           "0,0, 0-0.png, 2,3 ? usepal = 1,1\r\n1,0, 1-0.png, 0,0 ? usepal = 1,2\r\n"));
+
+        SpriteDocument imported;
+        AddSpritesOptions options;
+        const QList<int> added = importFfe(imported, -1, dir.filePath("all.ffe"), options, &error);
+        QVERIFY2(error.isEmpty(), qPrintable(error));
+        QCOMPARE(added, (QList<int>{0, 1, 2}));
+        QCOMPARE(imported.palettes().size(), 2);
+        QCOMPARE(imported.linkedSprites(0), (QList<int>{0, 1}));
+        QCOMPARE(int(imported.sprites()[1].header.axisY), 3);
+        QCOMPARE(imported.sprites()[2].palette, imported.palettes()[1]);
+        QVERIFY(imported.image(0).pixelBuffer() == doc.image(0).pixelBuffer());
+        QCOMPARE(imported.sprites()[0].palette->palette.colors[1].r, std::uint8_t(255));
+
+        writeFile(dir.filePath("bad.ffe"), "[SpriteDef]\ngroup 5\n");
+        QVERIFY(importFfe(imported, -1, dir.filePath("bad.ffe"), options, &error).isEmpty());
+        QVERIFY(error.contains("line 2"));
+        QCOMPARE(imported.spriteCount(), 3);
+    }
+
     void spriteFile()
     {
         QTemporaryDir dir;
@@ -490,6 +590,13 @@ private Q_SLOTS:
         SpriteFile reread(path, "sprites");
         QVERIFY(reread.load(&error));
         QCOMPARE(int(reread.document().sprites()[0].header.axisX), 99);
+
+        const QString v1copy = dir.filePath("copy-v1.sff");
+        QVERIFY2(file.writeCopy(v1copy, SffVersion::V1, &error), qPrintable(error));
+        SpriteFile copied1(v1copy, "sprites");
+        QVERIFY(copied1.load(&error));
+        QCOMPARE(copied1.document().version(), SffVersion::V1);
+        QCOMPARE(file.document().version(), SffVersion::V2);
 
         const QString v1 = dir.filePath("old.sff");
         QVERIFY2(file.saveAs(v1, SffVersion::V1, &error), qPrintable(error));

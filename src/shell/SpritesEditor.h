@@ -1,7 +1,11 @@
 #pragma once
 
+#include "core/sprites/SpriteImages.h"
+
 #include <QObject>
 #include <QPointer>
+
+#include <functional>
 
 class QCheckBox;
 class QLabel;
@@ -13,6 +17,7 @@ class QWidget;
 namespace OFS {
 
 class AppContext;
+class SpriteFile;
 class SpritePage;
 
 // Left panel of the Sprites editor in align and image editor mode, plus the editor's actions.
@@ -27,12 +32,16 @@ public:
     void setPage(SpritePage* page);
     SpritePage* page() const { return m_page; }
 
+    // Outside the project folder it writes a copy. Returns whether the file was written.
+    bool saveAs(SpriteFile* file, QWidget* parent);
+
     bool perform(const QString& actionId);
 
 private:
     void refresh();
     bool performDialog(const QString& actionId);
     void addSprites(QWidget* parent, const QString& imageFolder);
+    static std::function<AddSpritesOptions::Conflict(int, int)> conflictPrompt(QWidget* parent);
     void applyIdentifiers();
     void applyAxis();
     void updateOnion();
