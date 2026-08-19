@@ -16,6 +16,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
@@ -357,6 +358,91 @@ bool samePixels(const SpriteDocument& a, const SpriteDocument& b)
 
 } // namespace
 
+void SpritesEditor::addSprites(QWidget* parent, const QString& imageFolder)
+{
+    SpriteFile* file = m_page->file();
+    Config& config = m_context.config();
+    QStringList files =
+        FileDialogs::getOpenFileNames(parent, tr("Add"), imageFolder, QString::fromLatin1(ImageFilters));
+    if (files.isEmpty())
+        return;
+    config.setValue(QStringLiteral("spr_path"), QFileInfo(files.first()).absolutePath());
+    if (config.boolValue(QStringLiteral("sort_file_names"), true))
+        files.sort();
+
+    const SpriteDocument& doc = file->document();
+    const int current = m_page->current();
+    const QPoint axis = current < doc.spriteCount()
+                            ? QPoint(doc.sprites()[current].header.axisX, doc.sprites()[current].header.axisY)
+                            : QPoint();
+    AddSpritesOptions options;
+    options.axisX = axis.x();
+    options.axisY = axis.y();
+    if (config.boolValue(QStringLiteral("show_addsprite_dialog"), true)) {
+        AddSpritesDialog dialog(axis, parent);
+        if (dialog.exec() != QDialog::Accepted)
+            return;
+        options = dialog.options();
+    }
+    options.askGroup = [parent](const QString& fileName) {
+        bool ok = false;
+        const int group =
+            QInputDialog::getInt(parent, tr("Group"),
+                                 tr("Can't detect the group on filename: '%1'.\nChoose a group number to use:")
+                                     .arg(QFileInfo(fileName).fileName()),
+                                 7777, 0, 65535, 1, &ok);
+        return ok ? group : 7777;
+    };
+    options.askConflict = [parent](int group, int index) {
+        QMessageBox box(QMessageBox::Question, tr("Conflict"),
+                        tr("The index %1 of the group %2 is already in use. Do you want to use the next available "
+                           "index?\nOtherwise, choose Discard to skip this sprite or No to insert as is.")
+                            .arg(index)
+                            .arg(group),
+                        QMessageBox::Yes | QMessageBox::YesToAll | QMessageBox::Discard | QMessageBox::No |
+                            QMessageBox::NoToAll,
+                        parent);
+        box.setDefaultButton(QMessageBox::Yes);
+        switch (box.exec()) {
+        case QMessageBox::YesToAll:
+            return AddSpritesOptions::Conflict::NextFreeForAll;
+        case QMessageBox::Discard:
+            return AddSpritesOptions::Conflict::Skip;
+        case QMessageBox::No:
+            return AddSpritesOptions::Conflict::AsIs;
+        case QMessageBox::NoToAll:
+            return AddSpritesOptions::Conflict::AsIsForAll;
+        default:
+            return AddSpritesOptions::Conflict::NextFree;
+        }
+    };
+    options.askShare = [parent, file](const QString& fileName, int existing) {
+        const SpriteEntry& other = file->document().sprites()[existing];
+        return QMessageBox::question(parent, tr("Share"),
+                                     tr("The image of '%1' is identical to the sprite %2, %3. Do you want to share it?")
+                                         .arg(QFileInfo(fileName).fileName())
+                                         .arg(other.group())
+                                         .arg(other.number())) == QMessageBox::Yes;
+    };
+
+    QList<ImageToAdd> images;
+    for (const QString& path : std::as_const(files)) {
+        QString error;
+        Formats::Image image = loadImageFile(path, &error);
+        if (image.pixelBuffer().empty()) {
+            QMessageBox::warning(parent, tr("Add"), error);
+            continue;
+        }
+        images << ImageToAdd{path, std::move(image)};
+    }
+    SpriteDocument edited = doc;
+    const QList<int> added = OFS::addSprites(edited, current, images, options);
+    if (added.isEmpty())
+        return;
+    file->apply(tr("Add sprites"), edited);
+    m_page->setCurrent(added.last());
+}
+
 bool SpritesEditor::performDialog(const QString& id)
 {
     SpriteFile* file = m_page->file();
@@ -476,6 +562,8 @@ bool SpritesEditor::performDialog(const QString& id)
             if (axis.open(QIODevice::WriteOnly))
                 axis.write(axisFileText(aligned.axis));
         }
+    } else if (id == QLatin1String("spr_add")) {
+        addSprites(parent, imageFolder);
     } else if (id == QLatin1String("spr_split_channels")) {
         if (current >= count)
             return true;

@@ -515,10 +515,10 @@ void MainWindow::connectEditActions()
         }
     }
     // Sprites editor actions.
-    for (const char* id :
-         {"spr_prev", "spr_next", "spr_prev_grp", "spr_next_grp", "spr_pos_left", "spr_pos_up", "spr_pos_right",
-          "spr_pos_down", "spr_delete", "spr_duplicate", "spr_crop", "spr_resize", "spr_delete_grp", "spr_rename_grp",
-          "spr_align", "spr_openimg", "spr_saveimgas", "spr_saveimg_aligned", "spr_split_channels"}) {
+    for (const char* id : {"spr_prev",    "spr_next",      "spr_prev_grp",        "spr_next_grp",       "spr_pos_left",
+                           "spr_pos_up",  "spr_pos_right", "spr_pos_down",        "spr_delete",         "spr_duplicate",
+                           "spr_crop",    "spr_resize",    "spr_delete_grp",      "spr_rename_grp",     "spr_align",
+                           "spr_openimg", "spr_saveimgas", "spr_saveimg_aligned", "spr_split_channels", "spr_add"}) {
         const QString action = QString::fromLatin1(id);
         on(id, [this, action] {
             if (ProjectView* view = currentProjectView(); view && view->spritesEditor())

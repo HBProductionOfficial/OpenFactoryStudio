@@ -12,6 +12,7 @@
 #include "core/sprites/SpriteFile.h"
 #include "core/widgets/EPanelWidget.h"
 #include "core/widgets/GraphicsView.h"
+#include "formats/codecs/Png.h"
 #include "shell/AdvancedSearchPanel.h"
 #include "shell/CodePage.h"
 #include "shell/ControllerTemplatesWidget.h"
@@ -1274,6 +1275,40 @@ private Q_SLOTS:
         actions.action("spr_saveimgas")->trigger();
         FileDialogs::setSavePromptOverride({});
         QVERIFY(QFileInfo::exists(dir.filePath("exp.png")));
+
+        Formats::Palette colors = Formats::grayscalePalette(256);
+        colors[1] = {9, 9, 9, 255};
+        const auto png = Formats::encodePng(Formats::Image::indexed(2, 2, {0, 1, 1, 0}, colors));
+        QVERIFY(png.ok());
+        writeFile(dir.filePath("new.png"),
+                  QByteArray(reinterpret_cast<const char*>(png.value().data()), qsizetype(png.value().size())));
+        FileDialogs::setOpenPromptOverride([&dir](const QString& caption, const QString&, const QString& filter) {
+            return caption == QLatin1String("Add") && filter.startsWith("All supported (*.pcx *.png *.gif *.bmp)")
+                       ? dir.filePath("new.png")
+                       : QString();
+        });
+        page->setCurrent(1);
+        const int palettes = int(file->document().palettes().size());
+        const auto& currentHeader = file->document().sprites()[1].header;
+        const QPoint currentAxis(currentHeader.axisX, currentHeader.axisY);
+        QTimer::singleShot(0, this, [modal, currentAxis] {
+            QWidget* add = modal();
+            QVERIFY(add);
+            QCOMPARE(add->objectName(), QStringLiteral("AddSpr"));
+            QCOMPARE(add->findChild<QSpinBox*>("AxisX")->value(), currentAxis.x());
+            add->findChild<QSpinBox*>("Grp")->setValue(9100);
+            qobject_cast<QDialog*>(add)->accept();
+        });
+        actions.action("spr_add")->trigger();
+        FileDialogs::setOpenPromptOverride({});
+        QCOMPARE(page->current(), 2);
+        const SpriteEntry& added = file->document().sprites()[2];
+        QCOMPARE(added.group(), 9100);
+        QCOMPARE(added.number(), 0);
+        QCOMPARE(QPoint(added.header.axisX, added.header.axisY), currentAxis);
+        QCOMPARE(int(file->document().palettes().size()), palettes + 1);
+        file->undoStack()->undo();
+        QCOMPARE(int(file->document().palettes().size()), palettes);
 
         while (file->undoStack()->canUndo())
             file->undoStack()->undo();

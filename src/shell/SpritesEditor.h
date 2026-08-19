@@ -32,6 +32,7 @@ public:
 private:
     void refresh();
     bool performDialog(const QString& actionId);
+    void addSprites(QWidget* parent, const QString& imageFolder);
     void applyIdentifiers();
     void applyAxis();
     void updateOnion();

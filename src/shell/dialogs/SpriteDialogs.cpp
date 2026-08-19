@@ -12,6 +12,7 @@
 #include <QPushButton>
 #include <QRadioButton>
 #include <QSpinBox>
+#include <QToolButton>
 #include <QVBoxLayout>
 
 namespace OFS {
@@ -364,6 +365,143 @@ Formats::SffVersion SpriteFormatDialog::version() const
     if (m_v10->isChecked())
         return Formats::SffVersion::V2;
     return Formats::SffVersion::V201;
+}
+
+AddSpritesDialog::AddSpritesDialog(const QPoint& currentAxis, QWidget* parent)
+    : QDialog(parent)
+{
+    setObjectName(QStringLiteral("AddSpr"));
+    setWindowTitle(tr("Add sprites..."));
+    m_detect = new QCheckBox(tr("Detect group/index from filename"), this);
+    m_detect->setObjectName(QStringLiteral("detect"));
+    m_group = spinBox("Grp", 0, 65535, 0, this);
+
+    auto* indexBox = new QGroupBox(tr("Index:"), this);
+    indexBox->setObjectName(QStringLiteral("groupBox"));
+    m_index = spinBox("Img", 0, 65535, 0, indexBox);
+    QRadioButton* ones = radio(tr("1,2,3,4,..."), "OneInc", indexBox);
+    ones->setChecked(true);
+    m_tens = radio(tr("10,20,30,..."), "TenInc", indexBox);
+    auto* indexLayout = new QHBoxLayout(indexBox);
+    indexLayout->addWidget(m_index);
+    indexLayout->addWidget(ones);
+    indexLayout->addWidget(m_tens);
+
+    auto* axisBox = new QGroupBox(tr("Axis:"), this);
+    axisBox->setObjectName(QStringLiteral("groupBox_2"));
+    auto* axisLayout = new QGridLayout(axisBox);
+    static const char* const names[] = {"AxisNO", "AxisN",  "AxisNL", "AxisO", "AxisC",
+                                        "AxisL",  "AxisSO", "AxisS",  "AxisSL"};
+    static const char* const arrows[] = {"\u2196", "\u2191", "\u2197", "\u2190", "\u00b7",
+                                         "\u2192", "\u2199", "\u2193", "\u2198"};
+    for (int i = 0; i < 9; ++i) {
+        auto* button = new QToolButton(axisBox);
+        button->setObjectName(QLatin1String(names[i]));
+        button->setText(QString::fromUtf8(arrows[i]));
+        button->setCheckable(true);
+        connect(button, &QToolButton::toggled, this, [this, button](bool on) {
+            // Exclusive, but the pressed one can be released.
+            if (on) {
+                for (QToolButton* other : std::as_const(m_anchors)) {
+                    if (other != button)
+                        other->setChecked(false);
+                }
+            }
+            updateEnabled();
+        });
+        axisLayout->addWidget(button, i / 3, i % 3);
+        m_anchors << button;
+    }
+    m_axisX = spinBox("AxisX", -32767, 32767, currentAxis.x(), axisBox);
+    m_axisY = spinBox("AxisY", -32767, 32767, currentAxis.y(), axisBox);
+    axisLayout->addWidget(new QLabel(tr("X:"), axisBox), 0, 3);
+    axisLayout->addWidget(m_axisX, 0, 4);
+    axisLayout->addWidget(new QLabel(tr("Y:"), axisBox), 1, 3);
+    axisLayout->addWidget(m_axisY, 1, 4);
+
+    auto* paletteBox = new QGroupBox(tr("Palette:"), this);
+    paletteBox->setObjectName(QStringLiteral("groupBox_3"));
+    m_reversed = new QCheckBox(tr("Reversed"), paletteBox);
+    m_reversed->setObjectName(QStringLiteral("reversed"));
+    m_palette = new QComboBox(paletteBox);
+    m_palette->setObjectName(QStringLiteral("pal"));
+    m_palette->addItems({tr("Image's palette, if not already added"),
+                         tr("Force the specified palette (adapt the image)"),
+                         tr("Exchange with the specified palette")});
+    m_paletteGroup = spinBox("pGrp", 0, 65535, 1, paletteBox);
+    m_paletteIndex = spinBox("pIdx", 0, 65535, 1, paletteBox);
+    auto* paletteLayout = new QGridLayout(paletteBox);
+    paletteLayout->addWidget(m_reversed, 0, 0, 1, 4);
+    paletteLayout->addWidget(m_palette, 1, 0, 1, 4);
+    paletteLayout->addWidget(new QLabel(tr("Group:"), paletteBox), 2, 0);
+    paletteLayout->addWidget(m_paletteGroup, 2, 1);
+    paletteLayout->addWidget(new QLabel(tr("Index:"), paletteBox), 2, 2);
+    paletteLayout->addWidget(m_paletteIndex, 2, 3);
+
+    m_crop = new QComboBox(this);
+    m_crop->setObjectName(QStringLiteral("cropImg"));
+    m_crop->addItems(
+        {tr("Don't crop the image"), tr("Crop the image (before axis)"), tr("Crop the image (after axis)")});
+    m_share = new QComboBox(this);
+    m_share->setObjectName(QStringLiteral("shareMode"));
+    m_share->addItems(
+        {tr("Share identical sprites"), tr("Don't share identical sprites"), tr("Ask to share identical sprites")});
+
+    connect(m_detect, &QCheckBox::toggled, this, &AddSpritesDialog::updateEnabled);
+    connect(m_palette, &QComboBox::currentIndexChanged, this, &AddSpritesDialog::updateEnabled);
+
+    auto* groupRow = new QHBoxLayout;
+    groupRow->addWidget(new QLabel(tr("Group:"), this));
+    groupRow->addWidget(m_group, 1);
+    auto* layout = new QVBoxLayout(this);
+    layout->addWidget(m_detect);
+    layout->addLayout(groupRow);
+    layout->addWidget(indexBox);
+    layout->addWidget(axisBox);
+    layout->addWidget(paletteBox);
+    layout->addWidget(m_crop);
+    layout->addWidget(m_share);
+    layout->addWidget(okCancel(this));
+    updateEnabled();
+    resize(393, 471);
+}
+
+void AddSpritesDialog::updateEnabled()
+{
+    // Detection replaces the group and index, and an axis point replaces the values.
+    const bool detect = m_detect->isChecked();
+    m_group->setEnabled(!detect);
+    m_index->parentWidget()->setEnabled(!detect);
+    bool anchored = false;
+    for (const QToolButton* button : std::as_const(m_anchors))
+        anchored = anchored || button->isChecked();
+    m_axisX->setEnabled(!anchored);
+    m_axisY->setEnabled(!anchored);
+    const bool chosen = m_palette->currentIndex() > 0;
+    m_paletteGroup->setEnabled(chosen);
+    m_paletteIndex->setEnabled(chosen);
+}
+
+AddSpritesOptions AddSpritesDialog::options() const
+{
+    AddSpritesOptions options;
+    options.detectFromFileName = m_detect->isChecked();
+    options.group = m_group->value();
+    options.index = m_index->value();
+    options.indexStep = m_tens->isChecked() ? 10 : 1;
+    for (int i = 0; i < m_anchors.size(); ++i) {
+        if (m_anchors[i]->isChecked())
+            options.axisAnchor = i;
+    }
+    options.axisX = m_axisX->value();
+    options.axisY = m_axisY->value();
+    options.reversedPalette = m_reversed->isChecked();
+    options.palette = AddSpritesOptions::Palette(std::clamp(m_palette->currentIndex(), 0, 2));
+    options.paletteGroup = m_paletteGroup->value();
+    options.paletteIndex = m_paletteIndex->value();
+    options.crop = AddSpritesOptions::Crop(std::clamp(m_crop->currentIndex(), 0, 2));
+    options.share = AddSpritesOptions::Share(std::clamp(m_share->currentIndex(), 0, 2));
+    return options;
 }
 
 SpriteExportDialog::SpriteExportDialog(QWidget* parent)

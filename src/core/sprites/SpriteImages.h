@@ -6,6 +6,8 @@
 #include <QList>
 #include <QString>
 
+#include <functional>
+
 namespace OFS {
 
 // PNG, GIF, BMP and PCX keep their palette and exact indexes. Other formats Qt reads come as RGBA.
@@ -33,6 +35,7 @@ struct OFS_CORE_EXPORT AddSpritesOptions
     Palette palette = Palette::Own;
     int paletteGroup = 0;
     int paletteIndex = 0;
+    bool reversedPalette = false;
     enum class Crop
     {
         None,
@@ -40,6 +43,26 @@ struct OFS_CORE_EXPORT AddSpritesOptions
         AfterAxis,
     };
     Crop crop = Crop::None;
+    enum class Share
+    {
+        Identical,
+        Never,
+        Ask,
+    };
+    Share share = Share::Identical;
+
+    // Group for file names without identifiers. 7777 if unset.
+    std::function<int(const QString& fileName)> askGroup;
+    enum class Conflict
+    {
+        NextFree,
+        NextFreeForAll,
+        Skip,
+        AsIs,
+        AsIsForAll,
+    };
+    std::function<Conflict(int group, int index)> askConflict;
+    std::function<bool(const QString& fileName, int existing)> askShare;
 };
 
 struct OFS_CORE_EXPORT ImageToAdd

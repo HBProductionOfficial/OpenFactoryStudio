@@ -372,10 +372,29 @@ private Q_SLOTS:
 
         options.detectFromFileName = true;
         options.index = 100;
+        QStringList asked;
+        options.askGroup = [&asked](const QString& name) {
+            asked << name;
+            return 7777;
+        };
         added = addSprites(doc, doc.spriteCount() - 1, {{"9_3.png", image}, {"x.png", image}}, options);
         QCOMPARE(doc.sprites()[added[0]].group(), 9);
         QCOMPARE(doc.sprites()[added[0]].number(), 3);
-        QCOMPARE(doc.sprites()[added[1]].number(), 100);
+        QCOMPARE(asked, QStringList{"x.png"});
+        QCOMPARE(doc.sprites()[added[1]].group(), 7777);
+        QCOMPARE(doc.sprites()[added[1]].number(), 4);
+
+        QList<AddSpritesOptions::Conflict> answers{AddSpritesOptions::Conflict::NextFree,
+                                                   AddSpritesOptions::Conflict::Skip,
+                                                   AddSpritesOptions::Conflict::AsIs};
+        options.askConflict = [&answers](int, int) {
+            return answers.takeFirst();
+        };
+        added = addSprites(doc, -1, {{"9_3.png", image}, {"9_3.png", image}, {"9_3.png", image}}, options);
+        QCOMPARE(added.size(), 2);
+        QCOMPARE(doc.sprites()[added[0]].number(), 4);
+        QCOMPARE(doc.sprites()[added[1]].number(), 3);
+        options = {};
 
         options = {};
         options.axisAnchor = 0;
@@ -402,6 +421,32 @@ private Q_SLOTS:
         QCOMPARE(doc.sprites()[0].palette, doc.palettes()[0]);
         QCOMPARE(doc.image(0).indexAt(1, 1), std::uint8_t(4));
         QCOMPARE(doc.image(0).indexAt(0, 0), std::uint8_t(0));
+    }
+
+    void sharingAndReversing()
+    {
+        SpriteDocument doc;
+        Palette colors = grayscalePalette(256);
+        const Image image = Image::indexed(2, 2, {1, 2, 3, 4}, colors);
+        AddSpritesOptions options;
+        addSprites(doc, -1, {{"a.png", image}, {"b.png", image}}, options);
+        QCOMPARE(doc.linkedSprites(0), (QList<int>{0, 1}));
+        options.share = AddSpritesOptions::Share::Never;
+        addSprites(doc, 1, {{"c.png", image}}, options);
+        QCOMPARE(doc.linkedSprites(2), QList<int>{2});
+        options.share = AddSpritesOptions::Share::Ask;
+        options.askShare = [](const QString&, int existing) {
+            return existing == 0;
+        };
+        addSprites(doc, 2, {{"d.png", image}}, options);
+        QCOMPARE(doc.linkedSprites(3), (QList<int>{0, 1, 3}));
+
+        options = {};
+        options.reversedPalette = true;
+        const qsizetype palettes = doc.palettes().size();
+        addSprites(doc, 3, {{"e.png", image}}, options);
+        QCOMPARE(doc.palettes().size(), palettes + 1);
+        QCOMPARE(doc.sprites()[4].palette->palette.colors[0].r, std::uint8_t(255));
     }
 
     void spriteFile()

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/sprites/SpriteDocument.h"
+#include "core/sprites/SpriteImages.h"
 #include "formats/image/Resize.h"
 
 #include <QDialog>
@@ -11,6 +12,7 @@ class QDoubleSpinBox;
 class QListWidget;
 class QRadioButton;
 class QSpinBox;
+class QToolButton;
 
 namespace OFS {
 
@@ -137,6 +139,33 @@ private:
     QRadioButton* m_beta;
     QRadioButton* m_v10;
     QRadioButton* m_v11;
+};
+
+// Sprites > Add. It starts from the defaults every time.
+class AddSpritesDialog : public QDialog
+{
+    Q_OBJECT
+
+public:
+    AddSpritesDialog(const QPoint& currentAxis, QWidget* parent = nullptr);
+    AddSpritesOptions options() const;
+
+private:
+    void updateEnabled();
+
+    QCheckBox* m_detect;
+    QSpinBox* m_group;
+    QSpinBox* m_index;
+    QRadioButton* m_tens;
+    QList<QToolButton*> m_anchors;
+    QSpinBox* m_axisX;
+    QSpinBox* m_axisY;
+    QCheckBox* m_reversed;
+    QComboBox* m_palette;
+    QSpinBox* m_paletteGroup;
+    QSpinBox* m_paletteIndex;
+    QComboBox* m_crop;
+    QComboBox* m_share;
 };
 
 class SpriteExportDialog : public QDialog

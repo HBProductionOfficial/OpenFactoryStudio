@@ -9,6 +9,8 @@
 #include <QImage>
 #include <QRegularExpression>
 
+#include <optional>
+
 namespace OFS {
 
 using namespace Formats;
@@ -82,6 +84,9 @@ QList<int> addSprites(SpriteDocument& doc, int after, const QList<ImageToAdd>& i
     const bool trueColor = doc.version() == SffVersion::V201;
     int nextIndex = options.index;
     int position = std::clamp(after + 1, 0, doc.spriteCount());
+    bool previousDetected = false;
+    int previousIndex = -1;
+    std::optional<AddSpritesOptions::Conflict> forAll;
 
     for (const ImageToAdd& item : images) {
         Image image = item.image;
@@ -90,8 +95,34 @@ QList<int> addSprites(SpriteDocument& doc, int after, const QList<ImageToAdd>& i
         SpriteEntry entry;
         int group = options.group;
         int index = nextIndex;
-        if (!(options.detectFromFileName && identifiersFromFileName(item.fileName, &group, &index)))
+        if (options.detectFromFileName) {
+            if (!identifiersFromFileName(item.fileName, &group, &index)) {
+                group = options.askGroup ? options.askGroup(item.fileName) : 7777;
+                index = previousIndex + 1;
+            }
+            previousDetected = true;
+            if (doc.findSprite(group, index) >= 0) {
+                AddSpritesOptions::Conflict answer = AddSpritesOptions::Conflict::NextFree;
+                if (forAll)
+                    answer = *forAll;
+                else if (options.askConflict)
+                    answer = options.askConflict(group, index);
+                if (answer == AddSpritesOptions::Conflict::NextFreeForAll ||
+                    answer == AddSpritesOptions::Conflict::AsIsForAll)
+                    forAll = answer;
+                if (answer == AddSpritesOptions::Conflict::Skip)
+                    continue;
+                if (answer == AddSpritesOptions::Conflict::NextFree ||
+                    answer == AddSpritesOptions::Conflict::NextFreeForAll) {
+                    while (doc.findSprite(group, index) >= 0 && index < 0xFFFF)
+                        ++index;
+                }
+            }
+        } else {
             nextIndex += options.indexStep;
+        }
+        Q_UNUSED(previousDetected);
+        previousIndex = index;
 
         Rect bounds{0, 0, image.width(), image.height()};
         if (options.crop == AddSpritesOptions::Crop::BeforeAxis)
@@ -110,18 +141,23 @@ QList<int> addSprites(SpriteDocument& doc, int after, const QList<ImageToAdd>& i
         } else if (options.palette == AddSpritesOptions::Palette::Exchange && chosen && image.isIndexed()) {
             entry.palette = chosen;
         } else if (image.isIndexed() && !image.palette().empty()) {
+            Palette colors = image.palette();
+            if (options.reversedPalette)
+                std::reverse(colors.begin(), colors.end());
             entry.palette = nullptr;
-            for (const SpritePalettePtr& p : doc.palettes()) {
-                if (p->palette.colors.size() == image.palette().size() && sameRgb(p->palette.colors, image.palette())) {
-                    entry.palette = p;
-                    break;
+            if (!options.reversedPalette) {
+                for (const SpritePalettePtr& p : doc.palettes()) {
+                    if (p->palette.colors.size() == colors.size() && sameRgb(p->palette.colors, colors)) {
+                        entry.palette = p;
+                        break;
+                    }
                 }
             }
             if (!entry.palette) {
                 int number = index;
                 while (doc.findPalette(group, number) >= 0 && number < 0xFFFF)
                     ++number;
-                entry.palette = SpriteDocument::makePalette(group, number, image.palette());
+                entry.palette = SpriteDocument::makePalette(group, number, colors);
                 doc.palettes() << entry.palette;
             }
         } else if (!image.isIndexed() && !trueColor) {
@@ -135,7 +171,23 @@ QList<int> addSprites(SpriteDocument& doc, int after, const QList<ImageToAdd>& i
         entry.header.number = std::uint16_t(std::clamp(index, 0, 0xFFFF));
         entry.header.axisX = std::int16_t(std::clamp(axis.x(), -32768, 32767));
         entry.header.axisY = std::int16_t(std::clamp(axis.y(), -32768, 32767));
-        entry.pixels = SpriteDocument::makePixels(std::move(image));
+
+        SpritePixelsPtr shared;
+        if (options.share != AddSpritesOptions::Share::Never) {
+            for (int i = 0; i < doc.spriteCount() && !shared; ++i) {
+                const SpriteEntry& other = doc.sprites()[i];
+                if (other.width() != image.width() || other.height() != image.height())
+                    continue;
+                const Image pixels = doc.image(i);
+                if (pixels.format() != image.format() || pixels.pixelBuffer() != image.pixelBuffer())
+                    continue;
+                if (options.share == AddSpritesOptions::Share::Ask &&
+                    !(options.askShare && options.askShare(item.fileName, i)))
+                    break;
+                shared = other.pixels;
+            }
+        }
+        entry.pixels = shared ? shared : SpriteDocument::makePixels(std::move(image));
         doc.sprites().insert(position, entry);
         added << position;
         ++position;
