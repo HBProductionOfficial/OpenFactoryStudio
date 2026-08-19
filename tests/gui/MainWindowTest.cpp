@@ -1149,6 +1149,84 @@ private Q_SLOTS:
             page->file()->undoStack()->undo();
     }
 
+    void spritesSaveAs()
+    {
+        QTemporaryDir dir;
+        QTemporaryDir outside;
+        // A 1.1 file with one true-color sprite.
+        SpriteDocument doc;
+        SpriteEntry entry;
+        entry.pixels = SpriteDocument::makePixels(Formats::Image::rgba(2, 1, {255, 0, 0, 255, 0, 0, 255, 255}));
+        doc.sprites() << entry;
+        const auto bytes = doc.toSff().write(); // a new document is version 2.01
+        QVERIFY(bytes.ok());
+        writeFile(dir.filePath("s.sff"),
+                  QByteArray(reinterpret_cast<const char*>(bytes.value().data()), qsizetype(bytes.value().size())));
+        writeFile(dir.filePath("s.def"), "[Info]\nname = \"S\"\nmugenversion = 1.0\n"
+                                         "[Files]\ncns = s.cns\nsprite = s.sff\n");
+        writeFile(dir.filePath("s.cns"), "[Data]\nlife = 1000\n");
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("s.def")));
+        m_context->actions().action("editor_spr")->trigger();
+        auto* page = window.currentProjectView()->findChild<SpritePage*>();
+        QVERIFY(page);
+        SpriteFile* file = page->file();
+        QCOMPARE(file->document().version(), Formats::SffVersion::V201);
+        auto modal = [] {
+            return QApplication::activeModalWidget();
+        };
+
+        QString answer = dir.filePath("out.sff");
+        FileDialogs::setSavePromptOverride([&answer](const QString& caption, const QString&, const QString& filter) {
+            return caption == QLatin1String("Save sprites as...") && filter.startsWith("Sprites (*.sff)") ? answer
+                                                                                                          : QString();
+        });
+        QTimer::singleShot(0, this, [this, modal] {
+            QWidget* format = modal();
+            QVERIFY(format);
+            QCOMPARE(format->objectName(), QStringLiteral("SaveSpr"));
+            QVERIFY(format->findChild<QRadioButton*>("mugen11")->isChecked());
+            format->findChild<QRadioButton*>("mugen10")->setChecked(true);
+            QTimer::singleShot(0, this, [modal] {
+                auto* box = qobject_cast<QMessageBox*>(modal());
+                QVERIFY(box);
+                QCOMPARE(box->windowTitle(), QStringLiteral("Convert sprites to 8-bit"));
+                box->button(QMessageBox::Yes)->click();
+            });
+            qobject_cast<QDialog*>(format)->accept();
+        });
+        m_context->actions().action("spr_saveas")->trigger();
+        QCOMPARE(file->path(), QDir::fromNativeSeparators(dir.filePath("out.sff")));
+        QCOMPARE(file->document().version(), Formats::SffVersion::V2);
+        QVERIFY(file->document().image(0).isIndexed());
+        QVERIFY(!file->isModified());
+        auto* tabs = window.currentProjectView()->findChild<QTabWidget*>("fileTabs_sprites");
+        QCOMPARE(tabs->tabText(tabs->currentIndex()), QStringLiteral("out.sff"));
+
+        answer = outside.filePath("copy.sff");
+        QTimer::singleShot(0, this, [this, modal] {
+            QWidget* format = modal();
+            QVERIFY(format);
+            format->findChild<QRadioButton*>("mugenBT")->setChecked(true);
+            QTimer::singleShot(0, this, [modal] {
+                auto* box = qobject_cast<QMessageBox*>(modal());
+                QVERIFY(box);
+                QCOMPARE(box->windowTitle(), QStringLiteral("External file!"));
+                box->button(QMessageBox::Yes)->click();
+            });
+            qobject_cast<QDialog*>(format)->accept();
+        });
+        m_context->actions().action("spr_saveas")->trigger();
+        FileDialogs::setSavePromptOverride({});
+        QVERIFY(QFileInfo::exists(outside.filePath("copy.sff")));
+        QCOMPARE(file->path(), QDir::fromNativeSeparators(dir.filePath("out.sff")));
+        SpriteFile copy(outside.filePath("copy.sff"), "sprites");
+        QString error;
+        QVERIFY(copy.load(&error));
+        QCOMPARE(copy.document().version(), Formats::SffVersion::V1);
+    }
+
     void spritesDialogs()
     {
         QTemporaryDir dir;
