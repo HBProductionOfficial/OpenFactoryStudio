@@ -11,6 +11,7 @@
 #include "core/sprites/SpriteTransfer.h"
 #include "core/widgets/GraphicsView.h"
 #include "shell/FileDialogs.h"
+#include "shell/ImageEditor.h"
 #include "shell/SpritePage.h"
 #include "shell/dialogs/SpriteDialogs.h"
 
@@ -75,6 +76,8 @@ void SpritesEditor::bindPanel(QWidget* panel)
     m_onionSelector = control<QScrollBar>(panel, "spr_onion_sel");
     m_onionLabel = control<QLabel>(panel, "spr_onion_lb");
     m_name = control<QLineEdit>(panel, "spr_name");
+    m_panel = panel;
+    bindImageControls(panel);
 
     if (m_name) {
         m_name->setMaxLength(13);
@@ -202,14 +205,30 @@ void SpritesEditor::setPage(SpritePage* page)
         return;
     if (m_page)
         disconnect(m_page, nullptr, this, nullptr);
+    const bool wasImage = imageMode();
     m_page = page;
     if (m_page) {
         connect(m_page, &SpritePage::currentChanged, this, &SpritesEditor::refresh);
         connect(m_page->file(), &SpriteFile::documentChanged, this, &SpritesEditor::refresh);
+        connect(m_page, &SpritePage::imageModeChanged, this, &SpritesEditor::imageModeSwitched);
+        connect(m_page->imageEditor(), &ImageEditor::documentChanged, this, &SpritesEditor::refreshLayers);
+        connect(m_page->imageEditor(), &ImageEditor::toolChanged, this, &SpritesEditor::syncTool);
+        connect(m_page->imageEditor(), &ImageEditor::colorsChanged, this, [this] {
+            for (QWidget* swatch : {m_foreground.data(), m_background.data()}) {
+                if (swatch)
+                    swatch->update();
+            }
+        });
         if (m_showTransparent)
             m_page->setShowTransparent(m_showTransparent->isChecked());
     }
     refresh();
+    updateMode();
+    refreshLayers();
+    if (imageMode())
+        syncTool();
+    if (wasImage != imageMode())
+        Q_EMIT imageModeChanged(imageMode());
 }
 
 void SpritesEditor::refresh()
@@ -435,7 +454,7 @@ bool SpritesEditor::perform(const QString& id)
             for (int row : std::as_const(moved))
                 m_organizer->selectionModel()->select(m_organizerModel->index(row), QItemSelectionModel::Select);
         }
-    } else if (!performDialog(id)) {
+    } else if (!performDialog(id) && !performImage(id)) {
         return false;
     }
     return true;

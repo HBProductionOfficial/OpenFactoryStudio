@@ -8,9 +8,11 @@
 #include <functional>
 
 class QCheckBox;
+class QComboBox;
 class QLabel;
 class QLineEdit;
 class QListView;
+class QStandardItemModel;
 class QStringListModel;
 class QToolButton;
 class QScrollBar;
@@ -41,7 +43,25 @@ public:
 
     bool perform(const QString& actionId);
 
+    bool imageMode() const;
+    bool confirmLeave();
+    void copyImage();
+    void pasteImage();
+
+Q_SIGNALS:
+    void imageModeChanged(bool on);
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
 private:
+    bool performImage(const QString& actionId);
+    void bindImageControls(QWidget* panel);
+    void updateMode();
+    void refreshLayers();
+    void imageModeSwitched();
+    void syncTool();
+    void saveLayersAsSprites();
     void refresh();
     bool performDialog(const QString& actionId);
     void addSprites(QWidget* parent, const QString& imageFolder);
@@ -72,6 +92,13 @@ private:
     QPointer<QListView> m_organizer;
     QPointer<QToolButton> m_organizePalettes;
     QStringListModel* m_organizerModel = nullptr;
+    QPointer<QWidget> m_panel;
+    QPointer<QListView> m_layers;
+    QPointer<QComboBox> m_blend;
+    QPointer<QSpinBox> m_opacity;
+    QPointer<QWidget> m_foreground;
+    QPointer<QWidget> m_background;
+    QStandardItemModel* m_layerModel = nullptr;
     bool m_updating = false;
 };
 

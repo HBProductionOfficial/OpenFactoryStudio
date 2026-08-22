@@ -4,7 +4,10 @@
 #include "core/sprites/SpriteEdits.h"
 #include "core/sprites/SpriteFile.h"
 #include "core/widgets/GraphicsView.h"
+#include "shell/ImageEditor.h"
 
+#include <QMessageBox>
+#include <QStackedWidget>
 #include <QVBoxLayout>
 
 namespace OFS {
@@ -12,19 +15,31 @@ namespace OFS {
 SpritePage::SpritePage(SpriteFile* file, QWidget* parent)
     : QWidget(parent)
     , m_file(file)
-    , m_view(new GraphicsView(this))
+    , m_stack(new QStackedWidget(this))
+    , m_view(new GraphicsView(m_stack))
+    , m_editor(new ImageEditor(m_stack))
 {
     m_view->setObjectName(QStringLiteral("spriteView"));
+    m_stack->addWidget(m_view);
+    m_stack->addWidget(m_editor);
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->addWidget(m_view);
+    layout->addWidget(m_stack);
 
     connect(m_file, &SpriteFile::documentChanged, this, [this] {
         const int count = m_file->document().spriteCount();
-        if (m_current >= count)
-            setCurrent(count - 1);
-        else
-            refresh();
+        const bool moved = m_current >= count;
+        if (moved)
+            m_current = std::max(0, count - 1);
+        refresh();
+        if (imageMode() && !m_savingImage) {
+            const bool has = m_current < count;
+            const SpriteEntry* entry = has ? &m_file->document().sprites()[m_current] : nullptr;
+            if (!entry || entry->pixels != m_openedPixels || entry->palette != m_openedPalette)
+                reloadImage();
+        }
+        if (moved)
+            Q_EMIT currentChanged(m_current);
     });
     connect(m_view, &GraphicsView::cursorMoved, this, [this](const QPoint& units) {
         m_cursor = units;
@@ -56,9 +71,98 @@ void SpritePage::setCurrent(int index)
         refresh();
         return;
     }
+    if (index != m_current && !confirmDiscardImage()) {
+        Q_EMIT currentChanged(m_current);
+        return;
+    }
     m_current = index;
     refresh();
+    if (imageMode())
+        reloadImage();
     Q_EMIT currentChanged(m_current);
+}
+
+bool SpritePage::imageMode() const
+{
+    return m_stack->currentWidget() == m_editor;
+}
+
+bool SpritePage::setImageMode(bool on)
+{
+    if (on == imageMode())
+        return true;
+    if (!on && !confirmDiscardImage())
+        return false;
+    if (on) {
+        reloadImage();
+        m_stack->setCurrentWidget(m_editor);
+    } else {
+        m_stack->setCurrentWidget(m_view);
+        refresh();
+    }
+    Q_EMIT imageModeChanged(on);
+    return true;
+}
+
+bool SpritePage::confirmDiscardImage()
+{
+    if (!imageMode() || !m_editor->isModified())
+        return true;
+    QMessageBox box(QMessageBox::Question, tr("Discard changes?"),
+                    tr("Do you want to discard the changes made in the current sprite?"),
+                    QMessageBox::Yes | QMessageBox::No, window());
+    box.setDefaultButton(QMessageBox::Yes);
+    return box.exec() == QMessageBox::Yes;
+}
+
+void SpritePage::reloadImage()
+{
+    const SpriteDocument& doc = m_file->document();
+    m_savedOrigin = QPoint();
+    if (m_current < 0 || m_current >= doc.spriteCount()) {
+        m_openedPixels = nullptr;
+        m_openedPalette = nullptr;
+        m_editor->open(Formats::Image(), QString());
+        return;
+    }
+    // The base layer is named after the sprite: "g,i".
+    const SpriteEntry& entry = doc.sprites()[m_current];
+    m_openedPixels = entry.pixels;
+    m_openedPalette = entry.palette;
+    m_editor->open(doc.image(m_current), QStringLiteral("%1,%2").arg(entry.group()).arg(entry.number()));
+}
+
+void SpritePage::saveImage()
+{
+    const ImageDocument& image = m_editor->document();
+    if (!imageMode() || m_current < 0 || m_current >= m_file->document().spriteCount() || image.width <= 0 ||
+        image.height <= 0)
+        return;
+    Formats::Image flat = ImageEdits::flatten(image);
+    if (flat.isIndexed())
+        flat.setPalette(image.palette);
+    SpriteDocument doc = m_file->document();
+    SpriteEdits::setImage(doc, m_current, std::move(flat));
+    // The canvas grew around the sprite's image: the axis moves with it.
+    const QPoint shift = image.origin - m_savedOrigin;
+    if (!shift.isNull())
+        SpriteEdits::moveAxes(doc, {m_current}, shift.x(), shift.y());
+    applyFromImage(tr("Save image changes"), doc, true);
+    m_editor->markSaved();
+}
+
+void SpritePage::applyFromImage(const QString& text, const SpriteDocument& doc, bool currentSaved)
+{
+    m_savingImage = true;
+    m_file->apply(text, doc);
+    m_savingImage = false;
+    if (m_current >= 0 && m_current < m_file->document().spriteCount()) {
+        const SpriteEntry& entry = m_file->document().sprites()[m_current];
+        m_openedPixels = entry.pixels;
+        m_openedPalette = entry.palette;
+    }
+    if (currentSaved)
+        m_savedOrigin = m_editor->document().origin;
 }
 
 void SpritePage::applySettings(Config& config)

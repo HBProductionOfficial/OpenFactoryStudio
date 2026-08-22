@@ -22,11 +22,13 @@
 #include "core/text/Encodings.h"
 #include "core/theme/ThemeManager.h"
 #include "core/widgets/GraphicsView.h"
+#include "core/widgets/ImageCanvas.h"
 #include "shell/AdvancedSearchPanel.h"
 #include "shell/BottomDock.h"
 #include "shell/CodePage.h"
 #include "shell/ControllerTemplatesWidget.h"
 #include "shell/FileDialogs.h"
+#include "shell/ImageEditor.h"
 #include "shell/MenuBuilder.h"
 #include "shell/ProjectView.h"
 #include "shell/QuickFindBar.h"
@@ -435,6 +437,8 @@ void MainWindow::connectEditActions()
         QTabWidget* tabs =
             view ? view->findChild<QTabWidget*>(QStringLiteral("fileTabs_") + view->currentEditor()) : nullptr;
         auto* page = tabs ? qobject_cast<SpritePage*>(tabs->currentWidget()) : nullptr;
+        if (page && page->imageMode())
+            return page->imageEditor()->undoStack();
         return page && page->file() ? page->file()->undoStack() : nullptr;
     };
     auto undoRedo = [textTarget, spriteUndo](bool redo) {
@@ -451,8 +455,26 @@ void MainWindow::connectEditActions()
     on("edit_undo", undoRedo(false));
     on("edit_redo", undoRedo(true));
     on("edit_cut", forText(&QPlainTextEdit::cut, &QLineEdit::cut));
-    on("edit_copy", forText(&QPlainTextEdit::copy, &QLineEdit::copy));
-    on("edit_paste", forText(&QPlainTextEdit::paste, &QLineEdit::paste));
+    auto imageEditing = [this]() -> SpritesEditor* {
+        ProjectView* view = currentProjectView();
+        SpritesEditor* sprites = view ? view->spritesEditor() : nullptr;
+        if (!sprites || view->currentEditor() != QLatin1String("sprites") || !sprites->imageMode())
+            return nullptr;
+        return sprites;
+    };
+    auto copyOrPaste = [textTarget, imageEditing, forText](bool paste) {
+        std::function<void()> text = forText(&QPlainTextEdit::copy, &QLineEdit::copy);
+        if (paste)
+            text = forText(&QPlainTextEdit::paste, &QLineEdit::paste);
+        return [textTarget, imageEditing, text, paste] {
+            if (textTarget())
+                text();
+            else if (SpritesEditor* sprites = imageEditing())
+                paste ? sprites->pasteImage() : sprites->copyImage();
+        };
+    };
+    on("edit_copy", copyOrPaste(false));
+    on("edit_paste", copyOrPaste(true));
 
     auto withCode = [this](auto fn) {
         return [this, fn] {
@@ -554,12 +576,49 @@ void MainWindow::connectEditActions()
                            "spr_align_centerright",
                            "spr_align_bottomleft",
                            "spr_align_bottomcenter",
-                           "spr_align_bottomright"}) {
+                           "spr_align_bottomright",
+                           "spr_edit_img",
+                           "spr_saveimg",
+                           "spr_layer_add",
+                           "spr_layer_delete",
+                           "spr_layer_duplicate",
+                           "spr_layer_mergevis",
+                           "spr_layer_mergeall",
+                           "spr_layer_save",
+                           "spr_layer_play",
+                           "spr_view_original",
+                           "spr_image_properties",
+                           "spr_select_all",
+                           "spr_select_none",
+                           "spr_select_invert",
+                           "spr_image_rotate",
+                           "spr_image_fliph",
+                           "spr_image_flipv",
+                           "spr_tool_canvasmove",
+                           "spr_tool_selmove",
+                           "spr_tool_rectsel",
+                           "spr_tool_freesel",
+                           "spr_tool_magicwand",
+                           "spr_tool_picker",
+                           "spr_tool_pen",
+                           "spr_tool_eraser",
+                           "spr_tool_remap_pen",
+                           "spr_tool_paintbucket"}) {
         const QString action = QString::fromLatin1(id);
         on(id, [this, action] {
-            if (ProjectView* view = currentProjectView(); view && view->spritesEditor())
-                view->spritesEditor()->perform(action);
+            ProjectView* view = currentProjectView();
+            const bool done = view && view->spritesEditor() && view->spritesEditor()->perform(action);
+            if (!done && action == QLatin1String("spr_edit_img"))
+                refreshActionStates(); // nothing to edit: the action unchecks again
         });
+    }
+    auto* tools = new QActionGroup(this);
+    tools->setExclusive(true);
+    for (const char* id :
+         {"spr_tool_canvasmove", "spr_tool_selmove", "spr_tool_rectsel", "spr_tool_freesel", "spr_tool_magicwand",
+          "spr_tool_picker", "spr_tool_pen", "spr_tool_eraser", "spr_tool_remap_pen", "spr_tool_paintbucket"}) {
+        if (QAction* a = actions.action(QString::fromLatin1(id)))
+            tools->addAction(a);
     }
     on("st_var_list", [this] {
         for (ProjectView* view : projectViews())
@@ -664,28 +723,32 @@ void MainWindow::connectEditActions()
         }
         view->showFileLine(first.data(Qt::UserRole).toString(), first.data(Qt::UserRole + 2).toInt() + 1);
     });
-    auto currentWorkspace = [this]() -> GraphicsView* {
+    auto currentWorkspace = [this]() -> SpritePage* {
         ProjectView* view = currentProjectView();
         QTabWidget* tabs =
             view ? view->findChild<QTabWidget*>(QStringLiteral("fileTabs_") + view->currentEditor()) : nullptr;
-        auto* page = tabs ? qobject_cast<SpritePage*>(tabs->currentWidget()) : nullptr;
-        return page ? page->view() : nullptr;
+        return tabs ? qobject_cast<SpritePage*>(tabs->currentWidget()) : nullptr;
     };
-    auto zoom = [this, currentWorkspace](void (GraphicsView::*graphic)(), std::function<void(CodeEditor*)> code) {
-        return [this, currentWorkspace, graphic, code] {
-            if (GraphicsView* workspace = currentWorkspace()) {
-                (workspace->*graphic)();
+    auto zoom = [this, currentWorkspace](void (GraphicsView::*graphic)(), void (ImageCanvas::*image)(),
+                                         std::function<void(CodeEditor*)> code) {
+        return [this, currentWorkspace, graphic, image, code] {
+            if (SpritePage* page = currentWorkspace()) {
+                if (!page->imageMode())
+                    (page->view()->*graphic)();
+                else if (image)
+                    (page->imageEditor()->canvas()->*image)();
             } else if (code) {
                 if (ProjectView* view = currentProjectView(); view && view->currentCodeEditor())
                     code(view->currentCodeEditor());
             }
         };
     };
-    on("view_zoomin", zoom(&GraphicsView::zoomIn, [](CodeEditor* e) { e->zoomIn(); }));
-    on("view_zoomout", zoom(&GraphicsView::zoomOut, [](CodeEditor* e) { e->zoomOut(); }));
-    on("view_zoomreset", zoom(&GraphicsView::zoomReset, [](CodeEditor* e) { e->resetZoom(); }));
-    on("view_zoomfit", zoom(&GraphicsView::zoomFit, {}));
-    on("view_center_origin", zoom(&GraphicsView::centerOrigin, {}));
+    on("view_zoomin", zoom(&GraphicsView::zoomIn, &ImageCanvas::zoomIn, [](CodeEditor* e) { e->zoomIn(); }));
+    on("view_zoomout", zoom(&GraphicsView::zoomOut, &ImageCanvas::zoomOut, [](CodeEditor* e) { e->zoomOut(); }));
+    on("view_zoomreset",
+       zoom(&GraphicsView::zoomReset, &ImageCanvas::zoomReset, [](CodeEditor* e) { e->resetZoom(); }));
+    on("view_zoomfit", zoom(&GraphicsView::zoomFit, &ImageCanvas::zoomFit, {}));
+    on("view_center_origin", zoom(&GraphicsView::centerOrigin, nullptr, {}));
 
     // Saving
     on("file_save", [this] {
@@ -1238,6 +1301,12 @@ bool MainWindow::openProject(const QString& filePath)
         if (view == currentProjectView())
             refreshForCurrent();
     });
+    if (SpritesEditor* sprites = view->spritesEditor()) {
+        connect(sprites, &SpritesEditor::imageModeChanged, this, [this, view] {
+            if (view == currentProjectView())
+                refreshActionStates();
+        });
+    }
     m_stack->addWidget(view);
 
     const int index = m_projectTabs->addTab(project->name());
@@ -1313,8 +1382,15 @@ void MainWindow::showWelcomeTab()
 
 void MainWindow::switchEditor(const QString& editorId)
 {
-    if (ProjectView* view = currentProjectView())
-        view->setCurrentEditor(editorId);
+    ProjectView* view = currentProjectView();
+    if (!view)
+        return;
+    view->setCurrentEditor(editorId);
+    // The editor did not change (unsaved image changes were kept), so its switch stays checked.
+    if (view->currentEditor() != editorId) {
+        if (QAction* a = m_context.actions().action(view->currentEditorInfo().switchAction))
+            a->setChecked(true);
+    }
 }
 
 void MainWindow::onCurrentTabChanged(int)
@@ -1430,11 +1506,20 @@ void MainWindow::refreshActionStates()
                 a->setEnabled(available);
         }
     }
-    enableAll({"spr_saveimg", "spr_layer_add", "spr_layer_delete", "spr_layer_duplicate", "spr_layer_mergevis",
-               "spr_layer_mergeall", "spr_layer_save", "spr_layer_play", "spr_view_original", "spr_image_properties",
-               "spr_select_all", "spr_select_none", "spr_select_invert", "spr_image_rotate", "spr_image_fliph",
-               "spr_image_flipv", "spr_explorer"},
-              false);
+    SpritesEditor* sprites = view ? view->spritesEditor() : nullptr;
+    const bool image = sprites && sprites->imageMode();
+    enableAll({"spr_saveimg",        "spr_layer_add",        "spr_layer_delete",    "spr_layer_duplicate",
+               "spr_layer_mergevis", "spr_layer_mergeall",   "spr_layer_save",      "spr_layer_play",
+               "spr_view_original",  "spr_image_properties", "spr_select_all",      "spr_select_none",
+               "spr_select_invert",  "spr_image_rotate",     "spr_image_fliph",     "spr_image_flipv",
+               "spr_explorer",       "spr_tool_canvasmove",  "spr_tool_selmove",    "spr_tool_rectsel",
+               "spr_tool_freesel",   "spr_tool_magicwand",   "spr_tool_picker",     "spr_tool_pen",
+               "spr_tool_eraser",    "spr_tool_remap_pen",   "spr_tool_paintbucket"},
+              image);
+    if (image)
+        enable(QStringLiteral("spr_align"), false);
+    if (QAction* a = actions.action(QStringLiteral("spr_edit_img")))
+        a->setChecked(image);
 }
 
 void MainWindow::refreshTitle()

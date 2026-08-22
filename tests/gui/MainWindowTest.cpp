@@ -12,11 +12,13 @@
 #include "core/sprites/SpriteFile.h"
 #include "core/widgets/EPanelWidget.h"
 #include "core/widgets/GraphicsView.h"
+#include "core/widgets/ImageCanvas.h"
 #include "formats/codecs/Png.h"
 #include "shell/AdvancedSearchPanel.h"
 #include "shell/CodePage.h"
 #include "shell/ControllerTemplatesWidget.h"
 #include "shell/FileDialogs.h"
+#include "shell/ImageEditor.h"
 #include "shell/ProjectView.h"
 #include "shell/SpritePage.h"
 #include "shell/StatusBar.h"
@@ -1207,6 +1209,194 @@ private Q_SLOTS:
         QCOMPARE(page->file()->document().spriteCount(), 2);
         while (page->file()->isModified())
             page->file()->undoStack()->undo();
+    }
+
+    void spritesImageEditor()
+    {
+        QTemporaryDir dir;
+        // 0,0 and 0,1: 4x3, palette index 5 everywhere, axis 1,2.
+        SpriteDocument doc;
+        doc.palettes() << SpriteDocument::makePalette(1, 1, Formats::grayscalePalette(256));
+        for (int n = 0; n < 2; ++n) {
+            SpriteEntry entry;
+            entry.header.number = std::uint16_t(n);
+            entry.header.axisX = 1;
+            entry.header.axisY = 2;
+            entry.pixels = SpriteDocument::makePixels(Formats::Image::indexed(4, 3, std::vector<std::uint8_t>(12, 5)));
+            entry.palette = doc.palettes()[0];
+            doc.sprites() << entry;
+        }
+        const auto bytes = doc.toSff().write();
+        QVERIFY(bytes.ok());
+        writeFile(dir.filePath("img.sff"),
+                  QByteArray(reinterpret_cast<const char*>(bytes.value().data()), qsizetype(bytes.value().size())));
+        writeFile(dir.filePath("img.def"), "[Info]\nname = \"Img\"\nmugenversion = 1.0\n"
+                                           "[Files]\ncns = img.cns\nsprite = img.sff\n");
+        writeFile(dir.filePath("img.cns"), "[Data]\nlife = 1000\n");
+
+        MainWindow window(*m_context);
+        window.resize(1000, 700);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("img.def")));
+        ActionRegistry& actions = m_context->actions();
+        actions.action("editor_spr")->trigger();
+        ProjectView* view = window.currentProjectView();
+        auto* page = view->findChild<SpritePage*>();
+        QVERIFY(page);
+        SpriteFile* file = page->file();
+        ImageEditor* editor = page->imageEditor();
+        auto* layers = view->findChild<QListView*>("spr_layers_list");
+        auto* blend = view->findChild<QComboBox*>("spr_layers_blendmode");
+        auto* group = view->findChild<QSpinBox*>("spr_grp");
+        QVERIFY(layers && blend && group);
+        QVERIFY(layers->isHidden());
+        QVERIFY(!group->isHidden());
+        QVERIFY(!actions.action("spr_saveimg")->isEnabled());
+        auto answer = [this](QMessageBox::StandardButton button, QString* asked = nullptr) {
+            QTimer::singleShot(0, this, [button, asked] {
+                auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+                QVERIFY(box);
+                if (asked)
+                    *asked = box->windowTitle() + "|" + box->text();
+                box->button(button)->click();
+            });
+        };
+
+        actions.action("spr_edit_img")->trigger();
+        QVERIFY(page->imageMode());
+        QVERIFY(actions.action("spr_edit_img")->isChecked());
+        QVERIFY(actions.action("spr_saveimg")->isEnabled());
+        QVERIFY(!actions.action("spr_align")->isEnabled());
+        QVERIFY(!layers->isHidden());
+        QVERIFY(group->isHidden());
+        QVERIFY(actions.action("spr_tool_canvasmove")->isChecked());
+        QCOMPARE(layers->model()->rowCount(), 1);
+        QCOMPARE(layers->model()->index(0, 0).data().toString(), QStringLiteral("0,0"));
+        QVERIFY(!blend->isEnabled()); // 8-bit canvas
+
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        actions.action("spr_tool_pen")->trigger();
+        QCOMPARE(editor->tool(), ImageEditor::Tool::Pen);
+        editor->setForeground(PaintColor{7, {}});
+        ImageCanvas* canvas = editor->canvas();
+        canvas->setZoom(20);
+        const QPoint pixel11 = canvas->toWidget(QPointF(1.5, 1.5)).toPoint();
+        QTest::mouseClick(canvas, Qt::LeftButton, {}, pixel11);
+        QCOMPARE(editor->document().pixel(1, 1).index, 7);
+        QCOMPARE(editor->undoStack()->count(), 1);
+        QVERIFY(editor->isModified());
+        QVERIFY(!file->isModified());
+        canvas->setFocus();
+        actions.action("edit_undo")->trigger();
+        QCOMPARE(editor->document().pixel(1, 1).index, 5);
+        actions.action("edit_redo")->trigger();
+        QCOMPARE(editor->document().pixel(1, 1).index, 7);
+        actions.action("view_zoomin")->trigger();
+        QCOMPARE(canvas->zoom(), 21.0);
+
+        auto* model = qobject_cast<QStandardItemModel*>(layers->model());
+        QVERIFY(model);
+        actions.action("spr_layer_add")->trigger();
+        QCOMPARE(model->rowCount(), 2);
+        QCOMPARE(model->item(0)->text(), QStringLiteral("Layer 2"));
+        QCOMPARE(editor->document().current, 1);
+        model->item(0)->setText("0,1");
+        QCOMPARE(editor->document().layers[1].name, QStringLiteral("0,1"));
+        const int steps = editor->undoStack()->count();
+        model->item(0)->setCheckState(Qt::Unchecked);
+        QVERIFY(!editor->document().layers[1].visible);
+        QCOMPARE(editor->undoStack()->count(), steps);
+        model->item(0)->setCheckState(Qt::Checked);
+        actions.action("spr_layer_add")->trigger();
+        model->item(0)->setText("5,3");
+        editor->setForeground(PaintColor{9, {}});
+        QTest::mouseClick(canvas, Qt::LeftButton, {}, canvas->toWidget(QPointF(0.5, 0.5)).toPoint());
+        QCOMPARE(editor->document().layers[2].image.indexAt(0, 0), 9);
+        QCOMPARE(editor->document().layers[0].image.indexAt(0, 0), 5);
+
+        QString asked;
+        answer(QMessageBox::Yes, &asked);
+        actions.action("spr_layer_save")->trigger();
+        QCOMPARE(asked, boxTitle("Replace sprite") + "|The sprite 0,1 already exists. Do you want to replace it?");
+        const SpriteDocument& saved = file->document();
+        QCOMPARE(saved.spriteCount(), 3);
+        QCOMPARE(saved.sprites()[1].group(), 5);
+        QCOMPARE(saved.sprites()[1].number(), 3);
+        QCOMPARE(saved.image(1).indexAt(0, 0), 9);
+        QCOMPARE(saved.image(0).indexAt(1, 1), 7);
+        QCOMPARE(saved.image(2).indexAt(1, 1), 0); // 0,1 took the empty layer
+        QCOMPARE(model->rowCount(), 3);
+        QCOMPARE(page->current(), 0);
+
+        QTimer::singleShot(0, this, [] {
+            QWidget* dialog = QApplication::activeModalWidget();
+            QVERIFY(dialog);
+            QCOMPARE(dialog->objectName(), QStringLiteral("ImgInfoDlg"));
+            QCOMPARE(dialog->findChild<QComboBox*>("fmt")->currentText(), QStringLiteral("RGBA (indexed color)"));
+            dialog->findChild<QSpinBox*>("wid")->setValue(6);
+            dialog->findChild<QSpinBox*>("hei")->setValue(5);
+            qobject_cast<QDialog*>(dialog)->accept();
+        });
+        actions.action("spr_image_properties")->trigger();
+        QCOMPARE(editor->document().width, 6);
+        QCOMPARE(editor->document().origin, QPoint(1, 1));
+        actions.action("spr_saveimg")->trigger();
+        QCOMPARE(file->document().sprites()[0].width(), 6);
+        QCOMPARE(file->document().sprites()[0].height(), 5);
+        QCOMPARE(int(file->document().sprites()[0].header.axisX), 2);
+        QCOMPARE(int(file->document().sprites()[0].header.axisY), 3);
+        QCOMPARE(file->document().image(0).indexAt(2, 2), 7);
+        QVERIFY(!editor->isModified());
+        QCOMPARE(model->rowCount(), 3);
+
+        QTest::mouseClick(canvas, Qt::LeftButton, {}, canvas->toWidget(QPointF(3.5, 3.5)).toPoint());
+        QVERIFY(editor->isModified());
+        answer(QMessageBox::No, &asked);
+        actions.action("spr_next")->trigger();
+        QCOMPARE(asked,
+                 boxTitle("Discard changes?") + "|Do you want to discard the changes made in the current sprite?");
+        QCOMPARE(page->current(), 0);
+        answer(QMessageBox::No);
+        actions.action("editor_def")->trigger();
+        QCOMPARE(view->currentEditor(), QStringLiteral("sprites"));
+        QVERIFY(actions.action("editor_spr")->isChecked());
+        answer(QMessageBox::No);
+        actions.action("spr_edit_img")->trigger();
+        QVERIFY(page->imageMode());
+        QVERIFY(actions.action("spr_edit_img")->isChecked());
+        answer(QMessageBox::Yes);
+        actions.action("spr_next")->trigger();
+        QCOMPARE(page->current(), 1);
+        QCOMPARE(model->rowCount(), 1);
+        QCOMPARE(model->item(0)->text(), QStringLiteral("5,3"));
+        QVERIFY(!editor->isModified());
+
+        actions.action("spr_select_all")->trigger();
+        actions.action("edit_copy")->trigger();
+        actions.action("edit_paste")->trigger();
+        QCOMPARE(model->rowCount(), 2);
+        QCOMPARE(editor->document().layers[1].image.indexAt(0, 0), 9);
+
+        QTimer::singleShot(0, this, [] {
+            QWidget* dialog = QApplication::activeModalWidget();
+            QVERIFY(dialog);
+            QCOMPARE(dialog->objectName(), QStringLiteral("RotImgDlg"));
+            dialog->findChild<QDoubleSpinBox*>("angle")->setValue(90);
+            qobject_cast<QDialog*>(dialog)->accept();
+        });
+        actions.action("spr_image_rotate")->trigger();
+        QCOMPARE(editor->document().width, 3);
+        QCOMPARE(editor->document().height, 4);
+
+        answer(QMessageBox::Yes);
+        actions.action("spr_edit_img")->trigger();
+        QVERIFY(!page->imageMode());
+        QVERIFY(!actions.action("spr_edit_img")->isChecked());
+        QVERIFY(layers->isHidden());
+        QVERIFY(!group->isHidden());
+        QVERIFY(actions.action("spr_align")->isEnabled());
+        while (file->isModified())
+            file->undoStack()->undo();
     }
 
     void spritesSaveAs()

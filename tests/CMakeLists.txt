@@ -151,6 +151,10 @@ ofs_add_test(NAME gui_dialogs GUI LABELS gui
     SOURCES gui/DialogsTest.cpp
     LIBS OFS::shell)
 
+ofs_add_test(NAME gui_image_editor GUI LABELS gui
+    SOURCES gui/ImageEditorTest.cpp
+    LIBS OFS::shell)
+
 # The engine-loading tests need the plugins next to the test executables.
 get_property(_ofs_plugins GLOBAL PROPERTY OFS_ENGINE_PLUGINS)
 add_dependencies(test_core_engines ofs_data ${_ofs_plugins})

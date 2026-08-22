@@ -10,6 +10,8 @@ add_library(ofsshell STATIC
     ControllerTemplatesWidget.cpp
     FileDialogs.h
     FileDialogs.cpp
+    ImageEditor.h
+    ImageEditor.cpp
     DocumentationPopup.h
     DocumentationPopup.cpp
     MainWindow.h
@@ -22,6 +24,7 @@ add_library(ofsshell STATIC
     SpritePage.cpp
     SpritesEditor.h
     SpritesEditor.cpp
+    SpritesEditorImage.cpp
     StatusBar.h
     StatusBar.cpp
     UpdateChecker.h

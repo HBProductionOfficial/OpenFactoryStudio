@@ -5,10 +5,13 @@
 #include <QPointer>
 #include <QWidget>
 
+class QStackedWidget;
+
 namespace OFS {
 
 class Config;
 class GraphicsView;
+class ImageEditor;
 
 // Sprites editor workspace for one sprite file. Dragging the sprite moves its axis, one undo step per drag. In image
 // editor mode the image editor takes the workspace's place.
@@ -32,16 +35,33 @@ public:
 
     QPoint cursorPosition() const { return m_cursor; }
 
+    bool imageMode() const;
+    bool setImageMode(bool on);
+    ImageEditor* imageEditor() const { return m_editor; }
+    bool confirmDiscardImage();
+    void reloadImage();
+    void saveImage();
+    // With `currentSaved` the current sprite now holds the canvas and its axis follows the canvas origin.
+    void applyFromImage(const QString& text, const SpriteDocument& doc, bool currentSaved);
+    QPoint savedOrigin() const { return m_savedOrigin; }
+
 Q_SIGNALS:
     void currentChanged(int index);
     void statusChanged();
+    void imageModeChanged(bool on);
 
 private:
     void refresh();
     QImage spriteImage(int index) const;
 
     QPointer<SpriteFile> m_file;
+    QStackedWidget* m_stack;
     GraphicsView* m_view;
+    ImageEditor* m_editor;
+    SpritePixelsPtr m_openedPixels;
+    SpritePalettePtr m_openedPalette;
+    QPoint m_savedOrigin;
+    bool m_savingImage = false;
     int m_current = 0;
     bool m_showTransparent = false;
     int m_onion = -1;

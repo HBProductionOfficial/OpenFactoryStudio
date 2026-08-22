@@ -528,4 +528,79 @@ int SpriteExportDialog::group() const
     return m_all->isChecked() ? -1 : m_group->value();
 }
 
+ImagePropertiesDialog::ImagePropertiesDialog(bool indexed, int width, int height, QWidget* parent)
+    : QDialog(parent)
+{
+    setObjectName(QStringLiteral("ImgInfoDlg"));
+    setWindowTitle(tr("Properties"));
+    m_format = new QComboBox(this);
+    m_format->setObjectName(QStringLiteral("fmt"));
+    m_format->addItems({tr("RGBA (indexed color)"), tr("RGBA")});
+    m_format->setCurrentIndex(indexed ? 0 : 1);
+    m_width = spinBox("wid", 1, 65535, width, this);
+    m_height = spinBox("hei", 1, 65535, height, this);
+    auto* form = new QGridLayout;
+    form->addWidget(new QLabel(tr("Format:"), this), 0, 0);
+    form->addWidget(m_format, 0, 1);
+    form->addWidget(new QLabel(tr("Width:"), this), 1, 0);
+    form->addWidget(m_width, 1, 1);
+    form->addWidget(new QLabel(tr("Height:"), this), 2, 0);
+    form->addWidget(m_height, 2, 1);
+    auto* layout = new QVBoxLayout(this);
+    layout->addLayout(form);
+    layout->addStretch();
+    layout->addWidget(okCancel(this));
+    resize(212, 191);
+}
+
+bool ImagePropertiesDialog::indexed() const
+{
+    return m_format->currentIndex() == 0;
+}
+
+int ImagePropertiesDialog::canvasWidth() const
+{
+    return m_width->value();
+}
+
+int ImagePropertiesDialog::canvasHeight() const
+{
+    return m_height->value();
+}
+
+RotateDialog::RotateDialog(QWidget* parent)
+    : QDialog(parent)
+{
+    setObjectName(QStringLiteral("RotImgDlg"));
+    setWindowTitle(tr("Rotate"));
+    m_angle = new QDoubleSpinBox(this);
+    m_angle->setObjectName(QStringLiteral("angle"));
+    m_angle->setDecimals(2);
+    m_angle->setRange(-360.0, 360.0);
+    m_angle->setValue(0.0);
+    m_filter = new QComboBox(this);
+    m_filter->setObjectName(QStringLiteral("filter"));
+    m_filter->addItems({tr("Nearest Neighbor"), tr("Bilinear"), tr("EPX"), tr("HQ")});
+    auto* form = new QGridLayout;
+    form->addWidget(new QLabel(tr("Angle:"), this), 0, 0);
+    form->addWidget(m_angle, 0, 1);
+    form->addWidget(new QLabel(tr("Filter:"), this), 1, 0);
+    form->addWidget(m_filter, 1, 1);
+    auto* layout = new QVBoxLayout(this);
+    layout->addLayout(form);
+    layout->addStretch();
+    layout->addWidget(okCancel(this));
+    resize(215, 191);
+}
+
+double RotateDialog::angle() const
+{
+    return m_angle->value();
+}
+
+int RotateDialog::filter() const
+{
+    return m_filter->currentIndex();
+}
+
 } // namespace OFS

@@ -799,6 +799,8 @@ void ProjectView::setCurrentEditor(const QString& id)
 {
     if (!m_editorPanels.contains(id))
         return;
+    if (m_currentEditor == QLatin1String("sprites") && id != m_currentEditor && m_sprites && !m_sprites->confirmLeave())
+        return;
     const bool changed = m_currentEditor != id;
     m_currentEditor = id;
     const EditorInfo info = currentEditorInfo();

@@ -168,6 +168,36 @@ private:
     QComboBox* m_share;
 };
 
+class ImagePropertiesDialog : public QDialog
+{
+    Q_OBJECT
+
+public:
+    ImagePropertiesDialog(bool indexed, int width, int height, QWidget* parent = nullptr);
+    bool indexed() const;
+    int canvasWidth() const;
+    int canvasHeight() const;
+
+private:
+    QComboBox* m_format;
+    QSpinBox* m_width;
+    QSpinBox* m_height;
+};
+
+class RotateDialog : public QDialog
+{
+    Q_OBJECT
+
+public:
+    explicit RotateDialog(QWidget* parent = nullptr);
+    double angle() const;
+    int filter() const; // Nearest Neighbor, Bilinear, EPX, HQ
+
+private:
+    QDoubleSpinBox* m_angle;
+    QComboBox* m_filter;
+};
+
 class SpriteExportDialog : public QDialog
 {
     Q_OBJECT

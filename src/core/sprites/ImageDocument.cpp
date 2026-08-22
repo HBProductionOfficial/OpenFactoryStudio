@@ -2,6 +2,7 @@
 
 #include "formats/image/ImageOps.h"
 #include "formats/image/Quantize.h"
+#include "formats/image/Resize.h"
 
 #include <QCoreApplication>
 #include <QImage>
@@ -99,6 +100,11 @@ void stamp(const ImageDocument& doc, QPoint from, QPoint to, int size, Apply app
     }
 }
 
+bool same(const ImageDocument& doc, const PaintColor& a, const PaintColor& b)
+{
+    return doc.indexed ? a.index == b.index : a.rgba == b.rgba;
+}
+
 std::vector<std::uint8_t> region(const ImageDocument& doc, QPoint at, bool contiguous)
 {
     std::vector<std::uint8_t> mask(std::size_t(doc.width) * std::size_t(doc.height), 0);
@@ -108,7 +114,7 @@ std::vector<std::uint8_t> region(const ImageDocument& doc, QPoint at, bool conti
     if (!contiguous) {
         for (int y = 0; y < doc.height; ++y)
             for (int x = 0; x < doc.width; ++x)
-                mask[std::size_t(y) * std::size_t(doc.width) + std::size_t(x)] = doc.pixel(x, y) == target;
+                mask[std::size_t(y) * std::size_t(doc.width) + std::size_t(x)] = same(doc, doc.pixel(x, y), target);
         return mask;
     }
     std::deque<QPoint> queue{at};
@@ -121,7 +127,7 @@ std::vector<std::uint8_t> region(const ImageDocument& doc, QPoint at, bool conti
             if (!doc.contains(n.x(), n.y()))
                 continue;
             std::uint8_t& m = mask[std::size_t(n.y()) * std::size_t(doc.width) + std::size_t(n.x())];
-            if (m || !(doc.pixel(n.x(), n.y()) == target))
+            if (m || !same(doc, doc.pixel(n.x(), n.y()), target))
                 continue;
             m = 1;
             queue.push_back(n);
@@ -256,7 +262,7 @@ bool paint(ImageDocument& doc, QPoint from, QPoint to, int size, const PaintColo
 {
     bool changed = false;
     stamp(doc, from, to, size, [&](int x, int y) {
-        if (!doc.editable(x, y) || doc.pixel(x, y) == color)
+        if (!doc.editable(x, y) || same(doc, doc.pixel(x, y), color))
             return;
         doc.setPixel(x, y, color);
         changed = true;
@@ -273,10 +279,10 @@ bool remap(ImageDocument& doc, QPoint from, QPoint to, int size, const QList<QPa
         const PaintColor current = doc.pixel(x, y);
         const PaintColor* replacement = nullptr;
         for (const auto& slot : slots) {
-            if (slot.first == current)
+            if (same(doc, slot.first, current))
                 replacement = &slot.second;
         }
-        if (replacement && !(*replacement == current)) {
+        if (replacement && !same(doc, *replacement, current)) {
             doc.setPixel(x, y, *replacement);
             changed = true;
         }
@@ -286,7 +292,7 @@ bool remap(ImageDocument& doc, QPoint from, QPoint to, int size, const QList<QPa
 
 bool fill(ImageDocument& doc, QPoint at, const PaintColor& color, bool contiguous)
 {
-    if (!doc.contains(at.x(), at.y()) || doc.pixel(at.x(), at.y()) == color)
+    if (!doc.contains(at.x(), at.y()) || same(doc, doc.pixel(at.x(), at.y()), color))
         return false;
     const std::vector<std::uint8_t> area = region(doc, at, contiguous);
     bool changed = false;
@@ -548,6 +554,19 @@ void rotate(ImageDocument& doc, double degrees, RotateFilter filter, const Paint
         nw = int(std::ceil(std::abs(w * c) + std::abs(h * s) - 1e-9));
         nh = int(std::ceil(std::abs(w * s) + std::abs(h * c) - 1e-9));
         rotated = blank(nw, nh);
+        Image magnified;
+        int factor = 1;
+        if (filter == RotateFilter::Epx || (filter == RotateFilter::Hq && doc.indexed)) {
+            magnified = scaleEpx(source, 4);
+            factor = 4;
+        } else if (filter == RotateFilter::Hq) {
+            magnified = scaleHq(source, 4);
+            factor = 4;
+        }
+        const Image& from = factor > 1 ? magnified : source;
+        const int fw = w * factor;
+        const int fh = h * factor;
+        const bool bilinear = !doc.indexed && (filter == RotateFilter::Bilinear || filter == RotateFilter::Hq);
         for (int v = 0; v < nh; ++v) {
             for (int u = 0; u < nw; ++u) {
                 const double dx = u + 0.5 - nw / 2.0;
@@ -561,27 +580,28 @@ void rotate(ImageDocument& doc, double degrees, RotateFilter filter, const Paint
                         rotated.setColor(u, v, background.rgba);
                     continue;
                 }
-                if (filter == RotateFilter::Bilinear && !doc.indexed) {
-                    const double fx = std::clamp(sx - 0.5, 0.0, w - 1.0);
-                    const double fy = std::clamp(sy - 0.5, 0.0, h - 1.0);
+                if (bilinear) {
+                    const double fx = std::clamp(sx * factor - 0.5, 0.0, fw - 1.0);
+                    const double fy = std::clamp(sy * factor - 0.5, 0.0, fh - 1.0);
                     const int x0 = int(fx);
                     const int y0 = int(fy);
-                    const int x1 = std::min(x0 + 1, w - 1);
-                    const int y1 = std::min(y0 + 1, h - 1);
+                    const int x1 = std::min(x0 + 1, fw - 1);
+                    const int y1 = std::min(y0 + 1, fh - 1);
                     const double tx = fx - x0;
                     const double ty = fy - y0;
                     auto mix = [&](auto channel) {
-                        const double top = channel(source.colorAt(x0, y0, false)) * (1 - tx) +
-                                           channel(source.colorAt(x1, y0, false)) * tx;
-                        const double bottom = channel(source.colorAt(x0, y1, false)) * (1 - tx) +
-                                              channel(source.colorAt(x1, y1, false)) * tx;
+                        const double top =
+                            channel(from.colorAt(x0, y0, false)) * (1 - tx) + channel(from.colorAt(x1, y0, false)) * tx;
+                        const double bottom =
+                            channel(from.colorAt(x0, y1, false)) * (1 - tx) + channel(from.colorAt(x1, y1, false)) * tx;
                         return std::uint8_t(std::lround(top * (1 - ty) + bottom * ty));
                     };
                     rotated.setColor(u, v,
                                      {mix([](Rgba p) { return p.r; }), mix([](Rgba p) { return p.g; }),
                                       mix([](Rgba p) { return p.b; }), mix([](Rgba p) { return p.a; })});
                 } else {
-                    copyPixel(source, int(sx), int(sy), rotated, u, v);
+                    copyPixel(from, std::min(int(sx * factor), fw - 1), std::min(int(sy * factor), fh - 1), rotated, u,
+                              v);
                 }
             }
         }
