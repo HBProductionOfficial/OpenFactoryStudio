@@ -39,6 +39,7 @@
 #include <QTabBar>
 #include <QTabWidget>
 #include <QTimer>
+#include <QToolButton>
 #include <QTreeView>
 #include <QVBoxLayout>
 #include <QtConcurrent/QtConcurrentRun>
@@ -212,6 +213,7 @@ void ProjectView::createEditor(const EditorInfo& info)
     if (info.id == QLatin1String("sprites")) {
         m_sprites = new SpritesEditor(m_context, this);
         m_sprites->setPage(qobject_cast<SpritePage*>(tabs->currentWidget()));
+        connect(m_sprites, &SpritesEditor::explorerChanged, this, &ProjectView::updateRightPanel);
     }
     connect(tabs, &QTabWidget::currentChanged, this, [this, tabs] {
         if (auto* page = qobject_cast<CodePage*>(tabs->currentWidget()))
@@ -841,8 +843,18 @@ void ProjectView::applyPreset(const Preset::Model& model)
         builder.buildPanel(*organizer->layout, m_extraPanels.value(QStringLiteral("organizer"))->widget(), 22);
     updateRightPanel();
     if (m_sprites) {
+        if (!m_extraPanels.contains(QStringLiteral("thumbnails"))) {
+            QScrollArea* thumbnails = makeScrollArea(m_rightStack);
+            thumbnails->setObjectName(QStringLiteral("extra_thumbnails"));
+            m_rightStack->addWidget(thumbnails);
+            m_extraPanels.insert(QStringLiteral("thumbnails"), thumbnails);
+            const auto panel = model.extraPanels.constFind(QStringLiteral("thumbnails"));
+            if (panel != model.extraPanels.cend() && panel->layout)
+                builder.buildPanel(*panel->layout, thumbnails->widget(), 22);
+        }
         m_sprites->bindPanel(m_editorPanels.value(QStringLiteral("sprites"))->widget());
         m_sprites->bindOrganizer(m_extraPanels.value(QStringLiteral("organizer"))->widget());
+        m_sprites->bindExplorer(m_extraPanels.value(QStringLiteral("thumbnails"))->widget());
     }
     for (QTabWidget* tabs : std::as_const(m_fileTabs)) {
         if (auto* page = qobject_cast<CodePage*>(tabs->currentWidget()))
@@ -889,7 +901,27 @@ void ProjectView::updateRightPanel()
     QString name = currentEditorInfo().extraPanel;
     if (m_organizerVisible && organizerEditors.contains(m_currentEditor))
         name = QStringLiteral("organizer");
+    const bool spriteExplorer = m_currentEditor == QLatin1String("sprites") && m_sprites && m_sprites->explorerShown();
+    if (spriteExplorer)
+        name = QStringLiteral("thumbnails");
     QScrollArea* panel = m_extraPanels.value(name);
+    if (panel && name == QLatin1String("thumbnails")) {
+        static const char* const spriteCaptions[] = {
+            QT_TR_NOOP("Add selected as layers"), QT_TR_NOOP("Add all as layers"),
+            QT_TR_NOOP("Add selected as layers (aligned)"), QT_TR_NOOP("Add all as layers (aligned)")};
+        static const char* const animationCaptions[] = {
+            QT_TR_NOOP("Add selected to the current animation"), QT_TR_NOOP("Add all to the current animation"),
+            QT_TR_NOOP("New animation with selected"), QT_TR_NOOP("New animation with all")};
+        for (int i = 0; i < 4; ++i) {
+            auto* button = panel->widget()->findChild<QToolButton*>(QStringLiteral("thumb_action%1").arg(i + 1));
+            if (!button)
+                continue;
+            const QString caption = tr(spriteExplorer ? spriteCaptions[i] : animationCaptions[i]);
+            button->setText(caption);
+            button->setToolTip(caption);
+            button->setStatusTip(caption);
+        }
+    }
     const bool show = m_rightPanelVisible && panel;
     if (panel) {
         m_rightStack->setCurrentWidget(panel);

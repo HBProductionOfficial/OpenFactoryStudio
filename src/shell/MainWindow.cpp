@@ -603,7 +603,9 @@ void MainWindow::connectEditActions()
                            "spr_tool_pen",
                            "spr_tool_eraser",
                            "spr_tool_remap_pen",
-                           "spr_tool_paintbucket"}) {
+                           "spr_tool_paintbucket",
+                           "spr_explorer",
+                           "thumb_save"}) {
         const QString action = QString::fromLatin1(id);
         on(id, [this, action] {
             ProjectView* view = currentProjectView();
@@ -1520,6 +1522,8 @@ void MainWindow::refreshActionStates()
         enable(QStringLiteral("spr_align"), false);
     if (QAction* a = actions.action(QStringLiteral("spr_edit_img")))
         a->setChecked(image);
+    if (QAction* a = actions.action(QStringLiteral("spr_explorer")))
+        a->setChecked(sprites && sprites->explorerShown());
 }
 
 void MainWindow::refreshTitle()

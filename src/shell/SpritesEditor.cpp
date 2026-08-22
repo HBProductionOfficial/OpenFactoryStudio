@@ -212,6 +212,7 @@ void SpritesEditor::setPage(SpritePage* page)
         connect(m_page->file(), &SpriteFile::documentChanged, this, &SpritesEditor::refresh);
         connect(m_page, &SpritePage::imageModeChanged, this, &SpritesEditor::imageModeSwitched);
         connect(m_page->imageEditor(), &ImageEditor::documentChanged, this, &SpritesEditor::refreshLayers);
+        connect(m_page->file(), &SpriteFile::documentChanged, this, &SpritesEditor::refreshExplorer);
         connect(m_page->imageEditor(), &ImageEditor::toolChanged, this, &SpritesEditor::syncTool);
         connect(m_page->imageEditor(), &ImageEditor::colorsChanged, this, [this] {
             for (QWidget* swatch : {m_foreground.data(), m_background.data()}) {
@@ -227,8 +228,11 @@ void SpritesEditor::setPage(SpritePage* page)
     refreshLayers();
     if (imageMode())
         syncTool();
-    if (wasImage != imageMode())
+    refreshExplorer();
+    if (wasImage != imageMode()) {
         Q_EMIT imageModeChanged(imageMode());
+        Q_EMIT explorerChanged();
+    }
 }
 
 void SpritesEditor::refresh()

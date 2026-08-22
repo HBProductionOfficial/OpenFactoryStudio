@@ -4,10 +4,13 @@
 
 #include "core/actions/ActionRegistry.h"
 #include "core/app/AppContext.h"
+#include "core/settings/Config.h"
 #include "core/sprites/ImageDocument.h"
 #include "core/sprites/SpriteEdits.h"
+#include "core/sprites/SpriteExport.h"
 #include "core/sprites/SpriteFile.h"
 #include "core/widgets/ImageCanvas.h"
+#include "shell/FileDialogs.h"
 #include "shell/ImageEditor.h"
 #include "shell/SpritePage.h"
 #include "shell/dialogs/SpriteDialogs.h"
@@ -16,6 +19,8 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QComboBox>
+#include <QDir>
+#include <QFileInfo>
 #include <QImage>
 #include <QListView>
 #include <QMenu>
@@ -227,10 +232,14 @@ void SpritesEditor::imageModeSwitched()
     if (imageMode()) {
         m_page->imageEditor()->setTool(ImageEditor::Tool::CanvasMove);
         syncTool();
+    } else {
+        m_explorer = false;
     }
     updateMode();
     refreshLayers();
+    refreshExplorer();
     Q_EMIT imageModeChanged(imageMode());
+    Q_EMIT explorerChanged();
 }
 
 void SpritesEditor::syncTool()
@@ -335,6 +344,21 @@ void SpritesEditor::pasteImage()
 
 bool SpritesEditor::performImage(const QString& id)
 {
+    if (id == QLatin1String("spr_explorer")) {
+        // The explorer takes the place of the palettes in image editor mode.
+        m_explorer = imageMode() && !m_explorer;
+        if (QAction* a = m_context.actions().action(id))
+            a->setChecked(m_explorer);
+        refreshExplorer();
+        Q_EMIT explorerChanged();
+        return true;
+    }
+    if (id == QLatin1String("thumb_save")) {
+        if (!explorerShown())
+            return false;
+        saveExplorerImages();
+        return true;
+    }
     if (id == QLatin1String("spr_edit_img")) {
         // The action shows the mode, which stays when the user keeps unsaved changes.
         m_page->setImageMode(!m_page->imageMode());
@@ -499,6 +523,168 @@ void SpritesEditor::saveLayersAsSprites()
     }
     if (changed)
         m_page->applyFromImage(tr("Save visible as sprites"), doc, currentWritten);
+}
+
+bool SpritesEditor::explorerShown() const
+{
+    return m_explorer && imageMode();
+}
+
+void SpritesEditor::bindExplorer(QWidget* panel)
+{
+    m_explorerGroups = panel ? panel->findChild<QComboBox*>(QStringLiteral("thumb_grp_list")) : nullptr;
+    m_explorerView = panel ? panel->findChild<QListView*>(QStringLiteral("thumb_view")) : nullptr;
+    if (m_explorerView) {
+        if (!m_explorerModel)
+            m_explorerModel = new QStandardItemModel(this);
+        m_explorerView->setModel(m_explorerModel);
+        m_explorerView->setViewMode(QListView::IconMode);
+        m_explorerView->setMovement(QListView::Static);
+        m_explorerView->setResizeMode(QListView::Adjust);
+        m_explorerView->setWrapping(true);
+        m_explorerView->setSpacing(4);
+        m_explorerView->setSelectionMode(QAbstractItemView::ExtendedSelection);
+        m_explorerView->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    }
+    if (m_explorerGroups)
+        connect(m_explorerGroups, &QComboBox::currentIndexChanged, this, [this] {
+            if (!m_updating)
+                refreshExplorer();
+        });
+    const struct
+    {
+        const char* name;
+        bool all;
+        bool aligned;
+    } buttons[] = {{"thumb_action1", false, false},
+                   {"thumb_action2", true, false},
+                   {"thumb_action3", false, true},
+                   {"thumb_action4", true, true}};
+    for (const auto& b : buttons) {
+        auto* button = panel ? panel->findChild<QToolButton*>(QLatin1String(b.name)) : nullptr;
+        if (!button)
+            continue;
+        connect(button, &QToolButton::clicked, this, [this, all = b.all, aligned = b.aligned] {
+            if (explorerShown())
+                addExplorerLayers(all, aligned);
+        });
+    }
+    refreshExplorer();
+}
+
+void SpritesEditor::refreshExplorer()
+{
+    if (!m_explorerModel || !explorerShown())
+        return;
+    const SpriteDocument& doc = m_page->file()->document();
+    const bool updating = std::exchange(m_updating, true);
+    QList<int> groups;
+    for (const SpriteEntry& entry : doc.sprites()) {
+        if (!groups.contains(entry.group()))
+            groups << entry.group();
+    }
+    std::sort(groups.begin(), groups.end());
+    int group = groups.isEmpty() ? -1 : groups.first();
+    if (m_explorerGroups) {
+        if (m_explorerGroups->currentIndex() >= 0 && groups.contains(m_explorerGroups->currentText().toInt()))
+            group = m_explorerGroups->currentText().toInt();
+        m_explorerGroups->clear();
+        for (int g : std::as_const(groups))
+            m_explorerGroups->addItem(QString::number(g));
+        m_explorerGroups->setCurrentIndex(int(groups.indexOf(group)));
+    }
+    const int size = std::max(16, m_context.config().intValue(QStringLiteral("thumb_size"), 64));
+    m_explorerModel->clear();
+    if (m_explorerView)
+        m_explorerView->setIconSize(QSize(size, size));
+    for (int i = 0; i < doc.spriteCount(); ++i) {
+        const SpriteEntry& entry = doc.sprites()[i];
+        if (entry.group() != group)
+            continue;
+        const Formats::Image rgba = doc.imageRgba(i);
+        QPixmap thumbnail;
+        if (!rgba.pixelBuffer().empty()) {
+            const QImage image(rgba.pixels().data(), rgba.width(), rgba.height(), rgba.width() * 4,
+                               QImage::Format_RGBA8888);
+            thumbnail = QPixmap::fromImage(image.scaled(size, size, Qt::KeepAspectRatio, Qt::FastTransformation));
+        }
+        auto* item = new QStandardItem(QIcon(thumbnail), QString::number(entry.number()));
+        item->setData(i, Qt::UserRole);
+        m_explorerModel->appendRow(item);
+    }
+    m_updating = updating;
+}
+
+QList<int> SpritesEditor::explorerSprites(bool all) const
+{
+    QList<int> sprites;
+    if (!m_explorerModel || !m_explorerView)
+        return sprites;
+    for (int row = 0; row < m_explorerModel->rowCount(); ++row) {
+        const QModelIndex index = m_explorerModel->index(row, 0);
+        if (all || m_explorerView->selectionModel()->isSelected(index))
+            sprites << index.data(Qt::UserRole).toInt();
+    }
+    return sprites;
+}
+
+void SpritesEditor::addExplorerLayers(bool all, bool aligned)
+{
+    // Each sprite becomes a layer named "g,i", at the canvas origin or with its axis on the current sprite's axis.
+    const QList<int> sprites = explorerSprites(all);
+    const SpriteDocument& doc = m_page->file()->document();
+    const int current = m_page->current();
+    if (sprites.isEmpty() || current < 0 || current >= doc.spriteCount())
+        return;
+    QList<ImageEdits::LayerSource> sources;
+    for (int index : sprites) {
+        const SpriteEntry& entry = doc.sprites()[index];
+        Formats::Image image = doc.image(index);
+        if (image.pixelBuffer().empty())
+            continue;
+        sources << ImageEdits::LayerSource{QStringLiteral("%1,%2").arg(entry.group()).arg(entry.number()),
+                                           std::move(image), QPoint(entry.header.axisX, entry.header.axisY)};
+    }
+    ImageEditor* editor = m_page->imageEditor();
+    ImageDocument image = editor->document();
+    if (sources.isEmpty() || image.layers.isEmpty())
+        return;
+    const SpriteEntry& entry = doc.sprites()[current];
+    const QPoint axis = image.origin - m_page->savedOrigin() + QPoint(entry.header.axisX, entry.header.axisY);
+    ImageEdits::addLayers(image, sources, aligned, axis, editor->background());
+    editor->apply(tr("Add layers"), image);
+}
+
+void SpritesEditor::saveExplorerImages()
+{
+    // "<name>_<index>.<suffix>" for every selected sprite.
+    const QList<int> sprites = explorerSprites(false);
+    if (sprites.isEmpty())
+        return;
+    SpriteFile* file = m_page->file();
+    Config& config = m_context.config();
+    QWidget* parent = m_page->window();
+    const QString folder = config.value(QStringLiteral("spr_path"), QFileInfo(file->path()).absolutePath());
+    const QString path = FileDialogs::getSaveFileName(
+        parent, tr("Save sprites"), folder,
+        tr("Portable Network Graphic (*.png);;Graphics Interchange Format (*.gif);;Personal Computer eXchange "
+           "(*.pcx);;Bitmap (*.bmp)"));
+    if (path.isEmpty())
+        return;
+    const QFileInfo info(path);
+    config.setValue(QStringLiteral("spr_path"), info.absolutePath());
+    const QString suffix = info.suffix().isEmpty() ? QStringLiteral("png") : info.suffix();
+    const QString base = info.suffix().isEmpty() ? info.fileName() : info.completeBaseName();
+    const SpriteDocument& doc = file->document();
+    for (int index : sprites) {
+        const QString out =
+            info.dir().filePath(QStringLiteral("%1_%2.%3").arg(base).arg(doc.sprites()[index].number()).arg(suffix));
+        QString error;
+        if (!writeImageFile(out, doc.image(index), &error)) {
+            QMessageBox::warning(parent, tr("Save sprites"), error);
+            return;
+        }
+    }
 }
 
 } // namespace OFS

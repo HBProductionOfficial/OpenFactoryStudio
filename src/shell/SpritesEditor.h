@@ -35,6 +35,8 @@ public:
 
     void bindPanel(QWidget* panel);
     void bindOrganizer(QWidget* panel);
+    void bindExplorer(QWidget* panel);
+    bool explorerShown() const;
     void setPage(SpritePage* page);
     SpritePage* page() const { return m_page; }
 
@@ -50,6 +52,7 @@ public:
 
 Q_SIGNALS:
     void imageModeChanged(bool on);
+    void explorerChanged();
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
@@ -62,6 +65,10 @@ private:
     void imageModeSwitched();
     void syncTool();
     void saveLayersAsSprites();
+    void refreshExplorer();
+    QList<int> explorerSprites(bool all) const;
+    void addExplorerLayers(bool all, bool aligned);
+    void saveExplorerImages();
     void refresh();
     bool performDialog(const QString& actionId);
     void addSprites(QWidget* parent, const QString& imageFolder);
@@ -99,6 +106,10 @@ private:
     QPointer<QWidget> m_foreground;
     QPointer<QWidget> m_background;
     QStandardItemModel* m_layerModel = nullptr;
+    QPointer<QComboBox> m_explorerGroups;
+    QPointer<QListView> m_explorerView;
+    QStandardItemModel* m_explorerModel = nullptr;
+    bool m_explorer = false;
     bool m_updating = false;
 };
 

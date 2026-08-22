@@ -109,6 +109,16 @@ QMenu* menu(QMainWindow& window, const QString& objectName)
     return window.findChild<QMenu*>(objectName);
 }
 
+void answerDiscard(QMessageBox::StandardButton button)
+{
+    QTimer::singleShot(0, qApp, [button] {
+        auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+        QVERIFY(box);
+        QCOMPARE(box->windowTitle(), boxTitle("Discard changes?"));
+        box->button(button)->click();
+    });
+}
+
 } // namespace
 
 class MainWindowTest : public QObject
@@ -1397,6 +1407,95 @@ private Q_SLOTS:
         QVERIFY(actions.action("spr_align")->isEnabled());
         while (file->isModified())
             file->undoStack()->undo();
+    }
+
+    void spritesExplorer()
+    {
+        QTemporaryDir dir;
+        // 0,0 is 4x3 with axis 1,2. 0,1 is 2x2 with axis 0,0. 10,0 is 3x3.
+        SpriteDocument doc;
+        doc.palettes() << SpriteDocument::makePalette(1, 1, Formats::grayscalePalette(256));
+        const int sprites[][5] = {{0, 0, 4, 3, 1}, {0, 1, 2, 2, 0}, {10, 0, 3, 3, 0}};
+        for (const auto& s : sprites) {
+            SpriteEntry entry;
+            entry.header.group = std::uint16_t(s[0]);
+            entry.header.number = std::uint16_t(s[1]);
+            entry.header.axisX = std::int16_t(s[4]);
+            entry.header.axisY = std::int16_t(s[4] * 2);
+            entry.pixels = SpriteDocument::makePixels(
+                Formats::Image::indexed(s[2], s[3], std::vector<std::uint8_t>(std::size_t(s[2] * s[3]), 6)));
+            entry.palette = doc.palettes()[0];
+            doc.sprites() << entry;
+        }
+        const auto bytes = doc.toSff().write();
+        QVERIFY(bytes.ok());
+        writeFile(dir.filePath("ex.sff"),
+                  QByteArray(reinterpret_cast<const char*>(bytes.value().data()), qsizetype(bytes.value().size())));
+        writeFile(dir.filePath("ex.def"), "[Info]\nname = \"Ex\"\nmugenversion = 1.0\n"
+                                          "[Files]\ncns = ex.cns\nsprite = ex.sff\n");
+        writeFile(dir.filePath("ex.cns"), "[Data]\nlife = 1000\n");
+
+        MainWindow window(*m_context);
+        window.resize(1000, 700);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("ex.def")));
+        ActionRegistry& actions = m_context->actions();
+        actions.action("editor_spr")->trigger();
+        ProjectView* view = window.currentProjectView();
+        auto* page = view->findChild<SpritePage*>();
+        auto* right = view->findChild<EPanelWidget*>("rightPanel");
+        QVERIFY(page && right);
+        ImageEditor* editor = page->imageEditor();
+
+        QVERIFY(!actions.action("spr_explorer")->isEnabled());
+        actions.action("spr_edit_img")->trigger();
+        QVERIFY(actions.action("spr_explorer")->isEnabled());
+        actions.action("spr_explorer")->trigger();
+        QVERIFY(actions.action("spr_explorer")->isChecked());
+        QCOMPARE(right->title(), QStringLiteral("Sprite explorer"));
+        auto* groups = view->findChild<QComboBox*>("thumb_grp_list");
+        auto* thumbnails = view->findChild<QListView*>("thumb_view");
+        auto* addSelected = view->findChild<QToolButton*>("thumb_action1");
+        auto* addAllAligned = view->findChild<QToolButton*>("thumb_action4");
+        QVERIFY(groups && thumbnails && addSelected && addAllAligned);
+        QCOMPARE(groups->count(), 2);
+        QCOMPARE(groups->itemText(1), QStringLiteral("10"));
+        QCOMPARE(groups->currentText(), QStringLiteral("0"));
+        QCOMPARE(thumbnails->model()->rowCount(), 2);
+        QCOMPARE(thumbnails->model()->index(1, 0).data().toString(), QStringLiteral("1"));
+        QCOMPARE(addSelected->text(), QStringLiteral("Add selected as layers"));
+
+        thumbnails->selectionModel()->select(thumbnails->model()->index(1, 0), QItemSelectionModel::ClearAndSelect);
+        addSelected->click();
+        QCOMPARE(editor->document().layers.size(), 2);
+        QCOMPARE(editor->document().layers[0].name, QStringLiteral("0,1"));
+        QCOMPARE(editor->document().current, 1);
+        QCOMPARE(editor->document().width, 4);
+        QCOMPARE(editor->document().height, 3);
+        QCOMPARE(editor->undoStack()->count(), 1);
+        addAllAligned->click();
+        QCOMPARE(editor->document().layers.size(), 4);
+        QCOMPARE(editor->document().height, 4); // 0,1 sits at the axis (1,2)
+        QCOMPARE(editor->document().layers[1].image.indexAt(1, 3), 6);
+        QCOMPARE(editor->undoStack()->count(), 2);
+
+        FileDialogs::setSavePromptOverride([&dir](const QString& caption, const QString&, const QString& filter) {
+            return caption == QLatin1String("Save sprites") && filter.startsWith("Portable Network Graphic")
+                       ? dir.filePath("thumbs.png")
+                       : QString();
+        });
+        actions.action("thumb_save")->trigger();
+        FileDialogs::setSavePromptOverride({});
+        QVERIFY(QFileInfo::exists(dir.filePath("thumbs_1.png")));
+
+        groups->setCurrentIndex(1);
+        QCOMPARE(thumbnails->model()->rowCount(), 1);
+
+        answerDiscard(QMessageBox::Yes);
+        actions.action("spr_edit_img")->trigger();
+        QVERIFY(!page->imageMode());
+        QCOMPARE(right->title(), QStringLiteral("Palettes"));
+        QVERIFY(!actions.action("spr_explorer")->isChecked());
     }
 
     void spritesSaveAs()
