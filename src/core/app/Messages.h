@@ -11,5 +11,7 @@ namespace OFS {
 class Config;
 
 OFS_CORE_EXPORT bool askQuestion(QWidget* parent, Config& config, const QString& key, const QString& text);
+OFS_CORE_EXPORT bool askQuestion(QWidget* parent, Config& config, const QString& key, const QString& title,
+                                 const QString& text);
 
 } // namespace OFS

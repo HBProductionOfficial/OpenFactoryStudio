@@ -48,6 +48,7 @@
 #include <QAction>
 #include <QActionGroup>
 #include <QApplication>
+#include <QCheckBox>
 #include <QCloseEvent>
 #include <QCursor>
 #include <QDesktopServices>
@@ -1045,20 +1046,17 @@ void MainWindow::updateProjectTab(ProjectView* view)
 
 bool MainWindow::confirmClose(ProjectView* view)
 {
-    if (!view->project()->isModified())
+    Project* project = view->project();
+    if (!project->isModified())
         return true;
-    const auto answer = QMessageBox::question(
-        this, tr("Close project"),
-        tr("The project '%1' has unsaved changes. Do you want to save them?").arg(view->project()->name()),
-        QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel, QMessageBox::Save);
-    if (answer == QMessageBox::Cancel)
-        return false;
-    if (answer == QMessageBox::Save) {
-        QString error;
-        if (!view->project()->save(&error)) {
-            QMessageBox::warning(this, tr("Save"), error);
+    for (const EditorInfo& editor : project->engine()->editors()) {
+        bool modified = false;
+        for (const ProjectFile* file : project->files())
+            modified = modified || (file->editorId() == editor.id && file->isModified());
+        if (modified &&
+            !askQuestion(this, m_context.config(), QStringLiteral("showmsg_discard"), tr("Discard changes?"),
+                         tr("Do you want to discard the changes made in %1?").arg(editor.title.toLower())))
             return false;
-        }
     }
     return true;
 }
@@ -1603,6 +1601,21 @@ void MainWindow::saveWindowGeometry()
 
 void MainWindow::closeEvent(QCloseEvent* event)
 {
+    if (m_context.config().boolValue(QStringLiteral("confirm_close"), true)) {
+        QMessageBox box(QMessageBox::Question, tr("Close"),
+                        tr("Do you really want to close %1?").arg(QStringLiteral(OFS_DISPLAY_NAME)),
+                        QMessageBox::Yes | QMessageBox::No, this);
+        box.setDefaultButton(QMessageBox::Yes);
+        auto* dontAsk = new QCheckBox(tr("Don't show this again"), &box);
+        box.setCheckBox(dontAsk);
+        const bool yes = box.exec() == QMessageBox::Yes;
+        if (dontAsk->isChecked())
+            m_context.config().setValue(QStringLiteral("confirm_close"), false);
+        if (!yes) {
+            event->ignore();
+            return;
+        }
+    }
     for (ProjectView* view : projectViews()) {
         if (!confirmClose(view)) {
             event->ignore();

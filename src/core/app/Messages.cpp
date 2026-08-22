@@ -10,14 +10,18 @@ namespace OFS {
 
 bool askQuestion(QWidget* parent, Config& config, const QString& key, const QString& text)
 {
+    return askQuestion(parent, config, key, QApplication::applicationDisplayName(), text);
+}
+
+bool askQuestion(QWidget* parent, Config& config, const QString& key, const QString& title, const QString& text)
+{
     const QString stored = config.value(key);
     if (!stored.isEmpty())
         return stored == QLatin1String("1");
 
-    QMessageBox box(QMessageBox::Question, QApplication::applicationDisplayName(), text,
-                    QMessageBox::Yes | QMessageBox::No, parent);
+    QMessageBox box(QMessageBox::Question, title, text, QMessageBox::Yes | QMessageBox::No, parent);
     box.setDefaultButton(QMessageBox::Yes);
-    auto* remember = new QCheckBox(QCoreApplication::translate("OFS::Messages", "Don't ask again"), &box);
+    auto* remember = new QCheckBox(QCoreApplication::translate("OFS::Messages", "Don't show this again"), &box);
     box.setCheckBox(remember);
     const bool yes = box.exec() == QMessageBox::Yes;
     if (remember->isChecked())

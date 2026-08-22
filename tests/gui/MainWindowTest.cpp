@@ -728,6 +728,41 @@ private Q_SLOTS:
         RunConfiguration::save(engineConfig, {});
     }
 
+    void closingWithChanges()
+    {
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(m_dir.filePath("fighter.def")));
+        m_context->actions().action("editor_st")->trigger();
+        CodeEditor* editor = window.currentProjectView()->currentCodeEditor();
+        editor->insertPlainText("; edited\n");
+        m_context->config().setValue("showmsg_discard", QString());
+
+        QString asked;
+        auto answer = [this, &asked](QMessageBox::StandardButton button) {
+            QTimer::singleShot(0, this, [&asked, button] {
+                auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+                QVERIFY(box);
+                asked = box->windowTitle() + "|" + box->text() + "|" + box->checkBox()->text();
+                box->button(button)->click();
+            });
+        };
+        answer(QMessageBox::No);
+        m_context->actions().action("file_close")->trigger();
+        QCOMPARE(asked, QStringLiteral("Discard changes?|Do you want to discard the changes made in states?|"
+                                       "Don't show this again"));
+        QVERIFY(window.currentProjectView());
+
+        m_context->config().setValue("confirm_close", true);
+        answer(QMessageBox::No);
+        window.close();
+        QCOMPARE(asked.section('|', 0, 1), QStringLiteral("Close|Do you really want to close Open Factory Studio?"));
+        QVERIFY(window.isVisible());
+
+        editor->document()->setModified(false);
+        m_context->config().setValue("confirm_close", false);
+    }
+
     void projectExplorer()
     {
         MainWindow window(*m_context);
