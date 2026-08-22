@@ -133,6 +133,17 @@ void moveAxes(SpriteDocument& doc, const QList<int>& indexes, int dx, int dy)
     }
 }
 
+void alignToGuides(SpriteDocument& doc, int index, int horizontal, int vertical, const QPoint& guides)
+{
+    if (!valid(doc, index))
+        return;
+    const SpriteEntry& entry = doc.sprites()[index];
+    const int x = horizontal == 0 ? 0 : horizontal == 1 ? entry.width() / 2 : entry.width();
+    const int y = vertical == 0 ? 0 : vertical == 1 ? entry.height() / 2 : entry.height();
+    // The image point (x, y) is at (x - axisX, y - axisY) from the axis.
+    setAxis(doc, index, x - guides.x(), y - guides.y());
+}
+
 void remove(SpriteDocument& doc, QList<int> indexes)
 {
     indexes = validIndexes(doc, indexes);

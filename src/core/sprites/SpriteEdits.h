@@ -6,6 +6,7 @@
 #include "formats/image/Resize.h"
 
 #include <QList>
+#include <QPoint>
 
 namespace OFS::SpriteEdits {
 
@@ -15,6 +16,10 @@ namespace OFS::SpriteEdits {
 OFS_CORE_EXPORT void setIdentifiers(SpriteDocument& doc, int index, int group, int number);
 OFS_CORE_EXPORT void setAxis(SpriteDocument& doc, int index, int x, int y);
 OFS_CORE_EXPORT void moveAxes(SpriteDocument& doc, const QList<int>& indexes, int dx, int dy);
+
+// Moves the axis so a point of the image sits where the guide lines cross (guides is in units
+// from the axis). horizontal: 0 left, 1 centre, 2 right. vertical: 0 top, 1 centre, 2 bottom.
+OFS_CORE_EXPORT void alignToGuides(SpriteDocument& doc, int index, int horizontal, int vertical, const QPoint& guides);
 
 OFS_CORE_EXPORT void remove(SpriteDocument& doc, QList<int> indexes);
 OFS_CORE_EXPORT int removeGroup(SpriteDocument& doc, int group, int first = -1, int last = -1);

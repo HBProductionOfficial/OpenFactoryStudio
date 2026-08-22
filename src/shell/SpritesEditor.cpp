@@ -9,6 +9,7 @@
 #include "core/sprites/SpriteFile.h"
 #include "core/sprites/SpriteImages.h"
 #include "core/sprites/SpriteTransfer.h"
+#include "core/widgets/GraphicsView.h"
 #include "shell/FileDialogs.h"
 #include "shell/SpritePage.h"
 #include "shell/dialogs/SpriteDialogs.h"
@@ -394,6 +395,19 @@ bool SpritesEditor::perform(const QString& id)
         const int copy = SpriteEdits::duplicate(edited, current);
         file->apply(tr("Duplicate sprite"), edited);
         m_page->setCurrent(copy);
+    } else if (id.startsWith(QLatin1String("spr_align_"))) {
+        const QString where = id.mid(10); // "topleft", "centercenter", "bottomright"...
+        const int vertical = where.startsWith(QLatin1String("top"))      ? 0
+                             : where.startsWith(QLatin1String("center")) ? 1
+                                                                         : 2;
+        const int horizontal = where.endsWith(QLatin1String("left"))    ? 0
+                               : where.endsWith(QLatin1String("right")) ? 2
+                                                                        : 1;
+        if (current < count) {
+            SpriteDocument edited = doc;
+            SpriteEdits::alignToGuides(edited, current, horizontal, vertical, m_page->view()->guides());
+            file->applyAxisChange(current, edited);
+        }
     } else if (id.startsWith(QLatin1String("org_"))) {
         const bool palettes = organizePalettes();
         SpriteDocument edited = doc;

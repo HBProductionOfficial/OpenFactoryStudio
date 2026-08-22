@@ -100,6 +100,17 @@ private Q_SLOTS:
         QCOMPARE(doc.sprites()[0].number(), 1);
     }
 
+    void guideAlignment()
+    {
+        SpriteDocument doc = sample();
+        SpriteEdits::alignToGuides(doc, 2, 1, 2, QPoint(0, 0));
+        QCOMPARE(int(doc.sprites()[2].header.axisX), 1);
+        QCOMPARE(int(doc.sprites()[2].header.axisY), 3);
+        SpriteEdits::alignToGuides(doc, 2, 0, 0, QPoint(10, -5));
+        QCOMPARE(int(doc.sprites()[2].header.axisX), -10);
+        QCOMPARE(int(doc.sprites()[2].header.axisY), 5);
+    }
+
     void groupIntervals()
     {
         SpriteDocument doc = sample();
