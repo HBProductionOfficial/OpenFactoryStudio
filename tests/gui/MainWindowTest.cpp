@@ -749,14 +749,14 @@ private Q_SLOTS:
         };
         answer(QMessageBox::No);
         m_context->actions().action("file_close")->trigger();
-        QCOMPARE(asked, QStringLiteral("Discard changes?|Do you want to discard the changes made in states?|"
-                                       "Don't show this again"));
+        QCOMPARE(asked, boxTitle("Discard changes?") +
+                            "|Do you want to discard the changes made in states?|Don't show this again");
         QVERIFY(window.currentProjectView());
 
         m_context->config().setValue("confirm_close", true);
         answer(QMessageBox::No);
         window.close();
-        QCOMPARE(asked.section('|', 0, 1), QStringLiteral("Close|Do you really want to close Open Factory Studio?"));
+        QCOMPARE(asked.section('|', 0, 1), boxTitle("Close") + "|Do you really want to close Open Factory Studio?");
         QVERIFY(window.isVisible());
 
         editor->document()->setModified(false);
@@ -1251,7 +1251,7 @@ private Q_SLOTS:
             QTimer::singleShot(0, this, [modal] {
                 auto* box = qobject_cast<QMessageBox*>(modal());
                 QVERIFY(box);
-                QCOMPARE(box->windowTitle(), QStringLiteral("Convert sprites to 8-bit"));
+                QCOMPARE(box->windowTitle(), boxTitle("Convert sprites to 8-bit"));
                 box->button(QMessageBox::Yes)->click();
             });
             qobject_cast<QDialog*>(format)->accept();
@@ -1272,7 +1272,7 @@ private Q_SLOTS:
             QTimer::singleShot(0, this, [modal] {
                 auto* box = qobject_cast<QMessageBox*>(modal());
                 QVERIFY(box);
-                QCOMPARE(box->windowTitle(), QStringLiteral("External file!"));
+                QCOMPARE(box->windowTitle(), boxTitle("External file!"));
                 box->button(QMessageBox::Yes)->click();
             });
             qobject_cast<QDialog*>(format)->accept();
@@ -1355,7 +1355,7 @@ private Q_SLOTS:
             QTimer::singleShot(0, this, [modal] {
                 auto* box = qobject_cast<QMessageBox*>(modal());
                 QVERIFY(box);
-                QCOMPARE(box->windowTitle(), QStringLiteral("Scale contact boxes"));
+                QCOMPARE(box->windowTitle(), boxTitle("Scale contact boxes"));
                 box->button(QMessageBox::Yes)->click();
             });
             qobject_cast<QDialog*>(resize)->accept();
