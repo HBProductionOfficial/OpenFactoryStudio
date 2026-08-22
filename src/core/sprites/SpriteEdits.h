@@ -2,6 +2,7 @@
 
 #include "core/CoreExport.h"
 #include "core/sprites/SpriteDocument.h"
+#include "core/syntax/Issue.h"
 #include "formats/image/Resize.h"
 
 #include <QList>
@@ -35,6 +36,11 @@ OFS_CORE_EXPORT bool decompressesOnLoad(const SpriteDocument& doc, int index);
 // Versions before 1.1 cannot store true-color sprites.
 OFS_CORE_EXPORT bool hasTrueColor(const SpriteDocument& doc);
 OFS_CORE_EXPORT int convertToIndexed(SpriteDocument& doc);
+
+OFS_CORE_EXPORT QList<int> moveRows(SpriteDocument& doc, QList<int> rows, int delta, bool palettes = false);
+OFS_CORE_EXPORT void arrange(SpriteDocument& doc, bool palettes = false);
+
+OFS_CORE_EXPORT IssueList identifierIssues(const SpriteDocument& doc);
 
 // Splits into " R", " G" and " B" sprites, each with a black to full color ramp palette.
 OFS_CORE_EXPORT int splitChannels(SpriteDocument& doc, int index);

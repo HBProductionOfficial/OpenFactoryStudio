@@ -10,6 +10,9 @@
 class QCheckBox;
 class QLabel;
 class QLineEdit;
+class QListView;
+class QStringListModel;
+class QToolButton;
 class QScrollBar;
 class QSpinBox;
 class QWidget;
@@ -29,6 +32,7 @@ public:
     SpritesEditor(AppContext& context, QObject* parent = nullptr);
 
     void bindPanel(QWidget* panel);
+    void bindOrganizer(QWidget* panel);
     void setPage(SpritePage* page);
     SpritePage* page() const { return m_page; }
 
@@ -46,6 +50,9 @@ private:
     void applyAxis();
     void updateOnion();
     void updateOnionLabel();
+    void refreshOrganizer();
+    bool organizePalettes() const;
+    QList<int> organizerSelection() const;
 
     AppContext& m_context;
     QPointer<SpritePage> m_page;
@@ -62,6 +69,9 @@ private:
     QPointer<QScrollBar> m_onionSelector;
     QPointer<QLabel> m_onionLabel;
     QPointer<QLineEdit> m_name;
+    QPointer<QListView> m_organizer;
+    QPointer<QToolButton> m_organizePalettes;
+    QStringListModel* m_organizerModel = nullptr;
     bool m_updating = false;
 };
 

@@ -26,6 +26,12 @@ SpritePage::SpritePage(SpriteFile* file, QWidget* parent)
         else
             refresh();
     });
+    connect(m_view, &GraphicsView::cursorMoved, this, [this](const QPoint& units) {
+        m_cursor = units;
+        Q_EMIT statusChanged();
+    });
+    connect(m_view, &GraphicsView::guidesChanged, this, &SpritePage::statusChanged);
+    connect(m_file, &SpriteFile::documentChanged, this, &SpritePage::statusChanged);
     // Dragging the sprite moves it on screen, which moves the axis the other way.
     connect(m_view, &GraphicsView::imageDragged, this, [this](int dx, int dy) {
         m_dragOffset += QPoint(dx, dy);

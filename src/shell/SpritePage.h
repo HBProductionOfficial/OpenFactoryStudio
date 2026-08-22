@@ -30,8 +30,11 @@ public:
     // The zoom level and origin are saved to `config` as they change.
     void applySettings(Config& config);
 
+    QPoint cursorPosition() const { return m_cursor; }
+
 Q_SIGNALS:
     void currentChanged(int index);
+    void statusChanged();
 
 private:
     void refresh();
@@ -45,6 +48,7 @@ private:
     double m_onionOpacity = 0.74;
     QPoint m_dragOffset;
     bool m_settingsApplied = false;
+    QPoint m_cursor;
 };
 
 } // namespace OFS

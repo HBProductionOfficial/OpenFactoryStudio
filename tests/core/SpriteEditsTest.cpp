@@ -549,6 +549,46 @@ private Q_SLOTS:
         QCOMPARE(imported.spriteCount(), 3);
     }
 
+    void organizing()
+    {
+        SpriteDocument doc;
+        doc.palettes() << SpriteDocument::makePalette(1, 1, grayscalePalette(256))
+                       << SpriteDocument::makePalette(1, 2, grayscalePalette(32));
+        const int ids[][3] = {{5, 0, 1}, {0, 2, 0}, {0, 1, 0}, {9, 0, 1}, {0, 0, 0}};
+        for (const auto& id : ids) {
+            SpriteEntry entry;
+            entry.header.group = std::uint16_t(id[0]);
+            entry.header.number = std::uint16_t(id[1]);
+            entry.pixels = SpriteDocument::makePixels(Image::indexed(1, 1, {1}));
+            entry.palette = doc.palettes()[id[2]];
+            doc.sprites() << entry;
+        }
+        auto order = [&doc] {
+            QStringList list;
+            for (const SpriteEntry& e : doc.sprites())
+                list << QStringLiteral("%1,%2").arg(e.group()).arg(e.number());
+            return list.join(' ');
+        };
+        QCOMPARE(SpriteEdits::moveRows(doc, {1, 3}, -1), (QList<int>{0, 2}));
+        QCOMPARE(order(), QStringLiteral("0,2 5,0 9,0 0,1 0,0"));
+        QCOMPARE(SpriteEdits::moveRows(doc, {0, 2}, -10), (QList<int>{0, 1}));
+        QCOMPARE(order(), QStringLiteral("0,2 9,0 5,0 0,1 0,0"));
+        QCOMPARE(SpriteEdits::moveRows(doc, {1}, 10), QList<int>{4});
+        QCOMPARE(order(), QStringLiteral("0,2 5,0 0,1 0,0 9,0"));
+        SpriteEdits::arrange(doc);
+        QCOMPARE(order(), QStringLiteral("0,0 0,1 0,2 5,0 9,0"));
+        std::reverse(doc.palettes().begin(), doc.palettes().end());
+        SpriteEdits::arrange(doc, true);
+        QCOMPARE(int(doc.palettes()[0]->palette.number), 1);
+
+        doc.sprites()[4].header.group = 0;
+        doc.sprites()[4].header.number = 1;
+        const IssueList issues = SpriteEdits::identifierIssues(doc);
+        QCOMPARE(issues.size(), 1);
+        QCOMPARE(issues[0].line, 4);
+        QCOMPARE(issues[0].message, QStringLiteral("The group 0, index 1 is already in use by sprite #2!"));
+    }
+
     void spriteFile()
     {
         QTemporaryDir dir;

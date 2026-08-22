@@ -12,6 +12,7 @@
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
 #include "core/settings/Config.h"
+#include "core/sprites/SpriteEdits.h"
 #include "core/sprites/SpriteFile.h"
 #include "core/theme/IconSet.h"
 #include "core/theme/ThemeManager.h"
@@ -292,6 +293,20 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
             auto* page = new SpritePage(file);
             page->applySettings(m_context.config());
             page->setProperty("filePath", filePath);
+            auto updateIssues = [this, page, file] {
+                IssueList issues = SpriteEdits::identifierIssues(file->document());
+                const QString path = page->property("filePath").toString();
+                for (Issue& issue : issues)
+                    issue.file = path;
+                m_issues.insert(path, issues);
+                Q_EMIT issuesChanged();
+            };
+            connect(file, &SpriteFile::documentChanged, this, updateIssues);
+            QTimer::singleShot(0, this, updateIssues);
+            connect(page, &SpritePage::statusChanged, this, [this, page] {
+                if (QTabWidget* tabs = m_fileTabs.value(m_currentEditor); tabs && tabs->currentWidget() == page)
+                    Q_EMIT currentFileChanged();
+            });
             page->setProperty("editorId", info.id);
             connect(file, &ProjectFile::modifiedChanged, this, [this] { Q_EMIT modifiedChanged(); });
             connect(file, &ProjectFile::pathChanged, this,
@@ -612,6 +627,10 @@ bool ProjectView::showFileLine(const QString& filePath, int line)
                 continue;
             setCurrentEditor(it.key());
             tabs->setCurrentIndex(i);
+            if (auto* sprites = qobject_cast<SpritePage*>(tabs->widget(i))) {
+                if (line > 0)
+                    sprites->setCurrent(line - 1);
+            }
             if (auto* page = qobject_cast<CodePage*>(tabs->widget(i))) {
                 if (line > 0)
                     page->editor()->goToLine(line);
@@ -819,8 +838,10 @@ void ProjectView::applyPreset(const Preset::Model& model)
     if (organizer != model.extraPanels.cend() && organizer->layout)
         builder.buildPanel(*organizer->layout, m_extraPanels.value(QStringLiteral("organizer"))->widget(), 22);
     updateRightPanel();
-    if (m_sprites)
+    if (m_sprites) {
         m_sprites->bindPanel(m_editorPanels.value(QStringLiteral("sprites"))->widget());
+        m_sprites->bindOrganizer(m_extraPanels.value(QStringLiteral("organizer"))->widget());
+    }
     for (QTabWidget* tabs : std::as_const(m_fileTabs)) {
         if (auto* page = qobject_cast<CodePage*>(tabs->currentWidget()))
             updateOutline(page);

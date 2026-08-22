@@ -516,11 +516,16 @@ void MainWindow::connectEditActions()
         }
     }
     // Sprites editor actions.
-    for (const char* id : {"spr_prev",    "spr_next",      "spr_prev_grp",        "spr_next_grp",       "spr_pos_left",
-                           "spr_pos_up",  "spr_pos_right", "spr_pos_down",        "spr_delete",         "spr_duplicate",
-                           "spr_crop",    "spr_resize",    "spr_delete_grp",      "spr_rename_grp",     "spr_align",
-                           "spr_openimg", "spr_saveimgas", "spr_saveimg_aligned", "spr_split_channels", "spr_add",
-                           "spr_export",  "spr_import"}) {
+    for (const char* id : {"spr_prev",           "spr_next",       "spr_prev_grp",
+                           "spr_next_grp",       "spr_pos_left",   "spr_pos_up",
+                           "spr_pos_right",      "spr_pos_down",   "spr_delete",
+                           "spr_duplicate",      "spr_crop",       "spr_resize",
+                           "spr_delete_grp",     "spr_rename_grp", "spr_align",
+                           "spr_openimg",        "spr_saveimgas",  "spr_saveimg_aligned",
+                           "spr_split_channels", "spr_add",        "spr_export",
+                           "spr_import",         "org_up",         "org_down",
+                           "org_up_10",          "org_down_10",    "org_top",
+                           "org_bottom",         "org_auto"}) {
         const QString action = QString::fromLatin1(id);
         on(id, [this, action] {
             if (ProjectView* view = currentProjectView(); view && view->spritesEditor())
@@ -1445,10 +1450,25 @@ void MainWindow::refreshStatusBar()
         break;
     }
     case WorkspaceType::Graphics:
-    case WorkspaceType::Emulator:
+    case WorkspaceType::Emulator: {
+        QTabWidget* tabs = view->findChild<QTabWidget*>(QStringLiteral("fileTabs_") + view->currentEditor());
+        if (auto* page = tabs ? qobject_cast<SpritePage*>(tabs->currentWidget()) : nullptr) {
+            const QPoint guides = page->view()->guides();
+            static const char* const versions[] = {"1.0.1.0", "2.0.0.0", "2.0.1.0"};
+            const auto version = page->file()->document().version();
+            m_status->setSection(
+                0, tr("Position: %1, %2").arg(page->cursorPosition().x()).arg(page->cursorPosition().y()));
+            m_status->setSection(1, tr("Horizontal guide: %1, Vertical guide: %2").arg(guides.y()).arg(guides.x()));
+            m_status->setSection(2, tr("Version: %1")
+                                        .arg(QLatin1String(versions[version == Formats::SffVersion::V1   ? 0
+                                                                    : version == Formats::SffVersion::V2 ? 1
+                                                                                                         : 2])));
+            break;
+        }
         m_status->setSection(0, tr("Position: %1, %2").arg(0).arg(0));
         m_status->setSection(2, tr("Renderer: %1").arg(QStringLiteral("OpenGL")));
         break;
+    }
     case WorkspaceType::Sound:
         m_status->setSection(0, tr("Sample: %1/%2, Selection: %3/%4").arg(0).arg(0).arg(0).arg(0));
         m_status->setSection(1, tr("Time: %1/%2s, Selection: %3/%4s")

@@ -20,9 +20,12 @@
 #include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListView>
 #include <QMessageBox>
 #include <QScrollBar>
 #include <QSpinBox>
+#include <QStringListModel>
+#include <QToolButton>
 
 namespace OFS {
 
@@ -132,6 +135,66 @@ void SpritesEditor::bindPanel(QWidget* panel)
     refresh();
 }
 
+void SpritesEditor::bindOrganizer(QWidget* panel)
+{
+    m_organizer = control<QListView>(panel, "org_list");
+    m_organizePalettes = control<QToolButton>(panel, "org_palette");
+    if (m_organizer) {
+        if (!m_organizerModel)
+            m_organizerModel = new QStringListModel(this);
+        m_organizer->setModel(m_organizerModel);
+        m_organizer->setSelectionMode(QAbstractItemView::ExtendedSelection);
+        m_organizer->setEditTriggers(QAbstractItemView::NoEditTriggers);
+        connect(m_organizer, &QListView::doubleClicked, this, [this](const QModelIndex& index) {
+            if (m_page && !organizePalettes())
+                m_page->setCurrent(index.row());
+        });
+    }
+    if (m_organizePalettes) {
+        m_organizePalettes->setCheckable(true);
+        connect(m_organizePalettes, &QToolButton::toggled, this, &SpritesEditor::refreshOrganizer);
+    }
+    refreshOrganizer();
+}
+
+bool SpritesEditor::organizePalettes() const
+{
+    return m_organizePalettes && m_organizePalettes->isChecked();
+}
+
+QList<int> SpritesEditor::organizerSelection() const
+{
+    QList<int> rows;
+    if (!m_organizer || !m_organizer->selectionModel())
+        return rows;
+    for (const QModelIndex& index : m_organizer->selectionModel()->selectedRows())
+        rows << index.row();
+    return rows;
+}
+
+void SpritesEditor::refreshOrganizer()
+{
+    if (!m_organizer || !m_organizerModel)
+        return;
+    QStringList rows;
+    if (m_page) {
+        const SpriteDocument& doc = m_page->file()->document();
+        if (organizePalettes()) {
+            for (const SpritePalettePtr& palette : doc.palettes())
+                rows << QStringLiteral("%1, %2").arg(palette->palette.group).arg(palette->palette.number);
+        } else {
+            for (const SpriteEntry& entry : doc.sprites())
+                rows << spriteCaption(entry);
+        }
+    }
+    const QList<int> selected = organizerSelection();
+    m_organizerModel->setStringList(rows);
+    for (int row : selected) {
+        if (row < rows.size())
+            m_organizer->selectionModel()->select(m_organizerModel->index(row), QItemSelectionModel::Select);
+    }
+}
+
 void SpritesEditor::setPage(SpritePage* page)
 {
     if (m_page == page)
@@ -204,6 +267,7 @@ void SpritesEditor::refresh()
     }
     m_updating = updating;
     updateOnionLabel();
+    refreshOrganizer();
 }
 
 void SpritesEditor::applyIdentifiers()
@@ -330,6 +394,33 @@ bool SpritesEditor::perform(const QString& id)
         const int copy = SpriteEdits::duplicate(edited, current);
         file->apply(tr("Duplicate sprite"), edited);
         m_page->setCurrent(copy);
+    } else if (id.startsWith(QLatin1String("org_"))) {
+        const bool palettes = organizePalettes();
+        SpriteDocument edited = doc;
+        QList<int> moved;
+        if (id == QLatin1String("org_auto")) {
+            SpriteEdits::arrange(edited, palettes);
+        } else {
+            const int size = palettes ? int(doc.palettes().size()) : count;
+            const int delta = id == QLatin1String("org_up")        ? -1
+                              : id == QLatin1String("org_down")    ? 1
+                              : id == QLatin1String("org_up_10")   ? -10
+                              : id == QLatin1String("org_down_10") ? 10
+                              : id == QLatin1String("org_top")     ? -size
+                                                                   : size;
+            const QList<int> rows = organizerSelection();
+            if (rows.isEmpty())
+                return true;
+            moved = SpriteEdits::moveRows(edited, rows, delta, palettes);
+            if (moved == rows)
+                return true;
+        }
+        file->apply(tr("Organize"), edited);
+        if (m_organizer) {
+            m_organizer->selectionModel()->clearSelection();
+            for (int row : std::as_const(moved))
+                m_organizer->selectionModel()->select(m_organizerModel->index(row), QItemSelectionModel::Select);
+        }
     } else if (!performDialog(id)) {
         return false;
     }

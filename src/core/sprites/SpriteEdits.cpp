@@ -3,11 +3,13 @@
 #include "formats/image/ImageOps.h"
 #include "formats/image/Quantize.h"
 
+#include <QCoreApplication>
 #include <QHash>
 #include <QPoint>
 
 #include <algorithm>
 #include <cmath>
+#include <tuple>
 
 namespace OFS::SpriteEdits {
 
@@ -289,6 +291,89 @@ int convertToIndexed(SpriteDocument& doc)
         ++changed;
     }
     return changed;
+}
+
+namespace {
+
+template <typename T>
+QList<int> moveInList(QList<T>& list, QList<int> rows, int delta)
+{
+    const int count = int(list.size());
+    rows.removeIf([count](int r) { return r < 0 || r >= count; });
+    std::sort(rows.begin(), rows.end());
+    rows.erase(std::unique(rows.begin(), rows.end()), rows.end());
+    QList<int> moved;
+    if (delta < 0) {
+        int limit = 0;
+        for (int r : std::as_const(rows)) {
+            const int target = std::max(r + delta, limit);
+            list.move(r, target);
+            moved << target;
+            limit = target + 1;
+        }
+    } else if (delta > 0) {
+        int limit = count - 1;
+        for (auto it = rows.crbegin(); it != rows.crend(); ++it) {
+            const int target = std::min(*it + delta, limit);
+            list.move(*it, target);
+            moved.prepend(target);
+            limit = target - 1;
+        }
+    } else {
+        moved = rows;
+    }
+    return moved;
+}
+
+} // namespace
+
+QList<int> moveRows(SpriteDocument& doc, QList<int> rows, int delta, bool palettes)
+{
+    return palettes ? moveInList(doc.palettes(), rows, delta) : moveInList(doc.sprites(), rows, delta);
+}
+
+void arrange(SpriteDocument& doc, bool palettes)
+{
+    if (palettes) {
+        std::stable_sort(
+            doc.palettes().begin(), doc.palettes().end(), [](const SpritePalettePtr& a, const SpritePalettePtr& b) {
+                return std::pair(a->palette.group, a->palette.number) < std::pair(b->palette.group, b->palette.number);
+            });
+        return;
+    }
+    QHash<const SpritePalette*, int> blocks;
+    for (const SpriteEntry& entry : doc.sprites()) {
+        if (!blocks.contains(entry.palette.get()))
+            blocks.insert(entry.palette.get(), int(blocks.size()));
+    }
+    std::stable_sort(doc.sprites().begin(), doc.sprites().end(), [&blocks](const SpriteEntry& a, const SpriteEntry& b) {
+        return std::tuple(blocks.value(a.palette.get()), a.group(), a.number()) <
+               std::tuple(blocks.value(b.palette.get()), b.group(), b.number());
+    });
+}
+
+IssueList identifierIssues(const SpriteDocument& doc)
+{
+    IssueList issues;
+    QHash<quint32, int> first;
+    for (int i = 0; i < doc.spriteCount(); ++i) {
+        const quint32 id = (quint32(doc.sprites()[i].group()) << 16) | quint32(doc.sprites()[i].number());
+        const auto found = first.constFind(id);
+        if (found == first.cend()) {
+            first.insert(id, i);
+            continue;
+        }
+        Issue issue;
+        issue.severity = Issue::Severity::Error;
+        issue.line = i;
+        issue.message =
+            QCoreApplication::translate("OFS::SpriteEdits", "The group %1, index %2 is already in use by sprite #%3!")
+                .arg(doc.sprites()[i].group())
+                .arg(doc.sprites()[i].number())
+                .arg(found.value() + 1);
+        issues << issue;
+    }
+    return issues;
 }
 
 int splitChannels(SpriteDocument& doc, int index)

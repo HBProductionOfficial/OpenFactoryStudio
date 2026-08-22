@@ -35,6 +35,7 @@
 #include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListView>
 #include <QListWidget>
 #include <QMenuBar>
 #include <QMessageBox>
@@ -1112,6 +1113,13 @@ private Q_SLOTS:
         QCOMPARE(page->current(), 1);
         page->setOnionSkin(-1, 1.0);
 
+        auto* status = window.findChild<StatusBar*>();
+        QVERIFY(status);
+        workspace->setGuides(QPoint(7, -3));
+        QTRY_COMPARE(status->section(1), QStringLiteral("Horizontal guide: -3, Vertical guide: 7"));
+        QCOMPARE(status->section(2), QStringLiteral("Version: 2.0.1.0"));
+        QVERIFY(status->section(0).startsWith(QStringLiteral("Position: ")));
+
         auto* group = view->findChild<QSpinBox*>("spr_grp");
         auto* number = view->findChild<QSpinBox*>("spr_num");
         auto* axisX = view->findChild<QSpinBox*>("spr_xaxis");
@@ -1141,6 +1149,23 @@ private Q_SLOTS:
         QCOMPARE(page->file()->document().spriteCount(), 3);
         QCOMPARE(page->current(), 1);
         QCOMPARE(number->value(), 0);
+        const QString sffPath = QDir::fromNativeSeparators(dir.filePath("spr.sff"));
+        QTRY_COMPARE(view->issues().value(sffPath).size(), 1);
+        QCOMPARE(view->issues().value(sffPath).first().line, 1);
+        page->setCurrent(0);
+        QVERIFY(view->showFileLine(sffPath, 2));
+        QCOMPARE(page->current(), 1);
+
+        auto* organizer = view->findChild<QListView*>("org_list");
+        QVERIFY(organizer);
+        QCOMPARE(organizer->model()->rowCount(), 3);
+        QCOMPARE(organizer->model()->index(2, 0).data().toString(), QStringLiteral("0, 1"));
+        organizer->selectionModel()->select(organizer->model()->index(2, 0), QItemSelectionModel::ClearAndSelect);
+        actions.action("org_top")->trigger();
+        QCOMPARE(page->file()->document().sprites()[0].number(), 1);
+        page->file()->undoStack()->undo();
+        QCOMPARE(page->file()->document().sprites()[2].number(), 1);
+
         m_context->config().setValue("confirm_delete", false);
         actions.action("spr_delete")->trigger();
         m_context->config().setValue("confirm_delete", true);
