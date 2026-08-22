@@ -100,6 +100,8 @@ add_library(ofscore SHARED
     widgets/EPanelWidget.h
     widgets/EPanelWidget.cpp
     widgets/GraphicsView.h
+    widgets/ImageCanvas.h
+    widgets/ImageCanvas.cpp
     widgets/GraphicsView.cpp
     tools/Calculator.h
     tools/Calculator.cpp
