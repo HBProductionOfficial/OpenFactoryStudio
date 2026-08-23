@@ -29,6 +29,7 @@
 #include <QAction>
 #include <QApplication>
 #include <QCheckBox>
+#include <QClipboard>
 #include <QComboBox>
 #include <QContextMenuEvent>
 #include <QDialog>
@@ -42,6 +43,7 @@
 #include <QListWidget>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QMimeData>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QRadioButton>
@@ -1651,6 +1653,69 @@ private Q_SLOTS:
         QCOMPARE(tabs->count(), 3);
         QCOMPARE(tabs->currentIndex(), 2);
         FileDialogs::setOpenPromptOverride({});
+    }
+
+    void spritesClipboard()
+    {
+        QTemporaryDir dir;
+        // 3,0 (2x2, axis 1,1) and 3,1.
+        SpriteDocument doc;
+        doc.palettes() << SpriteDocument::makePalette(1, 1, Formats::grayscalePalette(256));
+        for (int n = 0; n < 2; ++n) {
+            SpriteEntry entry;
+            entry.header.group = 3;
+            entry.header.number = std::uint16_t(n);
+            entry.header.axisX = 1;
+            entry.header.axisY = 1;
+            entry.pixels = SpriteDocument::makePixels(
+                Formats::Image::indexed(2, 2, std::vector<std::uint8_t>(4, std::uint8_t(n + 4))));
+            entry.palette = doc.palettes()[0];
+            doc.sprites() << entry;
+        }
+        const auto bytes = doc.toSff().write();
+        QVERIFY(bytes.ok());
+        writeFile(dir.filePath("c.sff"),
+                  QByteArray(reinterpret_cast<const char*>(bytes.value().data()), qsizetype(bytes.value().size())));
+        writeFile(dir.filePath("c.def"), "[Info]\nname = \"C\"\nmugenversion = 1.0\n"
+                                         "[Files]\ncns = c.cns\nsprite = c.sff\n");
+        writeFile(dir.filePath("c.cns"), "[Data]\nlife = 1000\n");
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("c.def")));
+        ActionRegistry& actions = m_context->actions();
+        actions.action("editor_spr")->trigger();
+        auto* page = window.currentProjectView()->findChild<SpritePage*>();
+        QVERIFY(page);
+        page->view()->setFocus();
+        SpriteFile* file = page->file();
+
+        actions.action("edit_copy")->trigger();
+        QVERIFY(QApplication::clipboard()->mimeData()->hasImage());
+        page->setCurrent(1);
+        actions.action("edit_paste")->trigger();
+        QCOMPARE(file->document().spriteCount(), 3);
+        QCOMPARE(page->current(), 2);
+        QCOMPARE(file->document().sprites()[2].number(), 0);
+        QCOMPARE(int(file->document().sprites()[2].header.axisX), 1);
+        QCOMPARE(file->document().image(2).indexAt(0, 0), 4);
+        QCOMPARE(file->document().sprites()[2].palette, file->document().palettes()[0]);
+        m_context->config().setValue("confirm_delete", false);
+        actions.action("edit_cut")->trigger();
+        m_context->config().setValue("confirm_delete", true);
+        QCOMPARE(file->document().spriteCount(), 2);
+        QImage red(3, 1, QImage::Format_RGBA8888);
+        red.fill(Qt::red);
+        QApplication::clipboard()->setImage(red);
+        page->setCurrent(0);
+        actions.action("edit_paste")->trigger();
+        QCOMPARE(file->document().spriteCount(), 3);
+        QCOMPARE(page->current(), 1);
+        QCOMPARE(file->document().sprites()[1].group(), 3);
+        QCOMPARE(file->document().sprites()[1].number(), 2);
+        QCOMPARE(file->document().sprites()[1].width(), 3);
+        QVERIFY(!file->document().image(1).isIndexed());
+        while (file->isModified())
+            file->undoStack()->undo();
     }
 
     void spritesSaveAs()

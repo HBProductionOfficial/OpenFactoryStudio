@@ -454,27 +454,50 @@ void MainWindow::connectEditActions()
     };
     on("edit_undo", undoRedo(false));
     on("edit_redo", undoRedo(true));
-    on("edit_cut", forText(&QPlainTextEdit::cut, &QLineEdit::cut));
-    auto imageEditing = [this]() -> SpritesEditor* {
+    // Cut, Copy and Paste also act on the sprite or on the image editor's selection.
+    auto spritesEditing = [this]() -> SpritesEditor* {
         ProjectView* view = currentProjectView();
         SpritesEditor* sprites = view ? view->spritesEditor() : nullptr;
-        if (!sprites || view->currentEditor() != QLatin1String("sprites") || !sprites->imageMode())
+        if (!sprites || view->currentEditor() != QLatin1String("sprites") || !sprites->page())
             return nullptr;
         return sprites;
     };
-    auto copyOrPaste = [textTarget, imageEditing, forText](bool paste) {
-        std::function<void()> text = forText(&QPlainTextEdit::copy, &QLineEdit::copy);
-        if (paste)
+    enum class Clip
+    {
+        Cut,
+        Copy,
+        Paste,
+    };
+    auto clipboard = [textTarget, spritesEditing, forText](Clip clip) {
+        std::function<void()> text;
+        if (clip == Clip::Cut)
+            text = forText(&QPlainTextEdit::cut, &QLineEdit::cut);
+        else if (clip == Clip::Copy)
+            text = forText(&QPlainTextEdit::copy, &QLineEdit::copy);
+        else
             text = forText(&QPlainTextEdit::paste, &QLineEdit::paste);
-        return [textTarget, imageEditing, text, paste] {
-            if (textTarget())
+        return [textTarget, spritesEditing, text, clip] {
+            if (textTarget()) {
                 text();
-            else if (SpritesEditor* sprites = imageEditing())
-                paste ? sprites->pasteImage() : sprites->copyImage();
+            } else if (SpritesEditor* sprites = spritesEditing()) {
+                if (sprites->imageMode()) {
+                    if (clip == Clip::Copy)
+                        sprites->copyImage();
+                    else if (clip == Clip::Paste)
+                        sprites->pasteImage();
+                } else if (clip == Clip::Cut) {
+                    sprites->cutSprite();
+                } else if (clip == Clip::Copy) {
+                    sprites->copySprite();
+                } else {
+                    sprites->pasteSprite();
+                }
+            }
         };
     };
-    on("edit_copy", copyOrPaste(false));
-    on("edit_paste", copyOrPaste(true));
+    on("edit_cut", clipboard(Clip::Cut));
+    on("edit_copy", clipboard(Clip::Copy));
+    on("edit_paste", clipboard(Clip::Paste));
 
     auto withCode = [this](auto fn) {
         return [this, fn] {

@@ -50,6 +50,10 @@ public:
     bool confirmLeave();
     void copyImage();
     void pasteImage();
+    // Copies the sprite with its palette, axis and identifiers for this program, and its image for others.
+    void copySprite();
+    void cutSprite();
+    void pasteSprite();
     void importFromProject(const QList<QPair<QString, const SpriteDocument*>>& sources);
 
 Q_SIGNALS:

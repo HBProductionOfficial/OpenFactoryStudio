@@ -15,19 +15,25 @@
 #include "shell/SpritePage.h"
 #include "shell/dialogs/SpriteDialogs.h"
 
+#include <QApplication>
 #include <QCheckBox>
+#include <QClipboard>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QImage>
 #include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListView>
 #include <QMessageBox>
+#include <QMimeData>
 #include <QScrollBar>
 #include <QSpinBox>
 #include <QStringListModel>
 #include <QToolButton>
+
+#include <cstring>
 
 namespace OFS {
 
@@ -822,6 +828,100 @@ void SpritesEditor::importFromProject(const QList<QPair<QString, const SpriteDoc
         m_page->setCurrent(result.added.first());
     QMessageBox::information(parent, tr("Import from another project..."),
                              tr("%1 new sprite(s) were imported!").arg(result.added.size()));
+}
+namespace {
+
+const QString SpriteMimeType = QStringLiteral("application/x-openfactorystudio-sprite");
+struct CopiedSprite
+{
+    Formats::Image image;
+    int group = 0;
+    int number = 0;
+    QPoint axis;
+    QString name;
+};
+CopiedSprite& copiedSprite()
+{
+    static CopiedSprite sprite;
+    return sprite;
+}
+
+} // namespace
+
+void SpritesEditor::copySprite()
+{
+    if (!m_page)
+        return;
+    const SpriteDocument& doc = m_page->file()->document();
+    const int current = m_page->current();
+    if (current < 0 || current >= doc.spriteCount())
+        return;
+    const SpriteEntry& entry = doc.sprites()[current];
+    CopiedSprite& copied = copiedSprite();
+    copied.image = doc.image(current);
+    copied.group = entry.group();
+    copied.number = entry.number();
+    copied.axis = QPoint(entry.header.axisX, entry.header.axisY);
+    copied.name = entry.name;
+    const Formats::Image rgba = doc.imageRgba(current);
+    auto* data = new QMimeData;
+    if (!rgba.pixelBuffer().empty())
+        data->setImageData(
+            QImage(rgba.pixels().data(), rgba.width(), rgba.height(), rgba.width() * 4, QImage::Format_RGBA8888)
+                .copy());
+    data->setData(SpriteMimeType, QByteArray("1"));
+    QApplication::clipboard()->setMimeData(data);
+}
+
+void SpritesEditor::cutSprite()
+{
+    if (!m_page || m_page->current() >= m_page->file()->document().spriteCount())
+        return;
+    copySprite();
+    perform(QStringLiteral("spr_delete"));
+}
+
+void SpritesEditor::pasteSprite()
+{
+    if (!m_page)
+        return;
+    SpriteFile* file = m_page->file();
+    const SpriteDocument& doc = file->document();
+    const int current = m_page->current();
+    const bool has = current >= 0 && current < doc.spriteCount();
+    const QMimeData* data = QApplication::clipboard()->mimeData();
+    CopiedSprite sprite;
+    if (data && data->hasFormat(SpriteMimeType) && !copiedSprite().image.pixelBuffer().empty()) {
+        sprite = copiedSprite();
+    } else if (data && data->hasImage()) {
+        const QImage image = qvariant_cast<QImage>(data->imageData());
+        if (image.isNull())
+            return;
+        const QImage rgba = image.convertToFormat(QImage::Format_RGBA8888);
+        std::vector<std::uint8_t> pixels(std::size_t(rgba.width()) * std::size_t(rgba.height()) * 4);
+        for (int y = 0; y < rgba.height(); ++y)
+            std::memcpy(pixels.data() + std::size_t(y) * std::size_t(rgba.width()) * 4, rgba.constScanLine(y),
+                        std::size_t(rgba.width()) * 4);
+        sprite.image = Formats::Image::rgba(rgba.width(), rgba.height(), std::move(pixels));
+        sprite.group = has ? doc.sprites()[current].group() : 0;
+        sprite.number = SpriteEdits::freeNumber(doc, sprite.group);
+        if (has)
+            sprite.axis = QPoint(doc.sprites()[current].header.axisX, doc.sprites()[current].header.axisY);
+    } else {
+        return;
+    }
+    SpriteDocument edited = doc;
+    const int position = has ? current + 1 : edited.spriteCount();
+    SpriteEntry entry;
+    entry.header.group = std::uint16_t(std::clamp(sprite.group, 0, 0xFFFF));
+    entry.header.number = std::uint16_t(std::clamp(sprite.number, 0, 0xFFFF));
+    entry.header.axisX = std::int16_t(std::clamp(sprite.axis.x(), -32768, 32767));
+    entry.header.axisY = std::int16_t(std::clamp(sprite.axis.y(), -32768, 32767));
+    entry.name = sprite.name;
+    edited.sprites().insert(position, entry);
+    SpriteEdits::setImage(edited, position, std::move(sprite.image));
+    file->apply(tr("Paste"), edited);
+    m_page->setCurrent(position);
 }
 
 } // namespace OFS

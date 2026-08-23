@@ -32,6 +32,8 @@
 #include <QStandardItemModel>
 #include <QToolButton>
 
+#include <cstring>
+
 namespace OFS {
 
 namespace {
