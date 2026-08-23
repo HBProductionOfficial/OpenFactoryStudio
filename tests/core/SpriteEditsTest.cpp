@@ -600,6 +600,85 @@ private Q_SLOTS:
         QCOMPARE(issues[0].message, QStringLiteral("The group 0, index 1 is already in use by sprite #2!"));
     }
 
+    void importingFromProject()
+    {
+        // The target: 0,0 and 1,0 of the sample, current 0. The source: 9,0 (a palette of its
+        // own: 1 = green), 1,0 (the sample's palette) and a true-color 9,1.
+        SpriteDocument doc = sample();
+        doc.sprites().removeAt(1);
+        SpriteDocument source;
+        Palette greens = grayscalePalette(256);
+        greens[1] = {0, 200, 0, 255};
+        source.palettes() << SpriteDocument::makePalette(5, 5, greens) << sample().palettes()[0];
+        SpriteEntry nine;
+        nine.header.group = 9;
+        nine.header.axisX = 4;
+        nine.pixels = SpriteDocument::makePixels(Image::indexed(2, 2, std::vector<std::uint8_t>(4, 1)));
+        nine.palette = source.palettes()[0];
+        SpriteEntry one = nine;
+        one.header.group = 1;
+        one.header.axisX = 7;
+        one.palette = source.palettes()[1];
+        SpriteEntry rgba;
+        rgba.header.group = 9;
+        rgba.header.number = 1;
+        rgba.pixels = SpriteDocument::makePixels(Image::rgba(1, 1, {1, 2, 3, 255}));
+        source.sprites() << nine << one << rgba;
+
+        ProjectImportOptions options;
+        QStringList asked;
+        options.askReplace = [&asked](int group, int number) {
+            asked << QStringLiteral("%1,%2").arg(group).arg(number);
+            return true;
+        };
+        SpriteDocument edited = doc;
+        ProjectImportResult result = importFromProject(edited, 0, source, {{0, 9, 0}, {2, 30, 5}, {1, 1, 0}}, options);
+        QCOMPARE(result.added, (QList<int>{1, 2}));
+        QCOMPARE(result.replaced, 1);
+        QCOMPARE(asked, QStringList{"1,0"});
+        QCOMPARE(edited.spriteCount(), 4);
+        QCOMPARE(edited.sprites()[1].group(), 9);
+        QCOMPARE(int(edited.sprites()[1].header.axisX), 4);
+        QCOMPARE(edited.sprites()[2].group(), 30);
+        QCOMPARE(edited.sprites()[2].number(), 5);
+        QVERIFY(!edited.image(2).isIndexed());
+        QCOMPARE(edited.palettes().size(), 2);
+        QCOMPARE(edited.image(1).palette()[1], (Rgba{0, 200, 0, 255}));
+        QCOMPARE(edited.sprites()[3].group(), 1);
+        QCOMPARE(int(edited.sprites()[3].header.axisX), 7);
+        QCOMPARE(edited.sprites()[3].palette, edited.palettes()[0]);
+        QCOMPARE(edited.image(3).width(), 2);
+
+        options.conflict = ProjectImportOptions::Conflict::Skip;
+        edited = doc;
+        result = importFromProject(edited, 0, source, {{1, 1, 0}}, options);
+        QVERIFY(result.added.isEmpty() && result.replaced == 0);
+        options.conflict = ProjectImportOptions::Conflict::AsIs;
+        result = importFromProject(edited, 0, source, {{1, 1, 0}}, options);
+        QCOMPARE(result.added, QList<int>{1});
+        QCOMPARE(edited.spriteCount(), 3);
+        options.conflict = ProjectImportOptions::Conflict::Ask;
+        options.askReplace = [](int, int) {
+            return false;
+        };
+        edited = doc;
+        result = importFromProject(edited, 0, source, {{1, 1, 0}}, options);
+        QVERIFY(result.added.isEmpty() && result.replaced == 0);
+
+        options.palette = ProjectImportOptions::Palette::Force;
+        options.paletteIndex = 0;
+        edited = doc;
+        importFromProject(edited, 1, source, {{0, 9, 0}}, options);
+        QCOMPARE(edited.palettes().size(), 1);
+        QCOMPARE(edited.sprites()[2].palette, edited.palettes()[0]);
+        QCOMPARE(edited.image(2).indexAt(0, 0), 2);
+        options.palette = ProjectImportOptions::Palette::Exchange;
+        edited = doc;
+        importFromProject(edited, 1, source, {{0, 9, 0}}, options);
+        QCOMPARE(edited.palettes().size(), 1);
+        QCOMPARE(edited.image(2).indexAt(0, 0), 1);
+    }
+
     void spriteFile()
     {
         QTemporaryDir dir;

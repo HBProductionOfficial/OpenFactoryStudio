@@ -790,5 +790,38 @@ bool SpritesEditor::performDialog(const QString& id)
     }
     return true;
 }
+void SpritesEditor::importFromProject(const QList<QPair<QString, const SpriteDocument*>>& sources)
+{
+    if (!m_page)
+        return;
+    QWidget* parent = m_page->window();
+    QList<ProjectImportDialog::Source> projects;
+    for (const auto& source : sources)
+        projects << ProjectImportDialog::Source{source.first, source.second};
+    SpriteFile* file = m_page->file();
+    ProjectImportDialog dialog(projects, file->document(), parent);
+    if (dialog.exec() != QDialog::Accepted || dialog.project() < 0 || dialog.project() >= projects.size())
+        return;
+    const QList<ProjectImportItem> items = dialog.items();
+    if (items.isEmpty())
+        return;
+    ProjectImportOptions options = dialog.options();
+    options.askReplace = [parent](int group, int number) {
+        return QMessageBox::question(
+                   parent, tr("Conflict resolution!"),
+                   tr("Sprite '%1,%2' already exists, do you want to replace it?").arg(group).arg(number),
+                   QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::Yes;
+    };
+    SpriteDocument edited = file->document();
+    const ProjectImportResult result =
+        OFS::importFromProject(edited, m_page->current(), *projects[dialog.project()].sprites, items, options);
+    if (result.added.isEmpty() && result.replaced == 0)
+        return;
+    file->apply(tr("Import from another project"), edited);
+    if (!result.added.isEmpty())
+        m_page->setCurrent(result.added.first());
+    QMessageBox::information(parent, tr("Import from another project..."),
+                             tr("%1 new sprite(s) were imported!").arg(result.added.size()));
+}
 
 } // namespace OFS

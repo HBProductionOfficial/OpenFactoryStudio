@@ -6,6 +6,8 @@
 #include <QList>
 #include <QString>
 
+#include <functional>
+
 namespace OFS {
 
 enum class SpriteListFormat
@@ -23,5 +25,39 @@ OFS_CORE_EXPORT bool exportSprites(const SpriteDocument& doc, const QList<int>& 
 // same image file share it. On a malformed list nothing is added and *error tells the line.
 OFS_CORE_EXPORT QList<int> importFfe(SpriteDocument& doc, int after, const QString& path,
                                      const AddSpritesOptions& options, QString* error = nullptr);
+struct OFS_CORE_EXPORT ProjectImportItem
+{
+    int source = 0;
+    int group = 0;
+    int number = 0;
+};
+struct OFS_CORE_EXPORT ProjectImportOptions
+{
+    enum class Palette
+    {
+        ImageOwn,
+        Force,
+        Exchange,
+    };
+    enum class Conflict
+    {
+        Ask,
+        Replace,
+        Skip,
+        AsIs,
+    };
+    Palette palette = Palette::ImageOwn;
+    int paletteIndex = 0;
+    Conflict conflict = Conflict::Ask;
+    std::function<bool(int group, int number)> askReplace;
+};
+struct OFS_CORE_EXPORT ProjectImportResult
+{
+    QList<int> added;
+    int replaced = 0;
+};
+OFS_CORE_EXPORT ProjectImportResult importFromProject(SpriteDocument& doc, int after, const SpriteDocument& source,
+                                                      const QList<ProjectImportItem>& items,
+                                                      const ProjectImportOptions& options);
 
 } // namespace OFS

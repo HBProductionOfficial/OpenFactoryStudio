@@ -614,6 +614,18 @@ void MainWindow::connectEditActions()
                 refreshActionStates(); // nothing to edit: the action unchecks again
         });
     }
+    on("spr_import_proj", [this] {
+        ProjectView* view = currentProjectView();
+        if (!view || !view->spritesEditor())
+            return;
+        QList<QPair<QString, const SpriteDocument*>> sources;
+        for (ProjectView* other : projectViews()) {
+            SpritesEditor* sprites = other->spritesEditor();
+            if (other != view && sprites && sprites->page())
+                sources << qMakePair(other->project()->name(), &sprites->page()->file()->document());
+        }
+        view->spritesEditor()->importFromProject(sources);
+    });
     auto* tools = new QActionGroup(this);
     tools->setExclusive(true);
     for (const char* id :

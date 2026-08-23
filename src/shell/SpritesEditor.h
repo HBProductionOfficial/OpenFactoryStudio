@@ -3,6 +3,7 @@
 #include "core/sprites/SpriteImages.h"
 
 #include <QObject>
+#include <QPair>
 #include <QPointer>
 
 #include <functional>
@@ -49,6 +50,7 @@ public:
     bool confirmLeave();
     void copyImage();
     void pasteImage();
+    void importFromProject(const QList<QPair<QString, const SpriteDocument*>>& sources);
 
 Q_SIGNALS:
     void imageModeChanged(bool on);

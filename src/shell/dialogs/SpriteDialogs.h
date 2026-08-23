@@ -2,6 +2,7 @@
 
 #include "core/sprites/SpriteDocument.h"
 #include "core/sprites/SpriteImages.h"
+#include "core/sprites/SpriteTransfer.h"
 #include "formats/image/Resize.h"
 
 #include <QDialog>
@@ -10,6 +11,7 @@ class QCheckBox;
 class QComboBox;
 class QDoubleSpinBox;
 class QListWidget;
+class QListWidgetItem;
 class QRadioButton;
 class QSpinBox;
 class QToolButton;
@@ -210,6 +212,38 @@ public:
 private:
     QRadioButton* m_all;
     QSpinBox* m_group;
+};
+class ProjectImportDialog : public QDialog
+{
+    Q_OBJECT
+
+public:
+    struct Source
+    {
+        QString name;
+        const SpriteDocument* sprites;
+    };
+    ProjectImportDialog(const QList<Source>& projects, const SpriteDocument& target, QWidget* parent = nullptr);
+
+    int project() const;
+    // The destination list, in order (items whose identifier is not "g,i" are left out).
+    QList<ProjectImportItem> items() const;
+    ProjectImportOptions options() const;
+
+private:
+    void fillSource();
+
+    QList<Source> m_projects;
+    QComboBox* m_project;
+    QCheckBox* m_sorted;
+    QListWidget* m_source;
+    QListWidget* m_destination;
+    QComboBox* m_paletteMode;
+    QComboBox* m_palette;
+    QRadioButton* m_ask;
+    QRadioButton* m_replace;
+    QRadioButton* m_skip;
+    QRadioButton* m_asIs;
 };
 
 } // namespace OFS

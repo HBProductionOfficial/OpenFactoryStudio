@@ -1,6 +1,9 @@
 #include "core/sprites/SpriteTransfer.h"
 
 #include "core/sprites/SpriteEdits.h"
+#include "formats/image/ImageOps.h"
+
+#include "core/sprites/SpriteEdits.h"
 #include "core/sprites/SpriteExport.h"
 #include "formats/palette/PaletteFormats.h"
 
@@ -269,6 +272,54 @@ QList<int> importFfe(SpriteDocument& doc, int after, const QString& path, const 
     }
     doc = edited;
     return added;
+}
+ProjectImportResult importFromProject(SpriteDocument& doc, int after, const SpriteDocument& source,
+                                      const QList<ProjectImportItem>& items, const ProjectImportOptions& options)
+{
+    using Options = ProjectImportOptions;
+    ProjectImportResult result;
+    const SpritePalettePtr chosen = options.paletteIndex >= 0 && options.paletteIndex < int(doc.palettes().size())
+                                        ? doc.palettes()[options.paletteIndex]
+                                        : nullptr;
+    int position = std::clamp(after + 1, 0, doc.spriteCount());
+    for (const ProjectImportItem& item : items) {
+        if (item.source < 0 || item.source >= source.spriteCount())
+            continue;
+        const SpriteEntry& from = source.sprites()[item.source];
+        Image image = source.image(item.source);
+        if (image.pixelBuffer().empty())
+            continue;
+        if (image.isIndexed() && chosen && options.palette != Options::Palette::ImageOwn) {
+            if (options.palette == Options::Palette::Force)
+                image = adaptToPalette(image, chosen->palette.colors);
+            image.setPalette(chosen->palette.colors);
+        }
+        const int group = std::clamp(item.group, 0, 0xFFFF);
+        const int number = std::clamp(item.number, 0, 0xFFFF);
+        const int existing = doc.findSprite(group, number);
+        if (existing >= 0 && options.conflict != Options::Conflict::AsIs) {
+            const bool replace =
+                options.conflict == Options::Conflict::Replace ||
+                (options.conflict == Options::Conflict::Ask && options.askReplace && options.askReplace(group, number));
+            if (!replace)
+                continue;
+            SpriteEdits::setImage(doc, existing, std::move(image));
+            SpriteEdits::setAxis(doc, existing, from.header.axisX, from.header.axisY);
+            ++result.replaced;
+            continue;
+        }
+        SpriteEntry entry;
+        entry.header.group = std::uint16_t(group);
+        entry.header.number = std::uint16_t(number);
+        entry.header.axisX = from.header.axisX;
+        entry.header.axisY = from.header.axisY;
+        entry.name = from.name;
+        doc.sprites().insert(position, entry);
+        SpriteEdits::setImage(doc, position, std::move(image));
+        // Positions of the sprites added before stay right: they come first.
+        result.added << position++;
+    }
+    return result;
 }
 
 } // namespace OFS

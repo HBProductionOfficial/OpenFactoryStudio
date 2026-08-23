@@ -11,6 +11,7 @@
 #include <QListWidget>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QRegularExpression>
 #include <QSpinBox>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -601,6 +602,174 @@ double RotateDialog::angle() const
 int RotateDialog::filter() const
 {
     return m_filter->currentIndex();
+}
+ProjectImportDialog::ProjectImportDialog(const QList<Source>& projects, const SpriteDocument& target, QWidget* parent)
+    : QDialog(parent)
+    , m_projects(projects)
+{
+    setObjectName(QStringLiteral("ProjImportDlg"));
+    setWindowTitle(tr("Import from another project"));
+    auto button = [](const QString& text, const char* name, QWidget* parentWidget) {
+        auto* b = new QPushButton(text, parentWidget);
+        b->setObjectName(QLatin1String(name));
+        b->setAutoDefault(false);
+        return b;
+    };
+
+    auto* source = new QGroupBox(tr("Source:"), this);
+    source->setObjectName(QStringLiteral("groupBox"));
+    m_project = new QComboBox(source);
+    m_project->setObjectName(QStringLiteral("projList"));
+    for (const Source& project : projects)
+        m_project->addItem(project.name);
+    m_sorted = new QCheckBox(tr("Sort "), source);
+    m_sorted->setObjectName(QStringLiteral("sorted"));
+    m_source = new QListWidget(source);
+    m_source->setObjectName(QStringLiteral("list"));
+    m_source->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    QPushButton* all = button(tr("Select all"), "allBut", source);
+    QPushButton* invert = button(tr("Invert selection"), "invBut", source);
+    QPushButton* clear = button(tr("Clear"), "clearBut", source);
+    auto* sourceLayout = new QGridLayout(source);
+    auto* projectLabel = new QLabel(tr("Project:"), source);
+    projectLabel->setObjectName(QStringLiteral("label"));
+    sourceLayout->addWidget(projectLabel, 0, 0);
+    sourceLayout->addWidget(m_project, 0, 1);
+    sourceLayout->addWidget(m_sorted, 0, 2);
+    sourceLayout->addWidget(m_source, 1, 0, 1, 3);
+    auto* sourceButtons = new QHBoxLayout;
+    sourceButtons->addWidget(all);
+    sourceButtons->addWidget(invert);
+    sourceButtons->addWidget(clear);
+    sourceLayout->addLayout(sourceButtons, 2, 0, 1, 3);
+
+    auto* destination = new QGroupBox(tr("Destination:"), this);
+    destination->setObjectName(QStringLiteral("groupBox_2"));
+    m_destination = new QListWidget(destination);
+    m_destination->setObjectName(QStringLiteral("destList"));
+    m_destination->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    m_destination->setEditTriggers(QAbstractItemView::DoubleClicked);
+    QPushButton* add = button(tr("Add from source"), "addBut", destination);
+    QPushButton* remove = button(tr("Remove selected"), "delBut", destination);
+    auto* destinationLayout = new QVBoxLayout(destination);
+    destinationLayout->addWidget(new QLabel(tr("Double-click an item to rename."), destination));
+    destinationLayout->addWidget(m_destination);
+    auto* destinationButtons = new QHBoxLayout;
+    destinationButtons->addWidget(add);
+    destinationButtons->addWidget(remove);
+    destinationLayout->addLayout(destinationButtons);
+
+    auto* palette = new QGroupBox(tr("Palette:"), this);
+    m_paletteMode = new QComboBox(palette);
+    m_paletteMode->addItems({tr("Image's palette, if not already added"),
+                             tr("Force the specified palette (adapt the image)"),
+                             tr("Exchange with the specified palette")});
+    m_palette = new QComboBox(palette);
+    for (const SpritePalettePtr& p : target.palettes())
+        m_palette->addItem(QStringLiteral("%1, %2").arg(p->palette.group).arg(p->palette.number));
+    auto* paletteLayout = new QHBoxLayout(palette);
+    paletteLayout->addWidget(m_paletteMode, 1);
+    paletteLayout->addWidget(m_palette);
+    auto* conflicts = new QGroupBox(tr("Conflicts:"), this);
+    conflicts->setObjectName(QStringLiteral("groupBox_3"));
+    m_ask = radio(tr("Ask when needed"), "ask", conflicts);
+    m_ask->setChecked(true);
+    m_replace = radio(tr("Replace existing"), "replace", conflicts);
+    m_skip = radio(tr("Skip (don't add)"), "skip", conflicts);
+    m_asIs = radio(tr("Add anyway (as is)"), "asIs", conflicts);
+    auto* conflictLayout = new QHBoxLayout(conflicts);
+    for (QRadioButton* r : {m_ask, m_replace, m_skip, m_asIs})
+        conflictLayout->addWidget(r);
+
+    auto* lists = new QHBoxLayout;
+    lists->addWidget(source, 1);
+    lists->addWidget(destination, 1);
+    auto* layout = new QVBoxLayout(this);
+    layout->addLayout(lists, 1);
+    layout->addWidget(palette);
+    layout->addWidget(conflicts);
+    layout->addWidget(okCancel(this));
+    resize(715, 483);
+
+    connect(m_project, &QComboBox::currentIndexChanged, this, [this] {
+        m_destination->clear();
+        fillSource();
+    });
+    connect(m_sorted, &QCheckBox::toggled, this, &ProjectImportDialog::fillSource);
+    connect(all, &QPushButton::clicked, m_source, &QListWidget::selectAll);
+    connect(clear, &QPushButton::clicked, m_source, &QListWidget::clearSelection);
+    connect(invert, &QPushButton::clicked, this, [this] {
+        for (int i = 0; i < m_source->count(); ++i)
+            m_source->item(i)->setSelected(!m_source->item(i)->isSelected());
+    });
+    connect(add, &QPushButton::clicked, this, [this] {
+        // The selected sprites in the order they were selected. Adding one twice is allowed.
+        for (QListWidgetItem* selected : m_source->selectedItems()) {
+            const int index = selected->data(Qt::UserRole).toInt();
+            const SpriteEntry& entry = m_projects[m_project->currentIndex()].sprites->sprites()[index];
+            auto* item = new QListWidgetItem(QStringLiteral("%1,%2").arg(entry.group()).arg(entry.number()));
+            item->setData(Qt::UserRole, index);
+            item->setFlags(item->flags() | Qt::ItemIsEditable);
+            m_destination->addItem(item);
+        }
+    });
+    connect(remove, &QPushButton::clicked, this, [this] { qDeleteAll(m_destination->selectedItems()); });
+    fillSource();
+}
+
+void ProjectImportDialog::fillSource()
+{
+    m_source->clear();
+    const int project = m_project->currentIndex();
+    if (project < 0 || project >= m_projects.size())
+        return;
+    const SpriteDocument& doc = *m_projects[project].sprites;
+    QList<int> order;
+    for (int i = 0; i < doc.spriteCount(); ++i)
+        order << i;
+    if (m_sorted->isChecked()) {
+        std::stable_sort(order.begin(), order.end(), [&doc](int a, int b) {
+            const SpriteEntry& x = doc.sprites()[a];
+            const SpriteEntry& y = doc.sprites()[b];
+            return x.group() != y.group() ? x.group() < y.group() : x.number() < y.number();
+        });
+    }
+    for (int index : std::as_const(order)) {
+        const SpriteEntry& entry = doc.sprites()[index];
+        auto* item = new QListWidgetItem(QStringLiteral("%1, %2").arg(entry.group()).arg(entry.number()), m_source);
+        item->setData(Qt::UserRole, index);
+    }
+}
+
+int ProjectImportDialog::project() const
+{
+    return m_project->currentIndex();
+}
+
+QList<ProjectImportItem> ProjectImportDialog::items() const
+{
+    static const QRegularExpression identifier(QStringLiteral("^\\s*(\\d+)\\s*,\\s*(\\d+)\\s*$"));
+    QList<ProjectImportItem> result;
+    for (int i = 0; i < m_destination->count(); ++i) {
+        const QListWidgetItem* item = m_destination->item(i);
+        const QRegularExpressionMatch match = identifier.match(item->text());
+        if (match.hasMatch())
+            result << ProjectImportItem{item->data(Qt::UserRole).toInt(), match.captured(1).toInt(),
+                                        match.captured(2).toInt()};
+    }
+    return result;
+}
+
+ProjectImportOptions ProjectImportDialog::options() const
+{
+    ProjectImportOptions options;
+    options.palette = ProjectImportOptions::Palette(std::clamp(m_paletteMode->currentIndex(), 0, 2));
+    options.paletteIndex = m_palette->currentIndex();
+    options.conflict = m_replace->isChecked() ? ProjectImportOptions::Conflict::Replace
+                       : m_skip->isChecked()  ? ProjectImportOptions::Conflict::Skip
+                       : m_asIs->isChecked()  ? ProjectImportOptions::Conflict::AsIs
+                                              : ProjectImportOptions::Conflict::Ask;
+    return options;
 }
 
 } // namespace OFS

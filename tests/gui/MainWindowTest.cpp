@@ -1498,6 +1498,93 @@ private Q_SLOTS:
         QVERIFY(!actions.action("spr_explorer")->isChecked());
     }
 
+    void spritesImport()
+    {
+        // Project a has 0,0 and 1,0. Project b ("Other") has 9,0, 0,0 and 9,1.
+        QTemporaryDir a;
+        QTemporaryDir b;
+        auto writeProject = [](const QTemporaryDir& dir, const QString& name, const QList<QPair<int, int>>& ids,
+                               int fill) {
+            SpriteDocument doc;
+            doc.palettes() << SpriteDocument::makePalette(1, 1, Formats::grayscalePalette(256));
+            for (const auto& id : ids) {
+                SpriteEntry entry;
+                entry.header.group = std::uint16_t(id.first);
+                entry.header.number = std::uint16_t(id.second);
+                entry.pixels = SpriteDocument::makePixels(
+                    Formats::Image::indexed(2, 2, std::vector<std::uint8_t>(4, std::uint8_t(id.first + fill))));
+                entry.palette = doc.palettes()[0];
+                doc.sprites() << entry;
+            }
+            const auto bytes = doc.toSff().write();
+            QVERIFY(bytes.ok());
+            writeFile(dir.filePath("p.sff"),
+                      QByteArray(reinterpret_cast<const char*>(bytes.value().data()), qsizetype(bytes.value().size())));
+            writeFile(dir.filePath("p.def"), "[Info]\nname = \"" + name.toUtf8() +
+                                                 "\"\nmugenversion = 1.0\n[Files]\ncns = p.cns\nsprite = p.sff\n");
+            writeFile(dir.filePath("p.cns"), "[Data]\nlife = 1000\n");
+        };
+        writeProject(a, "Mine", {{0, 0}, {1, 0}}, 1);
+        writeProject(b, "Other", {{9, 0}, {0, 0}, {9, 1}}, 20);
+
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(b.filePath("p.def")));
+        m_context->actions().action("editor_spr")->trigger();
+        QVERIFY(window.openProject(a.filePath("p.def")));
+        m_context->actions().action("editor_spr")->trigger();
+        auto* page = window.currentProjectView()->findChild<SpritePage*>();
+        QVERIFY(page);
+
+        QStringList asked;
+        QTimer::singleShot(0, this, [this, &asked] {
+            auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            QCOMPARE(dialog->objectName(), QStringLiteral("ProjImportDlg"));
+            auto* projects = dialog->findChild<QComboBox*>("projList");
+            QCOMPARE(projects->count(), 1); // the current project is not listed
+            QCOMPARE(projects->currentText(), QStringLiteral("Other"));
+            auto* source = dialog->findChild<QListWidget*>("list");
+            auto* destination = dialog->findChild<QListWidget*>("destList");
+            QCOMPARE(source->count(), 3);
+            QCOMPARE(source->item(0)->text(), QStringLiteral("9, 0"));
+            dialog->findChild<QCheckBox*>("sorted")->setChecked(true);
+            QCOMPARE(source->item(0)->text(), QStringLiteral("0, 0"));
+            source->item(1)->setSelected(true); // 9, 0
+            source->item(0)->setSelected(true); // 0, 0
+            dialog->findChild<QPushButton*>("addBut")->click();
+            QCOMPARE(destination->count(), 2); // in the order of selection
+            QCOMPARE(destination->item(0)->text(), QStringLiteral("9,0"));
+            destination->item(0)->setText("7,7");
+            QVERIFY(dialog->findChild<QRadioButton*>("ask")->isChecked());
+            QTimer::singleShot(0, this, [this, &asked] {
+                auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+                QVERIFY(box);
+                asked << box->windowTitle() + "|" + box->text();
+                box->button(QMessageBox::Yes)->click();
+                QTimer::singleShot(0, this, [&asked] {
+                    auto* info = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+                    QVERIFY(info);
+                    asked << info->windowTitle() + "|" + info->text();
+                    info->accept();
+                });
+            });
+            dialog->accept();
+        });
+        m_context->actions().action("spr_import_proj")->trigger();
+        QCOMPARE(asked, (QStringList{boxTitle("Conflict resolution!") +
+                                         "|Sprite '0,0' already exists, do you want to replace it?",
+                                     boxTitle("Import from another project...") + "|1 new sprite(s) were imported!"}));
+        const SpriteDocument& doc = page->file()->document();
+        QCOMPARE(doc.spriteCount(), 3);
+        QCOMPARE(doc.sprites()[1].group(), 7);
+        QCOMPARE(page->current(), 1);
+        QCOMPARE(doc.image(0).indexAt(0, 0), 20); // replaced in place by Other's 0,0
+        QCOMPARE(doc.image(1).indexAt(0, 0), 29);
+        page->file()->undoStack()->undo();
+        QCOMPARE(page->file()->document().spriteCount(), 2);
+    }
+
     void spritesSaveAs()
     {
         QTemporaryDir dir;
