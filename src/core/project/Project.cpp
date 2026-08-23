@@ -105,6 +105,23 @@ CodeFile* Project::addCodeFile(const QString& path, const QString& editorId, QSt
     return f;
 }
 
+SpriteFile* Project::addSpriteFile(const QString& path, const QString& editorId, QString* error)
+{
+    SpriteFile* f = spriteFile(path, editorId, error);
+    if (f && !m_editorFiles.value(editorId).contains(f->path()))
+        m_editorFiles[editorId] << f->path();
+    return f;
+}
+
+SpriteFile* Project::newSpriteFile(const QString& placeholderPath, const QString& editorId, Formats::SffVersion version)
+{
+    auto* f = new SpriteFile(placeholderPath, editorId, this);
+    f->createEmpty(version);
+    adopt(f);
+    m_editorFiles[editorId] << f->path();
+    return f;
+}
+
 CodeFile* Project::newCodeFile(const QString& placeholderPath, const QString& editorId)
 {
     auto* f = new CodeFile(placeholderPath, editorId, this);

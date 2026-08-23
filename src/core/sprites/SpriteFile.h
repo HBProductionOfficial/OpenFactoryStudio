@@ -19,6 +19,7 @@ public:
     ~SpriteFile() override;
 
     bool load(QString* error) override;
+    void createEmpty(Formats::SffVersion version);
     bool saveAs(const QString& path, QString* error) override;
     bool saveAs(const QString& path, Formats::SffVersion version, QString* error);
     bool isModified() const override;

@@ -74,6 +74,17 @@ bool SpriteFile::load(QString* error)
     return true;
 }
 
+void SpriteFile::createEmpty(Formats::SffVersion version)
+{
+    Formats::SffDocument sff;
+    sff.version = version;
+    m_original.clear();
+    m_document = SpriteDocument::fromSff(sff);
+    m_undo->clear();
+    setUntitled(true);
+    Q_EMIT documentChanged();
+}
+
 QByteArray SpriteFile::bytesToWrite(Formats::SffVersion version, QString* error) const
 {
     if (!isModified() && version == m_document.version() && !m_original.isEmpty())

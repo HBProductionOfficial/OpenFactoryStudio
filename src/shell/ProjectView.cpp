@@ -289,9 +289,12 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
                 });
         return page;
     }
-    if (info.id == QLatin1String("sprites") && QFileInfo::exists(filePath)) {
+    if (info.id == QLatin1String("sprites")) {
         QString error;
-        if (SpriteFile* file = m_project->spriteFile(filePath, info.id, &error)) {
+        auto* file = qobject_cast<SpriteFile*>(m_project->file(filePath));
+        if (!file && QFileInfo::exists(filePath))
+            file = m_project->spriteFile(filePath, info.id, &error);
+        if (file) {
             auto* page = new SpritePage(file);
             page->applySettings(m_context.config());
             page->setProperty("filePath", filePath);
@@ -647,7 +650,8 @@ bool ProjectView::showFileLine(const QString& filePath, int line)
 ProjectFile* ProjectView::newFile(const QString& editorId)
 {
     const EditorInfo info = engine()->editor(editorId);
-    if (info.id.isEmpty() || info.workspace != WorkspaceType::Code)
+    const bool sprites = editorId == QLatin1String("sprites");
+    if (info.id.isEmpty() || (info.workspace != WorkspaceType::Code && !sprites))
         return nullptr;
     const QDir dir(m_project->directory());
     QString path;
@@ -656,7 +660,17 @@ ProjectFile* ProjectView::newFile(const QString& editorId)
         if (!m_project->file(path) && !QFileInfo::exists(path))
             break;
     }
-    ProjectFile* file = m_project->newCodeFile(path, editorId);
+    ProjectFile* file = nullptr;
+    if (sprites) {
+        // The SFF version the project's engine version reads.
+        const QString version = m_project->versionId();
+        file = m_project->newSpriteFile(path, editorId,
+                                        version == QLatin1String("1.1")   ? Formats::SffVersion::V201
+                                        : version == QLatin1String("1.0") ? Formats::SffVersion::V2
+                                                                          : Formats::SffVersion::V1);
+    } else {
+        file = m_project->newCodeFile(path, editorId);
+    }
     addFileTab(info, file->path());
     return file;
 }
@@ -665,7 +679,8 @@ bool ProjectView::openFile(const QString& editorId, const QString& path, QString
 {
     const EditorInfo info = engine()->editor(editorId);
     QTabWidget* tabs = m_fileTabs.value(editorId);
-    if (info.id.isEmpty() || info.workspace != WorkspaceType::Code || !tabs)
+    const bool sprites = editorId == QLatin1String("sprites");
+    if (info.id.isEmpty() || (info.workspace != WorkspaceType::Code && !sprites) || !tabs)
         return false;
     const QString target = QDir::fromNativeSeparators(QFileInfo(path).absoluteFilePath());
     for (int i = 0; i < tabs->count(); ++i) {
@@ -675,7 +690,8 @@ bool ProjectView::openFile(const QString& editorId, const QString& path, QString
             return true;
         }
     }
-    CodeFile* file = m_project->addCodeFile(target, editorId, error);
+    ProjectFile* file = sprites ? static_cast<ProjectFile*>(m_project->addSpriteFile(target, editorId, error))
+                                : m_project->addCodeFile(target, editorId, error);
     if (!file)
         return false;
     addFileTab(info, file->path());

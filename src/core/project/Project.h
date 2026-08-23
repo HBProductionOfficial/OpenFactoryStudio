@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/CoreExport.h"
+#include "formats/sff/SffDocument.h"
 
 #include <QHash>
 #include <QObject>
@@ -49,6 +50,8 @@ public:
     SpriteFile* spriteFile(const QString& path, const QString& editorId, QString* error = nullptr);
     CodeFile* addCodeFile(const QString& path, const QString& editorId, QString* error = nullptr);
     CodeFile* newCodeFile(const QString& placeholderPath, const QString& editorId);
+    SpriteFile* addSpriteFile(const QString& path, const QString& editorId, QString* error = nullptr);
+    SpriteFile* newSpriteFile(const QString& placeholderPath, const QString& editorId, Formats::SffVersion version);
 
     bool isModified() const;
     bool save(QString* error = nullptr);

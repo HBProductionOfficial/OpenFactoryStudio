@@ -390,7 +390,7 @@ bool SpritesEditor::performImage(const QString& id)
     ImageEditor* editor = m_page->imageEditor();
     ImageDocument doc = editor->document();
     QWidget* parent = m_page->window();
-    if (doc.layers.isEmpty())
+    if (doc.layers.isEmpty() || doc.width <= 0 || doc.height <= 0)
         return true;
 
     if (id == QLatin1String("spr_saveimg")) {

@@ -21,6 +21,7 @@
 #include "shell/ImageEditor.h"
 #include "shell/ProjectView.h"
 #include "shell/SpritePage.h"
+#include "shell/SpritesEditor.h"
 #include "shell/StatusBar.h"
 #include "shell/dialogs/SnippetEditorDialog.h"
 #include "shell/dialogs/StateControllerDialog.h"
@@ -1583,6 +1584,73 @@ private Q_SLOTS:
         QCOMPARE(doc.image(1).indexAt(0, 0), 29);
         page->file()->undoStack()->undo();
         QCOMPARE(page->file()->document().spriteCount(), 2);
+    }
+
+    void spritesNewOpen()
+    {
+        QTemporaryDir dir;
+        auto writeSff = [](const QString& path, int count) {
+            SpriteDocument doc;
+            doc.palettes() << SpriteDocument::makePalette(1, 1, Formats::grayscalePalette(256));
+            for (int n = 0; n < count; ++n) {
+                SpriteEntry entry;
+                entry.header.number = std::uint16_t(n);
+                entry.pixels =
+                    SpriteDocument::makePixels(Formats::Image::indexed(2, 2, std::vector<std::uint8_t>(4, 3)));
+                entry.palette = doc.palettes()[0];
+                doc.sprites() << entry;
+            }
+            const auto bytes = doc.toSff().write();
+            QVERIFY(bytes.ok());
+            writeFile(path,
+                      QByteArray(reinterpret_cast<const char*>(bytes.value().data()), qsizetype(bytes.value().size())));
+        };
+        writeSff(dir.filePath("n.sff"), 1);
+        writeSff(dir.filePath("other.sff"), 3);
+        writeFile(dir.filePath("n.def"), "[Info]\nname = \"N\"\nmugenversion = 1.0\n"
+                                         "[Files]\ncns = n.cns\nsprite = n.sff\n");
+        writeFile(dir.filePath("n.cns"), "[Data]\nlife = 1000\n");
+
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("n.def")));
+        ActionRegistry& actions = m_context->actions();
+        actions.action("editor_spr")->trigger();
+        ProjectView* view = window.currentProjectView();
+        auto* tabs = view->findChild<QTabWidget*>("fileTabs_sprites");
+        QVERIFY(tabs);
+        QCOMPARE(tabs->count(), 1);
+
+        actions.action("spr_new")->trigger();
+        QCOMPARE(tabs->count(), 2);
+        QCOMPARE(tabs->tabText(tabs->currentIndex()), QStringLiteral("untitled1.sff"));
+        auto* page = qobject_cast<SpritePage*>(tabs->currentWidget());
+        QVERIFY(page);
+        QVERIFY(page->file()->isUntitled());
+        QCOMPARE(page->file()->document().spriteCount(), 0);
+        QCOMPARE(page->file()->document().version(), Formats::SffVersion::V2);
+        QCOMPARE(view->spritesEditor()->page(), page);
+        actions.action("spr_edit_img")->trigger();
+        actions.action("spr_layer_add")->trigger();
+        actions.action("spr_saveimg")->trigger();
+        QCOMPARE(page->file()->document().spriteCount(), 0);
+        actions.action("spr_edit_img")->trigger();
+        QVERIFY(!page->imageMode());
+
+        FileDialogs::setOpenPromptOverride([&dir](const QString&, const QString&, const QString& filter) {
+            return filter.startsWith("Sprites (*.sff)") ? dir.filePath("other.sff") : QString();
+        });
+        actions.action("spr_open")->trigger();
+        QCOMPARE(tabs->count(), 3);
+        QCOMPARE(tabs->tabText(tabs->currentIndex()), QStringLiteral("other.sff"));
+        page = qobject_cast<SpritePage*>(tabs->currentWidget());
+        QVERIFY(page);
+        QCOMPARE(page->file()->document().spriteCount(), 3);
+        tabs->setCurrentIndex(0);
+        actions.action("spr_open")->trigger();
+        QCOMPARE(tabs->count(), 3);
+        QCOMPARE(tabs->currentIndex(), 2);
+        FileDialogs::setOpenPromptOverride({});
     }
 
     void spritesSaveAs()
