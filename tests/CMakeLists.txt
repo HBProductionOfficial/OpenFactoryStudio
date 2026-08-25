@@ -57,6 +57,9 @@ ofs_add_test(NAME core_sprites
 ofs_add_test(NAME core_image_document GUI
     SOURCES core/ImageDocumentTest.cpp
     LIBS OFS::core)
+ofs_add_test(NAME core_air_document GUI
+    SOURCES core/AirDocumentTest.cpp
+    LIBS OFS::core)
 ofs_add_test(NAME core_image_canvas GUI
     SOURCES core/ImageCanvasTest.cpp
     LIBS OFS::core)

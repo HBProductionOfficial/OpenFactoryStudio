@@ -40,6 +40,10 @@ add_library(ofscore SHARED
     code/CodeLine.cpp
     actions/ActionCatalog.h
     actions/ActionCatalog.cpp
+    anims/AirDocument.h
+    anims/AirDocument.cpp
+    anims/AirEdits.h
+    anims/AirEdits.cpp
     actions/ActionRegistry.h
     actions/ActionRegistry.cpp
     actions/MenuSpec.h
