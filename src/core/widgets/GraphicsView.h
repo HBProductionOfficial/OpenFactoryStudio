@@ -6,6 +6,7 @@
 #include <QImage>
 #include <QList>
 #include <QPoint>
+#include <QTransform>
 #include <QWidget>
 
 namespace OFS {
@@ -23,6 +24,15 @@ public:
         QPoint topLeft;
         double opacity = 1.0;
         bool draggable = false;
+        QTransform transform;
+    };
+
+    struct Box
+    {
+        QRect rect;
+        QColor color;
+        bool selected = false;
+        bool editable = true;
     };
 
     enum class Background
@@ -48,6 +58,13 @@ public:
 
     void setImages(const QList<Image>& images);
     const QList<Image>& images() const { return m_images; }
+    void setBoxes(const QList<Box>& boxes);
+    const QList<Box>& boxes() const { return m_boxes; }
+    void setDrawingBoxes(bool drawing, const QColor& color = Qt::red);
+    bool drawingBoxes() const { return m_drawingBoxes; }
+    // The secondary cross shows the frame offset. The extra cross sits on the origin.
+    void setSecondaryCross(bool visible, const QPoint& position);
+    void setExtraCrossVisible(bool visible);
 
     void setZoomLevels(const QList<double>& levels);
     const QList<double>& zoomLevels() const { return m_zoomLevels; }
@@ -115,6 +132,12 @@ Q_SIGNALS:
     void imageDragged(int dx, int dy);
     void dragFinished();
     void cursorMoved(const QPoint& units);
+    void boxPressed(int index);
+    void boxEdited(int index, const QRect& rect);
+    void boxDrawn(const QRect& rect);
+    void boxNudged(int dx, int dy);
+    void boxDeleteRequested();
+    void rightClicked();
 
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -122,6 +145,7 @@ protected:
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
 
 private:
     enum class Drag
@@ -131,16 +155,23 @@ private:
         Image,
         VerticalGuide,
         HorizontalGuide,
+        BoxMove,
+        BoxResize,
+        BoxDraw,
     };
     void zoomTo(int index, const QPointF& anchor);
     QPointF zoomAnchor() const;
-    void drawCross(QPainter& p);
+    void drawCross(QPainter& p, const QPointF& at, const QColor& fill, const QColor& outline);
+    void drawBoxes(QPainter& p);
+    QRectF boxRect(const QRect& units) const;
+    QList<QRectF> handles(const QRect& units) const;
+    int selectedBox() const;
     QRect contentRect() const;
     void drawBackground(QPainter& p, const QRect& area);
     void drawGuides(QPainter& p, const QRect& area);
     void drawImages(QPainter& p);
     void drawRulers(QPainter& p);
-    Drag hitTest(const QPoint& pos) const;
+    Drag hitTest(const QPoint& pos, int* box = nullptr, int* handle = nullptr) const;
 
     QList<Image> m_images;
     QList<double> m_zoomLevels;
@@ -160,6 +191,16 @@ private:
     QPoint m_dragStart;
     QPointF m_dragUnits;
     QPoint m_originAtStart;
+    QList<Box> m_boxes;
+    bool m_drawingBoxes = false;
+    QColor m_drawingColor;
+    bool m_secondaryCross = false;
+    QPoint m_secondaryPosition;
+    bool m_extraCross = false;
+    int m_dragBox = -1;
+    int m_dragHandle = -1; // 0 top-left, clockwise to 7 left
+    QRect m_dragBoxStart;
+    QRect m_drawnBox;
 };
 
 } // namespace OFS

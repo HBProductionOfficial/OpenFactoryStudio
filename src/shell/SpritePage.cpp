@@ -234,9 +234,9 @@ void SpritePage::refresh()
         return QPoint(-header.axisX, -header.axisY);
     };
     if (m_onion >= 0 && m_onion < doc.spriteCount() && m_onion != m_current)
-        images << GraphicsView::Image{spriteImage(m_onion), place(m_onion), m_onionOpacity, false};
+        images << GraphicsView::Image{spriteImage(m_onion), place(m_onion), m_onionOpacity, false, {}};
     if (m_current >= 0 && m_current < doc.spriteCount())
-        images << GraphicsView::Image{spriteImage(m_current), place(m_current) + m_dragOffset, 1.0, true};
+        images << GraphicsView::Image{spriteImage(m_current), place(m_current) + m_dragOffset, 1.0, true, {}};
     m_view->setImages(images);
 }
 

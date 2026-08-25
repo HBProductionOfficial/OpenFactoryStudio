@@ -1,5 +1,6 @@
 #include "core/widgets/GraphicsView.h"
 
+#include <QKeyEvent>
 #include <QLinearGradient>
 #include <QMouseEvent>
 #include <QPainter>
@@ -14,6 +15,7 @@ namespace {
 
 constexpr int RulerSize = 20;
 constexpr int GuideGrab = 3;
+constexpr int HandleSize = 7;
 
 void rulerSteps(double zoom, int* minor, int* major)
 {
@@ -70,6 +72,63 @@ void GraphicsView::setImages(const QList<Image>& images)
 {
     m_images = images;
     update();
+}
+
+void GraphicsView::setBoxes(const QList<Box>& boxes)
+{
+    m_boxes = boxes;
+    if (m_drag == Drag::BoxMove || m_drag == Drag::BoxResize)
+        m_drag = Drag::None;
+    update();
+}
+
+void GraphicsView::setDrawingBoxes(bool drawing, const QColor& color)
+{
+    m_drawingBoxes = drawing;
+    m_drawingColor = color;
+    if (!drawing && m_drag == Drag::BoxDraw)
+        m_drag = Drag::None;
+    update();
+}
+
+void GraphicsView::setSecondaryCross(bool visible, const QPoint& position)
+{
+    m_secondaryCross = visible;
+    m_secondaryPosition = position;
+    update();
+}
+
+void GraphicsView::setExtraCrossVisible(bool visible)
+{
+    m_extraCross = visible;
+    update();
+}
+
+int GraphicsView::selectedBox() const
+{
+    for (int i = 0; i < m_boxes.size(); ++i) {
+        if (m_boxes.at(i).selected && m_boxes.at(i).editable)
+            return i;
+    }
+    return -1;
+}
+
+QRectF GraphicsView::boxRect(const QRect& units) const
+{
+    const QRect r = units.normalized();
+    return QRectF(toWidget(QPointF(r.left(), r.top())), toWidget(QPointF(r.right(), r.bottom()))).normalized();
+}
+
+QList<QRectF> GraphicsView::handles(const QRect& units) const
+{
+    const QRectF r = boxRect(units);
+    const QPointF points[] = {
+        r.topLeft(),     QPointF(r.center().x(), r.top()),    r.topRight(),   QPointF(r.right(), r.center().y()),
+        r.bottomRight(), QPointF(r.center().x(), r.bottom()), r.bottomLeft(), QPointF(r.left(), r.center().y())};
+    QList<QRectF> result;
+    for (const QPointF& at : points)
+        result << QRectF(at - QPointF(HandleSize / 2.0, HandleSize / 2.0), QSizeF(HandleSize, HandleSize));
+    return result;
 }
 
 void GraphicsView::setZoomLevels(const QList<double>& levels)
@@ -139,7 +198,7 @@ void GraphicsView::zoomFit()
 {
     QRect bounds;
     for (const Image& image : std::as_const(m_images))
-        bounds |= QRect(image.topLeft, image.image.size());
+        bounds |= image.transform.mapRect(QRect(image.topLeft, image.image.size()));
     if (bounds.isEmpty())
         return;
     const QRect area = contentRect().adjusted(8, 8, -8, -8);
@@ -235,11 +294,11 @@ void GraphicsView::drawGuides(QPainter& p, const QRect& area)
     p.fillRect(QRectF(area.left(), at.y(), area.width(), thickness), QColor(0, 255, 255));
 }
 
-void GraphicsView::drawCross(QPainter& p)
+void GraphicsView::drawCross(QPainter& p, const QPointF& at, const QColor& fill, const QColor& outlineColor)
 {
     // Default cross: a 13 x 13 plus with a hollow centre and an outline, scaled with the zoom.
-    auto cells = [this](double x, double y, double w, double h) {
-        return QRectF(toWidget(QPointF(x, y)), QSizeF(w, h) * zoom());
+    auto cells = [this, at](double x, double y, double w, double h) {
+        return QRectF(toWidget(QPointF(at.x() + x, at.y() + y)), QSizeF(w, h) * zoom());
     };
     QPainterPath outline;
     outline.addRect(cells(-7, -1, 15, 3));
@@ -247,19 +306,53 @@ void GraphicsView::drawCross(QPainter& p)
     outline.setFillRule(Qt::WindingFill);
     QPainterPath centre;
     centre.addRect(cells(0, 0, 1, 1));
-    p.fillPath(outline.simplified().subtracted(centre), Qt::white);
+    p.fillPath(outline.simplified().subtracted(centre), outlineColor);
     for (const QRectF& arm : {cells(-6, 0, 6, 1), cells(1, 0, 6, 1), cells(0, -6, 1, 6), cells(0, 1, 1, 6)})
-        p.fillRect(arm, Qt::black);
+        p.fillRect(arm, fill);
+}
+
+void GraphicsView::drawBoxes(QPainter& p)
+{
+    const double thickness = std::max(1.0, zoom());
+    auto draw = [&](const QRect& units, const QColor& color, bool selected) {
+        const QRectF r = boxRect(units);
+        QColor fill = color;
+        fill.setAlpha(64);
+        p.fillRect(r, fill);
+        if (selected)
+            p.fillRect(r, QBrush(color, Qt::BDiagPattern));
+        p.setPen(QPen(color, thickness, Qt::SolidLine, Qt::SquareCap, Qt::MiterJoin));
+        p.setBrush(Qt::NoBrush);
+        p.drawRect(r.adjusted(thickness / 2, thickness / 2, -thickness / 2, -thickness / 2));
+    };
+    for (const Box& box : std::as_const(m_boxes))
+        draw(box.rect, box.color, box.selected);
+    if (m_drag == Drag::BoxDraw && m_drawnBox.isValid())
+        draw(m_drawnBox, m_drawingColor, false);
+    const int selected = selectedBox();
+    if (selected >= 0) {
+        p.setPen(QColor(128, 128, 128));
+        p.setBrush(Qt::white);
+        for (const QRectF& handle : handles(m_boxes.at(selected).rect))
+            p.drawRect(handle);
+        p.setBrush(Qt::NoBrush);
+    }
 }
 
 void GraphicsView::drawImages(QPainter& p)
 {
     p.setRenderHint(QPainter::SmoothPixmapTransform, false);
+    QTransform view;
+    view.translate(m_origin.x(), m_origin.y());
+    view.scale(zoom(), zoom());
     for (const Image& image : std::as_const(m_images)) {
         if (image.image.isNull())
             continue;
+        p.save();
         p.setOpacity(image.opacity);
-        p.drawImage(QRectF(toWidget(image.topLeft), QSizeF(image.image.size()) * zoom()), image.image);
+        p.setTransform(image.transform * view, true);
+        p.drawImage(QRectF(image.topLeft, QSizeF(image.image.size())), image.image);
+        p.restore();
     }
     p.setOpacity(1.0);
 }
@@ -327,16 +420,43 @@ void GraphicsView::paintEvent(QPaintEvent* event)
     if (m_imagesOverGuides)
         drawGuides(p, area);
     drawImages(p);
+    drawBoxes(p);
     if (m_mainCross)
-        drawCross(p);
+        drawCross(p, QPointF(0, 0), Qt::black, Qt::white);
+    if (m_extraCross)
+        drawCross(p, QPointF(0, 0), Qt::white, QColor(0, 160, 0));
+    if (m_secondaryCross)
+        drawCross(p, QPointF(m_secondaryPosition), Qt::white, QColor(0, 0, 255));
     if (!m_imagesOverGuides)
         drawGuides(p, area);
     p.restore();
     drawRulers(p);
 }
 
-GraphicsView::Drag GraphicsView::hitTest(const QPoint& pos) const
+GraphicsView::Drag GraphicsView::hitTest(const QPoint& pos, int* box, int* handle) const
 {
+    if (m_drawingBoxes)
+        return Drag::BoxDraw;
+    // Hit order: selected box handles, editable boxes from the top, then the rest.
+    if (const int selected = selectedBox(); selected >= 0) {
+        const QList<QRectF> grips = handles(m_boxes.at(selected).rect);
+        for (int h = 0; h < grips.size(); ++h) {
+            if (grips.at(h).contains(pos)) {
+                if (box)
+                    *box = selected;
+                if (handle)
+                    *handle = h;
+                return Drag::BoxResize;
+            }
+        }
+    }
+    for (qsizetype i = m_boxes.size() - 1; i >= 0; --i) {
+        if (m_boxes.at(i).editable && boxRect(m_boxes.at(i).rect).contains(pos)) {
+            if (box)
+                *box = int(i);
+            return Drag::BoxMove;
+        }
+    }
     if (m_guides) {
         const QPointF at = toWidget(m_guidePosition);
         const double thickness = std::max(1.0, zoom());
@@ -350,7 +470,8 @@ GraphicsView::Drag GraphicsView::hitTest(const QPoint& pos) const
         const Image& image = m_images[i];
         if (!image.draggable || image.image.isNull())
             continue;
-        const QPoint local = (units - QPointF(image.topLeft)).toPoint();
+        const QPointF mapped = image.transform.inverted().map(units) - QPointF(image.topLeft);
+        const QPoint local(int(std::floor(mapped.x())), int(std::floor(mapped.y())));
         if (QRect(QPoint(), image.image.size()).contains(local) && image.image.pixelColor(local).alpha() > 0)
             return Drag::Image;
     }
@@ -359,14 +480,31 @@ GraphicsView::Drag GraphicsView::hitTest(const QPoint& pos) const
 
 void GraphicsView::mousePressEvent(QMouseEvent* event)
 {
+    if (event->button() == Qt::RightButton) {
+        Q_EMIT rightClicked();
+        return;
+    }
     if (event->button() != Qt::LeftButton || !contentRect().contains(event->position().toPoint())) {
         QWidget::mousePressEvent(event);
         return;
     }
-    m_drag = hitTest(event->position().toPoint());
+    setFocus(Qt::MouseFocusReason);
+    int box = -1;
+    int handle = -1;
+    m_drag =
+        (event->modifiers() & Qt::ControlModifier) ? Drag::Pan : hitTest(event->position().toPoint(), &box, &handle);
     m_dragStart = event->position().toPoint();
     m_dragUnits = toUnits(event->position());
     m_originAtStart = m_origin;
+    m_dragBox = box;
+    m_dragHandle = handle;
+    m_drawnBox = QRect();
+    if (m_drag == Drag::BoxMove || m_drag == Drag::BoxResize) {
+        m_dragBoxStart = m_boxes.at(box).rect;
+        Q_EMIT boxPressed(box);
+    } else if (m_drag != Drag::BoxDraw) {
+        Q_EMIT boxPressed(-1);
+    }
 }
 
 void GraphicsView::mouseMoveEvent(QMouseEvent* event)
@@ -408,6 +546,43 @@ void GraphicsView::mouseMoveEvent(QMouseEvent* event)
     case Drag::HorizontalGuide:
         setGuides(QPoint(m_guidePosition.x(), int(std::lround(toUnits(pos).y()))));
         break;
+    case Drag::BoxMove:
+    case Drag::BoxResize: {
+        if (m_dragBox < 0 || m_dragBox >= m_boxes.size())
+            break;
+        const QPointF units = toUnits(pos);
+        const int dx = int(std::floor(units.x()) - std::floor(m_dragUnits.x()));
+        const int dy = int(std::floor(units.y()) - std::floor(m_dragUnits.y()));
+        QRect r = m_dragBoxStart;
+        if (m_drag == Drag::BoxMove) {
+            r.translate(dx, dy);
+        } else {
+            int left = r.left(), top = r.top(), right = r.right(), bottom = r.bottom();
+            const int h = m_dragHandle;
+            if (h == 0 || h == 6 || h == 7)
+                left += dx;
+            if (h == 2 || h == 3 || h == 4)
+                right += dx;
+            if (h == 0 || h == 1 || h == 2)
+                top += dy;
+            if (h == 4 || h == 5 || h == 6)
+                bottom += dy;
+            r.setCoords(left, top, right, bottom);
+        }
+        m_boxes[m_dragBox].rect = r;
+        update();
+        break;
+    }
+    case Drag::BoxDraw: {
+        const QPointF start = m_dragUnits;
+        const QPointF units = toUnits(pos);
+        QRect r;
+        r.setCoords(int(std::floor(std::min(start.x(), units.x()))), int(std::floor(std::min(start.y(), units.y()))),
+                    int(std::floor(std::max(start.x(), units.x()))), int(std::floor(std::max(start.y(), units.y()))));
+        m_drawnBox = r;
+        update();
+        break;
+    }
     }
 }
 
@@ -418,8 +593,46 @@ void GraphicsView::mouseReleaseEvent(QMouseEvent* event)
         m_drag = Drag::None;
         if (finished == Drag::Image)
             Q_EMIT dragFinished();
+        if ((finished == Drag::BoxMove || finished == Drag::BoxResize) && m_dragBox >= 0 &&
+            m_dragBox < m_boxes.size() && m_boxes.at(m_dragBox).rect != m_dragBoxStart) {
+            m_boxes[m_dragBox].rect = m_boxes.at(m_dragBox).rect.normalized();
+            Q_EMIT boxEdited(m_dragBox, m_boxes.at(m_dragBox).rect);
+        }
+        if (finished == Drag::BoxDraw) {
+            const QRect drawn = m_drawnBox;
+            m_drawnBox = QRect();
+            update();
+            if (drawn.isValid() && (event->position().toPoint() - m_dragStart).manhattanLength() > 2)
+                Q_EMIT boxDrawn(drawn);
+        }
     }
     QWidget::mouseReleaseEvent(event);
+}
+
+void GraphicsView::keyPressEvent(QKeyEvent* event)
+{
+    if (selectedBox() >= 0 && event->modifiers() == Qt::NoModifier) {
+        switch (event->key()) {
+        case Qt::Key_Left:
+            Q_EMIT boxNudged(-1, 0);
+            return;
+        case Qt::Key_Right:
+            Q_EMIT boxNudged(1, 0);
+            return;
+        case Qt::Key_Up:
+            Q_EMIT boxNudged(0, -1);
+            return;
+        case Qt::Key_Down:
+            Q_EMIT boxNudged(0, 1);
+            return;
+        case Qt::Key_Delete:
+            Q_EMIT boxDeleteRequested();
+            return;
+        default:
+            break;
+        }
+    }
+    QWidget::keyPressEvent(event);
 }
 
 void GraphicsView::wheelEvent(QWheelEvent* event)

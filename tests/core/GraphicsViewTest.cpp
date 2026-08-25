@@ -74,7 +74,7 @@ private Q_SLOTS:
         GraphicsView view;
         view.resize(400, 300);
         view.setOrigin(QPoint(200, 150));
-        view.setImages({{block(20, 10), QPoint(-10, -10), 1.0, true}});
+        view.setImages({{block(20, 10), QPoint(-10, -10), 1.0, true, {}}});
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
         QSignalSpy dragged(&view, &GraphicsView::imageDragged);
@@ -115,7 +115,7 @@ private Q_SLOTS:
     {
         GraphicsView view;
         view.resize(420, 320);
-        view.setImages({{block(100, 50), QPoint(-50, -50)}});
+        view.setImages({{block(100, 50), QPoint(-50, -50), 1.0, false, {}}});
         view.zoomFit();
         QCOMPARE(view.zoom(), 3.0); // 4x would not fit 400 px across
         const QPointF centre = view.toWidget(QPointF(0, -25));
@@ -126,5 +126,97 @@ private Q_SLOTS:
     }
 };
 
-QTEST_MAIN(GraphicsViewTest)
+class GraphicsViewBoxTest : public QObject
+{
+    Q_OBJECT
+
+private Q_SLOTS:
+    void boxes()
+    {
+        // Zoom 4 with the origin at (200, 150): unit (x, y) is at (200 + 4x, 150 + 4y).
+        GraphicsView view;
+        view.resize(400, 300);
+        view.setRulersVisible(false);
+        view.setZoomLevels({4});
+        view.setOrigin(QPoint(200, 150));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        QRect r;
+        r.setCoords(-10, -20, 10, 0);
+        view.setBoxes({{r, Qt::blue, false, true}});
+        QSignalSpy pressed(&view, &GraphicsView::boxPressed);
+        QSignalSpy edited(&view, &GraphicsView::boxEdited);
+
+        QTest::mousePress(&view, Qt::LeftButton, {}, QPoint(200, 110));
+        QCOMPARE(pressed.last().at(0).toInt(), 0);
+        QTest::mouseMove(&view, QPoint(212, 118));
+        QTest::mouseRelease(&view, Qt::LeftButton, {}, QPoint(212, 118));
+        QCOMPARE(edited.size(), 1);
+        QRect moved;
+        moved.setCoords(-7, -18, 13, 2);
+        QCOMPARE(edited.last().at(1).toRect(), moved);
+
+        view.setBoxes({{moved, Qt::blue, true, true}});
+        const QPoint corner = view.toWidget(QPointF(13, 2)).toPoint();
+        QTest::mousePress(&view, Qt::LeftButton, {}, corner);
+        QTest::mouseMove(&view, corner + QPoint(20, 0));
+        QTest::mouseRelease(&view, Qt::LeftButton, {}, corner + QPoint(20, 0));
+        QRect wider;
+        wider.setCoords(-7, -18, 18, 2);
+        QCOMPARE(edited.last().at(1).toRect(), wider);
+        QTest::mouseClick(&view, Qt::LeftButton, {}, QPoint(350, 280));
+        QCOMPARE(pressed.last().at(0).toInt(), -1);
+
+        QSignalSpy nudged(&view, &GraphicsView::boxNudged);
+        QSignalSpy deleted(&view, &GraphicsView::boxDeleteRequested);
+        view.setFocus();
+        QTest::keyClick(&view, Qt::Key_Right);
+        QTest::keyClick(&view, Qt::Key_Up);
+        QTest::keyClick(&view, Qt::Key_Delete);
+        QCOMPARE(nudged.size(), 2);
+        QCOMPARE(nudged.at(1).at(1).toInt(), -1);
+        QCOMPARE(deleted.size(), 1);
+
+        QSignalSpy drawn(&view, &GraphicsView::boxDrawn);
+        QSignalSpy right(&view, &GraphicsView::rightClicked);
+        view.setDrawingBoxes(true, Qt::red);
+        QTest::mousePress(&view, Qt::LeftButton, {}, view.toWidget(QPointF(2.5, -3.5)).toPoint());
+        QTest::mouseMove(&view, view.toWidget(QPointF(8.5, 1.5)).toPoint());
+        QTest::mouseRelease(&view, Qt::LeftButton, {}, view.toWidget(QPointF(8.5, 1.5)).toPoint());
+        QCOMPARE(drawn.size(), 1);
+        QRect box;
+        box.setCoords(2, -4, 8, 1);
+        QCOMPARE(drawn.last().at(0).toRect(), box);
+        QTest::mouseClick(&view, Qt::RightButton, {}, QPoint(100, 100));
+        QCOMPARE(right.size(), 1);
+    }
+
+    void transformedImages()
+    {
+        GraphicsView view;
+        view.resize(400, 300);
+        view.setRulersVisible(false);
+        view.setZoomLevels({1});
+        view.setOrigin(QPoint(200, 150));
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        QImage image(10, 10, QImage::Format_RGBA8888);
+        image.fill(Qt::green);
+        view.setImages({{image, QPoint(0, 0), 1.0, true, QTransform::fromScale(-1, 1)}});
+        QSignalSpy dragged(&view, &GraphicsView::imageDragged);
+        QTest::mousePress(&view, Qt::LeftButton, {}, QPoint(195, 155));
+        QTest::mouseMove(&view, QPoint(198, 155));
+        QTest::mouseRelease(&view, Qt::LeftButton, {}, QPoint(198, 155));
+        QCOMPARE(dragged.size(), 1);
+        QCOMPARE(view.grab().toImage().pixelColor(195, 155), QColor(Qt::green));
+    }
+};
+
+int main(int argc, char** argv)
+{
+    QApplication app(argc, argv);
+    GraphicsViewTest views;
+    GraphicsViewBoxTest boxes;
+    return QTest::qExec(&views, argc, argv) | QTest::qExec(&boxes, argc, argv);
+}
 #include "GraphicsViewTest.moc"
