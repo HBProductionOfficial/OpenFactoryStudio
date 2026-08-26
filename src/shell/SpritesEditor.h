@@ -38,6 +38,8 @@ public:
     void bindOrganizer(QWidget* panel);
     void bindExplorer(QWidget* panel);
     bool explorerShown() const;
+    // The explorer panel is shared with the Animations editor.
+    void setExplorerActive(bool active);
     void setPage(SpritePage* page);
     SpritePage* page() const { return m_page; }
 
@@ -116,6 +118,7 @@ private:
     QPointer<QListView> m_explorerView;
     QStandardItemModel* m_explorerModel = nullptr;
     bool m_explorer = false;
+    bool m_explorerActive = false;
     bool m_updating = false;
 };
 

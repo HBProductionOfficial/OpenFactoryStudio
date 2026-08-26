@@ -29,6 +29,7 @@ class CodePage;
 class Engine;
 class Project;
 class ProjectFile;
+class AnimationsEditor;
 class SpritesEditor;
 
 // Everything below the project tab bar for one open project.
@@ -80,6 +81,10 @@ public:
     QList<CodeEditor*> codeEditors() const;
     // Panel controllers, nullptr when the project does not have that editor.
     SpritesEditor* spritesEditor() const { return m_sprites; }
+    AnimationsEditor* animationsEditor() const { return m_animations; }
+    // The code page of a file tab: the page itself, or the text mode of an animation page.
+    static CodePage* codePageOf(QWidget* tab);
+    void showFrameSprite();
     void reconfigureEditors();
 
 Q_SIGNALS:
@@ -134,6 +139,7 @@ private:
     QList<QPointer<QFutureWatcher<Analysis>>> m_analyses;
     QPointer<QMenu> m_codeMenu;
     SpritesEditor* m_sprites = nullptr;
+    AnimationsEditor* m_animations = nullptr;
 };
 
 } // namespace OFS

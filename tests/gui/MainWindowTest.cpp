@@ -13,8 +13,10 @@
 #include "core/widgets/EPanelWidget.h"
 #include "core/widgets/GraphicsView.h"
 #include "core/widgets/ImageCanvas.h"
+#include "core/widgets/TimelineWidget.h"
 #include "formats/codecs/Png.h"
 #include "shell/AdvancedSearchPanel.h"
+#include "shell/AnimationPage.h"
 #include "shell/CodePage.h"
 #include "shell/ControllerTemplatesWidget.h"
 #include "shell/FileDialogs.h"
@@ -1716,6 +1718,199 @@ private Q_SLOTS:
         QVERIFY(!file->document().image(1).isIndexed());
         while (file->isModified())
             file->undoStack()->undo();
+    }
+
+    void animationsEditor()
+    {
+        QTemporaryDir dir;
+        // Sprites 0,0, 0,1 and 5,0 (4x4, axis 2,4). Animations 0 "Stand" and 20 "Walk".
+        SpriteDocument sprites;
+        sprites.palettes() << SpriteDocument::makePalette(1, 1, Formats::grayscalePalette(256));
+        const int ids[][2] = {{0, 0}, {0, 1}, {5, 0}};
+        for (const auto& id : ids) {
+            SpriteEntry entry;
+            entry.header.group = std::uint16_t(id[0]);
+            entry.header.number = std::uint16_t(id[1]);
+            entry.header.axisX = 2;
+            entry.header.axisY = 4;
+            entry.pixels = SpriteDocument::makePixels(
+                Formats::Image::indexed(4, 4, std::vector<std::uint8_t>(16, std::uint8_t(id[0] + id[1] + 3))));
+            entry.palette = sprites.palettes()[0];
+            sprites.sprites() << entry;
+        }
+        const auto bytes = sprites.toSff().write();
+        QVERIFY(bytes.ok());
+        writeFile(dir.filePath("a.sff"),
+                  QByteArray(reinterpret_cast<const char*>(bytes.value().data()), qsizetype(bytes.value().size())));
+        writeFile(dir.filePath("a.air"), "; Stand\n[Begin Action 0]\nClsn2Default: 1\n Clsn2[0] = -2, -4, 2, 0\n"
+                                         "0,0, 0,0, 4\n0,1, 0,0, 3\n\n; Walk\n[Begin Action 20]\n0,1, 0,0, 5\n"
+                                         "5,0, 0,0, -1\n");
+        writeFile(dir.filePath("a.def"), "[Info]\nname = \"A\"\nmugenversion = 1.0\n"
+                                         "[Files]\ncns = a.cns\nsprite = a.sff\nanim = a.air\n");
+        writeFile(dir.filePath("a.cns"), "[Data]\nlife = 1000\n");
+
+        MainWindow window(*m_context);
+        window.resize(1100, 800);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("a.def")));
+        ActionRegistry& actions = m_context->actions();
+        actions.action("editor_anim")->trigger();
+        ProjectView* view = window.currentProjectView();
+        QCOMPARE(view->currentEditor(), QStringLiteral("animations"));
+        auto* page = view->findChild<AnimationPage*>();
+        QVERIFY(page);
+        QTextDocument* text = page->file()->document();
+        auto line = [text](int n) {
+            return text->findBlockByNumber(n).text();
+        };
+        auto* label = view->findChild<QLabel*>("anim_sel_lb");
+        auto* frameLabel = view->findChild<QLabel*>("anim_frame_sel_lb");
+        auto* time = view->findChild<QSpinBox*>("anim_frame_time");
+        auto* flip = view->findChild<QComboBox*>("anim_frame_flip");
+        auto* transparency = view->findChild<QComboBox*>("anim_frame_trans");
+        auto* name = view->findChild<QLineEdit*>("anim_name");
+        auto* loop = view->findChild<QCheckBox*>("anim_frame_loop");
+        QVERIFY(label && frameLabel && time && flip && transparency && name && loop);
+        QCOMPARE(label->text(), QStringLiteral("1 / 2"));
+        QCOMPARE(frameLabel->text(), QStringLiteral("1 / 2 - 4 ticks"));
+        QCOMPARE(page->view()->images().size(), 1);
+        QCOMPARE(page->view()->boxes().size(), 1);
+        QVERIFY(page->view()->boxes().first().editable);
+
+        time->setValue(6);
+        QCOMPARE(line(4), QStringLiteral("0,0, 0,0, 6"));
+        QCOMPARE(frameLabel->text(), QStringLiteral("1 / 2 - 6 ticks"));
+        flip->setCurrentIndex(1);
+        QCOMPARE(line(4), QStringLiteral("0,0, 0,0, 6, H"));
+        transparency->setCurrentIndex(2); // Addition 50%
+        QCOMPARE(line(4), QStringLiteral("0,0, 0,0, 6, H, A1"));
+        name->setFocus();
+        name->end(false);
+        QTest::keyClicks(name, "X");
+        QCOMPARE(line(0), QStringLiteral("; StandX"));
+        page->view()->setFocus();
+        actions.action("edit_undo")->trigger();
+        QCOMPARE(line(0), QStringLiteral("; Stand"));
+        actions.action("anim_next_frame")->trigger();
+        QCOMPARE(page->currentFrame(), 1);
+        loop->setChecked(true);
+        QCOMPARE(line(5), QStringLiteral("LoopStart"));
+        QCOMPARE(line(6), QStringLiteral("0,1, 0,0, 3"));
+
+        actions.action("anim_next_anim")->trigger();
+        QCOMPARE(page->current(), 1);
+        QCOMPARE(page->currentFrame(), 0);
+        actions.action("anim_prev_anim")->trigger();
+        QCOMPARE(page->currentFrame(), 1);
+        actions.action("anim_frame_add")->trigger();
+        QCOMPARE(page->currentFrame(), 2);
+        QCOMPARE(line(7), QStringLiteral("-1,0, 0,0, 10"));
+
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        actions.action("anim_box_add_attack")->trigger();
+        QVERIFY(actions.action("anim_box_add_attack")->isChecked());
+        GraphicsView* canvas = page->view();
+        canvas->centerOrigin();
+        const QPoint from = canvas->toWidget(QPointF(-5.5, -9.5)).toPoint();
+        const QPoint to = canvas->toWidget(QPointF(3.5, -2.5)).toPoint();
+        QTest::mousePress(canvas, Qt::LeftButton, {}, from);
+        QTest::mouseMove(canvas, (from + to) / 2);
+        QTest::mouseMove(canvas, to);
+        QTest::mouseRelease(canvas, Qt::LeftButton, {}, to);
+        QCOMPARE(line(7), QStringLiteral("Clsn1: 1"));
+        QCOMPARE(line(8), QStringLiteral("  Clsn1[0] = -6, -10, 3, -3"));
+        QCOMPARE(line(9), QStringLiteral("-1,0, 0,0, 10"));
+        QVERIFY(page->selectedBox().isValid());
+        QTest::mouseClick(canvas, Qt::RightButton, {}, to);
+        QVERIFY(!actions.action("anim_box_add_attack")->isChecked());
+        actions.action("anim_box_type")->trigger();
+        QCOMPARE(line(7), QStringLiteral("Clsn2: 1"));
+        QVERIFY(page->selectedBox().isValid());
+
+        actions.action("anim_editcode")->trigger();
+        QVERIFY(page->textMode());
+        QVERIFY(actions.action("anim_editcode")->isChecked());
+        QVERIFY(!actions.action("anim_box_add_attack")->isEnabled());
+        QCOMPARE(view->currentCodeEditor(), page->codePage()->editor());
+        QTRY_VERIFY(window.ofsStatusBar()->section(0).startsWith(QStringLiteral("Line: ")));
+        page->codePage()->editor()->goToLine(15); // "5,0, 0,0, -1"
+        QCOMPARE(page->current(), 1);
+        QCOMPARE(page->currentFrame(), 1);
+        QCOMPARE(frameLabel->text(), QStringLiteral("2 / 2 - -1 ticks"));
+        actions.action("anim_editcode")->trigger();
+        QVERIFY(!page->textMode());
+
+        actions.action("editor_spr")->trigger();
+        auto* spritePage = view->findChild<SpritePage*>();
+        QVERIFY(spritePage);
+        QCOMPARE(spritePage->current(), 2); // 5,0
+        actions.action("editor_anim")->trigger();
+
+        QTimer::singleShot(0, this, [] {
+            auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            QCOMPARE(dialog->objectName(), QStringLiteral("AddAnim"));
+            dialog->findChild<QLineEdit*>("name")->setText("Jump");
+            dialog->findChild<QSpinBox*>("number")->setValue(40);
+            dialog->findChild<QSpinBox*>("time")->setValue(3);
+            dialog->accept();
+        });
+        actions.action("anim_add")->trigger();
+        QCOMPARE(page->document().count(), 3);
+        QCOMPARE(page->current(), 2);
+        QCOMPARE(page->animation()->number, 40);
+        QCOMPARE(page->animation()->name, QStringLiteral("Jump"));
+        QCOMPARE(page->animation()->frames.first().time, 3);
+        // showmsg_anim_clone 2 answers No, so the copy keeps number 40.
+        m_context->config().setValue("showmsg_anim_clone", "2");
+        actions.action("anim_duplicate")->trigger();
+        QCOMPARE(page->document().count(), 4);
+        QCOMPARE(page->document().animations().at(3).number, 40);
+        m_context->config().setValue("showmsg_anim_clone", QString());
+        m_context->config().setValue("confirm_delete", false);
+        actions.action("anim_delete")->trigger();
+        m_context->config().setValue("confirm_delete", true);
+        QCOMPARE(page->document().count(), 3);
+
+        page->setCurrent(0);
+        actions.action("anim_play")->trigger();
+        QVERIFY(page->isPlaying());
+        QVERIFY(actions.action("anim_play")->isChecked());
+        QVERIFY(!actions.action("anim_frame_delete")->isEnabled());
+        QVERIFY(!time->isEnabled());
+        QTRY_VERIFY_WITH_TIMEOUT(page->currentFrame() > 0, 2000);
+        actions.action("anim_stop")->trigger();
+        QVERIFY(!page->isPlaying());
+        QVERIFY(actions.action("anim_frame_delete")->isEnabled());
+
+        FileDialogs::setSavePromptOverride([&dir](const QString& caption, const QString&, const QString&) {
+            return caption == QLatin1String("Save as animated GIF...") ? dir.filePath("walk.gif") : QString();
+        });
+        QTimer::singleShot(0, this, [] {
+            auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            QCOMPARE(dialog->objectName(), QStringLiteral("GIFDialog"));
+            dialog->accept();
+        });
+        actions.action("anim_save_gif")->trigger();
+        FileDialogs::setSavePromptOverride({});
+        QFile gif(dir.filePath("walk.gif"));
+        QVERIFY(gif.open(QIODevice::ReadOnly));
+        QCOMPARE(gif.read(6), QByteArray("GIF89a"));
+        gif.close();
+
+        QString asked;
+        QTimer::singleShot(0, this, [&asked] {
+            auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            asked = box->windowTitle() + "|" + box->text();
+            box->accept();
+        });
+        actions.action("anim_optimize")->trigger();
+        QCOMPARE(asked, boxTitle("Optimize done!") + "|Code clean, and 0 line(s) were removed in the optimization!");
+
+        text->setModified(false);
+        page->file()->document()->clearUndoRedoStacks();
     }
 
     void spritesSaveAs()

@@ -44,6 +44,10 @@ add_library(ofscore SHARED
     anims/AirDocument.cpp
     anims/AirEdits.h
     anims/AirEdits.cpp
+    anims/AirGif.h
+    anims/AirGif.cpp
+    widgets/TimelineWidget.h
+    widgets/TimelineWidget.cpp
     actions/ActionRegistry.h
     actions/ActionRegistry.cpp
     actions/MenuSpec.h

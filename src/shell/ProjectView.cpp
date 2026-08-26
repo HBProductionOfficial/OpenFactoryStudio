@@ -17,6 +17,8 @@
 #include "core/theme/IconSet.h"
 #include "core/theme/ThemeManager.h"
 #include "core/widgets/EPanelWidget.h"
+#include "shell/AnimationPage.h"
+#include "shell/AnimationsEditor.h"
 #include "shell/BottomDock.h"
 #include "shell/CodePage.h"
 #include "shell/ControllerTemplatesWidget.h"
@@ -24,6 +26,7 @@
 #include "shell/SpritePage.h"
 #include "shell/SpritesEditor.h"
 
+#include <QAction>
 #include <QCursor>
 #include <QDir>
 #include <QFileInfo>
@@ -168,10 +171,14 @@ ProjectView::~ProjectView()
         if (watcher)
             watcher->waitForFinished();
     }
+    // Editors show documents the project owns, so delete them first. Disconnect so the files do not report back
+    // meanwhile.
     disconnect(m_project, nullptr, this, nullptr);
+    for (ProjectFile* file : m_project->files())
+        disconnect(file, nullptr, this, nullptr);
+    m_fileTabs.clear();
     delete m_center;
     m_center = nullptr;
-    m_fileTabs.clear();
 }
 
 Engine* ProjectView::engine() const
@@ -215,11 +222,17 @@ void ProjectView::createEditor(const EditorInfo& info)
         m_sprites->setPage(qobject_cast<SpritePage*>(tabs->currentWidget()));
         connect(m_sprites, &SpritesEditor::explorerChanged, this, &ProjectView::updateRightPanel);
     }
+    if (info.id == QLatin1String("animations")) {
+        m_animations = new AnimationsEditor(m_context, this);
+        m_animations->setPage(qobject_cast<AnimationPage*>(tabs->currentWidget()));
+    }
     connect(tabs, &QTabWidget::currentChanged, this, [this, tabs] {
         if (auto* page = qobject_cast<CodePage*>(tabs->currentWidget()))
             updateOutline(page);
         if (m_sprites && tabs->objectName() == QLatin1String("fileTabs_sprites"))
             m_sprites->setPage(qobject_cast<SpritePage*>(tabs->currentWidget()));
+        if (m_animations && tabs->objectName() == QLatin1String("fileTabs_animations"))
+            m_animations->setPage(qobject_cast<AnimationPage*>(tabs->currentWidget()));
         if (tabs == m_center->currentWidget())
             Q_EMIT currentFileChanged();
     });
@@ -242,7 +255,8 @@ void ProjectView::createEditor(const EditorInfo& info)
 
 QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& filePath)
 {
-    if (info.workspace == WorkspaceType::Code) {
+    const bool animations = info.id == QLatin1String("animations");
+    if (info.workspace == WorkspaceType::Code || animations) {
         QString error;
         auto* file = qobject_cast<CodeFile*>(m_project->file(filePath));
         if (!file && QFileInfo::exists(filePath))
@@ -287,6 +301,21 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
                     if (!pagePath.isEmpty())
                         DocumentationPopup::showPage(pagePath, QCursor::pos(), editor);
                 });
+        if (animations && file) {
+            auto* animationPage = new AnimationPage(file, page, m_project);
+            animationPage->setProperty("filePath", filePath);
+            animationPage->setProperty("editorId", info.id);
+            animationPage->applySettings(m_context.config(), &m_context.engineConfig(engine()->name()));
+            connect(file, &ProjectFile::pathChanged, this, [this, animationPage, file](const QString& oldPath) {
+                fileRenamed(animationPage, oldPath, file->path());
+            });
+            connect(animationPage, &AnimationPage::statusChanged, this, [this, animationPage] {
+                if (QTabWidget* tabs = m_fileTabs.value(m_currentEditor);
+                    tabs && tabs->currentWidget() == animationPage)
+                    Q_EMIT currentFileChanged();
+            });
+            return animationPage;
+        }
         return page;
     }
     if (info.id == QLatin1String("sprites")) {
@@ -358,7 +387,9 @@ void ProjectView::reconfigureEditors()
         for (int i = 0; i < it.value()->count(); ++i) {
             if (auto* sprites = qobject_cast<SpritePage*>(it.value()->widget(i)))
                 sprites->applySettings(m_context.config());
-            if (auto* page = qobject_cast<CodePage*>(it.value()->widget(i)))
+            if (auto* animation = qobject_cast<AnimationPage*>(it.value()->widget(i)))
+                animation->applySettings(m_context.config(), &m_context.engineConfig(engine()->name()));
+            if (auto* page = codePageOf(it.value()->widget(i)))
                 configureCodeEditor(page->editor(), it.key());
         }
     }
@@ -370,10 +401,34 @@ CodeEditor* ProjectView::currentCodeEditor() const
     return page ? page->editor() : nullptr;
 }
 
+void ProjectView::showFrameSprite()
+{
+    QAction* option = m_context.actions().action(QStringLiteral("spr_frame_spr"));
+    if (!option || !option->isChecked() || !m_animations || !m_sprites)
+        return;
+    AnimationPage* animation = m_animations->page();
+    SpritePage* sprites = m_sprites->page();
+    if (!animation || !sprites || !animation->frame())
+        return;
+    const int index = sprites->file()->document().findSprite(animation->frame()->group, animation->frame()->number);
+    if (index >= 0)
+        sprites->setCurrent(index);
+}
+
+CodePage* ProjectView::codePageOf(QWidget* tab)
+{
+    if (auto* animation = qobject_cast<AnimationPage*>(tab))
+        return animation->codePage();
+    return qobject_cast<CodePage*>(tab);
+}
+
 CodePage* ProjectView::currentCodePage() const
 {
     QTabWidget* tabs = m_fileTabs.value(m_currentEditor);
-    return tabs ? qobject_cast<CodePage*>(tabs->currentWidget()) : nullptr;
+    QWidget* tab = tabs ? tabs->currentWidget() : nullptr;
+    if (auto* animation = qobject_cast<AnimationPage*>(tab))
+        return animation->textMode() ? animation->codePage() : nullptr;
+    return qobject_cast<CodePage*>(tab);
 }
 
 QList<CodePage*> ProjectView::codePages() const
@@ -381,7 +436,7 @@ QList<CodePage*> ProjectView::codePages() const
     QList<CodePage*> pages;
     for (QTabWidget* tabs : m_fileTabs) {
         for (int i = 0; i < tabs->count(); ++i) {
-            if (auto* page = qobject_cast<CodePage*>(tabs->widget(i)))
+            if (auto* page = codePageOf(tabs->widget(i)))
                 pages << page;
         }
     }
@@ -636,6 +691,11 @@ bool ProjectView::showFileLine(const QString& filePath, int line)
                 if (line > 0)
                     sprites->setCurrent(line - 1);
             }
+            if (auto* animation = qobject_cast<AnimationPage*>(tabs->widget(i))) {
+                if (line > 0)
+                    animation->showLine(line);
+                return true;
+            }
             if (auto* page = qobject_cast<CodePage*>(tabs->widget(i))) {
                 if (line > 0)
                     page->editor()->goToLine(line);
@@ -819,6 +879,8 @@ void ProjectView::setCurrentEditor(const QString& id)
         return;
     if (m_currentEditor == QLatin1String("sprites") && id != m_currentEditor && m_sprites && !m_sprites->confirmLeave())
         return;
+    if (m_currentEditor == QLatin1String("animations") && id == QLatin1String("sprites"))
+        showFrameSprite();
     const bool changed = m_currentEditor != id;
     m_currentEditor = id;
     const EditorInfo info = currentEditorInfo();
@@ -872,6 +934,11 @@ void ProjectView::applyPreset(const Preset::Model& model)
         m_sprites->bindOrganizer(m_extraPanels.value(QStringLiteral("organizer"))->widget());
         m_sprites->bindExplorer(m_extraPanels.value(QStringLiteral("thumbnails"))->widget());
     }
+    if (m_animations) {
+        m_animations->bindPanel(m_editorPanels.value(QStringLiteral("animations"))->widget());
+        if (QScrollArea* thumbnails = m_extraPanels.value(QStringLiteral("thumbnails")))
+            m_animations->bindExplorer(thumbnails->widget());
+    }
     for (QTabWidget* tabs : std::as_const(m_fileTabs)) {
         if (auto* page = qobject_cast<CodePage*>(tabs->currentWidget()))
             updateOutline(page);
@@ -920,6 +987,11 @@ void ProjectView::updateRightPanel()
     const bool spriteExplorer = m_currentEditor == QLatin1String("sprites") && m_sprites && m_sprites->explorerShown();
     if (spriteExplorer)
         name = QStringLiteral("thumbnails");
+    if (m_sprites)
+        m_sprites->setExplorerActive(spriteExplorer && m_rightPanelVisible);
+    if (m_animations)
+        m_animations->setExplorerActive(name == QLatin1String("thumbnails") &&
+                                        m_currentEditor == QLatin1String("animations") && m_rightPanelVisible);
     QScrollArea* panel = m_extraPanels.value(name);
     if (panel && name == QLatin1String("thumbnails")) {
         static const char* const spriteCaptions[] = {

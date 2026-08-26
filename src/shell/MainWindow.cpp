@@ -24,6 +24,8 @@
 #include "core/widgets/GraphicsView.h"
 #include "core/widgets/ImageCanvas.h"
 #include "shell/AdvancedSearchPanel.h"
+#include "shell/AnimationPage.h"
+#include "shell/AnimationsEditor.h"
 #include "shell/BottomDock.h"
 #include "shell/CodePage.h"
 #include "shell/ControllerTemplatesWidget.h"
@@ -328,6 +330,8 @@ void MainWindow::connectActions()
         {"view_code_bar", "show_code_bar", true},           {"view_rulers", "show_rulers", true},
         {"view_guide_lines", "show_guides", false},         {"view_attack_box", "show_attack_box", true},
         {"view_collision_box", "show_collision_box", true}, {"view_main_cross", "show_cross1", true},
+        {"view_secondary_cross", "show_cross2", true},      {"view_extra_cross", "show_cross3", false},
+        {"spr_frame_spr", "switch_frame_spr", true},
     };
     for (const Toggle& t : toggles) {
         QAction* a = actions.action(QString::fromLatin1(t.action));
@@ -345,6 +349,14 @@ void MainWindow::connectActions()
             m_actionListDock->setVisible(m_context.config().boolValue(QStringLiteral("show_action_list"), false));
             for (ProjectView* view : projectViews())
                 view->reconfigureEditors();
+        });
+    }
+
+    if (QAction* a = actions.action(QStringLiteral("spr_frame_spr"))) {
+        connect(a, &QAction::toggled, this, [this](bool on) {
+            ProjectView* view = currentProjectView();
+            if (on && view && view->currentEditor() == QLatin1String("sprites"))
+                view->showFrameSprite();
         });
     }
 
@@ -441,8 +453,15 @@ void MainWindow::connectEditActions()
             return page->imageEditor()->undoStack();
         return page && page->file() ? page->file()->undoStack() : nullptr;
     };
-    auto undoRedo = [textTarget, spriteUndo](bool redo) {
-        return [textTarget, spriteUndo, redo] {
+    // The Animations editor's graphic mode edits the text, so it uses the text's history.
+    auto animationPage = [this]() -> AnimationPage* {
+        ProjectView* view = currentProjectView();
+        QTabWidget* tabs =
+            view ? view->findChild<QTabWidget*>(QStringLiteral("fileTabs_") + view->currentEditor()) : nullptr;
+        return tabs ? qobject_cast<AnimationPage*>(tabs->currentWidget()) : nullptr;
+    };
+    auto undoRedo = [textTarget, spriteUndo, animationPage](bool redo) {
+        return [textTarget, spriteUndo, animationPage, redo] {
             QWidget* w = textTarget();
             if (auto* p = qobject_cast<QPlainTextEdit*>(w))
                 redo ? p->redo() : p->undo();
@@ -450,6 +469,8 @@ void MainWindow::connectEditActions()
                 redo ? l->redo() : l->undo();
             else if (QUndoStack* stack = spriteUndo())
                 redo ? stack->redo() : stack->undo();
+            else if (AnimationPage* page = animationPage(); page && page->file())
+                redo ? page->file()->document()->redo() : page->file()->document()->undo();
         };
     };
     on("edit_undo", undoRedo(false));
@@ -468,7 +489,15 @@ void MainWindow::connectEditActions()
         Copy,
         Paste,
     };
-    auto clipboard = [textTarget, spritesEditing, forText](Clip clip) {
+    auto animationsEditing = [this]() -> AnimationsEditor* {
+        ProjectView* view = currentProjectView();
+        AnimationsEditor* animations = view ? view->animationsEditor() : nullptr;
+        if (!animations || view->currentEditor() != QLatin1String("animations") || !animations->page() ||
+            animations->page()->textMode())
+            return nullptr;
+        return animations;
+    };
+    auto clipboard = [textTarget, spritesEditing, animationsEditing, forText](Clip clip) {
         std::function<void()> text;
         if (clip == Clip::Cut)
             text = forText(&QPlainTextEdit::cut, &QLineEdit::cut);
@@ -476,9 +505,16 @@ void MainWindow::connectEditActions()
             text = forText(&QPlainTextEdit::copy, &QLineEdit::copy);
         else
             text = forText(&QPlainTextEdit::paste, &QLineEdit::paste);
-        return [textTarget, spritesEditing, text, clip] {
+        return [textTarget, spritesEditing, animationsEditing, text, clip] {
             if (textTarget()) {
                 text();
+            } else if (AnimationsEditor* animations = animationsEditing()) {
+                if (clip == Clip::Cut)
+                    animations->cutBox();
+                else if (clip == Clip::Copy)
+                    animations->copyBox();
+                else
+                    animations->pasteBox();
             } else if (SpritesEditor* sprites = spritesEditing()) {
                 if (sprites->imageMode()) {
                     if (clip == Clip::Copy)
@@ -632,9 +668,35 @@ void MainWindow::connectEditActions()
         const QString action = QString::fromLatin1(id);
         on(id, [this, action] {
             ProjectView* view = currentProjectView();
+            if (view && action == QLatin1String("thumb_save") && view->currentEditor() == QLatin1String("animations") &&
+                view->animationsEditor()) {
+                view->animationsEditor()->perform(action);
+                return;
+            }
             const bool done = view && view->spritesEditor() && view->spritesEditor()->perform(action);
             if (!done && action == QLatin1String("spr_edit_img"))
                 refreshActionStates(); // nothing to edit: the action unchecks again
+        });
+    }
+    // Animations editor actions.
+    for (const char* id : {"anim_add",           "anim_delete",          "anim_duplicate",
+                           "anim_code",          "anim_save_gif",        "anim_play",
+                           "anim_stop",          "anim_editcode",        "anim_frame_add",
+                           "anim_frame_delete",  "anim_frameall_offset", "anim_frameall_time",
+                           "anim_frameall_flip", "anim_frameall_trans",  "anim_frameall_scale",
+                           "anim_frame_align",   "anim_box_add_attack",  "anim_box_add_collision",
+                           "anim_box_del",       "anim_box_delall",      "anim_box_delall_anim",
+                           "anim_box_type",      "anim_box_default",     "anim_box_prev",
+                           "anim_box_allinst",   "anim_optimize",        "anim_import_proj",
+                           "anim_pos_left",      "anim_pos_up",          "anim_pos_right",
+                           "anim_pos_down",      "anim_onion_find",      "anim_prev_anim",
+                           "anim_next_anim",     "anim_prev_frame",      "anim_next_frame"}) {
+        const QString action = QString::fromLatin1(id);
+        on(id, [this, action] {
+            ProjectView* view = currentProjectView();
+            if (view && view->animationsEditor())
+                view->animationsEditor()->perform(action);
+            refreshActionStates();
         });
     }
     on("spr_import_proj", [this] {
@@ -766,10 +828,12 @@ void MainWindow::connectEditActions()
             view ? view->findChild<QTabWidget*>(QStringLiteral("fileTabs_") + view->currentEditor()) : nullptr;
         return tabs ? qobject_cast<SpritePage*>(tabs->currentWidget()) : nullptr;
     };
-    auto zoom = [this, currentWorkspace](void (GraphicsView::*graphic)(), void (ImageCanvas::*image)(),
-                                         std::function<void(CodeEditor*)> code) {
-        return [this, currentWorkspace, graphic, image, code] {
-            if (SpritePage* page = currentWorkspace()) {
+    auto zoom = [this, currentWorkspace, animationPage](void (GraphicsView::*graphic)(), void (ImageCanvas::*image)(),
+                                                        std::function<void(CodeEditor*)> code) {
+        return [this, currentWorkspace, animationPage, graphic, image, code] {
+            if (AnimationPage* animation = animationPage(); animation && !animation->textMode()) {
+                (animation->view()->*graphic)();
+            } else if (SpritePage* page = currentWorkspace()) {
                 if (!page->imageMode())
                     (page->view()->*graphic)();
                 else if (image)
@@ -1344,6 +1408,14 @@ bool MainWindow::openProject(const QString& filePath)
                 refreshActionStates();
         });
     }
+    if (AnimationsEditor* animations = view->animationsEditor()) {
+        connect(animations, &AnimationsEditor::stateChanged, this, [this, view] {
+            if (view == currentProjectView()) {
+                refreshActionStates();
+                refreshStatusBar();
+            }
+        });
+    }
     m_stack->addWidget(view);
 
     const int index = m_projectTabs->addTab(project->name());
@@ -1559,6 +1631,31 @@ void MainWindow::refreshActionStates()
         a->setChecked(image);
     if (QAction* a = actions.action(QStringLiteral("spr_explorer")))
         a->setChecked(sprites && sprites->explorerShown());
+
+    AnimationsEditor* animations = view ? view->animationsEditor() : nullptr;
+    AnimationPage* animationPage = animations ? animations->page() : nullptr;
+    const bool textMode = animationPage && animationPage->textMode();
+    const bool playing = animationPage && animationPage->isPlaying();
+    const int drawing = animationPage ? animationPage->drawingBoxes() : 0;
+    auto check = [&actions](const char* id, bool on) {
+        if (QAction* a = actions.action(QString::fromLatin1(id)))
+            a->setChecked(on);
+    };
+    check("anim_play", playing);
+    check("anim_stop", !playing);
+    check("anim_editcode", textMode);
+    check("anim_box_add_attack", drawing == 1);
+    check("anim_box_add_collision", drawing == 2);
+    if (textMode)
+        enableAll(
+            {"anim_box_add_attack", "anim_box_add_collision", "anim_box_del", "anim_box_type", "anim_box_default"},
+            false);
+    if (playing)
+        enableAll({"anim_frame_delete", "anim_pos_left", "anim_pos_up", "anim_pos_right", "anim_pos_down",
+                   "anim_frameall_offset", "anim_frameall_time", "anim_frameall_flip", "anim_frameall_trans",
+                   "anim_frameall_scale", "anim_frame_align", "anim_box_delall", "anim_box_delall_anim",
+                   "anim_box_prev"},
+                  false);
 }
 
 void MainWindow::refreshTitle()
@@ -1576,7 +1673,10 @@ void MainWindow::refreshStatusBar()
         return;
     }
     const EditorInfo info = view->currentEditorInfo();
-    switch (info.workspace) {
+    QTabWidget* fileTabs = view->findChild<QTabWidget*>(QStringLiteral("fileTabs_") + view->currentEditor());
+    auto* animation = fileTabs ? qobject_cast<AnimationPage*>(fileTabs->currentWidget()) : nullptr;
+    const WorkspaceType workspace = animation && animation->textMode() ? WorkspaceType::Code : info.workspace;
+    switch (workspace) {
     case WorkspaceType::Code: {
         int line = 1, column = 1, lines = 0;
         if (CodeEditor* editor = view->currentCodeEditor()) {
@@ -1601,7 +1701,15 @@ void MainWindow::refreshStatusBar()
     }
     case WorkspaceType::Graphics:
     case WorkspaceType::Emulator: {
-        QTabWidget* tabs = view->findChild<QTabWidget*>(QStringLiteral("fileTabs_") + view->currentEditor());
+        QTabWidget* tabs = fileTabs;
+        if (animation) {
+            const QPoint guides = animation->view()->guides();
+            m_status->setSection(
+                0, tr("Position: %1, %2").arg(animation->cursorPosition().x()).arg(animation->cursorPosition().y()));
+            m_status->setSection(1, tr("Horizontal guide: %1, Vertical guide: %2").arg(guides.y()).arg(guides.x()));
+            m_status->setSection(2, tr("Renderer: %1").arg(QStringLiteral("OpenGL")));
+            break;
+        }
         if (auto* page = tabs ? qobject_cast<SpritePage*>(tabs->currentWidget()) : nullptr) {
             const QPoint guides = page->view()->guides();
             static const char* const versions[] = {"1.0.1.0", "2.0.0.0", "2.0.1.0"};

@@ -1,5 +1,8 @@
 #include "core/anims/AirDocument.h"
 #include "core/anims/AirEdits.h"
+#include "core/anims/AirGif.h"
+#include "core/sprites/SpriteDocument.h"
+#include "formats/codecs/Gif.h"
 
 #include <QTest>
 #include <QTextDocument>
@@ -318,6 +321,40 @@ private Q_SLOTS:
                  "[Begin Action 2]", "0,0, 0,0, 5"};
         QCOMPARE(AirEdits::optimize(lines), 5);
         QCOMPARE(lines, (QStringList{"[Begin Action 1]", "0,0, 0,0, 5", "", "[Begin Action 2]", "0,0, 0,0, 5"}));
+    }
+
+    void gif()
+    {
+        // Running total at 60 ticks per second, rounded down. An endless frame is 65535 and ends the list.
+        QCOMPARE(gifDelays({12, 7, 7, 7, 7, 45, 7, 7, 7, 7, 40}, 1.0),
+                 (QList<int>{20, 11, 12, 12, 11, 75, 12, 12, 11, 12, 67}));
+        QCOMPARE(gifDelays({3, 3, 3, 3}, 2.0), (QList<int>{2, 3, 2, 3}));
+        QCOMPARE(gifDelays({3}, 0.5), QList<int>{10});
+        QCOMPARE(gifDelays({2, 1, 4, 3, 2}, 1.0), (QList<int>{3, 2, 6, 5, 4}));
+        QCOMPARE(gifDelays({5, -1, 5}, 1.0), (QList<int>{8, 65535}));
+
+        SpriteDocument sprites;
+        sprites.palettes() << SpriteDocument::makePalette(1, 1, Formats::grayscalePalette(256));
+        SpriteEntry entry;
+        entry.header.axisX = 2;
+        entry.header.axisY = 4;
+        entry.pixels = SpriteDocument::makePixels(Formats::Image::indexed(4, 4, std::vector<std::uint8_t>(16, 7)));
+        entry.palette = sprites.palettes()[0];
+        sprites.sprites() << entry;
+        const AirDocument doc = AirDocument::parse(QStringList{"[Begin Action 0]", "0,0, 0,0, 3", "0,0, 10,0, 3, H"});
+        QString error;
+        const QByteArray bytes = animationGif(doc.animations().first(), sprites, 2.0, 1.0, &error);
+        QVERIFY2(!bytes.isEmpty(), qPrintable(error));
+        const auto gif = Formats::readGif(
+            Formats::ByteSpan(reinterpret_cast<const std::byte*>(bytes.constData()), std::size_t(bytes.size())));
+        QVERIFY(gif.ok());
+        QCOMPARE(gif.value().width, 28); // units -2..12 (14) at scale 2
+        QCOMPARE(gif.value().height, 8);
+        QCOMPARE(gif.value().loopCount, 0);
+        QCOMPARE(gif.value().frames.size(), std::size_t(2));
+        QCOMPARE(gif.value().frames.at(0).delay, 5);
+        QCOMPARE(gif.value().frames.at(1).left, 20); // the flipped frame: units 8..12, from -2 at scale 2
+        QVERIFY(!gif.value().globalPalette.empty());
     }
 
     void documentChanges()

@@ -567,17 +567,25 @@ void SpritesEditor::bindExplorer(QWidget* panel)
         if (!button)
             continue;
         connect(button, &QToolButton::clicked, this, [this, all = b.all, aligned = b.aligned] {
-            if (explorerShown())
+            if (explorerShown() && m_explorerActive)
                 addExplorerLayers(all, aligned);
         });
     }
     refreshExplorer();
 }
 
+void SpritesEditor::setExplorerActive(bool active)
+{
+    m_explorerActive = active;
+    refreshExplorer();
+}
+
 void SpritesEditor::refreshExplorer()
 {
-    if (!m_explorerModel || !explorerShown())
+    if (!m_explorerModel || !explorerShown() || !m_explorerActive)
         return;
+    if (m_explorerView && m_explorerView->model() != m_explorerModel)
+        m_explorerView->setModel(m_explorerModel);
     const SpriteDocument& doc = m_page->file()->document();
     const bool updating = std::exchange(m_updating, true);
     QList<int> groups;

@@ -1,5 +1,9 @@
 # The main window and app dialogs. Static so the GUI tests can link it without the executable.
 add_library(ofsshell STATIC
+    AnimationPage.h
+    AnimationPage.cpp
+    AnimationsEditor.h
+    AnimationsEditor.cpp
     AdvancedSearchPanel.h
     AdvancedSearchPanel.cpp
     BottomDock.h
@@ -55,6 +59,8 @@ add_library(ofsshell STATIC
     dialogs/SnippetFieldsDialog.cpp
     dialogs/SpriteDialogs.h
     dialogs/SpriteDialogs.cpp
+    dialogs/AnimationDialogs.h
+    dialogs/AnimationDialogs.cpp
     dialogs/StateControllerDialog.h
     dialogs/StateControllerDialog.cpp
     dialogs/VariableLogDialog.h

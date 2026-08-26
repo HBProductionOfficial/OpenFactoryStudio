@@ -1,0 +1,124 @@
+#include "core/widgets/TimelineWidget.h"
+
+#include <QMouseEvent>
+#include <QPainter>
+
+#include <cmath>
+
+namespace OFS {
+
+namespace {
+
+constexpr int NameWidth = 120;
+constexpr int RulerHeight = 18;
+
+int length(const TimelineWidget::Frame& frame)
+{
+    return frame.time < 0 ? TimelineWidget::EndlessLength : std::max(1, frame.time);
+}
+
+} // namespace
+
+TimelineWidget::TimelineWidget(QWidget* parent)
+    : QWidget(parent)
+{
+    setObjectName(QStringLiteral("timeline"));
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    setFixedHeight(60);
+}
+
+void TimelineWidget::setAnimation(const QString& name, const QList<Frame>& frames)
+{
+    m_name = name;
+    m_frames = frames;
+    update();
+}
+
+void TimelineWidget::setPlayhead(int tick)
+{
+    if (tick == m_playhead)
+        return;
+    m_playhead = tick;
+    update();
+}
+
+int TimelineWidget::trackLeft() const
+{
+    return NameWidth;
+}
+
+double TimelineWidget::tickWidth() const
+{
+    int total = 0;
+    for (const Frame& frame : m_frames)
+        total += length(frame);
+    const int track = std::max(1, width() - trackLeft() - 4);
+    return std::clamp(total > 0 ? double(track) / total : 8.0, 2.0, 8.0);
+}
+
+int TimelineWidget::frameAt(int x) const
+{
+    const double unit = tickWidth();
+    double left = trackLeft();
+    for (int i = 0; i < m_frames.size(); ++i) {
+        const double right = left + length(m_frames.at(i)) * unit;
+        if (x >= left && x < right)
+            return i;
+        left = right;
+    }
+    return -1;
+}
+
+void TimelineWidget::paintEvent(QPaintEvent* event)
+{
+    Q_UNUSED(event);
+    QPainter p(this);
+    p.fillRect(rect(), QColor(40, 40, 40));
+    const double unit = tickWidth();
+    const int left = trackLeft();
+    p.fillRect(QRect(0, 0, width(), RulerHeight), QColor(30, 30, 30));
+    p.setPen(QColor(190, 190, 190));
+    int step = 5;
+    while (step * unit < 24)
+        step += 5;
+    for (int tick = 0; left + tick * unit < width(); ++tick) {
+        const double x = left + tick * unit;
+        if (tick % step == 0) {
+            p.drawLine(QPointF(x, RulerHeight - 6), QPointF(x, RulerHeight));
+            p.drawText(QPointF(x + 2, RulerHeight - 6), QString::number(tick));
+        } else if (unit >= 4) {
+            p.drawLine(QPointF(x, RulerHeight - 3), QPointF(x, RulerHeight));
+        }
+    }
+    const QRect body(0, RulerHeight, width(), height() - RulerHeight);
+    p.drawText(QRect(4, body.top(), left - 8, body.height()), Qt::AlignVCenter | Qt::AlignLeft,
+               p.fontMetrics().elidedText(m_name, Qt::ElideRight, left - 8));
+    double x = left;
+    for (int i = 0; i < m_frames.size(); ++i) {
+        const Frame& frame = m_frames.at(i);
+        const QRectF block(x, body.top() + 6, length(frame) * unit, body.height() - 12);
+        const QColor color =
+            frame.loopStart ? QColor(70, 150, 70) : (i % 2 ? QColor(150, 128, 40) : QColor(120, 100, 30));
+        p.fillRect(block, color);
+        p.setPen(QColor(20, 20, 20));
+        p.drawRect(block);
+        if (frame.time < 0) {
+            p.setPen(QColor(230, 230, 230));
+            p.drawText(block, Qt::AlignCenter, QString(QChar(0x221E))); // infinity
+        }
+        x += block.width();
+    }
+    const double head = left + m_playhead * unit;
+    p.setPen(QPen(QColor(255, 220, 0), 2));
+    p.drawLine(QPointF(head, 0), QPointF(head, height()));
+}
+
+void TimelineWidget::mousePressEvent(QMouseEvent* event)
+{
+    const int frame = frameAt(event->position().toPoint().x());
+    if (event->button() == Qt::LeftButton && frame >= 0)
+        Q_EMIT frameClicked(frame);
+    QWidget::mousePressEvent(event);
+}
+
+} // namespace OFS
