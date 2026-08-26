@@ -1921,6 +1921,91 @@ private Q_SLOTS:
         page->file()->document()->clearUndoRedoStacks();
     }
 
+    void animationsFilesAndExplorer()
+    {
+        QTemporaryDir dir;
+        // Sprites 0,0, 0,1 and 3,0. One animation uses 0,0.
+        SpriteDocument sprites;
+        sprites.palettes() << SpriteDocument::makePalette(1, 1, Formats::grayscalePalette(256));
+        const int ids[][2] = {{0, 0}, {0, 1}, {3, 0}};
+        for (const auto& id : ids) {
+            SpriteEntry entry;
+            entry.header.group = std::uint16_t(id[0]);
+            entry.header.number = std::uint16_t(id[1]);
+            entry.pixels = SpriteDocument::makePixels(Formats::Image::indexed(2, 2, std::vector<std::uint8_t>(4, 5)));
+            entry.palette = sprites.palettes()[0];
+            sprites.sprites() << entry;
+        }
+        const auto bytes = sprites.toSff().write();
+        QVERIFY(bytes.ok());
+        writeFile(dir.filePath("e.sff"),
+                  QByteArray(reinterpret_cast<const char*>(bytes.value().data()), qsizetype(bytes.value().size())));
+        writeFile(dir.filePath("e.air"), "[Begin Action 0]\n0,0, 0,0, 5\n");
+        writeFile(dir.filePath("other.air"), "[Begin Action 7]\n3,0, 0,0, 2\n[Begin Action 8]\n3,0, 0,0, 2\n");
+        writeFile(dir.filePath("e.def"), "[Info]\nname = \"E\"\nmugenversion = 1.0\n"
+                                         "[Files]\ncns = e.cns\nsprite = e.sff\nanim = e.air\n");
+        writeFile(dir.filePath("e.cns"), "[Data]\nlife = 1000\n");
+        MainWindow window(*m_context);
+        window.resize(1100, 800);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("e.def")));
+        ActionRegistry& actions = m_context->actions();
+        actions.action("editor_anim")->trigger();
+        ProjectView* view = window.currentProjectView();
+        auto* tabs = view->findChild<QTabWidget*>("fileTabs_animations");
+        QVERIFY(tabs);
+        auto* page = qobject_cast<AnimationPage*>(tabs->currentWidget());
+        QVERIFY(page);
+
+        auto* right = view->findChild<EPanelWidget*>("rightPanel");
+        QCOMPARE(right->title(), QStringLiteral("Sprite explorer"));
+        auto* thumbnails = view->findChild<QListView*>("thumb_view");
+        auto* addSelected = view->findChild<QToolButton*>("thumb_action1");
+        QVERIFY(thumbnails && addSelected);
+        QCOMPARE(addSelected->text(), QStringLiteral("Add selected to the current animation"));
+        QTRY_COMPARE(thumbnails->model()->rowCount(), 2);
+        thumbnails->selectionModel()->select(thumbnails->model()->index(1, 0), QItemSelectionModel::ClearAndSelect);
+        addSelected->click();
+        QCOMPARE(page->animation()->frames.size(), 2);
+        QCOMPARE(page->animation()->frames.at(1).number, 1);
+        QCOMPARE(page->animation()->frames.at(1).time, 10);
+        QCOMPARE(page->currentFrame(), 1);
+        QTimer::singleShot(0, this, [] {
+            auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            dialog->findChild<QSpinBox*>("number")->setValue(9);
+            dialog->findChild<QSpinBox*>("time")->setValue(4);
+            dialog->accept();
+        });
+        view->findChild<QToolButton*>("thumb_action4")->click();
+        QCOMPARE(page->document().count(), 2);
+        QCOMPARE(page->animation()->number, 9);
+        QCOMPARE(page->animation()->frames.size(), 2);
+        QCOMPARE(page->animation()->frames.at(0).time, 4);
+
+        actions.action("anim_new")->trigger();
+        QCOMPARE(tabs->count(), 2);
+        QCOMPARE(tabs->tabText(tabs->currentIndex()), QStringLiteral("untitled1.air"));
+        auto* fresh = qobject_cast<AnimationPage*>(tabs->currentWidget());
+        QVERIFY(fresh);
+        QCOMPARE(fresh->document().count(), 0);
+        QVERIFY(fresh->file()->isUntitled());
+        FileDialogs::setOpenPromptOverride([&dir](const QString&, const QString&, const QString& filter) {
+            return filter.startsWith("Animations (*.air)") ? dir.filePath("other.air") : QString();
+        });
+        actions.action("anim_open")->trigger();
+        FileDialogs::setOpenPromptOverride({});
+        QCOMPARE(tabs->count(), 3);
+        auto* opened = qobject_cast<AnimationPage*>(tabs->currentWidget());
+        QVERIFY(opened);
+        QCOMPARE(opened->document().count(), 2);
+
+        for (int i = 0; i < tabs->count(); ++i) {
+            if (auto* p = qobject_cast<AnimationPage*>(tabs->widget(i)))
+                p->file()->document()->setModified(false);
+        }
+    }
+
     void spritesSaveAs()
     {
         QTemporaryDir dir;

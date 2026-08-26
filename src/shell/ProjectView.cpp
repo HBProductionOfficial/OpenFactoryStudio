@@ -711,7 +711,8 @@ ProjectFile* ProjectView::newFile(const QString& editorId)
 {
     const EditorInfo info = engine()->editor(editorId);
     const bool sprites = editorId == QLatin1String("sprites");
-    if (info.id.isEmpty() || (info.workspace != WorkspaceType::Code && !sprites))
+    if (info.id.isEmpty() ||
+        (info.workspace != WorkspaceType::Code && !sprites && editorId != QLatin1String("animations")))
         return nullptr;
     const QDir dir(m_project->directory());
     QString path;
@@ -740,7 +741,8 @@ bool ProjectView::openFile(const QString& editorId, const QString& path, QString
     const EditorInfo info = engine()->editor(editorId);
     QTabWidget* tabs = m_fileTabs.value(editorId);
     const bool sprites = editorId == QLatin1String("sprites");
-    if (info.id.isEmpty() || (info.workspace != WorkspaceType::Code && !sprites) || !tabs)
+    if (info.id.isEmpty() ||
+        (info.workspace != WorkspaceType::Code && !sprites && editorId != QLatin1String("animations")) || !tabs)
         return false;
     const QString target = QDir::fromNativeSeparators(QFileInfo(path).absoluteFilePath());
     for (int i = 0; i < tabs->count(); ++i) {

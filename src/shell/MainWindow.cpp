@@ -1192,7 +1192,8 @@ void MainWindow::openEditorFile(const QString& editorId)
     if (!view)
         return;
     const EditorInfo info = view->engine()->editor(editorId);
-    if (info.id.isEmpty() || (info.workspace != WorkspaceType::Code && editorId != QLatin1String("sprites")))
+    if (info.id.isEmpty() || (info.workspace != WorkspaceType::Code && editorId != QLatin1String("sprites") &&
+                              editorId != QLatin1String("animations")))
         return;
     const QString key = editorId + QStringLiteral("_path");
     const QString start = m_context.config().value(key, view->project()->directory());
