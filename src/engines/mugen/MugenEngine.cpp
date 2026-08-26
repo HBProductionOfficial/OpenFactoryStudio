@@ -1,5 +1,6 @@
 #include "engines/mugen/MugenEngine.h"
 
+#include "core/anims/AirDocument.h"
 #include "core/app/AppContext.h"
 #include "core/code/CompletionModels.h"
 #include "core/code/VariableUsage.h"
@@ -260,6 +261,30 @@ QString MugenEngine::syntaxFileType(const Project& project, const QString& edito
 
 IssueList MugenEngine::validate(const Project& project, const QString& editorId, const QString& text) const
 {
+    if (editorId == QLatin1String("animations")) {
+        IssueList issues;
+        const AirDocument doc = AirDocument::parse(text);
+        for (const AirDocument::Problem& problem : doc.problems()) {
+            Issue issue;
+            issue.line = problem.line;
+            issue.message = problem.message;
+            issues << issue;
+        }
+        QHash<int, int> first;
+        for (const AirAnimation& animation : doc.animations()) {
+            const auto seen = first.constFind(animation.number);
+            if (seen == first.cend()) {
+                first.insert(animation.number, animation.headerLine);
+                continue;
+            }
+            Issue issue;
+            issue.severity = Issue::Severity::Warning;
+            issue.line = animation.headerLine;
+            issue.message = tr("Animation %1 is already defined at line %2").arg(animation.number).arg(*seen + 1);
+            issues << issue;
+        }
+        return issues;
+    }
     const QString fileType = syntaxFileType(project, editorId);
     const SyntaxDatabase* db = syntax();
     if (fileType.isEmpty() || !db || db->isEmpty())

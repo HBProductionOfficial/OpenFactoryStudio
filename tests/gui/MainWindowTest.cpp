@@ -1866,6 +1866,14 @@ private Q_SLOTS:
         actions.action("anim_duplicate")->trigger();
         QCOMPARE(page->document().count(), 4);
         QCOMPARE(page->document().animations().at(3).number, 40);
+        const QString airPath = QDir::fromNativeSeparators(dir.filePath("a.air"));
+        auto reportsTwice = [view, airPath] {
+            const IssueList issues = view->issues().value(airPath);
+            return std::any_of(issues.cbegin(), issues.cend(), [](const Issue& issue) {
+                return issue.message == QStringLiteral("Animation 40 is already defined at line 18");
+            });
+        };
+        QTRY_VERIFY(reportsTwice());
         m_context->config().setValue("showmsg_anim_clone", QString());
         m_context->config().setValue("confirm_delete", false);
         actions.action("anim_delete")->trigger();
