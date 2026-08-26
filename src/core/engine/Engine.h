@@ -59,6 +59,8 @@ struct ToolContext
     Project* project = nullptr;
     QList<Project*> projects;
     std::function<void(const QString&)> insertText;
+    std::function<void(const QString& editorId, const QString& text)> insertInEditor;
+    int spriteIndex = -1;
     std::function<QIcon(const QString&)> icon;
 };
 

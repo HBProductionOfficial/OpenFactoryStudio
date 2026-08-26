@@ -1089,6 +1089,16 @@ void MainWindow::runEngineTool(Engine* engine, const QString& actionId)
                 target->insertText(text);
         };
     }
+    QPointer<ProjectView> target = view;
+    context.insertInEditor = [target](const QString& editorId, const QString& text) {
+        if (!target)
+            return;
+        target->setCurrentEditor(editorId);
+        if (CodePage* page = target->currentCodePage(); page && !page->editor()->isReadOnly())
+            page->insertText(text);
+    };
+    if (SpritesEditor* sprites = view->spritesEditor(); sprites && sprites->page())
+        context.spriteIndex = sprites->page()->current();
     engine->runTool(actionId, context);
 }
 

@@ -9,6 +9,7 @@
 #include "engines/mugen/dialogs/AddAnimationDialog.h"
 #include "engines/mugen/dialogs/AnimationPreview.h"
 #include "engines/mugen/dialogs/OffsetViewerDialog.h"
+#include "engines/mugen/dialogs/PalFXDialog.h"
 #include "engines/mugen/dialogs/ThrowCreatorDialog.h"
 
 #include <QApplication>
@@ -18,6 +19,7 @@
 #include <QDoubleSpinBox>
 #include <QFile>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSlider>
@@ -555,6 +557,59 @@ private Q_SLOTS:
             QVERIFY(QTest::qWaitForWindowExposed(&dialog));
             dialog.grab().save(grab + "/offset-viewer.png");
         }
+    }
+
+    void palfx()
+    {
+        const QString templates = sourceFile(QStringLiteral("../data/engines/mugen/palFX"));
+        PalFX fire;
+        QVERIFY(readPalFXTemplate(templates + "/Fire.xml", &fire));
+        QCOMPARE(fire.add[0], 150);
+        QCOMPARE(fire.mul[2], 120);
+        QCOMPARE(fire.period, 8);
+        QCOMPARE(fire.color, 256);
+        QVERIFY(!fire.invert);
+        const PalFX none;
+        QCOMPARE(none.apply(qRgb(10, 100, 200), 0), qRgb(10, 100, 200));
+        PalFX inverted;
+        inverted.invert = true;
+        QCOMPARE(inverted.apply(qRgb(10, 100, 200), 0), qRgb(245, 155, 55));
+        PalFX gray;
+        gray.color = 0;
+        QCOMPARE(gray.apply(qRgb(30, 60, 90), 0), qRgb(60, 60, 60));
+        PalFX values;
+        values.add[0] = 240;
+        values.add[1] = 50;
+        values.mul[0] = 250;
+        values.mul[1] = 224;
+        values.mul[2] = 120;
+        values.sin[0] = 110;
+        values.sin[1] = 55;
+        values.sin[2] = 85;
+        values.period = 10;
+        values.color = 0;
+        QCOMPARE(values.controllerText(), QStringLiteral("[State 0, PalFXWiz]\ntype = PalFX\ntrigger1 = \ntime = \n"
+                                                         "add = 240,50,0\nmul = 250,224,120\nsinadd = 110,55,85,10\n"
+                                                         "invertall = 0\ncolor = 0\n"));
+
+        PalFXDialog dialog(nullptr, 0, templates);
+        auto* list = dialog.findChild<QListWidget*>("templates");
+        QVERIFY(list);
+        QCOMPARE(list->count(), 12);
+        QListWidgetItem* item = list->findItems("Fire", Qt::MatchExactly).value(0);
+        QVERIFY(item);
+        Q_EMIT list->itemDoubleClicked(item);
+        QCOMPARE(dialog.values().add[0], 150);
+        QCOMPARE(dialog.findChild<QSpinBox*>("addR")->value(), 150);
+        QString inserted;
+        dialog.setInsertHandler([&inserted](const QString& text) { inserted = text; });
+        const QList<QPushButton*> buttons = dialog.findChildren<QPushButton*>();
+        for (QPushButton* button : buttons) {
+            if (button->text() == QStringLiteral("Insert in the editor"))
+                button->click();
+        }
+        QVERIFY(inserted.startsWith("[State 0, PalFXWiz]\ntype = PalFX\n"));
+        QVERIFY(inserted.contains("add = 150,50,-40\n"));
     }
 };
 

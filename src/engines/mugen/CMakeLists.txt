@@ -32,6 +32,8 @@ add_library(ofs_mugen_lib STATIC
     dialogs/AnimationPreview.cpp
     dialogs/OffsetViewerDialog.h
     dialogs/OffsetViewerDialog.cpp
+    dialogs/PalFXDialog.h
+    dialogs/PalFXDialog.cpp
     dialogs/ThrowCreatorDialog.h
     dialogs/ThrowCreatorDialog.cpp
     MugenSyntax.h

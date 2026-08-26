@@ -5,6 +5,7 @@
 #include "core/code/VariableUsage.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
+#include "core/sprites/SpriteFile.h"
 #include "core/syntax/SyntaxDatabase.h"
 #include "engines/mugen/AirEdits.h"
 #include "engines/mugen/MugenActions.h"
@@ -16,6 +17,7 @@
 #include "engines/mugen/MugenSyntax.h"
 #include "engines/mugen/MugenVariables.h"
 #include "engines/mugen/dialogs/OffsetViewerDialog.h"
+#include "engines/mugen/dialogs/PalFXDialog.h"
 #include "engines/mugen/dialogs/ThrowCreatorDialog.h"
 
 #include <QDir>
@@ -178,7 +180,7 @@ void MugenEngine::scaleContactBoxes(Project& project, const QList<QPair<int, int
 
 QStringList MugenEngine::toolActions() const
 {
-    return {QStringLiteral("st_throw"), QStringLiteral("st_offset")};
+    return {QStringLiteral("st_throw"), QStringLiteral("st_offset"), QStringLiteral("st_palfx")};
 }
 
 void MugenEngine::runTool(const QString& actionId, const ToolContext& context)
@@ -193,6 +195,19 @@ void MugenEngine::runTool(const QString& actionId, const ToolContext& context)
         dialog.exec();
     } else if (actionId == QLatin1String("st_offset")) {
         OffsetViewerDialog dialog(context.project, context.projects, context.parent);
+        dialog.exec();
+    } else if (actionId == QLatin1String("st_palfx")) {
+        const QStringList sprites = context.project->editorFiles(QStringLiteral("sprites"));
+        SpriteFile* spriteFile = sprites.isEmpty() || sprites.first().isEmpty()
+                                     ? nullptr
+                                     : context.project->spriteFile(sprites.first(), QStringLiteral("sprites"));
+        PalFXDialog dialog(spriteFile, context.spriteIndex, dataDir() + QStringLiteral("/palFX"), context.parent);
+        dialog.setInsertHandler([context](const QString& text) {
+            if (context.insertInEditor)
+                context.insertInEditor(QStringLiteral("states"), text);
+            else if (context.insertText)
+                context.insertText(text);
+        });
         dialog.exec();
     }
 }
