@@ -12,6 +12,7 @@ namespace OFS {
 
 class CodeFile;
 class Engine;
+class SoundFile;
 class SpriteFile;
 class ProjectFile;
 
@@ -52,6 +53,9 @@ public:
     CodeFile* newCodeFile(const QString& placeholderPath, const QString& editorId);
     SpriteFile* addSpriteFile(const QString& path, const QString& editorId, QString* error = nullptr);
     SpriteFile* newSpriteFile(const QString& placeholderPath, const QString& editorId, Formats::SffVersion version);
+    SoundFile* soundFile(const QString& path, const QString& editorId, QString* error = nullptr);
+    SoundFile* addSoundFile(const QString& path, const QString& editorId, QString* error = nullptr);
+    SoundFile* newSoundFile(const QString& placeholderPath, const QString& editorId);
 
     bool isModified() const;
     bool save(QString* error = nullptr);

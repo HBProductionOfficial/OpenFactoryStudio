@@ -2,6 +2,7 @@
 
 #include "core/engine/Engine.h"
 #include "core/project/ProjectFile.h"
+#include "core/sounds/SoundFile.h"
 #include "core/sprites/SpriteFile.h"
 
 #include <QDir>
@@ -117,6 +118,36 @@ SpriteFile* Project::newSpriteFile(const QString& placeholderPath, const QString
 {
     auto* f = new SpriteFile(placeholderPath, editorId, this);
     f->createEmpty(version);
+    adopt(f);
+    m_editorFiles[editorId] << f->path();
+    return f;
+}
+
+SoundFile* Project::soundFile(const QString& path, const QString& editorId, QString* error)
+{
+    if (auto* existing = qobject_cast<SoundFile*>(file(path)))
+        return existing;
+    auto* f = new SoundFile(path, editorId, this);
+    if (!f->load(error)) {
+        delete f;
+        return nullptr;
+    }
+    adopt(f);
+    return f;
+}
+
+SoundFile* Project::addSoundFile(const QString& path, const QString& editorId, QString* error)
+{
+    SoundFile* f = soundFile(path, editorId, error);
+    if (f && !m_editorFiles.value(editorId).contains(f->path()))
+        m_editorFiles[editorId] << f->path();
+    return f;
+}
+
+SoundFile* Project::newSoundFile(const QString& placeholderPath, const QString& editorId)
+{
+    auto* f = new SoundFile(placeholderPath, editorId, this);
+    f->createEmpty();
     adopt(f);
     m_editorFiles[editorId] << f->path();
     return f;
