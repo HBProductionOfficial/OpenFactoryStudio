@@ -13,8 +13,17 @@ using namespace Formats;
 
 namespace {
 
-constexpr int RulerHeight = 18;
+constexpr int RulerHeight = 20;
 constexpr double MinimumFramesPerPixel = 1.0 / 16.0;
+constexpr double TicksPerSecond = 60.0;
+
+const QColor Background(24, 24, 24);
+const QColor CentreLine(150, 150, 150);
+const QColor Wave(230, 200, 40);
+const QColor SelectionFill(240, 140, 30);
+const QColor WaveInSelection(60, 40, 10);
+const QColor CursorColor(40, 120, 255);
+const QColor PlayColor(255, 255, 255);
 
 } // namespace
 
@@ -37,11 +46,11 @@ void WaveformView::setBuffer(const SampleBuffer& buffer)
     m_cursor = std::clamp<qint64>(m_cursor, 0, frames);
     if (m_selection.end() > std::size_t(frames))
         m_selection = SampleRange{};
-    if (!m_fitted && width() > 0) {
+    if (!m_fitted && width() > 0 && frames > 0) {
         m_fitted = true;
         zoomFit();
     }
-    setFramesPerPixel(m_framesPerPixel);
+    updateScrollBar();
     update();
 }
 
@@ -50,43 +59,37 @@ QRect WaveformView::waveArea() const
     return QRect(0, RulerHeight, width(), std::max(1, height() - RulerHeight - m_scroll->sizeHint().height()));
 }
 
-double WaveformView::maximumFramesPerPixel() const
+double WaveformView::fitFramesPerPixel() const
 {
-    return std::max(MinimumFramesPerPixel * 2, double(m_buffer.frameCount()) / std::max(1, width()));
+    return std::max(MinimumFramesPerPixel, double(m_buffer.frameCount()) / std::max(1, width()));
 }
 
 void WaveformView::setFramesPerPixel(double frames)
 {
-    frames = std::clamp(frames, MinimumFramesPerPixel, std::max(MinimumFramesPerPixel, maximumFramesPerPixel()));
+    // Zooming out may show space after the end of the sound.
+    frames = std::clamp(frames, MinimumFramesPerPixel, std::max(MinimumFramesPerPixel, fitFramesPerPixel() * 64));
     if (frames != m_framesPerPixel) {
         m_framesPerPixel = frames;
         Q_EMIT zoomChanged(m_framesPerPixel);
     }
-    setFirstFrame(m_firstFrame);
     updateScrollBar();
     update();
 }
 
 void WaveformView::zoomIn()
 {
-    const double anchor = m_cursor;
-    const double offset = anchor - m_firstFrame;
     setFramesPerPixel(m_framesPerPixel / 2);
-    setFirstFrame(anchor - offset / 2);
 }
 
 void WaveformView::zoomOut()
 {
-    const double anchor = m_cursor;
-    const double offset = anchor - m_firstFrame;
     setFramesPerPixel(m_framesPerPixel * 2);
-    setFirstFrame(anchor - offset * 2);
 }
 
 void WaveformView::zoomFit()
 {
     m_firstFrame = 0;
-    setFramesPerPixel(maximumFramesPerPixel());
+    setFramesPerPixel(fitFramesPerPixel());
 }
 
 void WaveformView::zoomReset()
@@ -96,9 +99,7 @@ void WaveformView::zoomReset()
 
 void WaveformView::setFirstFrame(double frame)
 {
-    const double visible = width() * m_framesPerPixel;
-    const double last = std::max(0.0, double(m_buffer.frameCount()) - visible);
-    frame = std::clamp(frame, 0.0, last);
+    frame = std::clamp(frame, 0.0, std::max(0.0, double(m_buffer.frameCount()) - 1));
     if (frame == m_firstFrame)
         return;
     m_firstFrame = frame;
@@ -110,8 +111,7 @@ void WaveformView::updateScrollBar()
 {
     const QSignalBlocker blocker(m_scroll);
     const double visible = width() * m_framesPerPixel;
-    const int maximum = int(std::max(0.0, double(m_buffer.frameCount()) - visible));
-    m_scroll->setRange(0, maximum);
+    m_scroll->setRange(0, int(std::max(0.0, double(m_buffer.frameCount()) - visible)));
     m_scroll->setPageStep(std::max(1, int(visible)));
     m_scroll->setSingleStep(std::max(1, int(visible / 10)));
     m_scroll->setValue(int(m_firstFrame));
@@ -119,7 +119,7 @@ void WaveformView::updateScrollBar()
 
 qint64 WaveformView::frameAt(int x) const
 {
-    return std::clamp<qint64>(qint64(std::lround(m_firstFrame + x * m_framesPerPixel)), 0,
+    return std::clamp<qint64>(qint64(std::floor(m_firstFrame + x * m_framesPerPixel)), 0,
                               qint64(m_buffer.frameCount()));
 }
 
@@ -140,8 +140,10 @@ void WaveformView::setCursor(qint64 frame)
 
 void WaveformView::setSelection(SampleRange range)
 {
+    if (range.start > m_buffer.frameCount())
+        range = SampleRange{m_buffer.frameCount(), 0};
     if (range.end() > m_buffer.frameCount())
-        range.count = range.start < m_buffer.frameCount() ? m_buffer.frameCount() - range.start : 0;
+        range.count = m_buffer.frameCount() - range.start;
     if (range.start == m_selection.start && range.count == m_selection.count)
         return;
     m_selection = range;
@@ -162,52 +164,64 @@ void WaveformView::paintEvent(QPaintEvent* event)
     Q_UNUSED(event);
     QPainter p(this);
     const QRect area = waveArea();
-    p.fillRect(rect(), QColor(30, 30, 30));
-    p.fillRect(QRect(0, 0, width(), RulerHeight), QColor(45, 45, 45));
-    p.setPen(QColor(190, 190, 190));
+    p.fillRect(rect(), Background);
+    p.fillRect(QRect(0, 0, width(), RulerHeight), QColor(40, 40, 40));
+    p.setPen(QColor(200, 200, 200));
     const double rate = std::max<std::uint32_t>(1, m_buffer.sampleRate());
-    const double secondsPerPixel = m_framesPerPixel / rate;
-    double step = 0.001;
-    for (double candidate : {0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0}) {
+    const double framesPerTick = rate / TicksPerSecond;
+    const double pixelsPerTick = framesPerTick / m_framesPerPixel;
+    int step = 1;
+    for (int candidate : {1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000}) {
         step = candidate;
-        if (candidate / secondsPerPixel >= 70)
+        if (candidate * pixelsPerTick >= 28)
             break;
     }
-    const double firstSecond = m_firstFrame / rate;
-    for (double t = std::floor(firstSecond / step) * step; xAt(t * rate) < width(); t += step) {
-        const double x = xAt(t * rate);
+    const qint64 firstTick = qint64(std::floor(m_firstFrame / framesPerTick / step)) * step;
+    for (qint64 tick = firstTick;; tick += step) {
+        const double x = xAt(tick * framesPerTick);
+        if (x > width())
+            break;
         if (x < 0)
             continue;
-        p.drawLine(QPointF(x, RulerHeight - 5), QPointF(x, RulerHeight));
-        p.drawText(QPointF(x + 2, RulerHeight - 6), QString::number(t, 'f', step < 0.01 ? 3 : step < 1 ? 2 : 0));
+        p.drawLine(QPointF(x, RulerHeight - 6), QPointF(x, RulerHeight));
+        p.drawText(QPointF(x + 2, RulerHeight - 7), QString::number(tick));
     }
-    if (!m_selection.empty()) {
-        const double left = xAt(double(m_selection.start));
-        const double right = xAt(double(m_selection.end()));
-        p.fillRect(QRectF(left, area.top(), right - left, area.height()), QColor(70, 90, 140));
-    }
+    const double soundEnd = xAt(double(m_buffer.frameCount()));
+    const double selectionLeft = xAt(double(m_selection.start));
+    const double selectionRight = xAt(double(m_selection.end()));
+    if (!m_selection.empty())
+        p.fillRect(QRectF(selectionLeft, area.top(), selectionRight - selectionLeft, area.height()), SelectionFill);
+    // One band per channel. Positive samples go above the centre line.
     const int channels = std::max<int>(1, m_buffer.channels());
-    const double laneHeight = double(area.height()) / channels;
+    const double band = double(area.height()) / channels;
     std::vector<PeakPair> columns(std::size_t(std::max(1, width())));
     for (int c = 0; c < channels; ++c) {
-        const double middle = area.top() + laneHeight * (c + 0.5);
-        const double half = laneHeight / 2 - 2;
-        p.setPen(QColor(80, 80, 80));
-        p.drawLine(QPointF(0, middle), QPointF(width(), middle));
+        const double middle = area.top() + band * (c + 0.5);
+        const double half = band / 2 - 2;
+        p.setPen(CentreLine);
+        p.drawLine(QPointF(0, middle), QPointF(std::min<double>(width(), soundEnd), middle));
         if (m_buffer.empty())
             continue;
         m_peaks.columns(m_buffer, std::uint16_t(c), m_firstFrame, m_framesPerPixel, columns);
-        p.setPen(QColor(110, 200, 110));
-        const double end = xAt(double(m_buffer.frameCount()));
-        for (int x = 0; x < width() && x < end; ++x) {
+        for (int x = 0; x < width() && x < soundEnd; ++x) {
             const PeakPair& peak = columns[std::size_t(x)];
+            const bool selected = !m_selection.empty() && x >= selectionLeft && x < selectionRight;
+            p.setPen(selected ? WaveInSelection : Wave);
             p.drawLine(QPointF(x + 0.5, middle - peak.max * half), QPointF(x + 0.5, middle - peak.min * half));
         }
+        if (band > 8 && c > 0) {
+            p.setPen(QColor(60, 60, 60));
+            p.drawLine(QPointF(0, area.top() + band * c), QPointF(width(), area.top() + band * c));
+        }
     }
-    p.setPen(QPen(QColor(255, 255, 255), 1));
+    if (soundEnd < width()) {
+        p.setPen(CentreLine);
+        p.drawLine(QPointF(soundEnd, area.top()), QPointF(soundEnd, area.bottom()));
+    }
+    p.setPen(QPen(CursorColor, 1));
     p.drawLine(QPointF(xAt(double(m_cursor)), area.top()), QPointF(xAt(double(m_cursor)), area.bottom()));
     if (m_play >= 0) {
-        p.setPen(QPen(QColor(255, 220, 0), 1));
+        p.setPen(QPen(PlayColor, 1));
         p.drawLine(QPointF(xAt(double(m_play)), area.top()), QPointF(xAt(double(m_play)), area.bottom()));
     }
 }
@@ -221,39 +235,82 @@ void WaveformView::resizeEvent(QResizeEvent* event)
         m_fitted = true;
         zoomFit();
     }
-    setFramesPerPixel(m_framesPerPixel);
+    updateScrollBar();
 }
 
 void WaveformView::mousePressEvent(QMouseEvent* event)
 {
-    if (event->button() != Qt::LeftButton || !waveArea().contains(event->position().toPoint()))
+    if (!waveArea().contains(event->position().toPoint()))
         return QWidget::mousePressEvent(event);
     const qint64 frame = frameAt(event->position().toPoint().x());
-    m_selecting = true;
-    if (event->modifiers() & Qt::ShiftModifier) {
-        m_anchor = m_cursor;
-    } else {
-        m_anchor = frame;
-        setSelection(SampleRange{});
+    m_pressPos = event->position().toPoint();
+    m_firstAtPress = m_firstFrame;
+    if (m_tool == Tool::Zoom) {
+        // About the frame under the mouse.
+        const double x = event->position().x();
+        const double anchor = m_firstFrame + x * m_framesPerPixel;
+        event->button() == Qt::RightButton ? zoomOut() : zoomIn();
+        setFirstFrame(anchor - x * m_framesPerPixel);
+        return;
     }
-    setCursor(frame);
-    if (event->modifiers() & Qt::ShiftModifier)
+    if (event->button() != Qt::LeftButton)
+        return QWidget::mousePressEvent(event);
+    m_dragging = true;
+    if (m_tool == Tool::Select) {
+        m_anchor = (event->modifiers() & Qt::ShiftModifier) ? m_cursor : frame;
+        setCursor(frame);
         setSelection(SampleRange{std::size_t(std::min(m_anchor, frame)), std::size_t(std::abs(frame - m_anchor))});
+    }
 }
 
 void WaveformView::mouseMoveEvent(QMouseEvent* event)
 {
-    if (!m_selecting)
+    if (!m_dragging)
         return;
-    const qint64 frame = frameAt(event->position().toPoint().x());
-    setSelection(SampleRange{std::size_t(std::min(m_anchor, frame)), std::size_t(std::abs(frame - m_anchor))});
+    const int x = event->position().toPoint().x();
+    if (m_tool == Tool::Select) {
+        const qint64 frame = frameAt(x);
+        setSelection(SampleRange{std::size_t(std::min(m_anchor, frame)), std::size_t(std::abs(frame - m_anchor))});
+    } else if (m_tool == Tool::MoveView) {
+        setFirstFrame(m_firstAtPress - (x - m_pressPos.x()) * m_framesPerPixel);
+    }
 }
 
 void WaveformView::mouseReleaseEvent(QMouseEvent* event)
 {
-    if (event->button() == Qt::LeftButton)
-        m_selecting = false;
-    QWidget::mouseReleaseEvent(event);
+    if (event->button() != Qt::LeftButton || !m_dragging)
+        return QWidget::mouseReleaseEvent(event);
+    m_dragging = false;
+    const QPoint delta = event->position().toPoint() - m_pressPos;
+    if (m_selection.empty())
+        return;
+    switch (m_tool) {
+    case Tool::MoveSelection: {
+        const qint64 shift = qint64(std::lround(delta.x() * m_framesPerPixel));
+        if (shift != 0) {
+            const qint64 rest = qint64(m_buffer.frameCount() - m_selection.count);
+            Q_EMIT moveRequested(m_selection, std::clamp<qint64>(qint64(m_selection.start) + shift, 0, rest));
+        }
+        break;
+    }
+    case Tool::HorizontalResize: {
+        const qint64 frames = qint64(m_selection.count) + qint64(std::lround(delta.x() * m_framesPerPixel));
+        if (frames != qint64(m_selection.count) && frames > 0)
+            Q_EMIT stretchRequested(m_selection, frames);
+        break;
+    }
+    case Tool::VerticalResize: {
+        // Dragging up makes it louder. Half a band up doubles the amplitude.
+        const int channels = std::max<int>(1, m_buffer.channels());
+        const double half = double(waveArea().height()) / channels / 2;
+        const double factor = std::max(0.0, 1.0 - delta.y() / std::max(1.0, half));
+        if (delta.y() != 0)
+            Q_EMIT amplitudeRequested(m_selection, factor);
+        break;
+    }
+    default:
+        break;
+    }
 }
 
 void WaveformView::wheelEvent(QWheelEvent* event)
@@ -261,15 +318,7 @@ void WaveformView::wheelEvent(QWheelEvent* event)
     const int steps = event->angleDelta().y() / 120;
     if (steps == 0)
         return;
-    if (event->modifiers() & Qt::ControlModifier) {
-        // About the frame under the mouse.
-        const double x = event->position().x();
-        const double anchor = m_firstFrame + x * m_framesPerPixel;
-        setFramesPerPixel(m_framesPerPixel * std::pow(0.5, steps));
-        setFirstFrame(anchor - x * m_framesPerPixel);
-    } else {
-        setFirstFrame(m_firstFrame - steps * width() * m_framesPerPixel / 8);
-    }
+    setFramesPerPixel(m_framesPerPixel * std::pow(0.5, steps));
     event->accept();
 }
 

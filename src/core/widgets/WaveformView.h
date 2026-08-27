@@ -10,15 +10,29 @@ class QScrollBar;
 
 namespace OFS {
 
+// Sounds editor workspace. x maps to frame floor(x * framesPerPixel + firstFrame).
 class OFS_CORE_EXPORT WaveformView : public QWidget
 {
     Q_OBJECT
 
 public:
+    enum class Tool
+    {
+        MoveView,
+        Zoom,
+        Select,
+        MoveSelection,
+        HorizontalResize,
+        VerticalResize,
+    };
+
     explicit WaveformView(QWidget* parent = nullptr);
 
     void setBuffer(const Formats::SampleBuffer& buffer);
     const Formats::SampleBuffer& buffer() const { return m_buffer; }
+
+    Tool tool() const { return m_tool; }
+    void setTool(Tool tool) { m_tool = tool; }
 
     double framesPerPixel() const { return m_framesPerPixel; }
     void setFramesPerPixel(double frames);
@@ -46,6 +60,10 @@ Q_SIGNALS:
     void cursorChanged(qint64 frame);
     void selectionChanged(Formats::SampleRange range);
     void zoomChanged(double framesPerPixel);
+    // Tool results, sent on release. `start` counts in the sound without the moved frames.
+    void moveRequested(Formats::SampleRange range, qint64 start);
+    void stretchRequested(Formats::SampleRange range, qint64 frames);
+    void amplitudeRequested(Formats::SampleRange range, double factor);
 
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -58,18 +76,21 @@ protected:
 private:
     QRect waveArea() const;
     void updateScrollBar();
-    double maximumFramesPerPixel() const;
+    double fitFramesPerPixel() const;
 
     Formats::SampleBuffer m_buffer;
     Formats::WaveformPeaks m_peaks;
     QScrollBar* m_scroll;
+    Tool m_tool = Tool::Select;
     double m_framesPerPixel = 1.0;
     double m_firstFrame = 0.0;
     qint64 m_cursor = 0;
     Formats::SampleRange m_selection;
     qint64 m_play = -1;
-    bool m_selecting = false;
+    bool m_dragging = false;
+    QPoint m_pressPos;
     qint64 m_anchor = 0;
+    double m_firstAtPress = 0;
     bool m_fitted = false;
 };
 
