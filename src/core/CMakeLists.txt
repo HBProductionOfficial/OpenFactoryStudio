@@ -47,6 +47,8 @@ add_library(ofscore SHARED
     anims/AirGif.h
     anims/AirGif.cpp
     widgets/TimelineWidget.h
+    widgets/WaveformView.h
+    widgets/WaveformView.cpp
     widgets/TimelineWidget.cpp
     actions/ActionRegistry.h
     actions/ActionRegistry.cpp

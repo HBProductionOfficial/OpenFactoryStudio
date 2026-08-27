@@ -1,0 +1,52 @@
+#include "core/widgets/WaveformView.h"
+
+#include <QSignalSpy>
+#include <QTest>
+
+using namespace OFS;
+using namespace OFS::Formats;
+
+class WaveformViewTest : public QObject
+{
+    Q_OBJECT
+
+private Q_SLOTS:
+    void viewing()
+    {
+        WaveformView view;
+        view.resize(500, 200);
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        std::vector<std::int16_t> samples(1000);
+        for (std::size_t i = 0; i < samples.size(); ++i)
+            samples[i] = std::int16_t((i % 50) * 400 - 10000);
+        view.setBuffer(SampleBuffer::fromInt16(samples, 1, 11025));
+        QCOMPARE(view.framesPerPixel(), 2.0);
+        QCOMPARE(view.frameAt(250), qint64(500));
+        QCOMPARE(view.xAt(500), 250.0);
+
+        QSignalSpy selected(&view, &WaveformView::selectionChanged);
+        QTest::mousePress(&view, Qt::LeftButton, {}, QPoint(100, 100));
+        QTest::mouseMove(&view, QPoint(150, 100));
+        QTest::mouseRelease(&view, Qt::LeftButton, {}, QPoint(150, 100));
+        QCOMPARE(view.cursor(), qint64(200));
+        QCOMPARE(view.selection().start, std::size_t(200));
+        QCOMPARE(view.selection().count, std::size_t(100));
+        QVERIFY(!selected.isEmpty());
+        QTest::mouseClick(&view, Qt::LeftButton, Qt::ShiftModifier, QPoint(50, 100));
+        QCOMPARE(view.selection().start, std::size_t(100));
+        QCOMPARE(view.selection().count, std::size_t(100));
+
+        view.setCursor(500);
+        view.zoomIn();
+        QCOMPARE(view.framesPerPixel(), 1.0);
+        QCOMPARE(view.xAt(500), 250.0);
+        view.zoomOut();
+        view.zoomOut();
+        QCOMPARE(view.framesPerPixel(), 2.0);
+        QCOMPARE(view.firstFrame(), 0.0);
+    }
+};
+
+QTEST_MAIN(WaveformViewTest)
+#include "WaveformViewTest.moc"
