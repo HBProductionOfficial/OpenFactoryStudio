@@ -1,10 +1,16 @@
 #include <filesystem>
 #include <fstream>
+#include <iostream>
+#include <string>
 
 int main(int argc, char** argv)
 {
     namespace fs = std::filesystem;
-    std::ofstream log("mugen.log");
+    const bool ikemen = argc > 0 && fs::path(argv[0]).filename().string().rfind("Ikemen_GO", 0) == 0;
+    std::ofstream file;
+    if (!ikemen)
+        file.open("mugen.log");
+    std::ostream& log = ikemen ? std::cout : static_cast<std::ostream&>(file);
     log << "Fake engine status log\n";
     log << "Arguments:";
     for (int i = 1; i < argc; ++i)

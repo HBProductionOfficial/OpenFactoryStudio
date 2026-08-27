@@ -742,6 +742,18 @@ private Q_SLOTS:
         QVERIFY(!QFileInfo::exists(engineDir.filePath("chars/ofs_0")));
         QVERIFY(QFileInfo::exists(engineDir.filePath("chars")));
 
+        QTemporaryDir ikemenDir;
+        const QString ikemen = ikemenDir.filePath("Ikemen_GO" + suffix);
+        QVERIFY(QFile::copy(QCoreApplication::applicationDirPath() + "/fake_mugen" + suffix, ikemen));
+        QDir().mkpath(ikemenDir.filePath("chars"));
+        RunConfiguration::save(engineConfig, {{"Ikemen GO", QDir::toNativeSeparators(ikemen), "", "%0 kfm"}});
+        output->clear();
+        window.runInEngine();
+        QTRY_VERIFY_WITH_TIMEOUT(!window.isEngineRunning(), 15000);
+        QVERIFY2(output->toPlainText().contains("Arguments: ofs_0 kfm"), qPrintable(output->toPlainText()));
+        QVERIFY(!QFileInfo::exists(ikemenDir.filePath("mugen.log")));
+        QVERIFY(!QFileInfo::exists(ikemenDir.filePath("chars/ofs_0")));
+
         RunConfiguration::save(engineConfig, {});
     }
 

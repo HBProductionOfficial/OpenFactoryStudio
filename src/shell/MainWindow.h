@@ -4,6 +4,7 @@
 #include "core/preset/PresetModel.h"
 #include "shell/dialogs/MultiLineFindDialog.h"
 
+#include <QDateTime>
 #include <QHash>
 #include <QMainWindow>
 #include <QPointer>
@@ -132,6 +133,8 @@ private:
     QPointer<QProcess> m_engineProcess;
     RunCopy m_runCopy;
     QString m_runLog;
+    QDateTime m_runStarted;
+    QString m_runOutput;
     QPointer<MultiLineFindDialog> m_multiFind;
     bool m_welcomeTab = false;
 };

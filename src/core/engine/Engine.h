@@ -106,6 +106,8 @@ public:
     virtual VariableUsage variableUsage(const Project& project, const QString& editorId, const QString& text) const;
 
     virtual RunCopy prepareRun(const Project& project, const QString& engineDir) const;
+    // Log the engine writes while running, shown in Engine Output. A folder means the newest file
+    // the run wrote there. When empty, Engine Output shows what the engine printed.
     virtual QString runLogFile(const QString& engineDir) const;
 
     // Called after the Sprites editor resized sprites, so boxes drawn on them scale too.

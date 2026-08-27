@@ -1055,9 +1055,14 @@ void MainWindow::runInEngine()
     process->setProgram(run.executable);
     process->setArguments(QProcess::splitCommand(parameters));
     process->setWorkingDirectory(engineDir);
+    process->setProcessChannelMode(QProcess::MergedChannels);
     m_engineProcess = process;
     m_runCopy = copy;
     m_runLog = engine->runLogFile(engineDir);
+    m_runStarted = QDateTime::currentDateTime().addSecs(-1);
+    m_runOutput.clear();
+    connect(process, &QProcess::readyRead, this,
+            [this, process] { m_runOutput += QString::fromLocal8Bit(process->readAll()); });
     connect(process, &QProcess::finished, this, [this, process] { finishEngineRun(process); });
     connect(process, &QProcess::errorOccurred, this, [this, process](QProcess::ProcessError error) {
         if (error != QProcess::FailedToStart)
@@ -1106,12 +1111,19 @@ void MainWindow::finishEngineRun(QProcess* process)
 {
     if (process != m_engineProcess)
         return;
-    QFile log(m_runLog);
-    if (!m_runLog.isEmpty() && log.open(QIODevice::ReadOnly)) {
-        QString text = QString::fromLocal8Bit(log.readAll());
-        text.replace(QLatin1String("\r\n"), QLatin1String("\n"));
-        m_dock->engineOutput()->setPlainText(text);
+    m_runOutput += QString::fromLocal8Bit(process->readAll());
+    QString logPath = m_runLog;
+    if (QFileInfo(logPath).isDir()) {
+        const QFileInfoList files = QDir(logPath).entryInfoList(QDir::Files, QDir::Time);
+        logPath = files.isEmpty() ? QString() : files.first().absoluteFilePath();
     }
+    QString text = m_runOutput;
+    QFile log(logPath);
+    if (!logPath.isEmpty() && QFileInfo(logPath).lastModified() >= m_runStarted && log.open(QIODevice::ReadOnly))
+        text = QString::fromLocal8Bit(log.readAll());
+    text.replace(QLatin1String("\r\n"), QLatin1String("\n"));
+    if (!text.isEmpty())
+        m_dock->engineOutput()->setPlainText(text);
     m_runCopy.remove();
     m_runCopy = RunCopy();
     m_engineProcess = nullptr;

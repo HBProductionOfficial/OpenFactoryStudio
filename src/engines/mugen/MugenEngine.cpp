@@ -220,7 +220,11 @@ RunCopy MugenEngine::prepareRun(const Project& project, const QString& engineDir
 
 QString MugenEngine::runLogFile(const QString& engineDir) const
 {
-    return QDir(engineDir).filePath(QStringLiteral("mugen.log"));
+    // Ikemen GO (run like M.U.G.E.N) writes its logs to save/logs, M.U.G.E.N to mugen.log.
+    const QDir dir(engineDir);
+    if (!dir.entryList({QStringLiteral("Ikemen_GO*")}, QDir::Files).isEmpty())
+        return dir.filePath(QStringLiteral("save/logs"));
+    return dir.filePath(QStringLiteral("mugen.log"));
 }
 
 QStringList MugenEngine::codeTemplateDirs(const QString& editorId) const
