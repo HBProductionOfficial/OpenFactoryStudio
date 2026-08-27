@@ -125,6 +125,10 @@ add_library(ofscore SHARED
     sprites/SpriteExport.cpp
     sprites/SpriteFile.h
     sprites/SpriteFile.cpp
+    sounds/SoundDocument.h
+    sounds/SoundDocument.cpp
+    sounds/SoundFile.h
+    sounds/SoundFile.cpp
     sprites/SpriteImages.h
     sprites/SpriteImages.cpp
     sprites/SpriteTransfer.h
