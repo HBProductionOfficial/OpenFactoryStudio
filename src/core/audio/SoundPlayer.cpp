@@ -3,7 +3,9 @@
 namespace OFS {
 
 SoundPlayer::SoundPlayer(QObject* parent)
-    : SoundPlayer(AudioEngine::Backend::System, parent)
+    : SoundPlayer(qEnvironmentVariable("OFS_AUDIO_BACKEND") == QLatin1String("null") ? AudioEngine::Backend::Null
+                                                                                     : AudioEngine::Backend::System,
+                  parent)
 {}
 
 SoundPlayer::SoundPlayer(AudioEngine::Backend backend, QObject* parent)

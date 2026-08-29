@@ -8,12 +8,14 @@
 #include "core/project/ProjectFile.h"
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
+#include "core/sounds/SoundFile.h"
 #include "core/sprites/SpriteDocument.h"
 #include "core/sprites/SpriteFile.h"
 #include "core/widgets/EPanelWidget.h"
 #include "core/widgets/GraphicsView.h"
 #include "core/widgets/ImageCanvas.h"
 #include "core/widgets/TimelineWidget.h"
+#include "core/widgets/WaveformView.h"
 #include "formats/codecs/Png.h"
 #include "shell/AdvancedSearchPanel.h"
 #include "shell/AnimationPage.h"
@@ -22,6 +24,7 @@
 #include "shell/FileDialogs.h"
 #include "shell/ImageEditor.h"
 #include "shell/ProjectView.h"
+#include "shell/SoundPage.h"
 #include "shell/SpritePage.h"
 #include "shell/SpritesEditor.h"
 #include "shell/StatusBar.h"
@@ -133,6 +136,7 @@ class MainWindowTest : public QObject
 private Q_SLOTS:
     void initTestCase()
     {
+        qputenv("OFS_AUDIO_BACKEND", "null");
         m_context = new AppContext;
         m_context->loadSettings();
         m_context->initializeEngines();
@@ -2016,6 +2020,270 @@ private Q_SLOTS:
             if (auto* p = qobject_cast<AnimationPage*>(tabs->widget(i)))
                 p->file()->document()->setModified(false);
         }
+    }
+
+    void soundsEditor()
+    {
+        QTemporaryDir dir;
+        // Sounds 0,0 (0.2 seconds), 0,1 (1000 frames) and 5,2 (2 seconds), mono 16-bit at 11025 Hz.
+        auto wav = [](std::size_t frames, std::int16_t value) {
+            auto bytes = Formats::encodeAudio(
+                Formats::SampleBuffer::fromInt16(std::vector<std::int16_t>(frames, value), 1, 11025));
+            return bytes ? bytes.value() : Formats::Bytes();
+        };
+        auto toBytes = [](const Formats::Bytes& bytes) {
+            return QByteArray(reinterpret_cast<const char*>(bytes.data()), qsizetype(bytes.size()));
+        };
+        Formats::SndDocument snd;
+        snd.sounds.push_back(Formats::SndSound{0, 0, wav(2205, 1000)});
+        snd.sounds.push_back(Formats::SndSound{0, 1, wav(1000, -2000)});
+        snd.sounds.push_back(Formats::SndSound{5, 2, wav(22050, 500)});
+        writeFile(dir.filePath("s.snd"), toBytes(snd.write()));
+        writeFile(dir.filePath("s.def"), "[Info]\nname = \"S\"\nmugenversion = 1.0\n"
+                                         "[Files]\ncns = s.cns\nsound = s.snd\n");
+        writeFile(dir.filePath("s.cns"), "[Data]\nlife = 1000\n");
+
+        MainWindow window(*m_context);
+        window.resize(1100, 800);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("s.def")));
+        ActionRegistry& actions = m_context->actions();
+        actions.action("editor_snd")->trigger();
+        ProjectView* view = window.currentProjectView();
+        QCOMPARE(view->currentEditor(), QStringLiteral("sounds"));
+        auto* page = view->findChild<SoundPage*>();
+        QVERIFY(page);
+        SoundFile* file = page->file();
+        auto* label = view->findChild<QLabel*>("snd_sel_lb");
+        auto* group = view->findChild<QSpinBox*>("snd_grp");
+        auto* number = view->findChild<QSpinBox*>("snd_num");
+        auto* info = view->findChild<QLabel*>("snd_info_lb");
+        auto* start = view->findChild<QSpinBox*>("snd_sel_start");
+        auto* end = view->findChild<QSpinBox*>("snd_sel_end");
+        auto* volume = view->findChild<QSlider*>("snd_volume");
+        QVERIFY(label && group && number && info && start && end && volume);
+        StatusBar* status = window.ofsStatusBar();
+        QCOMPARE(label->text(), QStringLiteral("1 / 3"));
+        QCOMPARE(info->text(), QStringLiteral("Channels: 1 (Mono)\nSample rate: 11025 Hz\nBits per sample: 16 bits\n"
+                                              "Duration: 0.2 seconds\nTick count: 12 at 60Hz"));
+        QCOMPARE(volume->value(), 55);
+        QCOMPARE(status->section(0), QStringLiteral("Sample: 0/2205, Selection: 0/0"));
+        QCOMPARE(status->section(1), QStringLiteral("Time: 0.000/0.200s, Selection: 0.000/0.000s"));
+        QCOMPARE(status->section(2), QStringLiteral("Status: Stopped"));
+        QVERIFY(actions.action("snd_stop")->isChecked());
+        QVERIFY(actions.action("snd_tool_select")->isChecked());
+
+        actions.action("snd_next")->trigger();
+        QCOMPARE(page->current(), 1);
+        QCOMPARE(label->text(), QStringLiteral("2 / 3"));
+        actions.action("snd_next_grp")->trigger();
+        QCOMPARE(page->current(), 2);
+        QCOMPARE(group->value(), 5);
+        QCOMPARE(number->value(), 2);
+        actions.action("snd_next")->trigger();
+        QCOMPARE(page->current(), 2);
+        actions.action("snd_prev_grp")->trigger();
+        QCOMPARE(page->current(), 0);
+        actions.action("snd_prev")->trigger();
+        QCOMPARE(page->current(), 0);
+
+        number->setValue(3);
+        QCOMPARE(file->document().sounds().at(0).number, 3);
+        QVERIFY(file->isModified());
+        actions.action("edit_undo")->trigger();
+        QCOMPARE(file->document().sounds().at(0).number, 0);
+        QCOMPARE(number->value(), 0);
+        QVERIFY(!file->isModified());
+
+        actions.action("snd_select_all")->trigger();
+        QCOMPARE(end->value(), 2205);
+        QCOMPARE(status->section(0), QStringLiteral("Sample: 0/2205, Selection: 0/2205"));
+        start->setValue(100);
+        end->setValue(300);
+        QCOMPARE(page->view()->selection().start, std::size_t(100));
+        QCOMPARE(page->view()->selection().count, std::size_t(200));
+        QCOMPARE(status->section(1), QStringLiteral("Time: 0.000/0.200s, Selection: 0.009/0.027s"));
+
+        actions.action("snd_remove_selected")->trigger();
+        QVERIFY(page->hasChanges());
+        QCOMPARE(page->samples().frameCount(), std::size_t(2005));
+        QVERIFY(info->text().contains(QStringLiteral("Duration: 0.181859 seconds")));
+        QVERIFY(!file->isModified());
+        actions.action("snd_discard_changes")->trigger();
+        QVERIFY(!page->hasChanges());
+        QCOMPARE(page->samples().frameCount(), std::size_t(2205));
+        end->setValue(205);
+        actions.action("snd_remove_selected")->trigger();
+        QCOMPARE(page->samples().frameCount(), std::size_t(2000));
+        answerDiscard(QMessageBox::No);
+        actions.action("snd_next")->trigger();
+        QCOMPARE(page->current(), 0);
+        QVERIFY(page->hasChanges());
+        answerDiscard(QMessageBox::No);
+        actions.action("editor_def")->trigger();
+        QCOMPARE(view->currentEditor(), QStringLiteral("sounds"));
+        QVERIFY(actions.action("editor_snd")->isChecked());
+        actions.action("snd_save_changes")->trigger();
+        QVERIFY(!page->hasChanges());
+        QVERIFY(file->isModified());
+        QCOMPARE(SoundEdits::decode(file->document().sounds().at(0)).value().buffer.frameCount(), std::size_t(2000));
+        actions.action("edit_undo")->trigger();
+        QCOMPARE(page->samples().frameCount(), std::size_t(2205));
+        actions.action("edit_redo")->trigger();
+        QCOMPARE(page->samples().frameCount(), std::size_t(2000));
+
+        actions.action("snd_next")->trigger();
+        QCOMPARE(page->current(), 1);
+        page->view()->setFocus();
+        end->setValue(10);
+        actions.action("edit_copy")->trigger();
+        actions.action("snd_select_none")->trigger();
+        actions.action("edit_paste")->trigger();
+        QCOMPARE(page->samples().frameCount(), std::size_t(1010));
+        QCOMPARE(page->view()->selection().count, std::size_t(10));
+        actions.action("edit_cut")->trigger();
+        QCOMPARE(page->samples().frameCount(), std::size_t(1000));
+        end->setValue(100);
+        actions.action("snd_fill_silence")->trigger();
+        QCOMPARE(page->samples().sample(50, 0), 0.0f);
+        QVERIFY(page->samples().sample(150, 0) < 0.0f);
+        actions.action("snd_discard_changes")->trigger();
+        end->setValue(100);
+        actions.action("snd_fade_in")->trigger();
+        QVERIFY(std::abs(page->samples().sample(0, 0)) < std::abs(page->samples().sample(99, 0)));
+        actions.action("snd_discard_changes")->trigger();
+
+        actions.action("snd_next")->trigger();
+        QCOMPARE(page->current(), 2);
+        page->view()->setCursor(1000);
+        actions.action("snd_play")->trigger();
+        QCOMPARE(page->state(), SoundPage::State::Playing);
+        QVERIFY(actions.action("snd_play")->isChecked());
+        QCOMPARE(status->section(2), QStringLiteral("Status: Playing"));
+        actions.action("snd_pause")->trigger();
+        QCOMPARE(page->state(), SoundPage::State::Paused);
+        QVERIFY(actions.action("snd_pause")->isChecked());
+        QCOMPARE(status->section(2), QStringLiteral("Status: Paused"));
+        actions.action("snd_play")->trigger();
+        QCOMPARE(page->state(), SoundPage::State::Playing);
+        actions.action("snd_stop")->trigger();
+        QCOMPARE(page->state(), SoundPage::State::Stopped);
+        QVERIFY(actions.action("snd_stop")->isChecked());
+        QCOMPARE(page->view()->cursor(), 0);
+        actions.action("snd_play_loop")->trigger();
+        QVERIFY(actions.action("snd_play_loop")->isChecked());
+        actions.action("snd_stop")->trigger();
+        actions.action("snd_prev")->trigger();
+        page->view()->setCursor(500);
+        actions.action("snd_play")->trigger();
+        QTRY_COMPARE(page->state(), SoundPage::State::Stopped);
+        QCOMPARE(page->view()->cursor(), 0);
+        QVERIFY(actions.action("snd_stop")->isChecked());
+
+        actions.action("snd_tool_zoom")->trigger();
+        QCOMPARE(page->view()->tool(), WaveformView::Tool::Zoom);
+        QVERIFY(!actions.action("snd_tool_select")->isChecked());
+        actions.action("snd_tool_select")->trigger();
+        QCOMPARE(page->view()->tool(), WaveformView::Tool::Select);
+
+        auto* issues = window.findChild<QTableView*>("issuesView");
+        QVERIFY(issues);
+        auto issueMessages = [issues] {
+            QStringList messages;
+            for (int row = 0; row < issues->model()->rowCount(); ++row)
+                messages << issues->model()->index(row, 0).data().toString();
+            return messages;
+        };
+        const QString duplicateIssue = QStringLiteral("The group 0, index 1 is already in use by sound #2!");
+        actions.action("snd_duplicate")->trigger();
+        QCOMPARE(file->document().count(), 4);
+        QCOMPARE(page->current(), 2);
+        QTRY_VERIFY(issueMessages().contains(duplicateIssue));
+        number->setValue(7);
+        QTRY_VERIFY(!issueMessages().contains(duplicateIssue));
+        m_context->config().setValue(QStringLiteral("confirm_delete"), false);
+        actions.action("snd_delete")->trigger();
+        QCOMPARE(file->document().count(), 3);
+
+        writeFile(dir.filePath("9-4.wav"), toBytes(wav(300, 100)));
+        FileDialogs::setOpenPromptOverride(
+            [&dir](const QString&, const QString&, const QString&) { return dir.filePath("9-4.wav"); });
+        QTimer::singleShot(0, this, [] {
+            auto* add = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+            QVERIFY(add);
+            QCOMPARE(add->objectName(), QStringLiteral("AddSom"));
+            add->findChild<QCheckBox*>("detect")->setChecked(true);
+            add->accept();
+        });
+        actions.action("snd_add")->trigger();
+        QCOMPARE(file->document().count(), 4);
+        QCOMPARE(group->value(), 9);
+        QCOMPARE(number->value(), 4);
+
+        QTimer::singleShot(0, this, [] {
+            auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            QCOMPARE(dialog->objectName(), QStringLiteral("ResampleDlg"));
+            auto* rate = dialog->findChild<QComboBox*>("rate");
+            QCOMPARE(rate->currentData().toInt(), 11025);
+            rate->setCurrentIndex(rate->findData(22050));
+            dialog->accept();
+        });
+        actions.action("snd_resample")->trigger();
+        QCOMPARE(page->samples().sampleRate(), 22050u);
+        QVERIFY(std::abs(int(page->samples().frameCount()) - 600) <= 2);
+
+        QVERIFY(QDir(dir.path()).mkdir("out"));
+        FileDialogs::setSavePromptOverride(
+            [&dir](const QString&, const QString&, const QString&) { return dir.filePath("out/list.ffe"); });
+        QTimer::singleShot(0, this, [] {
+            auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            QCOMPARE(dialog->objectName(), QStringLiteral("ExpDlg"));
+            dialog->accept();
+        });
+        actions.action("snd_export")->trigger();
+        QVERIFY(QFile::exists(dir.filePath("out/list.ffe")));
+        QVERIFY(QFile::exists(dir.filePath("out/9-4.wav")));
+        actions.action("snd_delete")->trigger();
+        QCOMPARE(file->document().count(), 3);
+        FileDialogs::setOpenPromptOverride(
+            [&dir](const QString&, const QString&, const QString&) { return dir.filePath("out/list.ffe"); });
+        QTimer::singleShot(0, this, [] {
+            auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            QCOMPARE(box->windowTitle(), boxTitle("Conflict!"));
+            box->button(QMessageBox::NoToAll)->click();
+        });
+        actions.action("snd_import")->trigger();
+        FileDialogs::setOpenPromptOverride({});
+        QCOMPARE(file->document().count(), 4);
+        QCOMPARE(group->value(), 9);
+        QCOMPARE(page->samples().sampleRate(), 22050u);
+
+        QTemporaryDir outside;
+        FileDialogs::setSavePromptOverride(
+            [&outside](const QString&, const QString&, const QString&) { return outside.filePath("copy.snd"); });
+        QTimer::singleShot(0, this, [] {
+            auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            QCOMPARE(box->windowTitle(), boxTitle("External file!"));
+            box->button(QMessageBox::Yes)->click();
+        });
+        actions.action("editor_saveas")->trigger();
+        FileDialogs::setSavePromptOverride({});
+        QVERIFY(QFile::exists(outside.filePath("copy.snd")));
+        QCOMPARE(file->path(), dir.filePath("s.snd"));
+        QVERIFY(file->isModified());
+
+        // Save runs in the background.
+        actions.action("file_save")->trigger();
+        QVERIFY(!file->isModified());
+        SoundFile reread(dir.filePath("s.snd"), "sounds");
+        QString error;
+        QVERIFY2(reread.load(&error), qPrintable(error));
+        QCOMPARE(reread.document().count(), 4);
+        QCOMPARE(reread.document().sounds().at(3).group, 9);
     }
 
     void spritesSaveAs()

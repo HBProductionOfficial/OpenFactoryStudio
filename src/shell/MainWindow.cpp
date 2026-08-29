@@ -18,11 +18,13 @@
 #include "core/project/ProjectFile.h"
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
+#include "core/sounds/SoundFile.h"
 #include "core/sprites/SpriteFile.h"
 #include "core/text/Encodings.h"
 #include "core/theme/ThemeManager.h"
 #include "core/widgets/GraphicsView.h"
 #include "core/widgets/ImageCanvas.h"
+#include "core/widgets/WaveformView.h"
 #include "shell/AdvancedSearchPanel.h"
 #include "shell/AnimationPage.h"
 #include "shell/AnimationsEditor.h"
@@ -34,6 +36,8 @@
 #include "shell/MenuBuilder.h"
 #include "shell/ProjectView.h"
 #include "shell/QuickFindBar.h"
+#include "shell/SoundPage.h"
+#include "shell/SoundsEditor.h"
 #include "shell/SpritePage.h"
 #include "shell/SpritesEditor.h"
 #include "shell/StatusBar.h"
@@ -448,6 +452,8 @@ void MainWindow::connectEditActions()
         ProjectView* view = currentProjectView();
         QTabWidget* tabs =
             view ? view->findChild<QTabWidget*>(QStringLiteral("fileTabs_") + view->currentEditor()) : nullptr;
+        if (auto* sounds = tabs ? qobject_cast<SoundPage*>(tabs->currentWidget()) : nullptr)
+            return sounds->file() ? sounds->file()->undoStack() : nullptr;
         auto* page = tabs ? qobject_cast<SpritePage*>(tabs->currentWidget()) : nullptr;
         if (page && page->imageMode())
             return page->imageEditor()->undoStack();
@@ -497,7 +503,14 @@ void MainWindow::connectEditActions()
             return nullptr;
         return animations;
     };
-    auto clipboard = [textTarget, spritesEditing, animationsEditing, forText](Clip clip) {
+    auto soundEditing = [this]() -> SoundPage* {
+        ProjectView* view = currentProjectView();
+        SoundsEditor* sounds = view ? view->soundsEditor() : nullptr;
+        if (!sounds || view->currentEditor() != QLatin1String("sounds"))
+            return nullptr;
+        return sounds->page();
+    };
+    auto clipboard = [textTarget, spritesEditing, animationsEditing, soundEditing, forText](Clip clip) {
         std::function<void()> text;
         if (clip == Clip::Cut)
             text = forText(&QPlainTextEdit::cut, &QLineEdit::cut);
@@ -505,9 +518,16 @@ void MainWindow::connectEditActions()
             text = forText(&QPlainTextEdit::copy, &QLineEdit::copy);
         else
             text = forText(&QPlainTextEdit::paste, &QLineEdit::paste);
-        return [textTarget, spritesEditing, animationsEditing, text, clip] {
+        return [textTarget, spritesEditing, animationsEditing, soundEditing, text, clip] {
             if (textTarget()) {
                 text();
+            } else if (SoundPage* sound = soundEditing()) {
+                if (clip == Clip::Cut)
+                    sound->cutSelection();
+                else if (clip == Clip::Copy)
+                    sound->copySelection();
+                else
+                    sound->paste();
             } else if (AnimationsEditor* animations = animationsEditing()) {
                 if (clip == Clip::Cut)
                     animations->cutBox();
@@ -678,6 +698,36 @@ void MainWindow::connectEditActions()
                 refreshActionStates(); // nothing to edit: the action unchecks again
         });
     }
+    // Sounds editor actions.
+    for (const char* id :
+         {"snd_add",         "snd_delete",       "snd_duplicate",       "snd_open_sample",  "snd_save_sample",
+          "snd_resample",    "snd_play",         "snd_play_loop",       "snd_pause",        "snd_stop",
+          "snd_select_all",  "snd_select_none",  "snd_remove_selected", "snd_fill_silence", "snd_fade_in",
+          "snd_fade_out",    "snd_save_changes", "snd_discard_changes", "snd_tool_offset",  "snd_tool_zoom",
+          "snd_tool_select", "snd_tool_move",    "snd_tool_hresize",    "snd_tool_vresize", "snd_import_proj",
+          "snd_prev",        "snd_next",         "snd_delete_grp",      "snd_rename_grp",   "snd_export",
+          "snd_import",      "snd_prev_grp",     "snd_next_grp"}) {
+        const QString action = QString::fromLatin1(id);
+        on(id, [this, action] {
+            ProjectView* view = currentProjectView();
+            if (view && view->soundsEditor())
+                view->soundsEditor()->perform(action);
+            refreshActionStates();
+        });
+    }
+    auto exclusive = [this, &actions](std::initializer_list<const char*> ids) {
+        auto* group = new QActionGroup(this);
+        group->setExclusive(true);
+        for (const char* id : ids) {
+            if (QAction* a = actions.action(QString::fromLatin1(id)))
+                group->addAction(a);
+        }
+    };
+    exclusive({"snd_tool_offset", "snd_tool_zoom", "snd_tool_select", "snd_tool_move", "snd_tool_hresize",
+               "snd_tool_vresize"});
+    exclusive({"snd_play", "snd_play_loop", "snd_pause", "snd_stop"});
+    if (QAction* select = actions.action(QStringLiteral("snd_tool_select")))
+        select->setChecked(true);
     // Animations editor actions.
     for (const char* id : {"anim_add",           "anim_delete",          "anim_duplicate",
                            "anim_code",          "anim_save_gif",        "anim_play",
@@ -1205,7 +1255,7 @@ void MainWindow::openEditorFile(const QString& editorId)
         return;
     const EditorInfo info = view->engine()->editor(editorId);
     if (info.id.isEmpty() || (info.workspace != WorkspaceType::Code && editorId != QLatin1String("sprites") &&
-                              editorId != QLatin1String("animations")))
+                              editorId != QLatin1String("animations") && editorId != QLatin1String("sounds")))
         return;
     const QString key = editorId + QStringLiteral("_path");
     const QString start = m_context.config().value(key, view->project()->directory());
@@ -1235,6 +1285,29 @@ bool MainWindow::saveFileAs(ProjectFile* file)
     auto* project = file ? qobject_cast<Project*>(file->parent()) : nullptr;
     if (!project)
         return false;
+    if (qobject_cast<SoundFile*>(file)) {
+        const QString target = FileDialogs::getSaveFileName(this, tr("Save sounds as..."), file->path(),
+                                                            tr("Sounds (*.snd);;All files (*.*)"));
+        if (target.isEmpty())
+            return false;
+        const QString folder = QDir(project->directory()).absolutePath() + QLatin1Char('/');
+        QString error;
+        bool written = false;
+        if (QFileInfo(target).absoluteFilePath().startsWith(folder, Qt::CaseInsensitive)) {
+            written = file->saveAs(target, &error);
+        } else {
+            if (QMessageBox::question(this, tr("External file!"),
+                                      tr("This file isn't a child of the project directory, so will be ignored on "
+                                         "'Run in engine', 'Backup' and 'Save as' functions. Do you want to save it as "
+                                         "copy?"),
+                                      QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes)
+                return false;
+            written = file->writeCopy(target, &error);
+        }
+        if (!written)
+            QMessageBox::warning(this, tr("Save sounds as..."), error);
+        return written;
+    }
     const EditorInfo info = project->engine()->editor(file->editorId());
     const QString target = FileDialogs::getSaveFileName(this, tr("Save as"), file->path(), info.fileFilter);
     if (target.isEmpty())
@@ -1429,6 +1502,14 @@ bool MainWindow::openProject(const QString& filePath)
         connect(sprites, &SpritesEditor::imageModeChanged, this, [this, view] {
             if (view == currentProjectView())
                 refreshActionStates();
+        });
+    }
+    if (SoundsEditor* sounds = view->soundsEditor()) {
+        connect(sounds, &SoundsEditor::stateChanged, this, [this, view] {
+            if (view == currentProjectView()) {
+                refreshActionStates();
+                refreshStatusBar();
+            }
         });
     }
     if (AnimationsEditor* animations = view->animationsEditor()) {
@@ -1655,6 +1736,24 @@ void MainWindow::refreshActionStates()
     if (QAction* a = actions.action(QStringLiteral("spr_explorer")))
         a->setChecked(sprites && sprites->explorerShown());
 
+    if (SoundsEditor* sounds = view ? view->soundsEditor() : nullptr; sounds && sounds->page()) {
+        const SoundPage::State state = sounds->page()->state();
+        const char* checked = state == SoundPage::State::Playing
+                                  ? (sounds->page()->looping() ? "snd_play_loop" : "snd_play")
+                              : state == SoundPage::State::Paused ? "snd_pause"
+                                                                  : "snd_stop";
+        if (QAction* a = actions.action(QString::fromLatin1(checked)); a && !a->isChecked())
+            a->setChecked(true);
+        const WaveformView::Tool tool = sounds->page()->view()->tool();
+        const char* toolId = tool == WaveformView::Tool::MoveView           ? "snd_tool_offset"
+                             : tool == WaveformView::Tool::Zoom             ? "snd_tool_zoom"
+                             : tool == WaveformView::Tool::MoveSelection    ? "snd_tool_move"
+                             : tool == WaveformView::Tool::HorizontalResize ? "snd_tool_hresize"
+                             : tool == WaveformView::Tool::VerticalResize   ? "snd_tool_vresize"
+                                                                            : "snd_tool_select";
+        if (QAction* a = actions.action(QString::fromLatin1(toolId)); a && !a->isChecked())
+            a->setChecked(true);
+    }
     AnimationsEditor* animations = view ? view->animationsEditor() : nullptr;
     AnimationPage* animationPage = animations ? animations->page() : nullptr;
     const bool textMode = animationPage && animationPage->textMode();
@@ -1750,15 +1849,29 @@ void MainWindow::refreshStatusBar()
         m_status->setSection(2, tr("Renderer: %1").arg(QStringLiteral("OpenGL")));
         break;
     }
-    case WorkspaceType::Sound:
-        m_status->setSection(0, tr("Sample: %1/%2, Selection: %3/%4").arg(0).arg(0).arg(0).arg(0));
+    case WorkspaceType::Sound: {
+        qint64 cursor = 0, count = 0, start = 0, end = 0;
+        double rate = 1;
+        QString state = tr("Stopped");
+        if (auto* page = fileTabs ? qobject_cast<SoundPage*>(fileTabs->currentWidget()) : nullptr) {
+            cursor = page->view()->cursor();
+            count = qint64(page->samples().frameCount());
+            start = qint64(page->view()->selection().start);
+            end = qint64(page->view()->selection().end());
+            rate = std::max<double>(1, page->samples().sampleRate());
+            state = page->state() == SoundPage::State::Playing  ? tr("Playing")
+                    : page->state() == SoundPage::State::Paused ? tr("Paused")
+                                                                : tr("Stopped");
+        }
+        m_status->setSection(0, tr("Sample: %1/%2, Selection: %3/%4").arg(cursor).arg(count).arg(start).arg(end));
         m_status->setSection(1, tr("Time: %1/%2s, Selection: %3/%4s")
-                                    .arg(0.0, 0, 'f', 3)
-                                    .arg(0.0, 0, 'f', 3)
-                                    .arg(0.0, 0, 'f', 3)
-                                    .arg(0.0, 0, 'f', 3));
-        m_status->setSection(2, tr("Status: %1").arg(tr("Stopped")));
+                                    .arg(cursor / rate, 0, 'f', 3)
+                                    .arg(count / rate, 0, 'f', 3)
+                                    .arg(start / rate, 0, 'f', 3)
+                                    .arg(end / rate, 0, 'f', 3));
+        m_status->setSection(2, tr("Status: %1").arg(state));
         break;
+    }
     }
     m_status->setSection(3, tr("Project: %1, %2").arg(view->project()->typeName(), view->project()->versionName()));
 }

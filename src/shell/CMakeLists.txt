@@ -29,6 +29,10 @@ add_library(ofsshell STATIC
     SpritesEditor.h
     SpritesEditor.cpp
     SpritesEditorImage.cpp
+    SoundPage.h
+    SoundPage.cpp
+    SoundsEditor.h
+    SoundsEditor.cpp
     StatusBar.h
     StatusBar.cpp
     UpdateChecker.h
@@ -59,6 +63,8 @@ add_library(ofsshell STATIC
     dialogs/SnippetFieldsDialog.cpp
     dialogs/SpriteDialogs.h
     dialogs/SpriteDialogs.cpp
+    dialogs/SoundDialogs.h
+    dialogs/SoundDialogs.cpp
     dialogs/AnimationDialogs.h
     dialogs/AnimationDialogs.cpp
     dialogs/StateControllerDialog.h

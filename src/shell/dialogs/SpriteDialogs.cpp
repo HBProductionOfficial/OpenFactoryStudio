@@ -296,13 +296,26 @@ AlignmentDialog::AlignmentDialog(const SpriteDocument& doc, int current, QWidget
 }
 
 ItemsDialog::ItemsDialog(const SpriteDocument& doc, int current, QWidget* parent)
+    : ItemsDialog(QStringList(), current, parent)
+{
+    m_list->clear();
+    fillSpriteList(m_list, doc, current);
+}
+
+ItemsDialog::ItemsDialog(const QStringList& items, int current, QWidget* parent)
     : QDialog(parent)
     , m_list(new QListWidget(this))
 {
     setObjectName(QStringLiteral("ItemsDlg"));
     setWindowTitle(tr("Items"));
     m_list->setObjectName(QStringLiteral("list"));
-    fillSpriteList(m_list, doc, current);
+    m_list->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    m_list->addItems(items);
+    if (current >= 0 && current < m_list->count()) {
+        m_list->item(current)->setSelected(true);
+        m_list->setCurrentRow(current, QItemSelectionModel::NoUpdate);
+        m_list->scrollToItem(m_list->item(current));
+    }
     auto button = [this](const QString& text, const char* name) {
         auto* b = new QPushButton(text, this);
         b->setObjectName(QLatin1String(name));

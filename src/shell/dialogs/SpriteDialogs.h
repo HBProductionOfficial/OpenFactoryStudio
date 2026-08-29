@@ -123,7 +123,9 @@ class ItemsDialog : public QDialog
 
 public:
     ItemsDialog(const SpriteDocument& doc, int current, QWidget* parent = nullptr);
+    ItemsDialog(const QStringList& items, int current, QWidget* parent = nullptr);
     QList<int> sprites() const;
+    QList<int> selection() const { return sprites(); }
 
 private:
     QListWidget* m_list;

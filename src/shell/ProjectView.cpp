@@ -12,6 +12,7 @@
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
 #include "core/settings/Config.h"
+#include "core/sounds/SoundFile.h"
 #include "core/sprites/SpriteEdits.h"
 #include "core/sprites/SpriteFile.h"
 #include "core/theme/IconSet.h"
@@ -23,6 +24,8 @@
 #include "shell/CodePage.h"
 #include "shell/ControllerTemplatesWidget.h"
 #include "shell/DocumentationPopup.h"
+#include "shell/SoundPage.h"
+#include "shell/SoundsEditor.h"
 #include "shell/SpritePage.h"
 #include "shell/SpritesEditor.h"
 
@@ -226,6 +229,10 @@ void ProjectView::createEditor(const EditorInfo& info)
         m_animations = new AnimationsEditor(m_context, this);
         m_animations->setPage(qobject_cast<AnimationPage*>(tabs->currentWidget()));
     }
+    if (info.id == QLatin1String("sounds")) {
+        m_sounds = new SoundsEditor(m_context, this);
+        m_sounds->setPage(qobject_cast<SoundPage*>(tabs->currentWidget()));
+    }
     connect(tabs, &QTabWidget::currentChanged, this, [this, tabs] {
         if (auto* page = qobject_cast<CodePage*>(tabs->currentWidget()))
             updateOutline(page);
@@ -233,6 +240,8 @@ void ProjectView::createEditor(const EditorInfo& info)
             m_sprites->setPage(qobject_cast<SpritePage*>(tabs->currentWidget()));
         if (m_animations && tabs->objectName() == QLatin1String("fileTabs_animations"))
             m_animations->setPage(qobject_cast<AnimationPage*>(tabs->currentWidget()));
+        if (m_sounds && tabs->objectName() == QLatin1String("fileTabs_sounds"))
+            m_sounds->setPage(qobject_cast<SoundPage*>(tabs->currentWidget()));
         if (tabs == m_center->currentWidget())
             Q_EMIT currentFileChanged();
     });
@@ -317,6 +326,50 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
             return animationPage;
         }
         return page;
+    }
+    if (info.id == QLatin1String("sounds")) {
+        QString error;
+        auto* file = qobject_cast<SoundFile*>(m_project->file(filePath));
+        if (!file && QFileInfo::exists(filePath))
+            file = m_project->soundFile(filePath, info.id, &error);
+        if (file) {
+            auto* page = new SoundPage(file);
+            page->setProperty("filePath", filePath);
+            page->setProperty("editorId", info.id);
+            auto updateIssues = [this, page, file] {
+                IssueList issues;
+                const SoundDocument& doc = file->document();
+                for (int i = 0; i < doc.count(); ++i) {
+                    for (int j = 0; j < i; ++j) {
+                        if (doc.sounds().at(j).group == doc.sounds().at(i).group &&
+                            doc.sounds().at(j).number == doc.sounds().at(i).number) {
+                            Issue issue;
+                            issue.severity = Issue::Severity::Warning;
+                            issue.line = i;
+                            issue.message = tr("The group %1, index %2 is already in use by sound #%3!")
+                                                .arg(doc.sounds().at(i).group)
+                                                .arg(doc.sounds().at(i).number)
+                                                .arg(j + 1);
+                            issue.file = page->property("filePath").toString();
+                            issues << issue;
+                            break;
+                        }
+                    }
+                }
+                m_issues.insert(page->property("filePath").toString(), issues);
+                Q_EMIT issuesChanged();
+            };
+            connect(file, &SoundFile::documentChanged, this, updateIssues);
+            QTimer::singleShot(0, this, updateIssues);
+            connect(page, &SoundPage::statusChanged, this, [this, page] {
+                if (QTabWidget* tabs = m_fileTabs.value(m_currentEditor); tabs && tabs->currentWidget() == page)
+                    Q_EMIT currentFileChanged();
+            });
+            connect(file, &ProjectFile::modifiedChanged, this, [this] { Q_EMIT modifiedChanged(); });
+            connect(file, &ProjectFile::pathChanged, this,
+                    [this, page, file](const QString& oldPath) { fileRenamed(page, oldPath, file->path()); });
+            return page;
+        }
     }
     if (info.id == QLatin1String("sprites")) {
         QString error;
@@ -711,8 +764,9 @@ ProjectFile* ProjectView::newFile(const QString& editorId)
 {
     const EditorInfo info = engine()->editor(editorId);
     const bool sprites = editorId == QLatin1String("sprites");
+    const bool sounds = editorId == QLatin1String("sounds");
     if (info.id.isEmpty() ||
-        (info.workspace != WorkspaceType::Code && !sprites && editorId != QLatin1String("animations")))
+        (info.workspace != WorkspaceType::Code && !sprites && !sounds && editorId != QLatin1String("animations")))
         return nullptr;
     const QDir dir(m_project->directory());
     QString path;
@@ -722,7 +776,9 @@ ProjectFile* ProjectView::newFile(const QString& editorId)
             break;
     }
     ProjectFile* file = nullptr;
-    if (sprites) {
+    if (sounds) {
+        file = m_project->newSoundFile(path, editorId);
+    } else if (sprites) {
         // The SFF version the project's engine version reads.
         const QString version = m_project->versionId();
         file = m_project->newSpriteFile(path, editorId,
@@ -741,8 +797,10 @@ bool ProjectView::openFile(const QString& editorId, const QString& path, QString
     const EditorInfo info = engine()->editor(editorId);
     QTabWidget* tabs = m_fileTabs.value(editorId);
     const bool sprites = editorId == QLatin1String("sprites");
+    const bool sounds = editorId == QLatin1String("sounds");
     if (info.id.isEmpty() ||
-        (info.workspace != WorkspaceType::Code && !sprites && editorId != QLatin1String("animations")) || !tabs)
+        (info.workspace != WorkspaceType::Code && !sprites && !sounds && editorId != QLatin1String("animations")) ||
+        !tabs)
         return false;
     const QString target = QDir::fromNativeSeparators(QFileInfo(path).absoluteFilePath());
     for (int i = 0; i < tabs->count(); ++i) {
@@ -752,8 +810,9 @@ bool ProjectView::openFile(const QString& editorId, const QString& path, QString
             return true;
         }
     }
-    ProjectFile* file = sprites ? static_cast<ProjectFile*>(m_project->addSpriteFile(target, editorId, error))
-                                : m_project->addCodeFile(target, editorId, error);
+    ProjectFile* file = sprites  ? static_cast<ProjectFile*>(m_project->addSpriteFile(target, editorId, error))
+                        : sounds ? static_cast<ProjectFile*>(m_project->addSoundFile(target, editorId, error))
+                                 : m_project->addCodeFile(target, editorId, error);
     if (!file)
         return false;
     addFileTab(info, file->path());
@@ -881,6 +940,8 @@ void ProjectView::setCurrentEditor(const QString& id)
         return;
     if (m_currentEditor == QLatin1String("sprites") && id != m_currentEditor && m_sprites && !m_sprites->confirmLeave())
         return;
+    if (m_currentEditor == QLatin1String("sounds") && id != m_currentEditor && m_sounds && !m_sounds->confirmLeave())
+        return;
     if (m_currentEditor == QLatin1String("animations") && id == QLatin1String("sprites"))
         showFrameSprite();
     const bool changed = m_currentEditor != id;
@@ -936,6 +997,8 @@ void ProjectView::applyPreset(const Preset::Model& model)
         m_sprites->bindOrganizer(m_extraPanels.value(QStringLiteral("organizer"))->widget());
         m_sprites->bindExplorer(m_extraPanels.value(QStringLiteral("thumbnails"))->widget());
     }
+    if (m_sounds)
+        m_sounds->bindPanel(m_editorPanels.value(QStringLiteral("sounds"))->widget());
     if (m_animations) {
         m_animations->bindPanel(m_editorPanels.value(QStringLiteral("animations"))->widget());
         if (QScrollArea* thumbnails = m_extraPanels.value(QStringLiteral("thumbnails")))
