@@ -38,12 +38,6 @@ T* control(QWidget* panel, const char* name)
     return panel ? panel->findChild<T*>(QLatin1String(name)) : nullptr;
 }
 
-const char* const PaletteFilters =
-    "All supported (*.act *.pcx *.png *.gif *.bmp *.pal *.aco *.ase *.txt);;Adobe Color Table (*.act);;"
-    "Personal Computer eXchange (*.pcx);;Portable Network Graphic (*.png);;Graphics Interchange Format (*.gif);;"
-    "Bitmap (*.bmp);;RIFF / Jasc Palette (*.pal);;Adobe Color Swatch (*.aco);;Adobe Swatch Exchange (*.ase);;"
-    "Corel Painter Swatches (*.txt)";
-
 QStringList paletteCaptions(const SpriteDocument& doc)
 {
     QStringList captions;
@@ -379,8 +373,8 @@ bool PalettesPanel::perform(const QString& id)
     } else if (id == QLatin1String("pal_open")) {
         if (!has)
             return true;
-        const QString path = FileDialogs::getOpenFileName(parent, tr("Open palette"), projectFolder(),
-                                                          QString::fromLatin1(PaletteFilters));
+        const QString path =
+            FileDialogs::getOpenFileName(parent, tr("Open palette"), projectFolder(), paletteFileFilters());
         if (path.isEmpty())
             return true;
         auto colors = PaletteEdits::readFile(path);
@@ -480,7 +474,7 @@ void PalettesPanel::addPalettes()
         return;
     }
     QStringList files =
-        FileDialogs::getOpenFileNames(parent, tr("Add palettes"), projectFolder(), QString::fromLatin1(PaletteFilters));
+        FileDialogs::getOpenFileNames(parent, tr("Add palettes"), projectFolder(), paletteFileFilters());
     if (files.isEmpty())
         return;
     files.sort();

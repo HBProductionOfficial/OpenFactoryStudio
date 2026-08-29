@@ -121,6 +121,8 @@ add_library(ofscore SHARED
     script/LuaScript.cpp
     sprites/ImageDocument.h
     sprites/ImageDocument.cpp
+    palettes/PaletteOps.h
+    palettes/PaletteOps.cpp
     sprites/PaletteEdits.h
     sprites/PaletteEdits.cpp
     sprites/SpriteDocument.h

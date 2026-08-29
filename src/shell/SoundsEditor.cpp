@@ -99,8 +99,9 @@ void SoundsEditor::bindPanel(QWidget* panel)
     }
     if (m_volume) {
         m_volume->setRange(0, 100);
-        m_volume->setValue(55);
+        m_volume->setValue(std::clamp(m_context.config().intValue(QStringLiteral("snd_volume"), 55), 0, 100));
         connect(m_volume, &QSlider::valueChanged, this, [this](int value) {
+            m_context.config().setValue(QStringLiteral("snd_volume"), value);
             if (m_page)
                 m_page->setVolume(value);
         });
@@ -291,14 +292,16 @@ bool SoundsEditor::performFiles(const QString& id)
             return true;
         config.setValue(QStringLiteral("snd_path"), QFileInfo(files.first()).absolutePath());
         files.sort();
-        AddItemsDialog dialog(AddItemsDialog::Kind::Sounds, parent);
-        if (dialog.exec() != QDialog::Accepted)
-            return true;
         SoundAddOptions options;
-        options.detect = dialog.detect();
-        options.group = dialog.group();
-        options.number = dialog.number();
-        options.step = dialog.step();
+        if (config.boolValue(QStringLiteral("show_addsound_dialog"), true)) {
+            AddItemsDialog dialog(AddItemsDialog::Kind::Sounds, parent);
+            if (dialog.exec() != QDialog::Accepted)
+                return true;
+            options.detect = dialog.detect();
+            options.group = dialog.group();
+            options.number = dialog.number();
+            options.step = dialog.step();
+        }
         SoundDocument edited = doc;
         QStringList errors;
         const QList<int> added = addSoundFiles(edited, count > 0 ? current : -1, files, options, &errors);

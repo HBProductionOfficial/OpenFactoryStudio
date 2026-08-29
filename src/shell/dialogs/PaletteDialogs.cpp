@@ -1,7 +1,10 @@
 #include "shell/dialogs/PaletteDialogs.h"
 
+#include <QCheckBox>
+#include <QComboBox>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QListWidget>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QStandardItemModel>
@@ -28,6 +31,15 @@ public:
 };
 
 } // namespace
+
+QString paletteFileFilters()
+{
+    return QStringLiteral(
+        "All supported (*.act *.pcx *.png *.gif *.bmp *.pal *.aco *.ase *.txt);;Adobe Color Table (*.act);;"
+        "Personal Computer eXchange (*.pcx);;Portable Network Graphic (*.png);;Graphics Interchange Format (*.gif);;"
+        "Bitmap (*.bmp);;RIFF / Jasc Palette (*.pal);;Adobe Color Swatch (*.aco);;Adobe Swatch Exchange (*.ase);;"
+        "Corel Painter Swatches (*.txt)");
+}
 
 RemapDialog::RemapDialog(QWidget* parent)
     : QDialog(parent)
@@ -81,6 +93,83 @@ RemapDialog::RemapDialog(QWidget* parent)
     layout->addWidget(m_table, 1);
     resize(415, 281);
     addRow(RemapRow());
+}
+
+CommitSpriteDialog::CommitSpriteDialog(const QStringList& palettes, QWidget* parent)
+    : QDialog(parent)
+    , m_reversed(new QCheckBox(tr("Reversed"), this))
+    , m_mode(new QComboBox(this))
+    , m_list(new QListWidget(this))
+{
+    setObjectName(QStringLiteral("PalDlg"));
+    setWindowTitle(tr("Palette"));
+    m_reversed->setObjectName(QStringLiteral("reversed"));
+    m_mode->setObjectName(QStringLiteral("pal"));
+    m_mode->addItems({tr("Image's palette, if not already added"), tr("Force the specified palette (adapt the image)"),
+                      tr("Exchange with the specified palette")});
+    m_list->setObjectName(QStringLiteral("list"));
+    m_list->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    m_list->addItems(palettes);
+    if (m_list->count() > 0)
+        m_list->item(0)->setSelected(true);
+    auto button = [this](const QString& text, const char* name) {
+        auto* b = new QPushButton(text, this);
+        b->setObjectName(QLatin1String(name));
+        b->setAutoDefault(false);
+        return b;
+    };
+    QPushButton* clear = button(tr("Clear"), "clearBut");
+    QPushButton* all = button(tr("Select all"), "allBut");
+    QPushButton* invert = button(tr("Invert selection"), "invBut");
+    connect(clear, &QPushButton::clicked, m_list, &QListWidget::clearSelection);
+    connect(all, &QPushButton::clicked, m_list, &QListWidget::selectAll);
+    connect(invert, &QPushButton::clicked, this, [this] {
+        for (int i = 0; i < m_list->count(); ++i)
+            m_list->item(i)->setSelected(!m_list->item(i)->isSelected());
+    });
+    auto* ok = new QPushButton(tr("OK"), this);
+    ok->setObjectName(QStringLiteral("okBut"));
+    ok->setDefault(true);
+    auto* ignore = new QPushButton(tr("Ignore"), this);
+    ignore->setObjectName(QStringLiteral("ignoreBut"));
+    connect(ok, &QPushButton::clicked, this, &QDialog::accept);
+    connect(ignore, &QPushButton::clicked, this, [this] { done(Ignored); });
+
+    auto* selection = new QHBoxLayout;
+    selection->addWidget(clear);
+    selection->addWidget(all);
+    selection->addWidget(invert);
+    auto* buttons = new QHBoxLayout;
+    buttons->addStretch(1);
+    buttons->addWidget(ok);
+    buttons->addWidget(ignore);
+    auto* layout = new QVBoxLayout(this);
+    layout->addWidget(m_reversed);
+    layout->addWidget(m_mode);
+    layout->addWidget(m_list, 1);
+    layout->addLayout(selection);
+    layout->addLayout(buttons);
+    resize(373, 365);
+}
+
+CommitSpriteDialog::Mode CommitSpriteDialog::mode() const
+{
+    return Mode(std::clamp(m_mode->currentIndex(), 0, 2));
+}
+
+bool CommitSpriteDialog::reversed() const
+{
+    return m_reversed->isChecked();
+}
+
+QList<int> CommitSpriteDialog::palettes() const
+{
+    QList<int> rows;
+    for (int i = 0; i < m_list->count(); ++i) {
+        if (m_list->item(i)->isSelected())
+            rows << i;
+    }
+    return rows;
 }
 
 void RemapDialog::addRow(const RemapRow& row)

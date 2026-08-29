@@ -69,6 +69,9 @@ ofs_add_test(NAME core_waveform_view GUI
 ofs_add_test(NAME core_palette_edits
     SOURCES core/PaletteEditsTest.cpp
     LIBS OFS::core)
+ofs_add_test(NAME core_palette_ops
+    SOURCES core/PaletteOpsTest.cpp
+    LIBS OFS::core)
 ofs_add_test(NAME core_palette_widget GUI
     SOURCES core/PaletteWidgetTest.cpp
     LIBS OFS::core)

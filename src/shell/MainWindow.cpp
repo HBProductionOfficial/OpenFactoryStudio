@@ -25,6 +25,7 @@
 #include "core/widgets/GraphicsView.h"
 #include "core/widgets/ImageCanvas.h"
 #include "core/widgets/WaveformView.h"
+#include "shell/AdvancedPaletteEditor.h"
 #include "shell/AdvancedSearchPanel.h"
 #include "shell/AnimationPage.h"
 #include "shell/AnimationsEditor.h"
@@ -397,6 +398,14 @@ void MainWindow::connectActions()
             for (ProjectView* view : projectViews())
                 view->reconfigureEditors();
         });
+    });
+    on("tools_pal_editor", [this] {
+        ProjectView* view = currentProjectView();
+        SpritesEditor* sprites = view ? view->spritesEditor() : nullptr;
+        SpritePage* page = sprites ? sprites->page() : nullptr;
+        AdvancedPaletteEditor editor(m_context, page ? page->file() : nullptr, page ? page->current() : -1,
+                                     page ? page->currentPalette() : -1, this);
+        editor.exec();
     });
     on("help_about", [this] { AboutDialog::showAbout(this); });
     on("file_run", [this] { runInEngine(); });

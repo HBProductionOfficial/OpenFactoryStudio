@@ -143,7 +143,9 @@ Result<Bytes> encodePng(const Image& image, const PngEncodeOptions& options)
             mode->bitdepth = 8;
             for (std::size_t i = 0; i < entries; ++i) {
                 const Rgba c = i < palette.size() ? palette[i] : rgb(0, 0, 0);
-                const unsigned char alpha = (options.transparentIndex0 && i == 0) ? 0 : 255;
+                unsigned char alpha = options.paletteAlpha && i < palette.size() ? c.a : 255;
+                if (options.transparentIndex0 && i == 0)
+                    alpha = 0;
                 error = lodepng_palette_add(mode, c.r, c.g, c.b, alpha);
                 if (error)
                     return lodeError(error);

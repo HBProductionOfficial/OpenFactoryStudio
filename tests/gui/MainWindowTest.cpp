@@ -18,6 +18,7 @@
 #include "core/widgets/TimelineWidget.h"
 #include "core/widgets/WaveformView.h"
 #include "formats/codecs/Png.h"
+#include "shell/AdvancedPaletteEditor.h"
 #include "shell/AdvancedSearchPanel.h"
 #include "shell/AnimationPage.h"
 #include "shell/CodePage.h"
@@ -2575,6 +2576,205 @@ private Q_SLOTS:
         });
         actions.action("pal_apply_sprite")->trigger();
         QCOMPARE(file->document().sprites()[2].palette, file->document().palettes()[0]);
+    }
+
+    void advancedPaletteEditor()
+    {
+        QTemporaryDir dir;
+        // Palettes 1,1 (slot i = i,0,0) and 1,2 (slot i = 0,i,0). Sprite 0,0 uses 1,1 and 5,0 uses
+        // 1,2. Pixel (x, y) is palette index x + 4y.
+        auto ramp = [](int channel) {
+            Formats::Palette colors(256);
+            for (int i = 0; i < 256; ++i) {
+                std::uint8_t c[3] = {0, 0, 0};
+                c[channel] = std::uint8_t(i);
+                colors[std::size_t(i)] = Formats::Rgba{c[0], c[1], c[2], std::uint8_t(i == 0 ? 0 : 255)};
+            }
+            return colors;
+        };
+        SpriteDocument sprites;
+        sprites.palettes() << SpriteDocument::makePalette(1, 1, ramp(0)) << SpriteDocument::makePalette(1, 2, ramp(1));
+        std::vector<std::uint8_t> pixels(16);
+        for (int i = 0; i < 16; ++i)
+            pixels[std::size_t(i)] = std::uint8_t(i);
+        const int ids[][3] = {{0, 0, 0}, {5, 0, 1}};
+        for (const auto& id : ids) {
+            SpriteEntry entry;
+            entry.header.group = std::uint16_t(id[0]);
+            entry.header.number = std::uint16_t(id[1]);
+            entry.pixels = SpriteDocument::makePixels(Formats::Image::indexed(4, 4, pixels));
+            entry.palette = sprites.palettes()[id[2]];
+            sprites.sprites() << entry;
+        }
+        const auto bytes = sprites.toSff().write();
+        QVERIFY(bytes.ok());
+        writeFile(dir.filePath("e.sff"),
+                  QByteArray(reinterpret_cast<const char*>(bytes.value().data()), qsizetype(bytes.value().size())));
+        writeFile(dir.filePath("e.def"), "[Info]\nname = \"E\"\nmugenversion = 1.0\n"
+                                         "[Files]\ncns = e.cns\nsprite = e.sff\n");
+        writeFile(dir.filePath("e.cns"), "[Data]\nlife = 1000\n");
+
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("e.def")));
+        ActionRegistry& actions = m_context->actions();
+        actions.action("editor_spr")->trigger();
+        auto* page = window.currentProjectView()->findChild<SpritePage*>();
+        QVERIFY(page);
+        SpriteFile* file = page->file();
+        auto modal = [] {
+            return QApplication::activeModalWidget();
+        };
+
+        QTimer::singleShot(0, this, [modal] {
+            auto* editor = qobject_cast<AdvancedPaletteEditor*>(modal());
+            QVERIFY(editor);
+            QCOMPARE(editor->windowTitle(), QStringLiteral("Advanced palette editor"));
+            QCOMPARE(editor->findChild<QLabel*>("imgSelLb")->text(), QStringLiteral("0,0"));
+            QCOMPARE(editor->findChild<QLabel*>("palSelLb")->text(), QStringLiteral("1,1"));
+            editor->reject();
+        });
+        actions.action("tools_pal_editor")->trigger();
+
+        AdvancedPaletteEditor editor(*m_context, file, 1, 0, &window); // sprite 5,0
+        editor.show();
+        auto button = [&editor](const char* name) {
+            auto* b = editor.findChild<QToolButton*>(name);
+            [&] {
+                QVERIFY2(b, name);
+            }();
+            return b;
+        };
+        auto left = [&editor] {
+            return editor.column(AdvancedPaletteEditor::Character).palette;
+        };
+        QCOMPARE(editor.findChild<QLabel*>("imgSelLb")->text(), QStringLiteral("5,0"));
+        QCOMPARE(editor.findChild<QLabel*>("palSelLb")->text(), QStringLiteral("1,2"));
+        QCOMPARE(left(), ramp(1));
+        QCOMPARE(editor.checkedColumn(), AdvancedPaletteEditor::Character);
+        QCOMPARE(editor.findChild<QComboBox*>("effects")->currentText(), QStringLiteral("Blue to Red"));
+        QVERIFY(!editor.hasChanges());
+
+        PaletteWidget* grid = editor.grid(AdvancedPaletteEditor::Character);
+        grid->setSelection({1, 5});
+        button("swPos")->click();
+        QCOMPARE(left()[1], ramp(1)[5]);
+        QCOMPARE(grid->selection(), (QList<int>{1, 5}));
+        QVERIFY(editor.hasChanges());
+        QVERIFY(!file->isModified());
+        button("undo")->click();
+        QCOMPARE(left(), ramp(1));
+        button("redo")->click();
+        QCOMPARE(left()[1], ramp(1)[5]);
+        editor.setCheckedColumn(AdvancedPaletteEditor::ImageOrPalette);
+        button("undo")->click(); // the other column's history is empty
+        QCOMPARE(left()[1], ramp(1)[5]);
+        editor.setCheckedColumn(AdvancedPaletteEditor::Character);
+
+        button("zoomIn")->click();
+        QCOMPARE(editor.zoom(AdvancedPaletteEditor::Character), 2.0);
+        for (int i = 0; i < 6; ++i)
+            button("zoomOut")->click();
+        QCOMPARE(editor.zoom(AdvancedPaletteEditor::Character), 0.25);
+
+        grid->setSelection({2});
+        editor.findChild<QComboBox*>("effects")->setCurrentIndex(8); // Monochrome: (0+2+0)/3 = 0
+        button("effApply")->click();
+        QCOMPARE(left()[2], (Formats::Rgba{0, 0, 0, 255}));
+        grid->setSelection({3});
+        auto* red = editor.findChild<QSlider*>("rgbR");
+        red->setValue(50);
+        QCOMPARE(left()[3], (Formats::Rgba{50, 3, 0, 255}));
+        QCOMPARE(editor.findChild<QLabel*>("rLb")->text(), QStringLiteral("50"));
+        button("rgbNo")->click();
+        QCOMPARE(left()[3], ramp(1)[3]);
+        QCOMPARE(red->value(), 0);
+        const int steps = editor.undoStack(AdvancedPaletteEditor::Character)->count();
+        editor.findChild<QSlider*>("hueHue")->setValue(120); // green -> blue
+        button("hueYes")->click();
+        QCOMPARE(left()[3], (Formats::Rgba{0, 0, 3, 255}));
+        QCOMPARE(editor.findChild<QSlider*>("hueHue")->value(), 0);
+        QCOMPARE(editor.undoStack(AdvancedPaletteEditor::Character)->count(), steps + 1);
+
+        grid->setSelection({10, 11, 12});
+        QTimer::singleShot(0, this, [modal, this] {
+            auto* start = qobject_cast<QColorDialog*>(modal());
+            QVERIFY(start);
+            QCOMPARE(start->windowTitle(), QStringLiteral("Start color"));
+            start->setCurrentColor(QColor(0, 0, 255));
+            QTimer::singleShot(0, this, [modal] {
+                auto* end = qobject_cast<QColorDialog*>(modal());
+                QVERIFY(end);
+                QCOMPARE(end->windowTitle(), QStringLiteral("End color"));
+                QCOMPARE(end->currentColor(), QColor(255, 255, 255));
+                end->setCurrentColor(QColor(255, 0, 0));
+                end->accept();
+            });
+            start->accept();
+        });
+        button("corGrad")->click();
+        QCOMPARE(left()[10], (Formats::Rgba{0, 0, 255, 255}));
+        QCOMPARE(left()[11], (Formats::Rgba{127, 0, 128, 255}));
+        QCOMPARE(left()[12], (Formats::Rgba{255, 0, 0, 255}));
+
+        auto* paletteSelector = editor.findChild<QScrollBar*>("palSel");
+        answerDiscard(QMessageBox::No);
+        paletteSelector->setValue(0);
+        QCOMPARE(editor.findChild<QLabel*>("palSelLb")->text(), QStringLiteral("1,2"));
+        QCOMPARE(paletteSelector->value(), 1);
+
+        button("commChanges")->click();
+        QCOMPARE(file->document().palettes()[1]->palette.colors, left());
+        QVERIFY(!editor.hasChanges());
+        actions.action("edit_undo")->trigger();
+        QCOMPARE(file->document().palettes()[1]->palette.colors, ramp(1));
+        paletteSelector->setValue(0); // nothing uncommitted, so no question
+        QCOMPARE(left(), ramp(0));
+
+        QByteArray act;
+        for (int i = 0; i < 256; ++i) {
+            act += char(i);
+            act += char(i);
+            act += char(i);
+        }
+        writeFile(dir.filePath("gray.act"), act);
+        editor.setCheckedColumn(AdvancedPaletteEditor::ImageOrPalette);
+        FileDialogs::setOpenPromptOverride(
+            [&dir](const QString&, const QString&, const QString&) { return dir.filePath("gray.act"); });
+        button("openPal")->click();
+        FileDialogs::setOpenPromptOverride({});
+        const Formats::Palette right = editor.column(AdvancedPaletteEditor::ImageOrPalette).palette;
+        QCOMPARE(right[1], (Formats::Rgba{254, 254, 254, 255})); // ACT read in reverse
+        editor.grid(AdvancedPaletteEditor::ImageOrPalette)->setSelection({1, 2});
+        button("selRL")->click();
+        QCOMPARE(grid->selection(), (QList<int>{1, 2}));
+        grid->setSelection({7, 8, 9});
+        button("corRL")->click(); // two colors into the first two target slots
+        QCOMPARE(left()[7], right[1]);
+        QCOMPARE(left()[8], right[2]);
+        QCOMPARE(left()[9], ramp(0)[9]);
+        editor.setCheckedColumn(AdvancedPaletteEditor::Character);
+
+        QTimer::singleShot(0, this, [modal] {
+            auto* dialog = qobject_cast<CommitSpriteDialog*>(modal());
+            QVERIFY(dialog);
+            QCOMPARE(dialog->windowTitle(), QStringLiteral("Palette"));
+            QCOMPARE(dialog->palettes(), QList<int>{0});
+            dialog->findChild<QPushButton*>("okBut")->click();
+        });
+        button("commSprChanges")->click();
+        QCOMPARE(file->document().palettes().size(), 3);
+        QCOMPARE(file->document().sprites()[1].palette, file->document().palettes()[2]);
+        QCOMPARE(file->document().palettes()[2]->palette.colors, left());
+        actions.action("edit_undo")->trigger();
+        QCOMPARE(file->document().palettes().size(), 2);
+
+        answerDiscard(QMessageBox::No);
+        editor.reject();
+        QVERIFY(editor.isVisible());
+        answerDiscard(QMessageBox::Yes);
+        editor.reject();
+        QVERIFY(!editor.isVisible());
     }
 
     void spritesSaveAs()

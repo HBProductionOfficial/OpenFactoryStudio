@@ -35,6 +35,7 @@ struct PngEncodeOptions
 {
     PngColor color = PngColor::Automatic;
     bool transparentIndex0 = false;
+    bool paletteAlpha = false;
 };
 
 OFS_FORMATS_EXPORT Result<Bytes> encodePng(const Image& image, const PngEncodeOptions& options = {});
