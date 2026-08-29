@@ -489,6 +489,7 @@ void GraphicsView::mousePressEvent(QMouseEvent* event)
         return;
     }
     setFocus(Qt::MouseFocusReason);
+    Q_EMIT pressed(toUnits(event->position()));
     int box = -1;
     int handle = -1;
     m_drag =

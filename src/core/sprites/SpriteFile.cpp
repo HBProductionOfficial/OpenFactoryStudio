@@ -14,13 +14,16 @@ class SpriteEditCommand : public QUndoCommand
 public:
     // `axisOf` >= 0: an axis change of that sprite, merged with the next one of the same sprite.
     SpriteEditCommand(SpriteFile* file, const QString& text, SpriteDocument before, SpriteDocument after,
-                      int axisOf = -1)
+                      int axisOf = -1, bool colorEdit = false)
         : QUndoCommand(text)
         , m_file(file)
         , m_before(std::move(before))
         , m_after(std::move(after))
         , m_axisOf(axisOf)
+        , m_colorEdit(colorEdit)
     {}
+
+    bool isColorEdit() const { return m_colorEdit; }
 
     void undo() override { m_file->setDocument(m_before); }
     void redo() override { m_file->setDocument(m_after); }
@@ -39,6 +42,7 @@ private:
     SpriteDocument m_before;
     SpriteDocument m_after;
     int m_axisOf;
+    bool m_colorEdit;
 };
 
 SpriteFile::SpriteFile(const QString& path, const QString& editorId, QObject* parent)
@@ -173,6 +177,29 @@ void SpriteFile::apply(const QString& text, const SpriteDocument& after)
 void SpriteFile::applyAxisChange(int index, const SpriteDocument& after)
 {
     m_undo->push(new SpriteEditCommand(this, tr("Sprite axis"), m_document, after, index));
+}
+
+void SpriteFile::applyColorEdit(const QString& text, const SpriteDocument& after)
+{
+    m_undo->push(new SpriteEditCommand(this, text, m_document, after, -1, true));
+}
+
+bool SpriteFile::undoColorEdit()
+{
+    const auto* last = static_cast<const SpriteEditCommand*>(m_undo->command(m_undo->index() - 1));
+    if (!last || !last->isColorEdit())
+        return false;
+    m_undo->undo();
+    return true;
+}
+
+bool SpriteFile::redoColorEdit()
+{
+    const auto* next = static_cast<const SpriteEditCommand*>(m_undo->command(m_undo->index()));
+    if (!next || !next->isColorEdit())
+        return false;
+    m_undo->redo();
+    return true;
 }
 
 void SpriteFile::setDocument(const SpriteDocument& document)

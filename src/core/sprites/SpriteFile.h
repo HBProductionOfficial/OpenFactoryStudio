@@ -32,6 +32,10 @@ public:
     void apply(const QString& text, const SpriteDocument& after);
     // Back-to-back axis changes of one sprite (spins, 1 px moves, dragging) merge into one step.
     void applyAxisChange(int index, const SpriteDocument& after);
+    // For palette slot color edits, so Palettes > Undo and Redo reach them too.
+    void applyColorEdit(const QString& text, const SpriteDocument& after);
+    bool undoColorEdit();
+    bool redoColorEdit();
 
 Q_SIGNALS:
     void documentChanged();

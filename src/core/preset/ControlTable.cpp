@@ -1,6 +1,7 @@
 #include "core/preset/ControlTable.h"
 
 #include "core/preset/ControlRegistry.h"
+#include "core/widgets/PaletteWidget.h"
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -99,13 +100,9 @@ QWidget* createControlWidget(const ControlDef& def, QWidget* parent)
     case ControlKind::List:
         w = new QListView(parent);
         break;
-    case ControlKind::Palette: {
-        auto* f = new QFrame(parent);
-        f->setFrameShape(QFrame::StyledPanel);
-        f->setMinimumSize(240, 192);
-        w = f;
+    case ControlKind::Palette:
+        w = new PaletteWidget(parent);
         break;
-    }
     case ControlKind::Widget:
         w = new QWidget(parent);
         break;

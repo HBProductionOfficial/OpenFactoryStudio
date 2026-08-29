@@ -244,6 +244,39 @@ Result<Palette> readJascPal(std::string_view text)
     return palette;
 }
 
+Result<Palette> readPainterSwatches(std::string_view text)
+{
+    // "R: 255, G: 128, B: 0  HV: 0.08, SV: 1.00, VV: 1.00  "Orange""
+    auto component = [](std::string_view line, std::string_view key, long& value) {
+        const std::size_t at = line.find(key);
+        if (at == std::string_view::npos)
+            return false;
+        std::size_t i = at + key.size();
+        while (i < line.size() && (line[i] == ' ' || line[i] == '\t'))
+            ++i;
+        const char* first = line.data() + i;
+        const char* last = line.data() + line.size();
+        const auto [end, ec] = std::from_chars(first, last, value);
+        return ec == std::errc() && end != first && value >= 0 && value <= 255;
+    };
+    Palette palette;
+    for (std::string_view line : splitLines(text)) {
+        line = trim(line);
+        if (line.rfind("R:", 0) != 0)
+            continue;
+        long r = 0;
+        long g = 0;
+        long b = 0;
+        if (!component(line, "R:", r) || !component(line, "G:", g) || !component(line, "B:", b))
+            return Error{"Painter color " + std::to_string(palette.size()) + " is invalid"};
+        palette.push_back(
+            rgb(static_cast<std::uint8_t>(r), static_cast<std::uint8_t>(g), static_cast<std::uint8_t>(b)));
+    }
+    if (palette.empty())
+        return Error{"not a Painter color set"};
+    return palette;
+}
+
 std::string writeJascPal(const Palette& palette)
 {
     std::string out = "JASC-PAL\r\n0100\r\n" + std::to_string(palette.size()) + "\r\n";
@@ -496,6 +529,8 @@ Result<Palette> readPaletteFile(ByteSpan data, ActOrder actOrder)
         return readJascPal(toText(data));
     if (head.rfind("ASEF", 0) == 0)
         return orAct(readAse(data));
+    if (head.rfind("ROWS", 0) == 0 || head.rfind("R:", 0) == 0)
+        return orAct(readPainterSwatches(toText(data)));
     if (actSize)
         return readAct(data, actOrder);
     if (!data.empty() && static_cast<std::uint8_t>(data[0]) == 0x0A)

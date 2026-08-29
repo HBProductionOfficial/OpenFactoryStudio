@@ -1,6 +1,7 @@
 #include "shell/SpritePage.h"
 
 #include "core/settings/Config.h"
+#include "core/sprites/PaletteEdits.h"
 #include "core/sprites/SpriteEdits.h"
 #include "core/sprites/SpriteFile.h"
 #include "core/widgets/GraphicsView.h"
@@ -9,6 +10,8 @@
 #include <QMessageBox>
 #include <QStackedWidget>
 #include <QVBoxLayout>
+
+#include <cmath>
 
 namespace OFS {
 
@@ -40,6 +43,23 @@ SpritePage::SpritePage(SpriteFile* file, QWidget* parent)
         }
         if (moved)
             Q_EMIT currentChanged(m_current);
+        const int palettes = int(m_file->document().palettes().size());
+        if (m_palette >= palettes || (m_palette < 0 && palettes > 0)) {
+            m_palette = std::min(std::max(m_palette, 0), palettes - 1);
+            Q_EMIT currentPaletteChanged(m_palette);
+        }
+    });
+    connect(m_view, &GraphicsView::pressed, this, [this](const QPointF& units) {
+        const SpriteDocument& doc = m_file->document();
+        if (!m_picker || m_current < 0 || m_current >= doc.spriteCount())
+            return;
+        const auto& header = doc.sprites()[m_current].header;
+        const int x = int(std::floor(units.x())) + header.axisX;
+        const int y = int(std::floor(units.y())) + header.axisY;
+        const Formats::Image image = doc.image(m_current);
+        if (!image.isIndexed() || x < 0 || y < 0 || x >= image.width() || y >= image.height())
+            return;
+        Q_EMIT colorPicked(image.pixels()[std::size_t(y) * std::size_t(image.width()) + std::size_t(x)]);
     });
     connect(m_view, &GraphicsView::cursorMoved, this, [this](const QPoint& units) {
         m_cursor = units;
@@ -60,6 +80,7 @@ SpritePage::SpritePage(SpriteFile* file, QWidget* parent)
         SpriteEdits::moveAxes(doc, {m_current}, -offset.x(), -offset.y());
         m_file->applyAxisChange(m_current, doc);
     });
+    m_palette = m_file->document().palettes().isEmpty() ? -1 : 0;
     refresh();
 }
 
@@ -204,6 +225,30 @@ void SpritePage::applySettings(Config& config)
     }
 }
 
+void SpritePage::setCurrentPalette(int index)
+{
+    const int count = int(m_file->document().palettes().size());
+    index = count > 0 ? std::clamp(index, 0, count - 1) : -1;
+    if (index == m_palette)
+        return;
+    m_palette = index;
+    Q_EMIT currentPaletteChanged(m_palette);
+}
+
+void SpritePage::setDisplayPalette(SpritePalettePtr palette)
+{
+    if (palette == m_displayPalette)
+        return;
+    m_displayPalette = std::move(palette);
+    refresh();
+}
+
+void SpritePage::setColorPicker(bool on)
+{
+    m_picker = on;
+    refresh(); // the sprite cannot be dragged while picking
+}
+
 void SpritePage::setShowTransparent(bool show)
 {
     m_showTransparent = show;
@@ -219,7 +264,10 @@ void SpritePage::setOnionSkin(int index, double opacity)
 
 QImage SpritePage::spriteImage(int index) const
 {
-    const Formats::Image rgba = m_file->document().imageRgba(index, nullptr, m_showTransparent);
+    const SpriteDocument& doc = m_file->document();
+    const bool display = index == m_current && m_displayPalette && PaletteEdits::isIndexed(doc.sprites()[index]);
+    const Formats::Image rgba =
+        doc.imageRgba(index, display ? &m_displayPalette->palette.colors : nullptr, m_showTransparent);
     if (rgba.pixelBuffer().empty())
         return {};
     return QImage(rgba.pixels().data(), rgba.width(), rgba.height(), rgba.width() * 4, QImage::Format_RGBA8888).copy();
@@ -236,7 +284,7 @@ void SpritePage::refresh()
     if (m_onion >= 0 && m_onion < doc.spriteCount() && m_onion != m_current)
         images << GraphicsView::Image{spriteImage(m_onion), place(m_onion), m_onionOpacity, false, {}};
     if (m_current >= 0 && m_current < doc.spriteCount())
-        images << GraphicsView::Image{spriteImage(m_current), place(m_current) + m_dragOffset, 1.0, true, {}};
+        images << GraphicsView::Image{spriteImage(m_current), place(m_current) + m_dragOffset, 1.0, !m_picker, {}};
     m_view->setImages(images);
 }
 

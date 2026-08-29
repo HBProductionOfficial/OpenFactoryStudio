@@ -31,6 +31,9 @@ OFS_FORMATS_EXPORT Bytes writeRiffPal(const Palette& palette);
 OFS_FORMATS_EXPORT Result<Palette> readJascPal(std::string_view text);
 OFS_FORMATS_EXPORT std::string writeJascPal(const Palette& palette);
 
+// Corel Painter color set: one line per color starting with "R: r, G: g, B: b".
+OFS_FORMATS_EXPORT Result<Palette> readPainterSwatches(std::string_view text);
+
 // Photoshop .aco, version 1 and 2.
 OFS_FORMATS_EXPORT Result<Palette> readAco(ByteSpan data);
 OFS_FORMATS_EXPORT Bytes writeAco(const Palette& palette);

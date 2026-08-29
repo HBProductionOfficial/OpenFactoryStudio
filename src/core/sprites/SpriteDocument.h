@@ -21,6 +21,8 @@ struct SpritePalette
     Formats::SffPalette palette;
     // The palette whose file data this one shares (SFF v2 linked palettes), if any.
     std::weak_ptr<const SpritePalette> link;
+    // Colors past 32 kept after Switch color count, so switching back restores them.
+    Formats::Palette hidden;
 };
 
 using SpritePixelsPtr = std::shared_ptr<const SpritePixels>;

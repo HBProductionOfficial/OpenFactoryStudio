@@ -13,6 +13,7 @@
 #include "core/project/ProjectFile.h"
 #include "core/settings/Config.h"
 #include "core/sounds/SoundFile.h"
+#include "core/sprites/PaletteEdits.h"
 #include "core/sprites/SpriteEdits.h"
 #include "core/sprites/SpriteFile.h"
 #include "core/theme/IconSet.h"
@@ -382,6 +383,7 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
             page->setProperty("filePath", filePath);
             auto updateIssues = [this, page, file] {
                 IssueList issues = SpriteEdits::identifierIssues(file->document());
+                issues << PaletteEdits::issues(file->document());
                 const QString path = page->property("filePath").toString();
                 for (Issue& issue : issues)
                     issue.file = path;
@@ -995,6 +997,8 @@ void ProjectView::applyPreset(const Preset::Model& model)
         }
         m_sprites->bindPanel(m_editorPanels.value(QStringLiteral("sprites"))->widget());
         m_sprites->bindOrganizer(m_extraPanels.value(QStringLiteral("organizer"))->widget());
+        if (QScrollArea* palettes = m_extraPanels.value(QStringLiteral("palettes")))
+            m_sprites->bindPalettes(palettes->widget());
         m_sprites->bindExplorer(m_extraPanels.value(QStringLiteral("thumbnails"))->widget());
     }
     if (m_sounds)

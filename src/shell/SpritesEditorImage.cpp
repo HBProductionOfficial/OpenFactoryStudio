@@ -12,6 +12,7 @@
 #include "core/widgets/ImageCanvas.h"
 #include "shell/FileDialogs.h"
 #include "shell/ImageEditor.h"
+#include "shell/PalettesPanel.h"
 #include "shell/SpritePage.h"
 #include "shell/dialogs/SpriteDialogs.h"
 
@@ -237,6 +238,7 @@ void SpritesEditor::imageModeSwitched()
     } else {
         m_explorer = false;
     }
+    m_palettes->setImageMode(imageMode());
     updateMode();
     refreshLayers();
     refreshExplorer();

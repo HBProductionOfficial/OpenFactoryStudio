@@ -34,6 +34,7 @@
 #include "shell/FileDialogs.h"
 #include "shell/ImageEditor.h"
 #include "shell/MenuBuilder.h"
+#include "shell/PalettesPanel.h"
 #include "shell/ProjectView.h"
 #include "shell/QuickFindBar.h"
 #include "shell/SoundPage.h"
@@ -696,6 +697,18 @@ void MainWindow::connectEditActions()
             const bool done = view && view->spritesEditor() && view->spritesEditor()->perform(action);
             if (!done && action == QLatin1String("spr_edit_img"))
                 refreshActionStates(); // nothing to edit: the action unchecks again
+        });
+    }
+    // Palettes panel actions.
+    for (const char* id :
+         {"pal_clear", "pal_clear_unused", "pal_add", "pal_delete", "pal_delete_duplicates", "pal_open", "pal_save",
+          "pal_remap", "pal_undo", "pal_redo", "pal_switch_color", "pal_set_color", "pal_apply_sprite", "pal_prev",
+          "pal_next", "pal_switch_count", "pal_prev_grp", "pal_next_grp", "pal_pick_color"}) {
+        const QString action = QString::fromLatin1(id);
+        on(id, [this, action] {
+            ProjectView* view = currentProjectView();
+            if (view && view->spritesEditor())
+                view->spritesEditor()->palettes()->perform(action);
         });
     }
     // Sounds editor actions.
@@ -1504,6 +1517,12 @@ bool MainWindow::openProject(const QString& filePath)
                 refreshActionStates();
         });
     }
+    if (SpritesEditor* sprites = view->spritesEditor()) {
+        connect(sprites->palettes(), &PalettesPanel::stateChanged, this, [this, view] {
+            if (view == currentProjectView())
+                refreshActionStates();
+        });
+    }
     if (SoundsEditor* sounds = view->soundsEditor()) {
         connect(sounds, &SoundsEditor::stateChanged, this, [this, view] {
             if (view == currentProjectView()) {
@@ -1731,6 +1750,8 @@ void MainWindow::refreshActionStates()
               image);
     if (image)
         enable(QStringLiteral("spr_align"), false);
+    if (sprites && sprites->palettes()->current() < 0)
+        enable(QStringLiteral("pal_switch_count"), false);
     if (QAction* a = actions.action(QStringLiteral("spr_edit_img")))
         a->setChecked(image);
     if (QAction* a = actions.action(QStringLiteral("spr_explorer")))

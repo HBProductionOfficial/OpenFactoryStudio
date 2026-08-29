@@ -138,6 +138,7 @@ Q_SIGNALS:
     void boxNudged(int dx, int dy);
     void boxDeleteRequested();
     void rightClicked();
+    void pressed(const QPointF& units);
 
 protected:
     void paintEvent(QPaintEvent* event) override;

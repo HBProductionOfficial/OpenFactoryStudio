@@ -23,6 +23,7 @@ class QWidget;
 namespace OFS {
 
 class AppContext;
+class PalettesPanel;
 class SpriteFile;
 class SpritePage;
 
@@ -36,6 +37,8 @@ public:
 
     void bindPanel(QWidget* panel);
     void bindOrganizer(QWidget* panel);
+    void bindPalettes(QWidget* panel);
+    PalettesPanel* palettes() const { return m_palettes; }
     void bindExplorer(QWidget* panel);
     bool explorerShown() const;
     // The explorer panel is shared with the Animations editor.
@@ -90,6 +93,7 @@ private:
     QList<int> organizerSelection() const;
 
     AppContext& m_context;
+    PalettesPanel* m_palettes;
     QPointer<SpritePage> m_page;
     QPointer<QScrollBar> m_selector;
     QPointer<QLabel> m_selectorLabel;

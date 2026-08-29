@@ -311,7 +311,7 @@ bool SoundsEditor::performFiles(const QString& id)
     } else if (id == QLatin1String("snd_delete")) {
         if (current >= count)
             return true;
-        if (config.boolValue(QStringLiteral("confirm_delete"), false)) {
+        if (config.boolValue(QStringLiteral("confirm_delete"), true)) {
             QMessageBox box(QMessageBox::Question, tr("Delete"), tr("Do you really want to delete the sound?"),
                             QMessageBox::Yes | QMessageBox::No, parent);
             box.setDefaultButton(QMessageBox::Yes);

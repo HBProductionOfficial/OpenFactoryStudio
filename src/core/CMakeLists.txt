@@ -110,6 +110,8 @@ add_library(ofscore SHARED
     widgets/EPanelWidget.h
     widgets/EPanelWidget.cpp
     widgets/GraphicsView.h
+    widgets/PaletteWidget.h
+    widgets/PaletteWidget.cpp
     widgets/ImageCanvas.h
     widgets/ImageCanvas.cpp
     widgets/GraphicsView.cpp
@@ -119,6 +121,8 @@ add_library(ofscore SHARED
     script/LuaScript.cpp
     sprites/ImageDocument.h
     sprites/ImageDocument.cpp
+    sprites/PaletteEdits.h
+    sprites/PaletteEdits.cpp
     sprites/SpriteDocument.h
     sprites/SpriteDocument.cpp
     sprites/SpriteEdits.h

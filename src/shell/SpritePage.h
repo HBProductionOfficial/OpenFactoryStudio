@@ -35,6 +35,13 @@ public:
 
     QPoint cursorPosition() const { return m_cursor; }
 
+    int currentPalette() const { return m_palette; }
+    void setCurrentPalette(int index);
+    // Draws the current 8-bit sprite with `palette` instead of its own (nullptr for its own).
+    void setDisplayPalette(SpritePalettePtr palette);
+    void setColorPicker(bool on);
+    bool colorPicker() const { return m_picker; }
+
     bool imageMode() const;
     bool setImageMode(bool on);
     ImageEditor* imageEditor() const { return m_editor; }
@@ -49,6 +56,8 @@ Q_SIGNALS:
     void currentChanged(int index);
     void statusChanged();
     void imageModeChanged(bool on);
+    void currentPaletteChanged(int index);
+    void colorPicked(int index);
 
 private:
     void refresh();
@@ -69,6 +78,9 @@ private:
     QPoint m_dragOffset;
     bool m_settingsApplied = false;
     QPoint m_cursor;
+    int m_palette = -1;
+    SpritePalettePtr m_displayPalette;
+    bool m_picker = false;
 };
 
 } // namespace OFS

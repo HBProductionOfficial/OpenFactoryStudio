@@ -22,6 +22,8 @@ add_library(ofsshell STATIC
     MainWindow.cpp
     MenuBuilder.h
     MenuBuilder.cpp
+    PalettesPanel.h
+    PalettesPanel.cpp
     ProjectView.h
     ProjectView.cpp
     SpritePage.h
@@ -63,6 +65,8 @@ add_library(ofsshell STATIC
     dialogs/SnippetFieldsDialog.cpp
     dialogs/SpriteDialogs.h
     dialogs/SpriteDialogs.cpp
+    dialogs/PaletteDialogs.h
+    dialogs/PaletteDialogs.cpp
     dialogs/SoundDialogs.h
     dialogs/SoundDialogs.cpp
     dialogs/AnimationDialogs.h

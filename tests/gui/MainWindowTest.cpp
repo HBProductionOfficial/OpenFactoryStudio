@@ -14,6 +14,7 @@
 #include "core/widgets/EPanelWidget.h"
 #include "core/widgets/GraphicsView.h"
 #include "core/widgets/ImageCanvas.h"
+#include "core/widgets/PaletteWidget.h"
 #include "core/widgets/TimelineWidget.h"
 #include "core/widgets/WaveformView.h"
 #include "formats/codecs/Png.h"
@@ -28,6 +29,7 @@
 #include "shell/SpritePage.h"
 #include "shell/SpritesEditor.h"
 #include "shell/StatusBar.h"
+#include "shell/dialogs/PaletteDialogs.h"
 #include "shell/dialogs/SnippetEditorDialog.h"
 #include "shell/dialogs/StateControllerDialog.h"
 
@@ -35,6 +37,7 @@
 #include <QApplication>
 #include <QCheckBox>
 #include <QClipboard>
+#include <QColorDialog>
 #include <QComboBox>
 #include <QContextMenuEvent>
 #include <QDialog>
@@ -2284,6 +2287,294 @@ private Q_SLOTS:
         QVERIFY2(reread.load(&error), qPrintable(error));
         QCOMPARE(reread.document().count(), 4);
         QCOMPARE(reread.document().sounds().at(3).group, 9);
+    }
+
+    void palettesPanel()
+    {
+        QTemporaryDir dir;
+        // Palettes 1,1 (slot i = i,0,0) and 1,2 (slot i = 0,i,0). Sprites 0,0 and 0,1 use 1,1 and 5,0
+        // uses 1,2. Pixel (x, y) of every sprite is palette index x + 4y.
+        auto ramp = [](int channel) {
+            Formats::Palette colors(256);
+            for (int i = 0; i < 256; ++i) {
+                std::uint8_t c[3] = {0, 0, 0};
+                c[channel] = std::uint8_t(i);
+                colors[std::size_t(i)] = Formats::Rgba{c[0], c[1], c[2], std::uint8_t(i == 0 ? 0 : 255)};
+            }
+            return colors;
+        };
+        SpriteDocument sprites;
+        sprites.palettes() << SpriteDocument::makePalette(1, 1, ramp(0)) << SpriteDocument::makePalette(1, 2, ramp(1));
+        std::vector<std::uint8_t> pixels(16);
+        for (int i = 0; i < 16; ++i)
+            pixels[std::size_t(i)] = std::uint8_t(i);
+        const int ids[][3] = {{0, 0, 0}, {0, 1, 0}, {5, 0, 1}};
+        for (const auto& id : ids) {
+            SpriteEntry entry;
+            entry.header.group = std::uint16_t(id[0]);
+            entry.header.number = std::uint16_t(id[1]);
+            entry.pixels = SpriteDocument::makePixels(Formats::Image::indexed(4, 4, pixels));
+            entry.palette = sprites.palettes()[id[2]];
+            sprites.sprites() << entry;
+        }
+        const auto bytes = sprites.toSff().write();
+        QVERIFY(bytes.ok());
+        writeFile(dir.filePath("p.sff"),
+                  QByteArray(reinterpret_cast<const char*>(bytes.value().data()), qsizetype(bytes.value().size())));
+        writeFile(dir.filePath("p.def"), "[Info]\nname = \"P\"\nmugenversion = 1.0\n"
+                                         "[Files]\ncns = p.cns\nsprite = p.sff\n");
+        writeFile(dir.filePath("p.cns"), "[Data]\nlife = 1000\n");
+
+        MainWindow window(*m_context);
+        window.resize(1100, 800);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("p.def")));
+        ActionRegistry& actions = m_context->actions();
+        actions.action("editor_spr")->trigger();
+        ProjectView* view = window.currentProjectView();
+        auto* page = view->findChild<SpritePage*>();
+        QVERIFY(page);
+        SpriteFile* file = page->file();
+        auto* label = view->findChild<QLabel*>("pal_sel_lb");
+        auto* group = view->findChild<QSpinBox*>("pal_grp");
+        auto* number = view->findChild<QSpinBox*>("pal_num");
+        auto* grid = view->findChild<PaletteWidget*>("pal_view");
+        auto* follow = view->findChild<QCheckBox*>("spr_switch_pal");
+        QVERIFY(label && group && number && grid && follow);
+        auto colors = [file](int palette) {
+            return file->document().palettes()[palette]->palette.colors;
+        };
+        // The color the current sprite shows at pixel (x, 0).
+        auto shown = [page](int x) {
+            return page->view()->images().last().image.pixelColor(x, 0);
+        };
+        auto modal = [] {
+            return QApplication::activeModalWidget();
+        };
+        auto answerColor = [this, modal](QColor color) {
+            QTimer::singleShot(0, this, [modal, color] {
+                auto* dialog = qobject_cast<QColorDialog*>(modal());
+                QVERIFY(dialog);
+                QCOMPARE(dialog->windowTitle(), QStringLiteral("Color"));
+                QVERIFY(dialog->testOption(QColorDialog::ShowAlphaChannel));
+                dialog->setCurrentColor(color);
+                dialog->accept();
+            });
+        };
+        auto answerBox = [this, modal](const QString& title, QMessageBox::StandardButton button) {
+            QTimer::singleShot(0, this, [modal, title, button] {
+                auto* box = qobject_cast<QMessageBox*>(modal());
+                QVERIFY(box);
+                QCOMPARE(box->windowTitle(), boxTitle(title));
+                box->button(button)->click();
+            });
+        };
+        QCOMPARE(label->text(), QStringLiteral("1 / 2"));
+        QCOMPARE(group->value(), 1);
+        QCOMPARE(number->value(), 1);
+        QCOMPARE(grid->colors(), ramp(0));
+        QVERIFY(follow->isChecked());
+        QCOMPARE(shown(1), QColor(1, 0, 0));
+
+        actions.action("spr_next")->trigger();
+        actions.action("spr_next")->trigger();
+        QCOMPARE(label->text(), QStringLiteral("2 / 2"));
+        actions.action("spr_prev")->trigger();
+        QCOMPARE(label->text(), QStringLiteral("1 / 2"));
+        follow->setChecked(false);
+        actions.action("pal_next")->trigger();
+        QCOMPARE(label->text(), QStringLiteral("2 / 2"));
+        QCOMPARE(shown(1), QColor(0, 1, 0));
+        actions.action("pal_next")->trigger();
+        QCOMPARE(label->text(), QStringLiteral("2 / 2"));
+        follow->setChecked(true);
+        QCOMPARE(label->text(), QStringLiteral("1 / 2"));
+        QCOMPARE(shown(1), QColor(1, 0, 0));
+
+        auto* issues = window.findChild<QTableView*>("issuesView");
+        auto issueMessages = [issues] {
+            QStringList messages;
+            for (int row = 0; row < issues->model()->rowCount(); ++row)
+                messages << issues->model()->index(row, 0).data().toString();
+            return messages;
+        };
+        number->setValue(2);
+        QCOMPARE(file->document().palettes()[0]->palette.number, std::uint16_t(2));
+        QTRY_VERIFY(issueMessages().contains(QStringLiteral("The group 1, index 2 is already in use by palette #1!")));
+        actions.action("edit_undo")->trigger();
+        QCOMPARE(number->value(), 1);
+        QTRY_VERIFY(issueMessages().isEmpty());
+
+        answerBox("Add palette", QMessageBox::No);
+        actions.action("pal_add")->trigger();
+        QCOMPARE(file->document().palettes().size(), 3);
+        QCOMPARE(label->text(), QStringLiteral("2 / 3"));
+        QCOMPARE(group->value(), 0);
+        QCOMPARE(grid->slotCount(), 32);
+        QCOMPARE(grid->colors().at(5), (Formats::Rgba{0, 0, 0, 0}));
+        actions.action("edit_undo")->trigger();
+        QCOMPARE(file->document().palettes().size(), 2);
+        QCOMPARE(label->text(), QStringLiteral("2 / 2"));
+        actions.action("pal_prev")->trigger();
+
+        grid->setSelection({1, 5});
+        actions.action("pal_switch_color")->trigger();
+        QCOMPARE(colors(0)[1], ramp(0)[5]);
+        QCOMPARE(colors(0)[5], ramp(0)[1]);
+        QCOMPARE(grid->selection(), (QList<int>{1, 5}));
+        QCOMPARE(shown(1), QColor(5, 0, 0));
+        actions.action("pal_undo")->trigger();
+        QCOMPARE(colors(0), ramp(0));
+        actions.action("pal_redo")->trigger();
+        QCOMPARE(colors(0)[1], ramp(0)[5]);
+        actions.action("edit_undo")->trigger();
+        QCOMPARE(colors(0), ramp(0));
+        QVERIFY(grid->selection().isEmpty());
+
+        grid->setSelection({2, 3});
+        answerColor(QColor(200, 100, 0, 128));
+        actions.action("pal_set_color")->trigger();
+        QCOMPARE(colors(0)[2], (Formats::Rgba{200, 100, 0, 128}));
+        QCOMPARE(colors(0)[3], (Formats::Rgba{200, 100, 0, 128}));
+        QCOMPARE(shown(2).red(), 200);
+        answerColor(QColor(1, 2, 3));
+        QTest::mouseDClick(grid, Qt::LeftButton, {}, grid->cellRect(4).center());
+        QCOMPARE(colors(0)[4], (Formats::Rgba{1, 2, 3, 255}));
+        // Dragging slot 4 to 9 moves its color there and shifts the slots between down by one.
+        Q_EMIT grid->slotMoved(4, 9);
+        QCOMPARE(colors(0)[9], (Formats::Rgba{1, 2, 3, 255}));
+        QCOMPARE(colors(0)[4], ramp(0)[5]);
+        actions.action("pal_undo")->trigger();
+        QCOMPARE(colors(0)[4], (Formats::Rgba{1, 2, 3, 255}));
+        actions.action("pal_undo")->trigger();
+        actions.action("pal_undo")->trigger();
+        QCOMPARE(colors(0), ramp(0));
+
+        // Change... loads an ACT file, which is read in reverse.
+        QByteArray act;
+        for (int i = 0; i < 256; ++i) {
+            act += char(0);
+            act += char(0);
+            act += char(i);
+        }
+        writeFile(dir.filePath("blue.act"), act);
+        FileDialogs::setOpenPromptOverride([&dir](const QString& caption, const QString& folder, const QString&) {
+            [&] {
+                QCOMPARE(caption, QStringLiteral("Open palette"));
+                QCOMPARE(QDir(folder), QDir(dir.path()));
+            }();
+            return dir.filePath("blue.act");
+        });
+        actions.action("pal_open")->trigger();
+        FileDialogs::setOpenPromptOverride({});
+        QCOMPARE(colors(0)[255], (Formats::Rgba{0, 0, 0, 255}));
+        QCOMPARE(colors(0)[1], (Formats::Rgba{0, 0, 254, 255}));
+        QCOMPARE(colors(0)[0].a, std::uint8_t(0));
+        actions.action("edit_undo")->trigger();
+
+        QTimer::singleShot(0, this, [modal] {
+            QWidget* items = modal();
+            QVERIFY(items);
+            QCOMPARE(items->objectName(), QStringLiteral("ItemsDlg"));
+            QCOMPARE(items->findChild<QListWidget*>("list")->item(1)->text(), QStringLiteral("1, 2"));
+            items->findChild<QPushButton*>("allBut")->click();
+            qobject_cast<QDialog*>(items)->accept();
+        });
+        FileDialogs::setSavePromptOverride([&dir](const QString& caption, const QString&, const QString& filter) {
+            [&] {
+                QCOMPARE(caption, QStringLiteral("Save palette"));
+                QCOMPARE(filter, QStringLiteral("Adobe Color Table (*.act)"));
+            }();
+            return dir.filePath("multi.act");
+        });
+        actions.action("pal_save")->trigger();
+        FileDialogs::setSavePromptOverride({});
+        QVERIFY(QFile::exists(dir.filePath("multi_1-1.act")));
+        QVERIFY(QFile::exists(dir.filePath("multi_1-2.act")));
+
+        actions.action("pal_switch_count")->trigger();
+        QCOMPARE(grid->slotCount(), 32);
+        actions.action("pal_switch_count")->trigger();
+        QCOMPARE(colors(0), ramp(0));
+
+        answerBox("Delete", QMessageBox::Yes);
+        actions.action("pal_delete")->trigger();
+        QCOMPARE(file->document().palettes().size(), 1);
+        QCOMPARE(label->text(), QStringLiteral("1 / 1"));
+        QCOMPARE(file->document().sprites()[0].palette, file->document().palettes()[0]);
+        QCOMPARE(shown(1), QColor(0, 1, 0));
+        actions.action("edit_undo")->trigger();
+        QCOMPARE(file->document().palettes().size(), 2);
+
+        actions.action("pal_next")->trigger();
+        FileDialogs::setOpenPromptOverride(
+            [&dir](const QString&, const QString&, const QString&) { return dir.filePath("blue.act"); });
+        actions.action("pal_open")->trigger();
+        actions.action("pal_prev")->trigger();
+        actions.action("pal_open")->trigger();
+        FileDialogs::setOpenPromptOverride({});
+        QCOMPARE(colors(0), colors(1));
+        actions.action("pal_delete_duplicates")->trigger();
+        QCOMPARE(file->document().palettes().size(), 1);
+        QCOMPARE(file->document().sprites()[2].palette, file->document().palettes()[0]);
+        for (int i = 0; i < 3; ++i)
+            actions.action("edit_undo")->trigger();
+        QCOMPARE(colors(1), ramp(1));
+
+        // Clear all unused keeps the character palettes (group 1).
+        answerBox("Add palette", QMessageBox::No);
+        actions.action("pal_add")->trigger();
+        number->setValue(9);
+        QCOMPARE(file->document().palettes().size(), 3);
+        actions.action("pal_clear_unused")->trigger();
+        QCOMPARE(file->document().palettes().size(), 2);
+
+        m_context->config().setValue(QStringLiteral("confirm_delete"), true);
+        answerBox("Clear", QMessageBox::Yes);
+        actions.action("pal_clear")->trigger();
+        QVERIFY(file->document().palettes().isEmpty());
+        QCOMPARE(label->text(), QStringLiteral("0 / 0"));
+        QCOMPARE(grid->slotCount(), 256);
+        QVERIFY(!group->isEnabled());
+        QVERIFY(!actions.action("pal_switch_count")->isEnabled());
+        QTRY_VERIFY(issueMessages().contains(QStringLiteral("Indexed sprite without palette!")));
+        actions.action("edit_undo")->trigger();
+        QCOMPARE(label->text(), QStringLiteral("1 / 2"));
+        QVERIFY(actions.action("pal_switch_count")->isEnabled());
+        m_context->config().setValue(QStringLiteral("confirm_delete"), false);
+
+        actions.action("pal_remap")->trigger();
+        auto* remap = window.findChild<RemapDialog*>("RemapDlg");
+        QVERIFY(remap && remap->isVisible() && !remap->isModal());
+        QCOMPARE(remap->table()->model()->rowCount(), 1);
+        remap->table()->model()->setData(remap->table()->model()->index(0, 3), 2);
+        QCOMPARE(shown(1), QColor(0, 1, 0));
+        QCOMPARE(label->text(), QStringLiteral("1 / 2"));
+        remap->findChild<QPushButton*>("pushButton_3")->click(); // Clear
+        QCOMPARE(shown(1), QColor(1, 0, 0));
+        remap->findChild<QPushButton*>("pushButton")->click();
+        QCOMPARE(remap->rows().size(), 1);
+        remap->close();
+
+        grid->setSelection({7});
+        actions.action("pal_pick_color")->trigger();
+        QVERIFY(page->colorPicker());
+        Q_EMIT page->view()->pressed(QPointF(1.5, 2.5)); // pixel (1, 2): index 9
+        Q_EMIT page->view()->pressed(QPointF(3.2, 0.1)); // index 3
+        QCOMPARE(grid->selection(), (QList<int>{3, 7, 9}));
+        actions.action("pal_pick_color")->trigger();
+        QVERIFY(!page->colorPicker());
+
+        QTimer::singleShot(0, this, [modal] {
+            QWidget* items = modal();
+            QVERIFY(items);
+            auto* list = items->findChild<QListWidget*>("list");
+            list->clearSelection();
+            list->item(2)->setSelected(true); // 5,0
+            qobject_cast<QDialog*>(items)->accept();
+        });
+        actions.action("pal_apply_sprite")->trigger();
+        QCOMPARE(file->document().sprites()[2].palette, file->document().palettes()[0]);
     }
 
     void spritesSaveAs()

@@ -12,6 +12,7 @@
 #include "core/widgets/GraphicsView.h"
 #include "shell/FileDialogs.h"
 #include "shell/ImageEditor.h"
+#include "shell/PalettesPanel.h"
 #include "shell/SpritePage.h"
 #include "shell/dialogs/SpriteDialogs.h"
 
@@ -65,7 +66,13 @@ T* control(QWidget* panel, const char* name)
 SpritesEditor::SpritesEditor(AppContext& context, QObject* parent)
     : QObject(parent)
     , m_context(context)
+    , m_palettes(new PalettesPanel(context, this))
 {}
+
+void SpritesEditor::bindPalettes(QWidget* panel)
+{
+    m_palettes->bindPanel(panel);
+}
 
 void SpritesEditor::bindPanel(QWidget* panel)
 {
@@ -213,6 +220,8 @@ void SpritesEditor::setPage(SpritePage* page)
         disconnect(m_page, nullptr, this, nullptr);
     const bool wasImage = imageMode();
     m_page = page;
+    m_palettes->setPage(page);
+    m_palettes->setImageMode(imageMode());
     if (m_page) {
         connect(m_page, &SpritePage::currentChanged, this, &SpritesEditor::refresh);
         connect(m_page->file(), &SpriteFile::documentChanged, this, &SpritesEditor::refresh);
