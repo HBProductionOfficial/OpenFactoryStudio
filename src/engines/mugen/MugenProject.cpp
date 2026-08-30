@@ -77,9 +77,9 @@ QStringList MugenProject::editorsForType(const QString& typeId)
 
     if (typeId == QLatin1String("char"))
         return {def, spr, anim, cmd, st, snd, emul};
-    if (typeId == QLatin1String("stage"))
+    if (typeId == QLatin1String("stage") || typeId == QLatin1String("storyboard"))
         return {def, spr, anim, bg, emul};
-    if (typeId == QLatin1String("motif") || typeId == QLatin1String("storyboard"))
+    if (typeId == QLatin1String("motif"))
         return {def, spr, anim, bg, snd, emul};
     if (typeId == QLatin1String("fight"))
         return {def, spr, anim, snd, emul};
@@ -94,6 +94,27 @@ QString MugenProject::resolve(const QString& relative) const
     if (QDir::isAbsolutePath(cleaned))
         return QDir::cleanPath(cleaned);
     return QDir::cleanPath(directory() + QLatin1Char('/') + cleaned);
+}
+
+QString MugenProject::resolveData(const QString& relative) const
+{
+    const QString own = resolve(relative);
+    if (relative.isEmpty() || QFileInfo::exists(own) || QDir::isAbsolutePath(relative))
+        return own;
+    // The nearest "data" folder above the motif, then the folder holding it.
+    QDir dir(directory());
+    do {
+        if (dir.dirName().compare(QLatin1String("data"), Qt::CaseInsensitive) == 0) {
+            const QString inData = QDir::cleanPath(dir.filePath(relative));
+            if (QFileInfo::exists(inData))
+                return inData;
+            QDir root = dir;
+            if (root.cdUp() && QFileInfo::exists(root.filePath(relative)))
+                return QDir::cleanPath(root.filePath(relative));
+            break;
+        }
+    } while (dir.cdUp());
+    return own;
 }
 
 void MugenProject::collectFiles(const DefFile& def)
@@ -128,9 +149,10 @@ void MugenProject::collectFiles(const DefFile& def)
                        {resolve(def.value(QStringLiteral("SceneDef"), QStringLiteral("spr")))});
         setEditorFiles(QStringLiteral("animations"), {filePath()});
         setEditorFiles(QStringLiteral("backgrounds"), {filePath()});
-        setEditorFiles(QStringLiteral("sounds"),
-                       {resolve(def.value(QStringLiteral("SceneDef"), QStringLiteral("snd")))});
     } else if (type == QLatin1String("motif")) {
+        QStringList definitions{filePath()};
+        addUnique(definitions, resolveData(def.value(files, QStringLiteral("select"))));
+        setEditorFiles(QStringLiteral("definitions"), definitions);
         setEditorFiles(QStringLiteral("sprites"), {resolve(def.value(files, QStringLiteral("spr")))});
         setEditorFiles(QStringLiteral("animations"), {filePath()});
         setEditorFiles(QStringLiteral("backgrounds"), {filePath()});

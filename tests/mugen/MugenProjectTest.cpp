@@ -93,6 +93,27 @@ private Q_SLOTS:
         QCOMPARE(MugenProject::editorsForType("fight"),
                  (QStringList{"definitions", "sprites", "animations", "sounds", "emulator"}));
         QCOMPARE(MugenProject::editorsForType("font"), (QStringList{"definitions", "emulator"}));
+        QCOMPARE(MugenProject::editorsForType("storyboard"),
+                 (QStringList{"definitions", "sprites", "animations", "backgrounds", "emulator"}));
+    }
+
+    void motifFiles()
+    {
+        QTemporaryDir dir;
+        QVERIFY(QDir(dir.path()).mkpath("data/mine"));
+        writeFile(dir.filePath("data/select.def"), "[Characters]\nkfm\n");
+        writeFile(dir.filePath("data/mine/system.def"), "[Info]\nname = \"Mine\"\nmugenversion = 1.0\n"
+                                                        "[Files]\nspr = system.sff\nsnd = system.snd\n"
+                                                        "select = select.def\n[Title Info]\n[TitleBGdef]\n");
+        MugenEngine engine;
+        QString error;
+        std::unique_ptr<Project> project(engine.openProject(dir.filePath("data/mine/system.def"), &error));
+        QVERIFY2(project, qPrintable(error));
+        QCOMPARE(project->typeId(), QStringLiteral("motif"));
+        const QString base = QDir::fromNativeSeparators(dir.path());
+        QCOMPARE(project->editorFiles("definitions"),
+                 (QStringList{base + "/data/mine/system.def", base + "/data/select.def"}));
+        QCOMPARE(project->editorFiles("backgrounds"), QStringList{base + "/data/mine/system.def"});
     }
 
     void characterFiles()

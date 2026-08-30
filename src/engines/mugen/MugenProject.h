@@ -22,6 +22,9 @@ public:
 
 private:
     QString resolve(const QString& relative) const;
+    // A motif file as the engine finds it: in the motif's folder, then in data/, then in the
+    // engine folder (the path in the motif folder when none exists).
+    QString resolveData(const QString& relative) const;
     void collectFiles(const DefFile& def);
 };
 
