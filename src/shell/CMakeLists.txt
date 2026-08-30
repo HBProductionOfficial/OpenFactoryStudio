@@ -6,6 +6,10 @@ add_library(ofsshell STATIC
     AnimationPage.cpp
     AnimationsEditor.h
     AnimationsEditor.cpp
+    BackgroundsEditor.h
+    BackgroundsEditor.cpp
+    BackgroundsPage.h
+    BackgroundsPage.cpp
     AdvancedSearchPanel.h
     AdvancedSearchPanel.cpp
     BottomDock.h
@@ -72,6 +76,8 @@ add_library(ofsshell STATIC
     dialogs/SoundDialogs.h
     dialogs/SoundDialogs.cpp
     dialogs/AnimationDialogs.h
+    dialogs/BackgroundDialogs.h
+    dialogs/BackgroundDialogs.cpp
     dialogs/AnimationDialogs.cpp
     dialogs/StateControllerDialog.h
     dialogs/StateControllerDialog.cpp

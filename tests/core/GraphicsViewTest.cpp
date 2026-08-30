@@ -74,7 +74,7 @@ private Q_SLOTS:
         GraphicsView view;
         view.resize(400, 300);
         view.setOrigin(QPoint(200, 150));
-        view.setImages({{block(20, 10), QPoint(-10, -10), 1.0, true, {}}});
+        view.setImages({{block(20, 10), QPoint(-10, -10), 1.0, true, {}, {}, {}}});
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
         QSignalSpy dragged(&view, &GraphicsView::imageDragged);
@@ -115,7 +115,7 @@ private Q_SLOTS:
     {
         GraphicsView view;
         view.resize(420, 320);
-        view.setImages({{block(100, 50), QPoint(-50, -50), 1.0, false, {}}});
+        view.setImages({{block(100, 50), QPoint(-50, -50), 1.0, false, {}, {}, {}}});
         view.zoomFit();
         QCOMPARE(view.zoom(), 3.0); // 4x would not fit 400 px across
         const QPointF centre = view.toWidget(QPointF(0, -25));
@@ -202,7 +202,7 @@ private Q_SLOTS:
         QVERIFY(QTest::qWaitForWindowExposed(&view));
         QImage image(10, 10, QImage::Format_RGBA8888);
         image.fill(Qt::green);
-        view.setImages({{image, QPoint(0, 0), 1.0, true, QTransform::fromScale(-1, 1)}});
+        view.setImages({{image, QPoint(0, 0), 1.0, true, QTransform::fromScale(-1, 1), {}, {}}});
         QSignalSpy dragged(&view, &GraphicsView::imageDragged);
         QTest::mousePress(&view, Qt::LeftButton, {}, QPoint(195, 155));
         QTest::mouseMove(&view, QPoint(198, 155));

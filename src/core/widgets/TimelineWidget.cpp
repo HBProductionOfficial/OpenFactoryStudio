@@ -39,7 +39,27 @@ void TimelineWidget::setPlayhead(int tick)
     if (tick == m_playhead)
         return;
     m_playhead = tick;
+    if (m_tickMode) {
+        // Keep the play-head in view, a page at a time.
+        const int visible = std::max(1, int((width() - trackLeft() - 4) / tickWidth()));
+        if (tick < m_firstTick || tick >= m_firstTick + visible)
+            m_firstTick = std::max(0, tick - (tick < m_firstTick ? 0 : visible / 4));
+    }
     update();
+}
+
+void TimelineWidget::setTickMode(bool on)
+{
+    m_tickMode = on;
+    m_firstTick = 0;
+    update();
+}
+
+int TimelineWidget::tickAt(int x) const
+{
+    if (x < trackLeft())
+        return -1;
+    return m_firstTick + int((x - trackLeft()) / tickWidth());
 }
 
 int TimelineWidget::trackLeft() const
@@ -49,6 +69,8 @@ int TimelineWidget::trackLeft() const
 
 double TimelineWidget::tickWidth() const
 {
+    if (m_tickMode)
+        return 6.0;
     int total = 0;
     for (const Frame& frame : m_frames)
         total += length(frame);
@@ -81,8 +103,9 @@ void TimelineWidget::paintEvent(QPaintEvent* event)
     int step = 5;
     while (step * unit < 24)
         step += 5;
-    for (int tick = 0; left + tick * unit < width(); ++tick) {
-        const double x = left + tick * unit;
+    const int first = m_tickMode ? m_firstTick : 0;
+    for (int tick = first; left + (tick - first) * unit < width(); ++tick) {
+        const double x = left + (tick - first) * unit;
         if (tick % step == 0) {
             p.drawLine(QPointF(x, RulerHeight - 6), QPointF(x, RulerHeight));
             p.drawText(QPointF(x + 2, RulerHeight - 6), QString::number(tick));
@@ -108,13 +131,20 @@ void TimelineWidget::paintEvent(QPaintEvent* event)
         }
         x += block.width();
     }
-    const double head = left + m_playhead * unit;
+    const double head = left + (m_playhead - first) * unit;
     p.setPen(QPen(QColor(255, 220, 0), 2));
     p.drawLine(QPointF(head, 0), QPointF(head, height()));
 }
 
 void TimelineWidget::mousePressEvent(QMouseEvent* event)
 {
+    if (m_tickMode) {
+        const int tick = tickAt(event->position().toPoint().x());
+        if (event->button() == Qt::LeftButton && tick >= 0)
+            Q_EMIT tickClicked(tick);
+        QWidget::mousePressEvent(event);
+        return;
+    }
     const int frame = frameAt(event->position().toPoint().x());
     if (event->button() == Qt::LeftButton && frame >= 0)
         Q_EMIT frameClicked(frame);

@@ -29,6 +29,8 @@
 #include "shell/AdvancedSearchPanel.h"
 #include "shell/AnimationPage.h"
 #include "shell/AnimationsEditor.h"
+#include "shell/BackgroundsEditor.h"
+#include "shell/BackgroundsPage.h"
 #include "shell/BottomDock.h"
 #include "shell/CodePage.h"
 #include "shell/ControllerTemplatesWidget.h"
@@ -165,6 +167,29 @@ void MainWindow::buildMenus()
                         [this](QMenu* menu, QAction* before, QList<QAction*>& created) {
                             populateRecentProjects(menu, before, created);
                         });
+    m_menus->setDynamic(QStringLiteral("bg_groups"), [this](QMenu* menu, QAction* before, QList<QAction*>& created) {
+        ProjectView* view = currentProjectView();
+        BackgroundsEditor* backgrounds = view ? view->backgroundsEditor() : nullptr;
+        if (!backgrounds || view->currentEditor() != QLatin1String("backgrounds"))
+            return;
+        const QStringList names = backgrounds->groupNames();
+        if (names.isEmpty())
+            return;
+        auto* separator = new QAction(menu);
+        separator->setSeparator(true);
+        menu->insertAction(before, separator);
+        created << separator;
+        auto* group = new QActionGroup(menu);
+        for (int i = 0; i < names.size(); ++i) {
+            auto* item = new QAction(names.at(i), menu);
+            item->setCheckable(true);
+            item->setChecked(i == backgrounds->group());
+            item->setActionGroup(group);
+            connect(item, &QAction::triggered, this, [backgrounds, i] { backgrounds->setGroup(i); });
+            menu->insertAction(before, item);
+            created << item;
+        }
+    });
     m_menus->setDynamic(QStringLiteral("encodings"), [this](QMenu* menu, QAction* before, QList<QAction*>& created) {
         populateEncodings(menu, before, created);
     });
@@ -476,8 +501,15 @@ void MainWindow::connectEditActions()
             view ? view->findChild<QTabWidget*>(QStringLiteral("fileTabs_") + view->currentEditor()) : nullptr;
         return tabs ? qobject_cast<AnimationPage*>(tabs->currentWidget()) : nullptr;
     };
-    auto undoRedo = [textTarget, spriteUndo, animationPage](bool redo) {
-        return [textTarget, spriteUndo, animationPage, redo] {
+    // Same for the Backgrounds editor and its definitions text.
+    auto backgroundsPage = [this]() -> BackgroundsPage* {
+        ProjectView* view = currentProjectView();
+        QTabWidget* tabs =
+            view ? view->findChild<QTabWidget*>(QStringLiteral("fileTabs_") + view->currentEditor()) : nullptr;
+        return tabs ? qobject_cast<BackgroundsPage*>(tabs->currentWidget()) : nullptr;
+    };
+    auto undoRedo = [textTarget, spriteUndo, animationPage, backgroundsPage](bool redo) {
+        return [textTarget, spriteUndo, animationPage, backgroundsPage, redo] {
             QWidget* w = textTarget();
             if (auto* p = qobject_cast<QPlainTextEdit*>(w))
                 redo ? p->redo() : p->undo();
@@ -487,6 +519,8 @@ void MainWindow::connectEditActions()
                 redo ? stack->redo() : stack->undo();
             else if (AnimationPage* page = animationPage(); page && page->file())
                 redo ? page->file()->document()->redo() : page->file()->document()->undo();
+            else if (BackgroundsPage* bg = backgroundsPage(); bg && bg->file())
+                redo ? bg->file()->document()->redo() : bg->file()->document()->undo();
         };
     };
     on("edit_undo", undoRedo(false));
@@ -720,6 +754,17 @@ void MainWindow::connectEditActions()
                 view->spritesEditor()->palettes()->perform(action);
         });
     }
+    // Backgrounds editor actions.
+    for (const char* id : {"bgs_add", "bgs_delete", "bgs_duplicate", "bgs_play", "bgs_pause", "bgs_stop",
+                           "bgctrls_def_add", "bgctrls_def_delete", "bgctrls_add", "bgctrls_delete"}) {
+        const QString action = QString::fromLatin1(id);
+        on(id, [this, action] {
+            ProjectView* view = currentProjectView();
+            if (view && view->backgroundsEditor())
+                view->backgroundsEditor()->perform(action);
+            refreshActionStates();
+        });
+    }
     // Sounds editor actions.
     for (const char* id :
          {"snd_add",         "snd_delete",       "snd_duplicate",       "snd_open_sample",  "snd_save_sample",
@@ -748,6 +793,9 @@ void MainWindow::connectEditActions()
     exclusive({"snd_tool_offset", "snd_tool_zoom", "snd_tool_select", "snd_tool_move", "snd_tool_hresize",
                "snd_tool_vresize"});
     exclusive({"snd_play", "snd_play_loop", "snd_pause", "snd_stop"});
+    exclusive({"bgs_play", "bgs_pause", "bgs_stop"});
+    if (QAction* stop = actions.action(QStringLiteral("bgs_stop")))
+        stop->setChecked(true);
     if (QAction* select = actions.action(QStringLiteral("snd_tool_select")))
         select->setChecked(true);
     // Animations editor actions.
@@ -1526,6 +1574,14 @@ bool MainWindow::openProject(const QString& filePath)
                 refreshActionStates();
         });
     }
+    if (BackgroundsEditor* backgrounds = view->backgroundsEditor()) {
+        connect(backgrounds, &BackgroundsEditor::stateChanged, this, [this, view] {
+            if (view == currentProjectView()) {
+                refreshActionStates();
+                refreshStatusBar();
+            }
+        });
+    }
     if (SpritesEditor* sprites = view->spritesEditor()) {
         connect(sprites->palettes(), &PalettesPanel::stateChanged, this, [this, view] {
             if (view == currentProjectView())
@@ -1766,6 +1822,24 @@ void MainWindow::refreshActionStates()
     if (QAction* a = actions.action(QStringLiteral("spr_explorer")))
         a->setChecked(sprites && sprites->explorerShown());
 
+    if (BackgroundsEditor* backgrounds = view ? view->backgroundsEditor() : nullptr) {
+        BackgroundsPage* page = backgrounds->page();
+        const auto mode = page ? page->mode() : BackgroundsPage::Mode::Stopped;
+        const char* checked = mode == BackgroundsPage::Mode::Playing  ? "bgs_play"
+                              : mode == BackgroundsPage::Mode::Paused ? "bgs_pause"
+                                                                      : "bgs_stop";
+        if (QAction* a = actions.action(QString::fromLatin1(checked)); a && !a->isChecked())
+            a->setChecked(true);
+        const bool playing = mode == BackgroundsPage::Mode::Playing;
+        const bool hasElement = page && page->element();
+        const bool hasDefinition = page && page->definition();
+        enable(QStringLiteral("bgs_delete"), !playing && hasElement);
+        enable(QStringLiteral("bgs_duplicate"), !playing && hasElement);
+        enable(QStringLiteral("bgctrls_def_add"), !playing && page && page->currentGroup());
+        enable(QStringLiteral("bgctrls_def_delete"), !playing && hasDefinition);
+        enable(QStringLiteral("bgctrls_add"), !playing && hasDefinition);
+        enable(QStringLiteral("bgctrls_delete"), !playing && page && page->controller());
+    }
     if (SoundsEditor* sounds = view ? view->soundsEditor() : nullptr; sounds && sounds->page()) {
         const SoundPage::State state = sounds->page()->state();
         const char* checked = state == SoundPage::State::Playing
@@ -1858,6 +1932,16 @@ void MainWindow::refreshStatusBar()
             const QPoint guides = animation->view()->guides();
             m_status->setSection(
                 0, tr("Position: %1, %2").arg(animation->cursorPosition().x()).arg(animation->cursorPosition().y()));
+            m_status->setSection(1, tr("Horizontal guide: %1, Vertical guide: %2").arg(guides.y()).arg(guides.x()));
+            m_status->setSection(2, tr("Renderer: %1").arg(QStringLiteral("OpenGL")));
+            break;
+        }
+        if (auto* page = tabs ? qobject_cast<BackgroundsPage*>(tabs->currentWidget()) : nullptr) {
+            const QPoint guides = page->view()->guides();
+            m_status->setSection(
+                0, page->mode() == BackgroundsPage::Mode::Playing
+                       ? tr("%1 FPS").arg(60)
+                       : tr("Position: %1, %2").arg(page->cursorPosition().x()).arg(page->cursorPosition().y()));
             m_status->setSection(1, tr("Horizontal guide: %1, Vertical guide: %2").arg(guides.y()).arg(guides.x()));
             m_status->setSection(2, tr("Renderer: %1").arg(QStringLiteral("OpenGL")));
             break;

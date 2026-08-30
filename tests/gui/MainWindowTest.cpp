@@ -21,6 +21,7 @@
 #include "shell/AdvancedPaletteEditor.h"
 #include "shell/AdvancedSearchPanel.h"
 #include "shell/AnimationPage.h"
+#include "shell/BackgroundsPage.h"
 #include "shell/CodePage.h"
 #include "shell/ControllerTemplatesWidget.h"
 #include "shell/FileDialogs.h"
@@ -2775,6 +2776,249 @@ private Q_SLOTS:
         answerDiscard(QMessageBox::Yes);
         editor.reject();
         QVERIFY(!editor.isVisible());
+    }
+
+    void backgroundsEditor()
+    {
+        QTemporaryDir dir;
+        // Sprites 0,0 (8x4) and 0,1 (4x4). The stage has two elements and one controller.
+        SpriteDocument sprites;
+        sprites.palettes() << SpriteDocument::makePalette(1, 1, Formats::grayscalePalette(256));
+        const int ids[][3] = {{0, 0, 8}, {0, 1, 4}};
+        for (const auto& id : ids) {
+            SpriteEntry entry;
+            entry.header.group = std::uint16_t(id[0]);
+            entry.header.number = std::uint16_t(id[1]);
+            entry.pixels = SpriteDocument::makePixels(
+                Formats::Image::indexed(id[2], 4, std::vector<std::uint8_t>(std::size_t(id[2] * 4), 5)));
+            entry.palette = sprites.palettes()[0];
+            sprites.sprites() << entry;
+        }
+        const auto bytes = sprites.toSff().write();
+        QVERIFY(bytes.ok());
+        writeFile(dir.filePath("b.sff"),
+                  QByteArray(reinterpret_cast<const char*>(bytes.value().data()), qsizetype(bytes.value().size())));
+        writeFile(dir.filePath("b.def"), "[Info]\nname = \"Bg Test\"\nmugenversion = 1.0\n"
+                                         "[Camera]\nstartx = 0\nstarty = 0\nboundleft = -100\nboundright = 100\n"
+                                         "boundhigh = -25\nboundlow = 0\n"
+                                         "[PlayerInfo]\np1startx = -70\np1starty = 0\np2startx = 70\np2starty = 0\n"
+                                         "[StageInfo]\nzoffset = 190\nlocalcoord = 320, 240\n"
+                                         "[BGdef]\nspr = b.sff\n\n;----\n[BG 0]\ntype  = normal\nspriteno = 0, 0\n"
+                                         "layerno = 0 ; Back\nstart = 10, 20\ntile = 1, 0\n\n"
+                                         "[BG Sky]\ntype = normal\nspriteno = 0, 1\nid = 7\n"
+                                         "[BGCtrlDef Mover]\nlooptime = 120\nctrlID = 7\n"
+                                         "[BGCtrl Shift]\ntype = PosAdd\ntime = 30\nx = 20\n");
+
+        MainWindow window(*m_context);
+        window.resize(1100, 800);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("b.def")));
+        ActionRegistry& actions = m_context->actions();
+        actions.action("editor_bg")->trigger();
+        ProjectView* view = window.currentProjectView();
+        QCOMPARE(view->currentEditor(), QStringLiteral("backgrounds"));
+        auto* page = view->findChild<BackgroundsPage*>();
+        QVERIFY(page);
+        QTextDocument* text = page->file()->document();
+        auto has = [text](const QString& line) {
+            return text->toPlainText().split(QLatin1Char('\n')).contains(line);
+        };
+        auto* label = view->findChild<QLabel*>("bgs_sel_lb");
+        auto* name = view->findChild<QLineEdit*>("bgs_name");
+        auto* type = view->findChild<QComboBox*>("bgs_type");
+        auto* startX = view->findChild<QDoubleSpinBox*>("bgs_start_x");
+        auto* startY = view->findChild<QDoubleSpinBox*>("bgs_start_y");
+        auto* deltaX = view->findChild<QDoubleSpinBox*>("bgs_delta_x");
+        auto* layer = view->findChild<QSpinBox*>("bgs_layer");
+        auto* trans = view->findChild<QComboBox*>("bgs_trans");
+        auto* source = view->findChild<QSpinBox*>("bgs_transsrc");
+        auto* parallax = view->findChild<QComboBox*>("bgs_parallax_mode");
+        auto* windowMode = view->findChild<QComboBox*>("bgs_window_mode");
+        QVERIFY(label && name && type && startX && startY && deltaX && layer && trans && source && parallax &&
+                windowMode);
+        auto choose = [](QComboBox* combo, int index) {
+            combo->setCurrentIndex(index);
+            Q_EMIT combo->activated(index);
+        };
+        QCOMPARE(label->text(), QStringLiteral("1 / 2"));
+        QCOMPARE(name->text(), QStringLiteral("0"));
+        QCOMPARE(type->currentText(), QStringLiteral("Normal"));
+        QCOMPARE(startX->value(), 10.0);
+        QCOMPARE(trans->currentText(), QStringLiteral("Default"));
+
+        QCOMPARE(page->view()->frames().first().rect, QRectF(-160, 0, 320, 240));
+        QVERIFY(page->view()->images().size() > 30); // the tiled floor covers the screen
+        QCOMPARE(page->view()->images().first().topLeft.y(), 20);
+
+        startX->setValue(30);
+        QVERIFY(has("start = 30, 20"));
+        startX->setValue(0);
+        startY->setValue(0);
+        QVERIFY(!text->toPlainText().contains("start ="));
+        page->view()->setFocus();
+        actions.action("edit_undo")->trigger();
+        QVERIFY(has("start = 0, 20"));
+        layer->setValue(1);
+        QVERIFY(has("layerno = 1 ; Back"));
+        deltaX->setValue(0.5);
+        QVERIFY(has("delta = 0.5, 1"));
+        QCOMPARE(text->findBlockByNumber(28).text(), QStringLiteral("delta = 0.5, 1"));
+
+        choose(trans, 2);
+        QVERIFY(has("trans = Add"));
+        choose(trans, 3);
+        QVERIFY(has("trans = Add1"));
+        choose(trans, 1);
+        QVERIFY(!text->toPlainText().contains("trans ="));
+        source->setValue(200);
+        QVERIFY(has("trans = AddAlpha"));
+        QVERIFY(has("alpha = 200, 256"));
+        choose(trans, 1);
+
+        choose(type, 3);
+        QVERIFY(has("type = Parallax"));
+        QVERIFY(has("width = 8, 8"));
+        QVERIFY(has("spriteno = 0, 0"));
+        choose(parallax, 2);
+        QVERIFY(has("xscale = 1, 1"));
+        QVERIFY(!text->toPlainText().contains("width ="));
+        choose(type, 1);
+        QVERIFY(has("type = Normal"));
+        // No mask window before 1.1. The window counts from the screen's top-left.
+        QCOMPARE(windowMode->count(), 2);
+        choose(windowMode, 1);
+        QVERIFY(has("window = 0, 0, 319, 239"));
+        choose(windowMode, 0);
+        QVERIFY(!text->toPlainText().contains("window ="));
+
+        name->setFocus();
+        name->selectAll();
+        QTest::keyClicks(name, "Floor");
+        QVERIFY(has("[BG Floor]"));
+
+        QTimer::singleShot(0, this, [] {
+            auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            QCOMPARE(dialog->objectName(), QStringLiteral("AddBG"));
+            QCOMPARE(dialog->windowTitle(), QStringLiteral("Add background"));
+            dialog->findChild<QLineEdit*>("name")->setText("New");
+            dialog->findChild<QComboBox*>("type")->setCurrentIndex(1);
+            dialog->accept();
+        });
+        page->view()->setFocus();
+        actions.action("bgs_add")->trigger();
+        QCOMPARE(label->text(), QStringLiteral("2 / 3"));
+        QVERIFY(text->toPlainText().contains("[BG New]\ntype = Anim\nactionno = -1\n\n[BG Sky]"));
+        actions.action("bgs_duplicate")->trigger();
+        QCOMPARE(label->text(), QStringLiteral("3 / 4"));
+        QCOMPARE(text->toPlainText().count("[BG New]"), 2);
+        m_context->config().setValue(QStringLiteral("confirm_delete"), true);
+        QTimer::singleShot(0, this, [] {
+            auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            QCOMPARE(box->windowTitle(), boxTitle("Remove"));
+            QCOMPARE(box->text(), QStringLiteral("Do you really want to delete the background?"));
+            box->button(QMessageBox::Yes)->click();
+        });
+        actions.action("bgs_delete")->trigger();
+        m_context->config().setValue(QStringLiteral("confirm_delete"), false);
+        QCOMPARE(label->text(), QStringLiteral("3 / 3"));
+        page->setCurrent(1);
+        actions.action("bgs_delete")->trigger();
+        QCOMPARE(label->text(), QStringLiteral("2 / 2"));
+        QVERIFY(!text->toPlainText().contains("[BG New]"));
+
+        auto* defLabel = view->findChild<QLabel*>("bgctrls_def_sel_lb");
+        auto* defName = view->findChild<QLineEdit*>("bgctrls_def_name");
+        auto* loop = view->findChild<QSpinBox*>("bgctrls_def_loop");
+        auto* id1 = view->findChild<QSpinBox*>("bgctrls_def_id_1");
+        auto* id2 = view->findChild<QSpinBox*>("bgctrls_def_id_2");
+        auto* id3 = view->findChild<QSpinBox*>("bgctrls_def_id_3");
+        auto* ctrlName = view->findChild<QLineEdit*>("bgctrls_name");
+        auto* ctrlType = view->findChild<QComboBox*>("bgctrls_type");
+        auto* xOn = view->findChild<QCheckBox*>("bgctrls_x_lb");
+        auto* x = view->findChild<QDoubleSpinBox*>("bgctrls_x");
+        auto* end = view->findChild<QSpinBox*>("bgctrls_end_time");
+        QVERIFY(defLabel && defName && loop && id1 && id2 && id3 && ctrlName && ctrlType && xOn && x && end);
+        QCOMPARE(defLabel->text(), QStringLiteral("1 / 1"));
+        QCOMPARE(defName->text(), QStringLiteral("Mover"));
+        QCOMPARE(loop->value(), 120);
+        QCOMPARE(id1->value(), 7);
+        QVERIFY(id2->isEnabled());
+        QVERIFY(!id3->isEnabled()); // after the first unused slot
+        QCOMPARE(ctrlName->text(), QStringLiteral("Shift"));
+        QCOMPARE(ctrlType->currentText(), QStringLiteral("Add position"));
+        QVERIFY(xOn->isChecked());
+        QCOMPARE(x->value(), 20.0);
+
+        // PosAdd x 20 at time 30 shows from tick 31.
+        auto skyLeft = [page] {
+            for (const GraphicsView::Image& image : page->view()->images()) {
+                if (image.image.width() == 4)
+                    return image.topLeft.x();
+            }
+            return -9999;
+        };
+        const int before = skyLeft();
+        page->setTick(30);
+        QCOMPARE(skyLeft(), before);
+        page->setTick(31);
+        QCOMPARE(skyLeft(), before + 20);
+        page->setTick(0);
+
+        id2->setValue(3);
+        QVERIFY(has("ctrlID = 7, 3"));
+        QVERIFY(id3->isEnabled());
+        id2->setValue(-1);
+        QVERIFY(has("ctrlID = 7"));
+        xOn->setChecked(false);
+        QVERIFY(!text->toPlainText().contains("x = 20"));
+        QVERIFY(!text->toPlainText().contains("nan"));
+        end->setValue(40);
+        QVERIFY(has("time = 30, 40"));
+        end->setValue(30);
+        QVERIFY(has("time = 30"));
+        defName->setFocus();
+        defName->selectAll();
+        QTest::keyClicks(defName, "Go");
+        QVERIFY(has("[BGCtrlDef Go]"));
+        choose(ctrlType, 2);
+        QVERIFY(has("type = Visible"));
+        QVERIFY(has("value = 1"));
+
+        page->view()->setFocus();
+        actions.action("bgs_play")->trigger();
+        QCOMPARE(page->mode(), BackgroundsPage::Mode::Playing);
+        QVERIFY(actions.action("bgs_play")->isChecked());
+        QVERIFY(!actions.action("bgs_delete")->isEnabled());
+        QVERIFY(actions.action("bgs_add")->isEnabled());
+        QVERIFY(!startX->isEnabled());
+        QCOMPARE(window.ofsStatusBar()->section(0), QStringLiteral("60 FPS"));
+        QTest::keyClick(page->view(), Qt::Key_Right, Qt::AltModifier);
+        QTest::keyClick(page->view(), Qt::Key_Right, Qt::ShiftModifier);
+        QCOMPARE(page->camera(), QPointF(12, 0));
+        for (int i = 0; i < 20; ++i)
+            QTest::keyClick(page->view(), Qt::Key_Right, Qt::AltModifier);
+        QCOMPARE(page->camera(), QPointF(100, 0));
+        QTRY_VERIFY(page->tick() > 0);
+        actions.action("bgs_pause")->trigger();
+        QCOMPARE(page->mode(), BackgroundsPage::Mode::Paused);
+        QVERIFY(actions.action("bgs_pause")->isChecked());
+        actions.action("bgs_stop")->trigger();
+        QCOMPARE(page->mode(), BackgroundsPage::Mode::Stopped);
+        QCOMPARE(page->tick(), 0);
+        QCOMPARE(page->camera(), QPointF());
+        QVERIFY(actions.action("bgs_stop")->isChecked());
+
+        QMenu* bgMenu = menu(window, "menu_backgrounds");
+        QVERIFY(bgMenu);
+        Q_EMIT bgMenu->aboutToShow();
+        QAction* groupItem = nullptr;
+        for (QAction* a : bgMenu->actions()) {
+            if (a->text() == QLatin1String("BG"))
+                groupItem = a;
+        }
+        QVERIFY(groupItem && groupItem->isCheckable() && groupItem->isChecked());
     }
 
     void spritesSaveAs()

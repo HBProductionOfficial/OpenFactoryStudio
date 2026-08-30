@@ -443,7 +443,8 @@ bool AnimationPage::spriteLayer(const AirFrame& f, const Placement& placement, d
     transform.translate(placement.x, placement.y);
     transform.rotate(-placement.angle);
     transform.scale(placement.xScale * (f.flipH ? -1 : 1), placement.yScale * (f.flipV ? -1 : 1));
-    *out = GraphicsView::Image{spriteImage(index), QPoint(-header.axisX, -header.axisY), opacity, draggable, transform};
+    *out = GraphicsView::Image{
+        spriteImage(index), QPoint(-header.axisX, -header.axisY), opacity, draggable, transform, {}, {}};
     return true;
 }
 

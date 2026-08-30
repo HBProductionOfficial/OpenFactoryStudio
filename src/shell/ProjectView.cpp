@@ -21,6 +21,8 @@
 #include "core/widgets/EPanelWidget.h"
 #include "shell/AnimationPage.h"
 #include "shell/AnimationsEditor.h"
+#include "shell/BackgroundsEditor.h"
+#include "shell/BackgroundsPage.h"
 #include "shell/BottomDock.h"
 #include "shell/CodePage.h"
 #include "shell/ControllerTemplatesWidget.h"
@@ -181,6 +183,13 @@ ProjectView::~ProjectView()
     for (ProjectFile* file : m_project->files())
         disconnect(file, nullptr, this, nullptr);
     m_fileTabs.clear();
+    // Same for the tabs, since the window may be going away too.
+    for (QTabWidget* tabs : m_center->findChildren<QTabWidget*>())
+        disconnect(tabs, nullptr, this, nullptr);
+    for (QObject* editor : std::initializer_list<QObject*>{m_sprites, m_animations, m_sounds, m_backgrounds}) {
+        if (editor)
+            editor->blockSignals(true);
+    }
     delete m_center;
     m_center = nullptr;
 }
@@ -234,6 +243,10 @@ void ProjectView::createEditor(const EditorInfo& info)
         m_sounds = new SoundsEditor(m_context, this);
         m_sounds->setPage(qobject_cast<SoundPage*>(tabs->currentWidget()));
     }
+    if (info.id == QLatin1String("backgrounds")) {
+        m_backgrounds = new BackgroundsEditor(m_context, this);
+        m_backgrounds->setPage(qobject_cast<BackgroundsPage*>(tabs->currentWidget()));
+    }
     connect(tabs, &QTabWidget::currentChanged, this, [this, tabs] {
         if (auto* page = qobject_cast<CodePage*>(tabs->currentWidget()))
             updateOutline(page);
@@ -243,6 +256,8 @@ void ProjectView::createEditor(const EditorInfo& info)
             m_animations->setPage(qobject_cast<AnimationPage*>(tabs->currentWidget()));
         if (m_sounds && tabs->objectName() == QLatin1String("fileTabs_sounds"))
             m_sounds->setPage(qobject_cast<SoundPage*>(tabs->currentWidget()));
+        if (m_backgrounds && tabs->objectName() == QLatin1String("fileTabs_backgrounds"))
+            m_backgrounds->setPage(qobject_cast<BackgroundsPage*>(tabs->currentWidget()));
         if (tabs == m_center->currentWidget())
             Q_EMIT currentFileChanged();
     });
@@ -265,6 +280,25 @@ void ProjectView::createEditor(const EditorInfo& info)
 
 QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& filePath)
 {
+    if (info.id == QLatin1String("backgrounds")) {
+        QString error;
+        auto* file = qobject_cast<CodeFile*>(m_project->file(filePath));
+        if (!file && QFileInfo::exists(filePath))
+            file = m_project->codeFile(filePath, QStringLiteral("definitions"), &error);
+        if (file) {
+            auto* page = new BackgroundsPage(file, m_project);
+            page->setProperty("filePath", filePath);
+            page->setProperty("editorId", info.id);
+            page->applySettings(m_context.config());
+            connect(page, &BackgroundsPage::statusChanged, this, [this, page] {
+                if (QTabWidget* tabs = m_fileTabs.value(m_currentEditor); tabs && tabs->currentWidget() == page)
+                    Q_EMIT currentFileChanged();
+            });
+            connect(file, &ProjectFile::pathChanged, this,
+                    [this, page, file](const QString& oldPath) { fileRenamed(page, oldPath, file->path()); });
+            return page;
+        }
+    }
     const bool animations = info.id == QLatin1String("animations");
     if (info.workspace == WorkspaceType::Code || animations) {
         QString error;
@@ -1003,6 +1037,11 @@ void ProjectView::applyPreset(const Preset::Model& model)
     }
     if (m_sounds)
         m_sounds->bindPanel(m_editorPanels.value(QStringLiteral("sounds"))->widget());
+    if (m_backgrounds) {
+        m_backgrounds->bindPanel(m_editorPanels.value(QStringLiteral("backgrounds"))->widget());
+        if (QScrollArea* controllers = m_extraPanels.value(QStringLiteral("controllers")))
+            m_backgrounds->bindControllers(controllers->widget());
+    }
     if (m_animations) {
         m_animations->bindPanel(m_editorPanels.value(QStringLiteral("animations"))->widget());
         if (QScrollArea* thumbnails = m_extraPanels.value(QStringLiteral("thumbnails")))

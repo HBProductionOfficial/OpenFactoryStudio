@@ -30,6 +30,7 @@ class Engine;
 class Project;
 class ProjectFile;
 class AnimationsEditor;
+class BackgroundsEditor;
 class SoundsEditor;
 class SpritesEditor;
 
@@ -83,6 +84,7 @@ public:
     // Panel controllers, nullptr when the project does not have that editor.
     SpritesEditor* spritesEditor() const { return m_sprites; }
     AnimationsEditor* animationsEditor() const { return m_animations; }
+    BackgroundsEditor* backgroundsEditor() const { return m_backgrounds; }
     SoundsEditor* soundsEditor() const { return m_sounds; }
     // The code page of a file tab: the page itself, or the text mode of an animation page.
     static CodePage* codePageOf(QWidget* tab);
@@ -142,6 +144,7 @@ private:
     QPointer<QMenu> m_codeMenu;
     SpritesEditor* m_sprites = nullptr;
     AnimationsEditor* m_animations = nullptr;
+    BackgroundsEditor* m_backgrounds = nullptr;
     SoundsEditor* m_sounds = nullptr;
 };
 

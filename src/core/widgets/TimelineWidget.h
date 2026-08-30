@@ -7,6 +7,7 @@
 
 namespace OFS {
 
+// Animations editor timeline. In tick mode (Backgrounds editor) it is a plain tick ruler.
 class OFS_CORE_EXPORT TimelineWidget : public QWidget
 {
     Q_OBJECT
@@ -24,6 +25,10 @@ public:
     void setPlayhead(int tick);
     int playhead() const { return m_playhead; }
     int frameAt(int x) const;
+    void setTickMode(bool on);
+    bool tickMode() const { return m_tickMode; }
+    int tickAt(int x) const;
+    int firstTick() const { return m_firstTick; }
     static constexpr int EndlessLength = 30;
 
     QSize sizeHint() const override { return {640, 60}; }
@@ -31,6 +36,7 @@ public:
 
 Q_SIGNALS:
     void frameClicked(int frame);
+    void tickClicked(int tick);
 
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -43,6 +49,8 @@ private:
     QString m_name;
     QList<Frame> m_frames;
     int m_playhead = 0;
+    bool m_tickMode = false;
+    int m_firstTick = 0;
 };
 
 } // namespace OFS

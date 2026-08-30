@@ -349,6 +349,10 @@ void GraphicsView::drawImages(QPainter& p)
         if (image.image.isNull())
             continue;
         p.save();
+        if (!image.clip.isEmpty())
+            p.setClipRect(QRectF(toWidget(image.clip.topLeft()), toWidget(image.clip.bottomRight())),
+                          Qt::IntersectClip);
+        p.setCompositionMode(image.mode);
         p.setOpacity(image.opacity);
         p.setTransform(image.transform * view, true);
         p.drawImage(QRectF(image.topLeft, QSizeF(image.image.size())), image.image);
@@ -421,8 +425,9 @@ void GraphicsView::paintEvent(QPaintEvent* event)
         drawGuides(p, area);
     drawImages(p);
     drawBoxes(p);
+    drawFrames(p);
     if (m_mainCross)
-        drawCross(p, QPointF(0, 0), Qt::black, Qt::white);
+        drawCross(p, QPointF(m_mainCrossPosition), Qt::black, Qt::white);
     if (m_extraCross)
         drawCross(p, QPointF(0, 0), Qt::white, QColor(0, 160, 0));
     if (m_secondaryCross)
@@ -433,7 +438,43 @@ void GraphicsView::paintEvent(QPaintEvent* event)
     drawRulers(p);
 }
 
-GraphicsView::Drag GraphicsView::hitTest(const QPoint& pos, int* box, int* handle) const
+void GraphicsView::setFrames(const QList<Frame>& frames)
+{
+    m_frames = frames;
+    update();
+}
+
+void GraphicsView::setMainCrossPosition(const QPoint& position)
+{
+    m_mainCrossPosition = position;
+    update();
+}
+
+void GraphicsView::drawFrames(QPainter& p)
+{
+    for (const Frame& frame : std::as_const(m_frames)) {
+        const QRectF r(toWidget(frame.rect.topLeft()), toWidget(frame.rect.bottomRight()));
+        QPen pen(frame.color, 1);
+        if (frame.dashed)
+            pen.setStyle(Qt::DashLine);
+        p.setPen(pen);
+        p.setBrush(Qt::NoBrush);
+        p.drawRect(r);
+        if (!frame.handles)
+            continue;
+        p.setPen(QPen(Qt::black, 1));
+        p.setBrush(frame.color);
+        const double s = 3;
+        const QList<QPointF> points = {
+            r.topLeft(),     QPointF(r.center().x(), r.top()),    r.topRight(),   QPointF(r.right(), r.center().y()),
+            r.bottomRight(), QPointF(r.center().x(), r.bottom()), r.bottomLeft(), QPointF(r.left(), r.center().y())};
+        for (const QPointF& at : points)
+            p.drawRect(QRectF(at - QPointF(s, s), QSizeF(2 * s, 2 * s)));
+        p.setBrush(Qt::NoBrush);
+    }
+}
+
+GraphicsView::Drag GraphicsView::hitTest(const QPoint& pos, int* box, int* handle, int* imageIndex) const
 {
     if (m_drawingBoxes)
         return Drag::BoxDraw;
@@ -472,8 +513,11 @@ GraphicsView::Drag GraphicsView::hitTest(const QPoint& pos, int* box, int* handl
             continue;
         const QPointF mapped = image.transform.inverted().map(units) - QPointF(image.topLeft);
         const QPoint local(int(std::floor(mapped.x())), int(std::floor(mapped.y())));
-        if (QRect(QPoint(), image.image.size()).contains(local) && image.image.pixelColor(local).alpha() > 0)
+        if (QRect(QPoint(), image.image.size()).contains(local) && image.image.pixelColor(local).alpha() > 0) {
+            if (imageIndex)
+                *imageIndex = int(i);
             return Drag::Image;
+        }
     }
     return Drag::Pan;
 }
@@ -492,8 +536,12 @@ void GraphicsView::mousePressEvent(QMouseEvent* event)
     Q_EMIT pressed(toUnits(event->position()));
     int box = -1;
     int handle = -1;
-    m_drag =
-        (event->modifiers() & Qt::ControlModifier) ? Drag::Pan : hitTest(event->position().toPoint(), &box, &handle);
+    int pressedImage = -1;
+    m_drag = (event->modifiers() & Qt::ControlModifier)
+                 ? Drag::Pan
+                 : hitTest(event->position().toPoint(), &box, &handle, &pressedImage);
+    if (m_drag == Drag::Image)
+        Q_EMIT imagePressed(pressedImage);
     m_dragStart = event->position().toPoint();
     m_dragUnits = toUnits(event->position());
     m_originAtStart = m_origin;

@@ -5,7 +5,9 @@
 #include <QColor>
 #include <QImage>
 #include <QList>
+#include <QPainter>
 #include <QPoint>
+#include <QRectF>
 #include <QTransform>
 #include <QWidget>
 
@@ -25,6 +27,16 @@ public:
         double opacity = 1.0;
         bool draggable = false;
         QTransform transform;
+        QRectF clip;
+        QPainter::CompositionMode mode = QPainter::CompositionMode_SourceOver;
+    };
+
+    struct Frame
+    {
+        QRectF rect;
+        QColor color;
+        bool dashed = false;
+        bool handles = false;
     };
 
     struct Box
@@ -62,6 +74,9 @@ public:
     const QList<Box>& boxes() const { return m_boxes; }
     void setDrawingBoxes(bool drawing, const QColor& color = Qt::red);
     bool drawingBoxes() const { return m_drawingBoxes; }
+    void setFrames(const QList<Frame>& frames);
+    const QList<Frame>& frames() const { return m_frames; }
+    void setMainCrossPosition(const QPoint& position);
     // The secondary cross shows the frame offset. The extra cross sits on the origin.
     void setSecondaryCross(bool visible, const QPoint& position);
     void setExtraCrossVisible(bool visible);
@@ -133,6 +148,7 @@ Q_SIGNALS:
     void dragFinished();
     void cursorMoved(const QPoint& units);
     void boxPressed(int index);
+    void imagePressed(int index);
     void boxEdited(int index, const QRect& rect);
     void boxDrawn(const QRect& rect);
     void boxNudged(int dx, int dy);
@@ -172,7 +188,8 @@ private:
     void drawGuides(QPainter& p, const QRect& area);
     void drawImages(QPainter& p);
     void drawRulers(QPainter& p);
-    Drag hitTest(const QPoint& pos, int* box = nullptr, int* handle = nullptr) const;
+    Drag hitTest(const QPoint& pos, int* box = nullptr, int* handle = nullptr, int* imageIndex = nullptr) const;
+    void drawFrames(QPainter& p);
 
     QList<Image> m_images;
     QList<double> m_zoomLevels;
@@ -185,6 +202,8 @@ private:
     QPoint m_backgroundOffset;
     bool m_rulers = true;
     bool m_mainCross = true;
+    QPoint m_mainCrossPosition;
+    QList<Frame> m_frames;
     bool m_guides = false;
     bool m_imagesOverGuides = false;
     QPoint m_guidePosition;
