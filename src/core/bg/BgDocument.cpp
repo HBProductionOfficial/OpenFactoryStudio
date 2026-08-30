@@ -81,6 +81,7 @@ BgElement element(const BgSection& section)
         if (section.value(QLatin1String(key))) {
             n = section.numbers(QLatin1String(key), 4);
             e.hasWindow = true;
+            e.maskWindow = QLatin1String(key) == QLatin1String("maskwindow");
             e.window = QRect(QPoint(int(n[0]), int(n[1])), QPoint(int(n[2]), int(n[3])));
         }
     }

@@ -72,6 +72,9 @@ ofs_add_test(NAME core_palette_edits
 ofs_add_test(NAME core_bg_document
     SOURCES core/BgDocumentTest.cpp
     LIBS OFS::core)
+ofs_add_test(NAME core_bg_renderer GUI
+    SOURCES core/BgRendererTest.cpp
+    LIBS OFS::core)
 ofs_add_test(NAME core_palette_ops
     SOURCES core/PaletteOpsTest.cpp
     LIBS OFS::core)

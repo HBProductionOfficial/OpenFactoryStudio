@@ -70,6 +70,7 @@ struct OFS_CORE_EXPORT BgElement
     int tileSpacingX = 0;
     int tileSpacingY = 0;
     bool hasWindow = false;
+    bool maskWindow = false; // "maskwindow" (1.1): from the top centre, x2,y2 exclusive
     QRect window;
     QPointF windowDelta;
     // Parallax: width (top, bottom) or xscale (top, bottom), whichever is written.
