@@ -130,6 +130,8 @@ add_library(ofscore SHARED
     bg/BgSimulator.h
     bg/BgSimulator.cpp
     palettes/PaletteOps.h
+    project/ZipArchive.h
+    project/ZipArchive.cpp
     palettes/PaletteOps.cpp
     sprites/PaletteEdits.h
     sprites/PaletteEdits.cpp
@@ -163,4 +165,4 @@ target_link_libraries(ofscore
         Qt6::Core Qt6::Gui Qt6::Widgets
         OFS::formats OFS::audio
     PRIVATE
-        OFS::sol2 OFS::uchardet ofs_miniaudio Qt6::Core5Compat)
+        OFS::sol2 OFS::uchardet ofs_miniaudio ofs_miniz Qt6::Core5Compat)

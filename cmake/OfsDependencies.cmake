@@ -57,6 +57,16 @@ else()
     target_compile_options(ofs_lodepng PRIVATE -w)
 endif()
 
+# --- miniz (MIT), vendored in third_party/miniz -------------------------------------------------
+add_library(ofs_miniz STATIC "${PROJECT_SOURCE_DIR}/third_party/miniz/miniz.c")
+target_include_directories(ofs_miniz SYSTEM PUBLIC "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/third_party/miniz>")
+set_target_properties(ofs_miniz PROPERTIES POSITION_INDEPENDENT_CODE ON)
+if(MSVC)
+    target_compile_options(ofs_miniz PRIVATE /W0)
+else()
+    target_compile_options(ofs_miniz PRIVATE -w)
+endif()
+
 # --- hqx (LGPL-2.1-or-later, used under the GPL) -------------------------------------------------
 # On Windows, DLL_EXPORT stops its header from marking the functions as DLL imports.
 FetchContent_Declare(hqx
