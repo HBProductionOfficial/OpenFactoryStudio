@@ -3010,6 +3010,29 @@ private Q_SLOTS:
         QCOMPARE(page->camera(), QPointF());
         QVERIFY(actions.action("bgs_stop")->isChecked());
 
+        actions.action("view_organizer")->setChecked(true);
+        Q_EMIT actions.action("view_organizer")->triggered(true);
+        auto* organizer = view->findChild<QListView*>("org_list");
+        QVERIFY(organizer);
+        QCOMPARE(organizer->model()->rowCount(), 2);
+        QCOMPARE(organizer->model()->index(0, 0).data().toString(), QStringLiteral("Floor"));
+        auto* rows = qobject_cast<QStandardItemModel*>(organizer->model());
+        QVERIFY(rows);
+        const int shown = page->view()->images().size();
+        rows->item(0)->setCheckState(Qt::Unchecked);
+        QCOMPARE(page->view()->images().size(), 1); // only the sky
+        rows->item(0)->setCheckState(Qt::Checked);
+        QCOMPARE(page->view()->images().size(), shown);
+        organizer->selectionModel()->select(organizer->model()->index(1, 0), QItemSelectionModel::ClearAndSelect);
+        actions.action("org_up")->trigger();
+        QVERIFY(text->toPlainText().indexOf("[BG Sky]") < text->toPlainText().indexOf("[BG Floor]"));
+        QCOMPARE(organizer->model()->index(0, 0).data().toString(), QStringLiteral("Sky"));
+        page->view()->setFocus();
+        actions.action("edit_undo")->trigger();
+        QVERIFY(text->toPlainText().indexOf("[BG Floor]") < text->toPlainText().indexOf("[BG Sky]"));
+        actions.action("view_organizer")->setChecked(false);
+        Q_EMIT actions.action("view_organizer")->triggered(false);
+
         QMenu* bgMenu = menu(window, "menu_backgrounds");
         QVERIFY(bgMenu);
         Q_EMIT bgMenu->aboutToShow();

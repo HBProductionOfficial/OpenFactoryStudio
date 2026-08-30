@@ -37,6 +37,7 @@ public:
 
     void bindPanel(QWidget* panel);
     void bindOrganizer(QWidget* panel);
+    void setOrganizerActive(bool active);
     void bindPalettes(QWidget* panel);
     PalettesPanel* palettes() const { return m_palettes; }
     void bindExplorer(QWidget* panel);
@@ -111,6 +112,7 @@ private:
     QPointer<QListView> m_organizer;
     QPointer<QToolButton> m_organizePalettes;
     QStringListModel* m_organizerModel = nullptr;
+    bool m_organizerActive = true;
     QPointer<QWidget> m_panel;
     QPointer<QListView> m_layers;
     QPointer<QComboBox> m_blend;

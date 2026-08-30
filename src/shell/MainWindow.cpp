@@ -737,6 +737,11 @@ void MainWindow::connectEditActions()
                 view->animationsEditor()->perform(action);
                 return;
             }
+            if (view && action.startsWith(QLatin1String("org_")) &&
+                view->currentEditor() == QLatin1String("backgrounds") && view->backgroundsEditor()) {
+                view->backgroundsEditor()->perform(action);
+                return;
+            }
             const bool done = view && view->spritesEditor() && view->spritesEditor()->perform(action);
             if (!done && action == QLatin1String("spr_edit_img"))
                 refreshActionStates(); // nothing to edit: the action unchecks again

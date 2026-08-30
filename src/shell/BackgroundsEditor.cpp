@@ -14,9 +14,11 @@
 #include <QDoubleSpinBox>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListView>
 #include <QMessageBox>
 #include <QScrollBar>
 #include <QSpinBox>
+#include <QStandardItemModel>
 
 #include <cmath>
 
@@ -429,6 +431,125 @@ void BackgroundsEditor::bindControllers(QWidget* panel)
     refreshControllers();
 }
 
+void BackgroundsEditor::bindOrganizer(QWidget* panel)
+{
+    if (m_organizer)
+        disconnect(m_organizer, nullptr, this, nullptr);
+    m_organizer = control<QListView>(panel, "org_list");
+    setOrganizerActive(m_organizerActive);
+}
+
+void BackgroundsEditor::setOrganizerActive(bool active)
+{
+    m_organizerActive = active;
+    if (!m_organizer)
+        return;
+    disconnect(m_organizer, nullptr, this, nullptr);
+    if (!active)
+        return;
+    if (!m_organizerModel) {
+        m_organizerModel = new QStandardItemModel(this);
+        connect(m_organizerModel, &QStandardItemModel::itemChanged, this, [this] {
+            if (m_updating || !m_page)
+                return;
+            QSet<int> hidden;
+            for (int row = 0; row < m_organizerModel->rowCount(); ++row) {
+                if (m_organizerModel->item(row)->checkState() != Qt::Checked)
+                    hidden.insert(row);
+            }
+            m_page->setHiddenElements(hidden);
+        });
+    }
+    m_organizer->setModel(m_organizerModel);
+    m_organizer->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    m_organizer->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    connect(m_organizer, &QListView::doubleClicked, this, [this](const QModelIndex& index) {
+        if (m_page)
+            m_page->setCurrent(index.row());
+    });
+    refreshOrganizer();
+}
+
+void BackgroundsEditor::refreshOrganizer()
+{
+    if (!m_organizerActive || !m_organizer || !m_organizerModel)
+        return;
+    const bool updating = std::exchange(m_updating, true);
+    const QList<int> selected = organizerSelection();
+    m_organizerModel->clear();
+    const BgGroup* g = m_page ? m_page->currentGroup() : nullptr;
+    for (int i = 0; g && i < g->elements.size(); ++i) {
+        auto* item = new QStandardItem(g->elements[i].section.name);
+        item->setCheckable(true);
+        item->setCheckState(m_page->hiddenElements().contains(i) ? Qt::Unchecked : Qt::Checked);
+        m_organizerModel->appendRow(item);
+    }
+    for (int row : selected) {
+        if (row < m_organizerModel->rowCount())
+            m_organizer->selectionModel()->select(m_organizerModel->index(row, 0), QItemSelectionModel::Select);
+    }
+    m_updating = updating;
+}
+
+QList<int> BackgroundsEditor::organizerSelection() const
+{
+    QList<int> rows;
+    if (m_organizer && m_organizer->selectionModel() && m_organizer->model() == m_organizerModel) {
+        for (const QModelIndex& index : m_organizer->selectionModel()->selectedRows())
+            rows << index.row();
+    }
+    std::sort(rows.begin(), rows.end());
+    return rows;
+}
+
+void BackgroundsEditor::moveElements(const QString& id)
+{
+    const BgGroup* g = m_page ? m_page->currentGroup() : nullptr;
+    if (!g || g->elements.isEmpty() || id == QLatin1String("org_auto"))
+        return;
+    QList<int> rows = organizerSelection();
+    if (rows.isEmpty() && m_page->current() >= 0)
+        rows << m_page->current();
+    if (rows.isEmpty())
+        return;
+    const int count = int(g->elements.size());
+    const int delta = id == QLatin1String("org_up")        ? -1
+                      : id == QLatin1String("org_down")    ? 1
+                      : id == QLatin1String("org_up_10")   ? -10
+                      : id == QLatin1String("org_down_10") ? 10
+                      : id == QLatin1String("org_top")     ? -count
+                                                           : count;
+    const int group = m_page->group();
+    QList<int> moved = rows;
+    m_page->edit([&](QStringList& lines) {
+        for (int step = 0; step < std::abs(delta); ++step) {
+            QList<int> next = moved;
+            const bool up = delta < 0;
+            bool changed = false;
+            for (int k = 0; k < moved.size(); ++k) {
+                const int i = up ? k : int(moved.size()) - 1 - k;
+                const int row = next[i];
+                const int target = row + (up ? -1 : 1);
+                if (target < 0 || target >= count || next.contains(target))
+                    continue;
+                const BgDocument doc = BgDocument::parse(lines);
+                const QList<BgElement>& elements = doc.groups()[group].elements;
+                BgEdits::swapSections(lines, elements[row].section.headerLine, elements[target].section.headerLine);
+                next[i] = target;
+                changed = true;
+            }
+            moved = next;
+            if (!changed)
+                break;
+        }
+    });
+    if (m_organizer && m_organizerModel) {
+        m_organizer->selectionModel()->clearSelection();
+        for (int row : std::as_const(moved))
+            m_organizer->selectionModel()->select(m_organizerModel->index(row, 0), QItemSelectionModel::Select);
+    }
+}
+
 void BackgroundsEditor::setPage(BackgroundsPage* page)
 {
     if (m_page == page)
@@ -440,6 +561,7 @@ void BackgroundsEditor::setPage(BackgroundsPage* page)
         auto update = [this] {
             refresh();
             refreshControllers();
+            refreshOrganizer();
             Q_EMIT stateChanged();
         };
         connect(m_page, &BackgroundsPage::currentChanged, this, update);
@@ -448,6 +570,7 @@ void BackgroundsEditor::setPage(BackgroundsPage* page)
     }
     refresh();
     refreshControllers();
+    refreshOrganizer();
     Q_EMIT stateChanged();
 }
 
@@ -930,6 +1053,10 @@ bool BackgroundsEditor::confirm(const QString& title, const QString& text)
 
 bool BackgroundsEditor::perform(const QString& id)
 {
+    if (m_page && id.startsWith(QLatin1String("org_"))) {
+        moveElements(id);
+        return true;
+    }
     if (!m_page || !(id.startsWith(QLatin1String("bgs_")) || id.startsWith(QLatin1String("bgctrls_"))))
         return false;
     BackgroundsPage* page = m_page;

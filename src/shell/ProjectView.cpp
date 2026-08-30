@@ -1041,6 +1041,7 @@ void ProjectView::applyPreset(const Preset::Model& model)
         m_backgrounds->bindPanel(m_editorPanels.value(QStringLiteral("backgrounds"))->widget());
         if (QScrollArea* controllers = m_extraPanels.value(QStringLiteral("controllers")))
             m_backgrounds->bindControllers(controllers->widget());
+        m_backgrounds->bindOrganizer(m_extraPanels.value(QStringLiteral("organizer"))->widget());
     }
     if (m_animations) {
         m_animations->bindPanel(m_editorPanels.value(QStringLiteral("animations"))->widget());
@@ -1088,10 +1089,17 @@ QString ProjectView::extraPanelTitle(const QString& name)
 void ProjectView::updateRightPanel()
 {
     static const QStringList organizerEditors = {QStringLiteral("sprites"), QStringLiteral("animations"),
-                                                 QStringLiteral("sounds"), QStringLiteral("commands")};
+                                                 QStringLiteral("sounds"), QStringLiteral("commands"),
+                                                 QStringLiteral("backgrounds")};
     QString name = currentEditorInfo().extraPanel;
     if (m_organizerVisible && organizerEditors.contains(m_currentEditor))
         name = QStringLiteral("organizer");
+    const bool backgroundsOrganizer =
+        name == QLatin1String("organizer") && m_currentEditor == QLatin1String("backgrounds") && m_backgrounds;
+    if (m_sprites)
+        m_sprites->setOrganizerActive(!backgroundsOrganizer);
+    if (m_backgrounds)
+        m_backgrounds->setOrganizerActive(backgroundsOrganizer);
     const bool spriteExplorer = m_currentEditor == QLatin1String("sprites") && m_sprites && m_sprites->explorerShown();
     if (spriteExplorer)
         name = QStringLiteral("thumbnails");

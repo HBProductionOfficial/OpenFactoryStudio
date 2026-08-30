@@ -154,8 +154,26 @@ void SpritesEditor::bindPanel(QWidget* panel)
 
 void SpritesEditor::bindOrganizer(QWidget* panel)
 {
+    if (m_organizer)
+        disconnect(m_organizer, nullptr, this, nullptr);
+    if (m_organizePalettes)
+        disconnect(m_organizePalettes, nullptr, this, nullptr);
     m_organizer = control<QListView>(panel, "org_list");
     m_organizePalettes = control<QToolButton>(panel, "org_palette");
+    if (m_organizePalettes)
+        m_organizePalettes->setCheckable(true);
+    setOrganizerActive(m_organizerActive);
+}
+
+void SpritesEditor::setOrganizerActive(bool active)
+{
+    m_organizerActive = active;
+    if (m_organizer)
+        disconnect(m_organizer, nullptr, this, nullptr);
+    if (m_organizePalettes)
+        disconnect(m_organizePalettes, nullptr, this, nullptr);
+    if (!active)
+        return;
     if (m_organizer) {
         if (!m_organizerModel)
             m_organizerModel = new QStringListModel(this);
@@ -167,10 +185,8 @@ void SpritesEditor::bindOrganizer(QWidget* panel)
                 m_page->setCurrent(index.row());
         });
     }
-    if (m_organizePalettes) {
-        m_organizePalettes->setCheckable(true);
+    if (m_organizePalettes)
         connect(m_organizePalettes, &QToolButton::toggled, this, &SpritesEditor::refreshOrganizer);
-    }
     refreshOrganizer();
 }
 
@@ -191,7 +207,7 @@ QList<int> SpritesEditor::organizerSelection() const
 
 void SpritesEditor::refreshOrganizer()
 {
-    if (!m_organizer || !m_organizerModel)
+    if (!m_organizer || !m_organizerModel || !m_organizerActive)
         return;
     QStringList rows;
     if (m_page) {

@@ -15,8 +15,10 @@ class QDoubleSpinBox;
 class QGroupBox;
 class QLabel;
 class QLineEdit;
+class QListView;
 class QScrollBar;
 class QSpinBox;
+class QStandardItemModel;
 class QWidget;
 
 namespace OFS {
@@ -35,6 +37,8 @@ public:
 
     void bindPanel(QWidget* panel);
     void bindControllers(QWidget* panel);
+    void bindOrganizer(QWidget* panel);
+    void setOrganizerActive(bool active);
     void setPage(BackgroundsPage* page);
     BackgroundsPage* page() const { return m_page; }
 
@@ -50,6 +54,9 @@ Q_SIGNALS:
 private:
     void refresh();
     void refreshControllers();
+    void refreshOrganizer();
+    QList<int> organizerSelection() const;
+    void moveElements(const QString& actionId);
     void updateEnabled();
     void editElement(const std::function<void(QStringList&, int)>& change);
     void editDefinition(const std::function<void(QStringList&, int)>& change);
@@ -118,6 +125,11 @@ private:
     QList<QPointer<QLabel>> m_ctrlSineLabels;
     QPointer<QSpinBox> m_ctrlStart, m_ctrlEnd, m_ctrlLoop;
     QPointer<QWidget> m_controllers;
+
+    // Organizer.
+    QPointer<QListView> m_organizer;
+    QStandardItemModel* m_organizerModel = nullptr;
+    bool m_organizerActive = false;
 };
 
 } // namespace OFS
