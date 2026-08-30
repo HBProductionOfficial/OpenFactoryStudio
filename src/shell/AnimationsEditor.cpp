@@ -658,10 +658,11 @@ void AnimationsEditor::showCodeWindow()
     m_codeWindow = new AnimationCodeWindow(text, page->window());
     m_codeWindow->setAttribute(Qt::WA_DeleteOnClose);
     Config& config = m_context.config();
-    const QByteArray geometry =
-        QByteArray::fromBase64(config.value(QStringLiteral("anim_editcode_geometry")).toLatin1());
-    if (!geometry.isEmpty())
-        m_codeWindow->restoreGeometry(geometry);
+    const QRect geometry = Config::decodeRect(config.value(QStringLiteral("anim_editcode_geometry")), QRect());
+    if (geometry.isValid()) {
+        m_codeWindow->resize(geometry.size());
+        m_codeWindow->move(geometry.topLeft());
+    }
     if (QScreen* screen = page->window()->screen()) {
         const QRect available = screen->availableGeometry();
         QRect frame = m_codeWindow->frameGeometry();
@@ -675,7 +676,7 @@ void AnimationsEditor::showCodeWindow()
     connect(m_codeWindow, &QDialog::finished, this, [this, &config] {
         if (m_codeWindow)
             config.setValue(QStringLiteral("anim_editcode_geometry"),
-                            QString::fromLatin1(m_codeWindow->saveGeometry().toBase64()));
+                            Config::encodeRect(QRect(m_codeWindow->pos(), m_codeWindow->size())));
     });
     connect(m_codeWindow, &AnimationCodeWindow::applyRequested, this, [this, a](const QStringList& lines) {
         if (m_page)
