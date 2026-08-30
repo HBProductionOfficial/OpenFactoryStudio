@@ -123,6 +123,8 @@ add_library(ofscore SHARED
     sprites/ImageDocument.cpp
     bg/BgDocument.h
     bg/BgDocument.cpp
+    bg/BgEdits.h
+    bg/BgEdits.cpp
     bg/BgRenderer.h
     bg/BgRenderer.cpp
     bg/BgSimulator.h
