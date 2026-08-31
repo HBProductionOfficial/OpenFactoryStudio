@@ -131,6 +131,8 @@ add_library(ofscore SHARED
     bg/BgSimulator.cpp
     palettes/PaletteOps.h
     project/ZipArchive.h
+    app/Translations.h
+    app/Translations.cpp
     project/ZipArchive.cpp
     palettes/PaletteOps.cpp
     sprites/PaletteEdits.h

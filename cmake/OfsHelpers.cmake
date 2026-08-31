@@ -113,4 +113,35 @@ function(ofs_stage_data)
                 "${PROJECT_SOURCE_DIR}/data" "${OFS_DATA_OUTPUT_DIR}"
         COMMENT "Staging data directory"
         VERBATIM)
+
+    # data/languages/<code>/*.ts -> .qm. The update_translations target refreshes the .ts files.
+    file(GLOB _ofs_ts "${PROJECT_SOURCE_DIR}/data/languages/*/*.ts")
+    if(NOT _ofs_ts)
+        return()
+    endif()
+    find_package(Qt6 QUIET COMPONENTS LinguistTools)
+    if(NOT TARGET Qt6::lrelease)
+        message(STATUS "Qt LinguistTools not found: translations are not compiled")
+        return()
+    endif()
+    set(_ofs_qm)
+    foreach(_ts IN LISTS _ofs_ts)
+        file(RELATIVE_PATH _rel "${PROJECT_SOURCE_DIR}/data" "${_ts}")
+        string(REGEX REPLACE "\\.ts$" ".qm" _rel_qm "${_rel}")
+        set(_qm "${OFS_DATA_OUTPUT_DIR}/${_rel_qm}")
+        add_custom_command(OUTPUT "${_qm}"
+            COMMAND Qt6::lrelease -silent "${_ts}" -qm "${_qm}"
+            DEPENDS "${_ts}"
+            VERBATIM)
+        list(APPEND _ofs_qm "${_qm}")
+    endforeach()
+    add_custom_target(ofs_translations ALL DEPENDS ${_ofs_qm})
+    add_dependencies(ofs_translations ofs_data)
+    if(TARGET Qt6::lupdate)
+        add_custom_target(update_translations
+            COMMAND Qt6::lupdate -locations relative "${PROJECT_SOURCE_DIR}/src" -ts ${_ofs_ts}
+            WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
+            COMMENT "Updating the translation sources"
+            VERBATIM)
+    endif()
 endfunction()

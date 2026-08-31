@@ -1,4 +1,5 @@
 #include "core/app/AppContext.h"
+#include "core/app/Translations.h"
 
 #include "core/actions/ActionCatalog.h"
 #include "core/actions/ActionRegistry.h"
@@ -75,6 +76,8 @@ void AppContext::loadSettings()
 
 void AppContext::applySettings()
 {
+    Translations::install(m_config->value(QStringLiteral("language"), QStringLiteral("en-us")),
+                          {Paths::userDir(), Paths::dataDir()});
     for (Engine* engine : m_engines->engines())
         engine->setLanguage(m_config->value(QStringLiteral("language"), QStringLiteral("en-us")));
     const QList<TextEncoding>& encodings = TextEncoding::all();
