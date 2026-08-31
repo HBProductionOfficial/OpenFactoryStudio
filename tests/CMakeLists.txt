@@ -251,3 +251,7 @@ if(OFS_RUNTIME_DIRS)
     endforeach()
     set_tests_properties(mugen_validation_corpus PROPERTIES ENVIRONMENT_MODIFICATION "${_ofs_envmod}")
 endif()
+
+ofs_add_test(NAME mugen_runtime_expr
+    SOURCES mugen/RuntimeExprTest.cpp
+    LIBS OFS::mugen_runtime)

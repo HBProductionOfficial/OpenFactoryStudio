@@ -45,6 +45,16 @@ add_library(OFS::mugen ALIAS ofs_mugen_lib)
 ofs_target_defaults(ofs_mugen_lib)
 target_link_libraries(ofs_mugen_lib PUBLIC OFS::core)
 
+# The emulator runtime has no widgets, so it runs headless and in the tests.
+add_library(ofs_mugen_runtime STATIC
+    runtime/Value.h
+    runtime/Expr.h
+    runtime/Expr.cpp
+)
+add_library(OFS::mugen_runtime ALIAS ofs_mugen_runtime)
+ofs_target_defaults(ofs_mugen_runtime)
+target_link_libraries(ofs_mugen_runtime PUBLIC Qt6::Core)
+
 ofs_add_engine_plugin(mugen
     SOURCES
         mugen.json
