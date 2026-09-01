@@ -169,6 +169,25 @@ void chooseTemplate(int row)
     });
 }
 
+void answerBoxes(QList<QMessageBox::StandardButton> buttons, QStringList* texts)
+{
+    auto* timer = new QTimer(qApp);
+    timer->setInterval(5);
+    QObject::connect(timer, &QTimer::timeout, qApp, [timer, buttons, texts]() mutable {
+        auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+        if (!box || !box->isVisible())
+            return;
+        if (texts)
+            *texts << box->text();
+        box->button(buttons.takeFirst())->click();
+        if (buttons.isEmpty()) {
+            timer->stop();
+            timer->deleteLater();
+        }
+    });
+    timer->start();
+}
+
 void answerEmptyWizard(const QString& choice)
 {
     whenModal<QWizard>([choice](QWizard* wizard) {
@@ -3630,6 +3649,68 @@ private Q_SLOTS:
         QCOMPARE(readFile(dir.filePath("hero.cmd")), QByteArray("[Command]\nname = \"x\"\ncommand = x\n"));
         QCOMPARE(m_context->history().entries().first().file, target.filePath("copy/hero2.def"));
         QCOMPARE(m_context->config().value("proj_save_path"), target.filePath("copy"));
+    }
+
+    void closePrompts()
+    {
+        QTemporaryDir dir;
+        for (const char* name : {"a", "b"}) {
+            const QString base = dir.filePath(name);
+            writeFile(base + ".def", QByteArray("[Info]\nname = \"") + name +
+                                         "\"\nmugenversion = 1.0\n[Files]\ncmd = " + name + ".cmd\ncns = " + name +
+                                         ".cns\n");
+            writeFile(base + ".cmd", "[Command]\nname = \"x\"\ncommand = x\n");
+            writeFile(base + ".cns", "[Data]\nlife = 1000\n");
+        }
+        MainWindow window(*m_context);
+        window.show();
+        m_context->config().setValue("showmsg_discard", QString());
+        ActionRegistry& actions = m_context->actions();
+        QVERIFY(window.openProject(dir.filePath("a.def")));
+        ProjectView* a = window.currentProjectView();
+        for (const char* editor : {"editor_st", "editor_cmd", "editor_def"}) {
+            actions.action(editor)->trigger();
+            a->currentCodeEditor()->insertPlainText("; edited\n");
+        }
+
+        QStringList texts;
+        answerBoxes({QMessageBox::No, QMessageBox::Yes, QMessageBox::Yes}, &texts);
+        actions.action("file_close")->trigger();
+        QCOMPARE(texts, (QStringList{"Do you want to discard the changes made in commands?",
+                                     "Do you want to discard the changes made in definitions?",
+                                     "Do you want to discard the changes made in states?"}));
+        QCOMPARE(window.currentProjectView(), a);
+        QVERIFY(a->project()->isModified());
+
+        QVERIFY(window.openProject(dir.filePath("b.def")));
+        ProjectView* b = window.currentProjectView();
+        actions.action("editor_st")->trigger();
+        b->currentCodeEditor()->insertPlainText("; edited\n");
+        texts.clear();
+        answerBoxes({QMessageBox::No}, &texts);
+        actions.action("file_close_all")->trigger();
+        QCOMPARE(texts, QStringList{"Do you want to discard the changes made in states?"});
+        QCOMPARE(window.projectViews().size(), qsizetype(2));
+
+        texts.clear();
+        answerBoxes({QMessageBox::Yes}, &texts);
+        actions.action("file_close")->trigger();
+        QCOMPARE(window.currentProjectView(), a);
+
+        m_context->config().setValue("confirm_close", true);
+        QTimer::singleShot(0, this, [] {
+            auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            QCOMPARE(box->defaultButton(), box->button(QMessageBox::No));
+            box->button(QMessageBox::No)->click();
+        });
+        window.close();
+        QVERIFY(window.isVisible());
+        m_context->config().setValue("confirm_close", false);
+        for (ProjectFile* file : a->project()->files()) {
+            if (auto* code = qobject_cast<CodeFile*>(file))
+                code->document()->setModified(false);
+        }
     }
 
 private:

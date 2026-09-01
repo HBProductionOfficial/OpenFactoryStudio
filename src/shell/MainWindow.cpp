@@ -248,6 +248,7 @@ void MainWindow::buildCentralArea()
     m_projectTabs = new QTabBar(central);
     m_projectTabs->setObjectName(QStringLiteral("projectTabs"));
     m_projectTabs->setTabsClosable(true);
+    m_projectTabs->setSelectionBehaviorOnRemove(QTabBar::SelectLeftTab);
     m_projectTabs->setMovable(true);
     m_projectTabs->setExpanding(false);
     m_projectTabs->setDocumentMode(true);
@@ -1422,16 +1423,22 @@ bool MainWindow::confirmClose(ProjectView* view)
     Project* project = view->project();
     if (!project->isModified())
         return true;
+    // One question per kind of changed document. Any "No" keeps the project open.
+    QStringList kinds;
     for (const EditorInfo& editor : project->engine()->editors()) {
-        bool modified = false;
-        for (const ProjectFile* file : project->files())
-            modified = modified || (file->editorId() == editor.id && file->isModified());
-        if (modified &&
-            !askQuestion(this, m_context.config(), QStringLiteral("showmsg_discard"), tr("Discard changes?"),
-                         tr("Do you want to discard the changes made in %1?").arg(editor.title.toLower())))
-            return false;
+        for (const ProjectFile* file : project->files()) {
+            if (file->editorId() == editor.id && file->isModified() && !kinds.contains(editor.title.toLower()))
+                kinds << editor.title.toLower();
+        }
     }
-    return true;
+    kinds.sort();
+    bool discard = true;
+    for (const QString& kind : std::as_const(kinds)) {
+        if (!askQuestion(this, m_context.config(), QStringLiteral("showmsg_discard"), tr("Discard changes?"),
+                         tr("Do you want to discard the changes made in %1?").arg(kind)))
+            discard = false;
+    }
+    return discard;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1828,14 +1835,14 @@ void MainWindow::addProjectView(Project* project, const QString& editorId)
     refreshForCurrent();
 }
 
-void MainWindow::closeProject(int tabIndex, bool ask)
+bool MainWindow::closeProject(int tabIndex, bool ask)
 {
     if (tabIndex < 0 || tabIndex >= m_projectTabs->count())
-        return;
+        return false;
     const QVariant tab = m_projectTabs->tabData(tabIndex);
     auto* view = qobject_cast<ProjectView*>(tab.value<QObject*>());
     if (view && ask && !confirmClose(view))
-        return;
+        return false;
     if (view && m_dock->parentWidget() && view->isAncestorOf(m_dock)) {
         m_dock->hide();
         m_dock->setParent(this);
@@ -1849,6 +1856,7 @@ void MainWindow::closeProject(int tabIndex, bool ask)
     }
     refreshForCurrent();
     QTimer::singleShot(0, this, &MainWindow::refreshIssues);
+    return true;
 }
 
 void MainWindow::closeCurrentProject()
@@ -1860,8 +1868,8 @@ void MainWindow::closeCurrentProject()
 void MainWindow::closeAllProjects()
 {
     for (int i = m_projectTabs->count() - 1; i >= 0; --i) {
-        if (m_projectTabs->tabData(i).toString() != kWelcomeTab)
-            closeProject(i);
+        if (m_projectTabs->tabData(i).toString() != kWelcomeTab && !closeProject(i))
+            return;
     }
 }
 
@@ -1870,8 +1878,8 @@ void MainWindow::closeOtherProjects()
     ProjectView* keep = currentProjectView();
     for (int i = m_projectTabs->count() - 1; i >= 0; --i) {
         auto* view = qobject_cast<ProjectView*>(m_projectTabs->tabData(i).value<QObject*>());
-        if (view && view != keep)
-            closeProject(i);
+        if (view && view != keep && !closeProject(i))
+            return;
     }
 }
 
@@ -2328,7 +2336,7 @@ void MainWindow::closeEvent(QCloseEvent* event)
         QMessageBox box(QMessageBox::Question, tr("Close"),
                         tr("Do you really want to close %1?").arg(QStringLiteral(OFS_DISPLAY_NAME)),
                         QMessageBox::Yes | QMessageBox::No, this);
-        box.setDefaultButton(QMessageBox::Yes);
+        box.setDefaultButton(QMessageBox::No);
         auto* dontAsk = new QCheckBox(tr("Don't show this again"), &box);
         box.setCheckBox(dontAsk);
         const bool yes = box.exec() == QMessageBox::Yes;

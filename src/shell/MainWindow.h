@@ -65,7 +65,7 @@ public Q_SLOTS:
     bool openArchive(const QString& archivePath);
     void openSingleFileDialog();
     void saveProjectAs();
-    void closeProject(int tabIndex, bool ask = true);
+    bool closeProject(int tabIndex, bool ask = true);
     void closeCurrentProject();
     void closeAllProjects();
     void closeOtherProjects();
