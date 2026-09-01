@@ -39,14 +39,40 @@ bool ProjectFile::save(QString* error)
     return saveAs(m_path, error);
 }
 
-void ProjectFile::setPath(const QString& path)
+void ProjectFile::setPlaceholderPath(const QString& path)
 {
-    m_untitled = false;
-    if (path == m_path)
+    const QString cleaned = QDir::fromNativeSeparators(path);
+    if (!m_untitled || cleaned == m_path)
         return;
     const QString old = m_path;
-    m_path = path;
+    m_path = cleaned;
     Q_EMIT pathChanged(old);
+}
+
+void ProjectFile::markAsCopy()
+{
+    if (m_copy)
+        return;
+    m_untitled = true;
+    m_nameless = true;
+    m_copy = true;
+    Q_EMIT modifiedChanged(true);
+}
+
+void ProjectFile::setPath(const QString& path)
+{
+    const bool wasCopy = m_copy;
+    const bool wasUntitled = m_untitled;
+    m_untitled = false;
+    m_nameless = false;
+    m_copy = false;
+    if (path != m_path || wasUntitled) {
+        const QString old = m_path;
+        m_path = path;
+        Q_EMIT pathChanged(old);
+    }
+    if (wasCopy)
+        Q_EMIT modifiedChanged(isModified());
 }
 
 QString ProjectFile::fileName() const
@@ -257,14 +283,15 @@ bool CodeFile::load(QString* error)
     return true;
 }
 
-void CodeFile::createEmpty()
+void CodeFile::createEmpty(const QString& text)
 {
     setUntitled(true);
     m_original.clear();
     m_encoding = fallbackEncoding();
     m_bom.clear();
     m_lineEnding = QStringLiteral("\r\n");
-    m_document->clear();
+    m_document->setPlainText(text);
+    m_document->clearUndoRedoStacks();
     m_document->setModified(false);
 }
 
@@ -291,7 +318,7 @@ bool CodeFile::writeCopy(const QString& target, QString* error) const
 
 bool CodeFile::isModified() const
 {
-    return m_document->isModified();
+    return isCopy() || m_document->isModified();
 }
 
 bool CodeFile::saveAs(const QString& target, QString* error)

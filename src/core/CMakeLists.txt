@@ -119,6 +119,8 @@ add_library(ofscore SHARED
     tools/Calculator.cpp
     script/LuaScript.h
     script/LuaScript.cpp
+    script/ScriptHost.h
+    script/ScriptHost.cpp
     sprites/ImageDocument.h
     sprites/ImageDocument.cpp
     bg/BgDocument.h

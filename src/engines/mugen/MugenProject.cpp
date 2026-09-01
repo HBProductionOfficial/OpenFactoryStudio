@@ -1,8 +1,13 @@
 #include "engines/mugen/MugenProject.h"
 
+#include "core/engine/Engine.h"
+#include "core/project/ProjectFile.h"
+#include "core/sounds/SoundFile.h"
+#include "core/sprites/SpriteFile.h"
 #include "engines/mugen/DefFile.h"
 
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 
 namespace OFS::Mugen {
@@ -20,16 +25,81 @@ bool MugenProject::load(QString* error)
         return false;
     }
     setTypeId(detectType(def));
+    setEditorIds(editorsForType(typeId()));
+    readInfo(def);
+    collectFiles(def);
+    return true;
+}
+
+bool MugenProject::createNew(const QString& typeId, const QString& blankDir, QString* error)
+{
+    auto readBlank = [&blankDir](const QString& fileName) {
+        QFile file(QDir(blankDir).filePath(fileName));
+        if (!file.open(QIODevice::ReadOnly))
+            return QString();
+        // The documents use LF line ends whatever the blank files have.
+        return QString::fromUtf8(file.readAll()).replace(QLatin1String("\r\n"), QLatin1String("\n"));
+    };
+    const QString definitions = readBlank(QFileInfo(filePath()).fileName());
+    if (definitions.isEmpty()) {
+        if (error)
+            *error = tr("There is no blank project of type '%1'.").arg(typeId);
+        return false;
+    }
+    DefFile def;
+    def.parse(definitions);
+    setMemoryOnly(true);
+    setTypeId(typeId);
+    QStringList editors = editorsForType(typeId);
+    if (typeId == QLatin1String("font"))
+        editors.insert(1, QStringLiteral("sprites"));
+    setEditorIds(editors);
+    readInfo(def);
+    collectFiles(def);
+    if (typeId == QLatin1String("font"))
+        setEditorFiles(QStringLiteral("sprites"), {directory() + QLatin1Char('/') +
+                                                   QFileInfo(filePath()).completeBaseName() + QStringLiteral(".sff")});
+
+    const Formats::SffVersion sffVersion = versionId() == QLatin1String("1.1")   ? Formats::SffVersion::V201
+                                           : versionId() == QLatin1String("1.0") ? Formats::SffVersion::V2
+                                                                                 : Formats::SffVersion::V1;
+    for (const QString& editorId : editors) {
+        const EditorInfo info = engine()->editor(editorId);
+        for (const QString& path : editorFiles(editorId)) {
+            if (path.isEmpty() || file(path))
+                continue;
+            ProjectFile* document = nullptr;
+            if (editorId == QLatin1String("sprites")) {
+                auto* sprites = new SpriteFile(path, editorId, this);
+                sprites->createEmpty(sffVersion);
+                document = sprites;
+            } else if (editorId == QLatin1String("sounds")) {
+                auto* sounds = new SoundFile(path, editorId, this);
+                sounds->createEmpty();
+                document = sounds;
+            } else if (info.workspace == WorkspaceType::Code || editorId == QLatin1String("animations") ||
+                       editorId == QLatin1String("backgrounds")) {
+                auto* code = new CodeFile(path, editorId, this);
+                code->createEmpty(path == filePath() ? definitions : readBlank(QFileInfo(path).fileName()));
+                document = code;
+            } else {
+                continue;
+            }
+            document->setNameless(true);
+            addFile(document);
+        }
+    }
+    return true;
+}
+
+void MugenProject::readInfo(const DefFile& def)
+{
     setVersionId(detectVersion(def));
     setVersionDeclared(!def.value(QStringLiteral("Info"), QStringLiteral("mugenversion")).trimmed().isEmpty());
-    setEditorIds(editorsForType(typeId()));
-
     QString name = def.value(QStringLiteral("Info"), QStringLiteral("name"));
     if (name.isEmpty() && typeId() == QLatin1String("stage"))
         name = def.value(QStringLiteral("Info"), QStringLiteral("displayname"));
     setName(name);
-    collectFiles(def);
-    return true;
 }
 
 QString MugenProject::detectType(const DefFile& def)

@@ -160,9 +160,15 @@ ofs_add_test(NAME core_preset_coverage GUI
     SOURCES core/PresetCoverageTest.cpp
     LIBS OFS::core)
 
-ofs_add_test(NAME mugen_project
+ofs_add_test(NAME mugen_project GUI
     SOURCES mugen/MugenProjectTest.cpp
     LIBS OFS::mugen)
+add_dependencies(test_mugen_project ofs_data)
+
+ofs_add_test(NAME mugen_project_templates GUI
+    SOURCES mugen/ProjectTemplateTest.cpp
+    LIBS OFS::shell OFS::mugen)
+add_dependencies(test_mugen_project_templates ofs_data)
 
 ofs_add_test(NAME core_settings_importer
     SOURCES core/SettingsImporterTest.cpp

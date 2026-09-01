@@ -2,10 +2,18 @@
 #include "engines/mugen/DefFile.h"
 #include "engines/mugen/MugenEngine.h"
 
+#include "core/project/ProjectFile.h"
+#include "core/sounds/SoundFile.h"
+#include "core/sprites/SpriteFile.h"
+
 #include <QDir>
 #include <QFile>
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTextDocument>
+
+#include <memory>
 
 using namespace OFS;
 using namespace OFS::Mugen;
@@ -153,6 +161,129 @@ private Q_SLOTS:
         QCOMPARE(project->editorFiles("sounds").size(), 2);
     }
 
+    void newCharacter()
+    {
+        MugenEngine engine;
+        QTemporaryDir folder;
+        const QString dir = folder.path();
+        QString error;
+        std::unique_ptr<Project> project(engine.newProject("char", dir, &error));
+        QVERIFY2(project, qPrintable(error));
+        QVERIFY(project->isMemoryOnly());
+        QCOMPARE(project->name(), QStringLiteral("Char name"));
+        QCOMPARE(project->typeId(), QStringLiteral("char"));
+        QCOMPARE(project->versionId(), QStringLiteral("1.0"));
+        QCOMPARE(project->filePath(), dir + "/char.def");
+        QCOMPARE(project->editorIds(),
+                 (QStringList{"definitions", "sprites", "animations", "commands", "states", "sounds", "emulator"}));
+        QCOMPARE(project->editorFiles("commands"), QStringList{dir + "/char.cmd"});
+        QCOMPARE(project->editorFiles("states"), QStringList{dir + "/char.cns"});
+        QCOMPARE(project->editorFiles("sprites"), QStringList{dir + "/char.sff"});
+
+        QCOMPARE(project->files().size(), qsizetype(6));
+        for (const ProjectFile* f : project->files()) {
+            QVERIFY(f->isUntitled());
+            QVERIFY(f->isNameless());
+            QVERIFY(!f->isModified());
+        }
+        QVERIFY(!project->isModified());
+        QVERIFY(QDir(dir).isEmpty());
+        auto* definitions = qobject_cast<CodeFile*>(project->file(dir + "/char.def"));
+        auto* commands = qobject_cast<CodeFile*>(project->file(dir + "/char.cmd"));
+        auto* states = qobject_cast<CodeFile*>(project->file(dir + "/char.cns"));
+        auto* anims = qobject_cast<CodeFile*>(project->file(dir + "/char.air"));
+        QVERIFY(definitions && commands && states && anims);
+        QVERIFY(definitions->document()->toPlainText().contains("name         = \"Char name\""));
+        QVERIFY(commands->document()->toPlainText().trimmed().endsWith("[Statedef -1]"));
+        QVERIFY(states->document()->toPlainText().contains("[Velocity]"));
+        QVERIFY(anims->document()->isEmpty());
+        QVERIFY(!definitions->document()->isUndoAvailable());
+        auto* sprites = qobject_cast<SpriteFile*>(project->file(dir + "/char.sff"));
+        QVERIFY(sprites && sprites->document().sprites().empty());
+        QVERIFY(qobject_cast<SoundFile*>(project->file(dir + "/char.snd")));
+
+        QTemporaryDir target;
+        QSignalSpy moved(project.get(), &Project::filePathChanged);
+        QVERIFY(definitions->saveAs(target.filePath("mychar.def"), &error));
+        QCOMPARE(moved.count(), 1);
+        QVERIFY(!project->isMemoryOnly());
+        QCOMPARE(project->filePath(), target.path() + "/mychar.def");
+        QCOMPARE(project->editorFiles("definitions"), QStringList{target.path() + "/mychar.def"});
+        QCOMPARE(project->editorFiles("commands"), QStringList{target.path() + "/char.cmd"});
+        QVERIFY(commands->isUntitled() && commands->isNameless());
+        QVERIFY(!definitions->isNameless());
+        QFile saved(target.filePath("mychar.def"));
+        QVERIFY(saved.open(QIODevice::ReadOnly));
+        const QByteArray bytes = saved.readAll();
+        QVERIFY(bytes.startsWith("\r\n;"));
+        QVERIFY(bytes.contains("\r\n[Files]\r\n"));
+        QVERIFY(!bytes.contains("\n\n"));
+
+        QSignalSpy renamed(commands, &ProjectFile::pathChanged);
+        QVERIFY(commands->saveAs(target.filePath("char.cmd"), &error));
+        QCOMPARE(renamed.count(), 1);
+        QVERIFY(!commands->isUntitled() && !commands->isNameless());
+    }
+
+    void newProjectTypes()
+    {
+        MugenEngine engine;
+        QTemporaryDir folder;
+        QString error;
+        std::unique_ptr<Project> stage(engine.newProject("stage", folder.path(), &error));
+        QVERIFY2(stage, qPrintable(error));
+        QCOMPARE(stage->name(), QStringLiteral("Stage name"));
+        QCOMPARE(stage->editorIds(), (QStringList{"definitions", "sprites", "animations", "backgrounds", "emulator"}));
+        QCOMPARE(stage->editorFiles("backgrounds"), QStringList{stage->filePath()});
+        QCOMPARE(stage->files().size(), qsizetype(2));
+
+        std::unique_ptr<Project> font(engine.newProject("font", folder.path(), &error));
+        QVERIFY2(font, qPrintable(error));
+        QVERIFY(font->name().startsWith("Project "));
+        QCOMPARE(font->versionId(), QStringLiteral("dosbeta"));
+        QCOMPARE(font->editorIds(), (QStringList{"definitions", "sprites", "emulator"}));
+        QCOMPARE(font->editorFiles("sprites"), QStringList{folder.path() + "/font.sff"});
+        std::unique_ptr<Project> story(engine.newProject("storyboard", folder.path(), &error));
+        QVERIFY2(story, qPrintable(error));
+        const int fontNumber = font->name().mid(8).toInt();
+        QCOMPARE(story->name(), QStringLiteral("Project %1").arg(fontNumber + 1));
+        QCOMPARE(story->editorIds(), (QStringList{"definitions", "sprites", "animations", "backgrounds", "emulator"}));
+        QCOMPARE(story->filePath(), folder.path() + "/intro.def");
+
+        QVERIFY(!engine.newProject("select", folder.path(), &error));
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(engine.scriptName(), QStringLiteral("MUGEN"));
+        QCOMPARE(engine.scriptEnums().value("ProjectType").value("Character").toString(), QStringLiteral("char"));
+    }
+
+    void openedAsCopy()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("tpl.def"), "[Info]\nname = \"Template\"\nmugenversion = 1.0\n[Files]\ncmd = tpl.cmd\n");
+        writeFile(dir.filePath("tpl.cmd"), "[Command]\nname = \"x\"\ncommand = x\n");
+        MugenEngine engine;
+        QString error;
+        std::unique_ptr<Project> project(engine.openProject(dir.filePath("tpl.def"), &error));
+        QVERIFY2(project, qPrintable(error));
+        project->openAsCopy();
+        QVERIFY(project->isMemoryOnly());
+        CodeFile* commands = project->codeFile(dir.filePath("tpl.cmd"), "commands", &error);
+        QVERIFY(commands);
+        QVERIFY(commands->isUntitled() && commands->isNameless() && commands->isCopy());
+        QVERIFY(commands->isModified());
+        QVERIFY(project->isModified());
+
+        QTemporaryDir target;
+        QSignalSpy modified(commands, &ProjectFile::modifiedChanged);
+        QVERIFY(commands->saveAs(target.filePath("mine.cmd"), &error));
+        QVERIFY(!commands->isModified() && !commands->isCopy());
+        QVERIFY(!modified.isEmpty());
+        QCOMPARE(modified.last().first().toBool(), false);
+        QFile original(dir.filePath("tpl.cmd"));
+        QVERIFY(original.open(QIODevice::ReadOnly));
+        QCOMPARE(original.readAll(), QByteArray("[Command]\nname = \"x\"\ncommand = x\n"));
+    }
+
     void missingFileFails()
     {
         MugenEngine engine;
@@ -162,5 +293,5 @@ private Q_SLOTS:
     }
 };
 
-QTEST_GUILESS_MAIN(MugenProjectTest)
+QTEST_MAIN(MugenProjectTest)
 #include "MugenProjectTest.moc"

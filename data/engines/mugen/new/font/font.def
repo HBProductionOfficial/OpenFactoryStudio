@@ -1,0 +1,14 @@
+; Font definitions (FNT version 2): a TrueType font, or a bitmap font drawn from a sprite file.
+
+[FNT v2]
+fntversion = 2,00       ; Font file version
+name       = "Font name" ; Name of the font
+author     = "Your name" ; Author of the font
+
+[Def]
+Type    = truetype      ; truetype, or bitmap for a font made of sprites
+Size    = 18,36         ; Size of the characters (width, height)
+Spacing = 1,1           ; Space between characters and between lines
+Offset  = 0,0           ; Drawing offset (x, y)
+File    = file.ttf      ; The TrueType file (or the sprite file of a bitmap font)
+Blend   = 1             ; 1 smooths the edges of TrueType characters

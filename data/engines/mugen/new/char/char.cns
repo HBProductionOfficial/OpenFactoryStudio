@@ -1,0 +1,76 @@
+; Constants of the character: life, size, speeds and physics. The states can follow in this file
+; or in the files named by st0 to st9 in the definitions.
+
+[Data]
+life              = 1000 ; Life (1000 is the usual amount)
+attack            = 100  ; Attack power, in percent of the damage the hits do
+defence           = 100  ; Defence, in percent (more means less damage taken)
+fall.defence_up   = 50   ; Extra defence while falling, in percent
+liedown.time      = 60   ; Ticks spent lying down before getting up
+airjuggle         = 15   ; Juggle points of the opponent's air hits on this character
+sparkno           = 2    ; Default hit spark (S prefix: one of the character's own animations)
+guard.sparkno     = 40   ; Default guard spark
+KO.echo           = 0    ; 1 echoes the KO sound
+volume            = 0    ; Volume offset of the character's sounds (negative is quieter)
+IntPersistIndex   = 60   ; Integer variables from this index on keep their value between rounds
+FloatPersistIndex = 40   ; The same for float variables
+
+[Size]
+xscale            = 1        ; Horizontal scale of the sprites
+yscale            = 1        ; Vertical scale of the sprites
+ground.back       = 15       ; Body width behind the axis, on the ground
+ground.front      = 16       ; Body width in front of the axis, on the ground
+air.back          = 12       ; Body width behind the axis, in the air
+air.front         = 12       ; Body width in front of the axis, in the air
+height            = 60       ; Height, for the opponent jumping over
+attack.dist       = 160      ; Default distance at which the opponent starts guarding
+proj.attack.dist  = 90       ; The same for projectiles
+proj.doscale      = 0        ; 1 scales projectiles like the character
+head.pos          = -5, -90  ; Position of the head (x, y)
+mid.pos           = -5, -60  ; Position of the middle of the body (x, y)
+shadowoffset      = 0        ; Vertical offset of the shadow
+draw.offset       = 0,0      ; Drawing offset (x, y)
+
+[Velocity]
+walk.fwd          = 2.4        ; Walking forward
+walk.back         = -2.2       ; Walking back
+run.fwd           = 4.6, 0     ; Running forward (x, y)
+run.back          = -4.5,-3.8  ; Hopping back (x, y)
+jump.neu          = 0,-8.4     ; Jumping straight up (x, y)
+jump.back         = -2.55      ; Jumping back (x)
+jump.fwd          = 2.5        ; Jumping forward (x)
+runjump.back      = -2.55,-8.1 ; Jumping back while running (x, y)
+runjump.fwd       = 4,-8.1     ; Jumping forward while running (x, y)
+airjump.neu       = 0,-8.1     ; Air jump straight up (x, y)
+airjump.back      = -2.55      ; Air jump back (x)
+airjump.fwd       = 2.5        ; Air jump forward (x)
+air.gethit.groundrecover   = -.15,-3.5 ; Recovering near the ground when hit in the air (x, y)
+air.gethit.airrecover.mul  = .5,.2     ; Velocity kept when recovering in the air (x, y)
+air.gethit.airrecover.add  = 0,-4.5    ; Velocity added when recovering in the air (x, y)
+air.gethit.airrecover.back = -1        ; Extra x velocity when back is held during the recovery
+air.gethit.airrecover.fwd  = 0         ; Extra x velocity when forward is held
+air.gethit.airrecover.up   = -2        ; Extra y velocity when up is held
+air.gethit.airrecover.down = 1.5       ; Extra y velocity when down is held
+
+[Movement]
+airjump.num                = 1     ; Air jumps allowed
+airjump.height             = 35    ; Minimum height from the ground to air jump
+yaccel                     = .44   ; Gravity
+stand.friction             = .85   ; Velocity kept each tick while standing
+crouch.friction            = .82   ; Velocity kept each tick while crouching
+stand.friction.threshold   = 2     ; Below this speed a standing character stops (**MUGEN 1.0**)
+crouch.friction.threshold  = .05   ; The same while crouching (**MUGEN 1.0**)
+air.gethit.groundlevel     = 25    ; Height at which a falling hit character touches the ground (**MUGEN 1.0**)
+air.gethit.groundrecover.ground.threshold = -20 ; Height below which a ground recovery is allowed (**MUGEN 1.0**)
+air.gethit.groundrecover.groundlevel      = 10  ; Height at which the ground recovery lands (**MUGEN 1.0**)
+air.gethit.airrecover.threshold           = -1  ; Y velocity above which an air recovery is allowed (**MUGEN 1.0**)
+air.gethit.airrecover.yaccel              = .35 ; Gravity during the air recovery (**MUGEN 1.0**)
+air.gethit.trip.groundlevel               = 15  ; Height at which a tripped character lands (**MUGEN 1.0**)
+down.bounce.offset         = 0, 20 ; Offset of the bounce off the ground after a fall (x, y) (**MUGEN 1.0**)
+down.bounce.yaccel         = .4    ; Gravity of the bounce (**MUGEN 1.0**)
+down.bounce.groundlevel    = 12    ; Height at which the bounce lands (**MUGEN 1.0**)
+down.friction.threshold    = .05   ; Below this speed a character lying down stops sliding (**MUGEN 1.0**)
+
+[Quotes]
+; Victory quotes, chosen with VictoryQuote in the states (victory0 to victory99)
+victory1 = "Some victory text."

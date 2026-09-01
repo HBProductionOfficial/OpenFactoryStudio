@@ -227,8 +227,8 @@ void ProjectView::createEditor(const EditorInfo& info)
     for (const QString& file : m_project->editorFiles(info.id)) {
         if (file.isEmpty())
             continue;
-        const int index = tabs->addTab(createFilePage(info, file), QFileInfo(file).fileName());
-        tabs->setTabToolTip(index, QDir::toNativeSeparators(file));
+        const int index = tabs->addTab(createFilePage(info, file), tabCaption(file));
+        tabs->setTabToolTip(index, tabToolTip(file));
     }
     if (info.id == QLatin1String("sprites")) {
         m_sprites = new SpritesEditor(m_context, this);
@@ -884,7 +884,7 @@ void ProjectView::fileRenamed(QWidget* page, const QString& oldPath, const QStri
     if (QTabWidget* tabs = m_fileTabs.value(page->property("editorId").toString())) {
         const int index = tabs->indexOf(page);
         if (index >= 0)
-            tabs->setTabToolTip(index, QDir::toNativeSeparators(newPath));
+            tabs->setTabToolTip(index, tabToolTip(newPath));
     }
     if (m_issues.contains(oldPath)) {
         IssueList issues = m_issues.take(oldPath);
@@ -939,10 +939,22 @@ void ProjectView::updateTabTitles()
             const QString path = tabs->widget(i)->property("filePath").toString();
             if (path.isEmpty())
                 continue;
-            const ProjectFile* f = m_project->file(path);
-            tabs->setTabText(i, QFileInfo(path).fileName() + (f && f->isModified() ? QStringLiteral("*") : QString()));
+            tabs->setTabText(i, tabCaption(path));
         }
     }
+}
+
+QString ProjectView::tabCaption(const QString& path) const
+{
+    const ProjectFile* f = m_project->file(path);
+    const QString name = f && f->isNameless() ? QString() : QFileInfo(path).fileName();
+    return name + (f && f->isModified() ? QStringLiteral("*") : QString());
+}
+
+QString ProjectView::tabToolTip(const QString& path) const
+{
+    const ProjectFile* f = m_project->file(path);
+    return f && f->isNameless() ? QString() : QDir::toNativeSeparators(path);
 }
 
 void ProjectView::fillProjectExplorer()
@@ -951,7 +963,10 @@ void ProjectView::fillProjectExplorer()
     QStringList files;
     for (const QString& id : editorIds()) {
         for (const QString& f : m_project->editorFiles(id)) {
-            if (!f.isEmpty() && QFileInfo::exists(f) && !files.contains(f, Qt::CaseInsensitive))
+            // Blank documents never saved are not on disk yet, whatever is at their suggested path.
+            const ProjectFile* file = m_project->file(f);
+            if (!f.isEmpty() && QFileInfo::exists(f) && !(file && file->isUntitled()) &&
+                !files.contains(f, Qt::CaseInsensitive))
                 files << f;
         }
     }

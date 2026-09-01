@@ -11,6 +11,7 @@
 #include <QPair>
 #include <QString>
 #include <QStringList>
+#include <QVariantMap>
 #include <QtPlugin>
 
 #include <functional>
@@ -96,6 +97,14 @@ public:
 
     // The caller owns the project.
     virtual Project* openProject(const QString& filePath, QString* error) = 0;
+
+    // A blank in-memory project that will save into folder (Project > New, FF.emptyProject).
+    virtual Project* newProject(const QString& typeId, const QString& folder, QString* error);
+
+    // Name of the global script table ("MUGEN") that holds scriptEnums():
+    // enum name -> (value name -> value), e.g. ProjectType -> Character -> "char".
+    virtual QString scriptName() const;
+    virtual QMap<QString, QVariantMap> scriptEnums() const;
 
     virtual const SyntaxDatabase* syntax() const { return nullptr; }
     virtual QString syntaxFileType(const Project& project, const QString& editorId) const;

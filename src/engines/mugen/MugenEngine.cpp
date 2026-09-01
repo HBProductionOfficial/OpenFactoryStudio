@@ -132,6 +132,37 @@ Project* MugenEngine::openProject(const QString& filePath, QString* error)
     return project;
 }
 
+Project* MugenEngine::newProject(const QString& typeId, const QString& folder, QString* error)
+{
+    // Blank documents live in <data>/new/<type>/.
+    const QString blank = dataDir() + QStringLiteral("/new/") + typeId;
+    const QStringList definitions = QDir(blank).entryList({QStringLiteral("*.def")}, QDir::Files, QDir::Name);
+    if (typeId.isEmpty() || definitions.isEmpty())
+        return Engine::newProject(typeId, folder, error);
+    auto* project = new MugenProject(this, QDir(folder).filePath(definitions.first()));
+    if (!project->createNew(typeId, blank, error)) {
+        delete project;
+        return nullptr;
+    }
+    return project;
+}
+
+QMap<QString, QVariantMap> MugenEngine::scriptEnums() const
+{
+    return {
+        {QStringLiteral("ProjectType"),
+         {
+             {QStringLiteral("Character"), QStringLiteral("char")},
+             {QStringLiteral("Stage"), QStringLiteral("stage")},
+             {QStringLiteral("Font"), QStringLiteral("font")},
+             {QStringLiteral("Storyboard"), QStringLiteral("storyboard")},
+             {QStringLiteral("Motif"), QStringLiteral("motif")},
+             {QStringLiteral("FightFX"), QStringLiteral("fight")},
+             {QStringLiteral("Select"), QStringLiteral("select")},
+         }},
+    };
+}
+
 const SyntaxDatabase* MugenEngine::syntax() const
 {
     if (!m_syntax) {

@@ -114,6 +114,9 @@ private:
     Analysis computeAnalysis(const QString& editorId, const QString& text) const;
     void applyAnalysis(CodePage* page, Analysis analysis);
     void updateTabTitles();
+    // The file name, nothing for never saved documents of a new project, and "*" when modified.
+    QString tabCaption(const QString& path) const;
+    QString tabToolTip(const QString& path) const;
     void fillProjectExplorer();
     void updateRightPanel();
     void updateDockStretch();

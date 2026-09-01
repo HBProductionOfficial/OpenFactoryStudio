@@ -32,7 +32,15 @@ QString Project::directory() const
 
 void Project::setName(const QString& name)
 {
-    const QString n = name.trimmed().isEmpty() ? QFileInfo(m_filePath).completeBaseName() : name.trimmed();
+    QString n = name.trimmed();
+    if (n.isEmpty() && m_memoryOnly) {
+        static int s_untitledCount = 0;
+        if (m_untitledName.isEmpty())
+            m_untitledName = tr("Project %1").arg(++s_untitledCount);
+        n = m_untitledName;
+    } else if (n.isEmpty()) {
+        n = QFileInfo(m_filePath).completeBaseName();
+    }
     if (n == m_name)
         return;
     m_name = n;
@@ -162,6 +170,14 @@ CodeFile* Project::newCodeFile(const QString& placeholderPath, const QString& ed
     return f;
 }
 
+void Project::openAsCopy()
+{
+    m_memoryOnly = true;
+    m_copy = true;
+    for (ProjectFile* f : std::as_const(m_files))
+        f->markAsCopy();
+}
+
 void Project::adopt(ProjectFile* f)
 {
     connect(f, &ProjectFile::modifiedChanged, this, [this] { Q_EMIT modifiedChanged(isModified()); });
@@ -172,8 +188,27 @@ void Project::adopt(ProjectFile* f)
                     path = f->path();
             }
         }
+        if (m_memoryOnly && !f->isUntitled() && oldPath.compare(m_filePath, Qt::CaseInsensitive) == 0)
+            definitionsSaved(f->path());
     });
     m_files << f;
+    if (m_copy)
+        f->markAsCopy();
+}
+
+void Project::definitionsSaved(const QString& path)
+{
+    const QString oldFolder = directory() + QLatin1Char('/');
+    m_filePath = path;
+    m_memoryOnly = false;
+    m_copy = false;
+    // Suggest the other new documents beside it, under the names the .def gives them.
+    const QString newFolder = directory() + QLatin1Char('/');
+    for (ProjectFile* f : std::as_const(m_files)) {
+        if (f->isUntitled() && f->path().startsWith(oldFolder, Qt::CaseInsensitive))
+            f->setPlaceholderPath(newFolder + f->path().mid(oldFolder.size()));
+    }
+    Q_EMIT filePathChanged();
 }
 
 bool Project::isModified() const

@@ -43,6 +43,7 @@
 #include <QComboBox>
 #include <QContextMenuEvent>
 #include <QDialog>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QDoubleSpinBox>
 #include <QFile>
@@ -72,6 +73,7 @@
 #include <QToolButton>
 #include <QTreeView>
 #include <QUndoStack>
+#include <QWizard>
 
 using namespace OFS;
 
@@ -129,6 +131,46 @@ void answerDiscard(QMessageBox::StandardButton button)
         QVERIFY(box);
         QCOMPARE(box->windowTitle(), boxTitle("Discard changes?"));
         box->button(button)->click();
+    });
+}
+
+template <typename T>
+void whenModal(std::function<void(T*)> answer)
+{
+    auto* timer = new QTimer(qApp);
+    timer->setInterval(5);
+    QObject::connect(timer, &QTimer::timeout, qApp, [timer, answer] {
+        if (auto* window = qobject_cast<T*>(QApplication::activeModalWidget()); window && window->isVisible()) {
+            timer->stop();
+            timer->deleteLater();
+            answer(window);
+        }
+    });
+    timer->start();
+}
+
+// Answers Project > New with the template at `row` of the first tab, or with none when row is -1.
+void chooseTemplate(int row)
+{
+    whenModal<QDialog>([row](QDialog* dialog) {
+        QCOMPARE(dialog->objectName(), QStringLiteral("ProjDlg"));
+        auto* tabs = dialog->findChild<QTabWidget*>("tabs");
+        QVERIFY(tabs);
+        if (row >= 0)
+            qobject_cast<QListWidget*>(tabs->widget(0))->setCurrentRow(row);
+        dialog->findChild<QDialogButtonBox*>("buttonBox")->button(QDialogButtonBox::Ok)->click();
+    });
+}
+
+void answerEmptyWizard(const QString& choice)
+{
+    whenModal<QWizard>([choice](QWizard* wizard) {
+        QCOMPARE(wizard->windowTitle(), QStringLiteral("Empty project"));
+        for (QRadioButton* radio : wizard->currentPage()->findChildren<QRadioButton*>()) {
+            if (radio->text() == choice)
+                radio->setChecked(true);
+        }
+        wizard->button(QWizard::FinishButton)->click();
     });
 }
 
@@ -204,6 +246,76 @@ private Q_SLOTS:
                                        "Welcome screen",
                                        "|",
                                        "Exit"}));
+    }
+
+    void newProject()
+    {
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        ActionRegistry& actions = m_context->actions();
+        QVERIFY(actions.action("file_new")->isEnabled());
+        const qsizetype history = m_context->history().entries().size();
+        QTemporaryDir folder;
+        m_context->config().setValue("project_path", folder.path());
+
+        chooseTemplate(-1);
+        actions.action("file_new")->trigger();
+        QVERIFY(!window.currentProjectView());
+
+        chooseTemplate(0);
+        answerEmptyWizard("Character");
+        actions.action("file_new")->trigger();
+        ProjectView* view = window.currentProjectView();
+        QVERIFY(view);
+        Project* project = view->project();
+        QVERIFY(project->isMemoryOnly());
+        QCOMPARE(project->name(), QStringLiteral("Char name"));
+        QCOMPARE(view->currentEditor(), QStringLiteral("definitions"));
+        QCOMPARE(window.windowTitle(), QStringLiteral("Char name - Open Factory Studio"));
+        QCOMPARE(m_context->history().entries().size(), history);
+        QVERIFY(actions.action("file_save")->isEnabled());
+        auto* tabs = view->findChild<QTabWidget*>("fileTabs_definitions");
+        QVERIFY(tabs);
+        QCOMPARE(tabs->tabText(0), QString());
+        QVERIFY(tabs->tabToolTip(0).isEmpty());
+        QCOMPARE(view->findChild<QTabWidget*>("fileTabs_states")->count(), 1);
+
+        QStringList asked;
+        FileDialogs::setSavePromptOverride([&](const QString& caption, const QString& path, const QString&) {
+            asked << caption + '|' + path;
+            return QString();
+        });
+        actions.action("file_save")->trigger();
+        QVERIFY(asked.isEmpty());
+
+        view->currentCodeEditor()->moveCursor(QTextCursor::End);
+        view->currentCodeEditor()->insertPlainText("; mine\n");
+        QCOMPARE(tabs->tabText(0), QStringLiteral("*"));
+        CodeFile* commands = qobject_cast<CodeFile*>(project->file(folder.path() + "/char.cmd"));
+        QVERIFY(commands);
+        commands->document()->setPlainText(commands->document()->toPlainText() + "; more\n");
+        QTemporaryDir target;
+        FileDialogs::setSavePromptOverride([&](const QString& caption, const QString& path, const QString&) {
+            asked << caption + '|' + path;
+            return target.filePath(caption.contains("definitions") ? "mychar.def" : QFileInfo(path).fileName());
+        });
+        actions.action("file_save")->trigger();
+        FileDialogs::setSavePromptOverride({});
+        QCOMPARE(asked, (QStringList{"Save definitions as...|" + folder.path() + "/char.def",
+                                     "Save commands as...|" + target.path() + "/char.cmd"}));
+        QVERIFY(!project->isMemoryOnly());
+        QCOMPARE(project->filePath(), target.path() + "/mychar.def");
+        QCOMPARE(tabs->tabText(0), QStringLiteral("mychar.def"));
+        QVERIFY(QFile::exists(target.filePath("char.cmd")));
+        QCOMPARE(m_context->history().entries().size(), history);
+
+        chooseTemplate(0);
+        answerEmptyWizard("Font");
+        actions.action("file_new")->trigger();
+        QVERIFY(window.currentProjectView() != view);
+        QVERIFY(window.currentProjectView()->project()->name().startsWith("Project "));
+        QCOMPARE(window.currentProjectView()->editorIds(), (QStringList{"definitions", "sprites", "emulator"}));
     }
 
     void characterProject()

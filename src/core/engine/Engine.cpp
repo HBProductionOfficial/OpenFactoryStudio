@@ -29,6 +29,27 @@ EditorInfo Engine::editor(const QString& id) const
     return {};
 }
 
+Project* Engine::newProject(const QString& typeId, const QString& folder, QString* error)
+{
+    Q_UNUSED(folder)
+    if (error)
+        *error = tr("%1 has no blank project of type '%2'.").arg(displayName(), typeId);
+    return nullptr;
+}
+
+QString Engine::scriptName() const
+{
+    return name().toUpper();
+}
+
+QMap<QString, QVariantMap> Engine::scriptEnums() const
+{
+    QVariantMap types;
+    for (const ProjectTypeInfo& type : projectTypes())
+        types.insert(type.id, type.id);
+    return {{QStringLiteral("ProjectType"), types}};
+}
+
 QString Engine::projectFileFilter() const
 {
     QStringList patterns;

@@ -23,6 +23,12 @@ public:
     QString editorId() const { return m_editorId; }
 
     bool isUntitled() const { return m_untitled; }
+    // A never-saved Project > New document. Its tab has no caption.
+    bool isNameless() const { return m_nameless; }
+    void setNameless(bool nameless) { m_nameless = nameless; }
+    void setPlaceholderPath(const QString& path);
+    bool isCopy() const { return m_copy; }
+    void markAsCopy();
 
     virtual bool load(QString* error) = 0;
     virtual bool save(QString* error);
@@ -43,6 +49,8 @@ private:
     QString m_path;
     QString m_editorId;
     bool m_untitled = false;
+    bool m_nameless = false;
+    bool m_copy = false;
 };
 
 // A text file (definitions, commands, states, animations...). The text lives in a QTextDocument
@@ -59,7 +67,7 @@ public:
     QTextDocument* document() const { return m_document; }
 
     bool load(QString* error) override;
-    void createEmpty();
+    void createEmpty(const QString& text = QString());
     bool saveAs(const QString& path, QString* error) override;
     bool isModified() const override;
     bool writeCopy(const QString& path, QString* error) const override;

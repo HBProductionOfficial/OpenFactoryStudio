@@ -96,7 +96,7 @@ bool SoundFile::saveAs(const QString& target, QString* error)
 
 bool SoundFile::isModified() const
 {
-    return !m_undo->isClean();
+    return isCopy() || !m_undo->isClean();
 }
 
 bool SoundFile::writeCopy(const QString& target, QString* error) const

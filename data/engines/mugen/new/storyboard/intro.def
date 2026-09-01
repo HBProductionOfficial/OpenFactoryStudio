@@ -1,0 +1,19 @@
+; Storyboard definitions: an intro, ending or logo made of scenes played one after another.
+
+[SceneDef]
+spr = intro.sff         ; Sprites of the storyboard
+startscene = 0          ; First scene played
+
+[Scene 0]
+;fadein.time = 0        ; Ticks of the fade-in at the start of the scene
+;fadein.col = 0,0,0     ; Color of the fade-in
+;fadeout.time = 0       ; Ticks of the fade-out at the end of the scene
+;fadeout.col = 0,0,0    ; Color of the fade-out
+;clearcolor = 0,0,0     ; Color the screen is cleared with (-1 for none)
+;layerall.pos = 0,0     ; Position added to every layer
+;layer0.anim = 0        ; Animation of layer 0 (layers 0 to 9)
+;layer0.offset = 0,0    ; Position of layer 0
+;layer0.starttime = 0   ; Tick at which layer 0 appears
+;bgm =                  ; Music played from this scene on
+;bgm.loop = 1           ; 1 loops the music
+;end.time = 300         ; Length of the scene in ticks

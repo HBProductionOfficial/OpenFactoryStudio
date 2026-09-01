@@ -16,6 +16,7 @@
 #include "core/preset/PresetEngine.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
+#include "core/script/ScriptHost.h"
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
 #include "core/sounds/SoundFile.h"
@@ -51,6 +52,7 @@
 #include "shell/dialogs/CalculatorDialog.h"
 #include "shell/dialogs/ClipboardContainer.h"
 #include "shell/dialogs/OptionsDialog.h"
+#include "shell/dialogs/ProjectDialogs.h"
 #include "shell/dialogs/RunChooserDialog.h"
 #include "shell/dialogs/SnippetEditorDialog.h"
 #include "shell/dialogs/SnippetFieldsDialog.h"
@@ -342,6 +344,7 @@ void MainWindow::connectActions()
             connect(a, &QAction::triggered, this, slot);
     };
 
+    on("file_new", [this] { newProject(); });
     on("file_open", [this] { openProjectDialog(); });
     on("file_close", [this] { closeCurrentProject(); });
     on("file_close_all", [this] { closeAllProjects(); });
@@ -1384,12 +1387,13 @@ bool MainWindow::saveFileAs(ProjectFile* file)
         return written;
     }
     const EditorInfo info = project->engine()->editor(file->editorId());
-    const QString target = FileDialogs::getSaveFileName(this, tr("Save as"), file->path(), info.fileFilter);
+    const QString title = file->isNameless() ? tr("Save %1 as...").arg(info.title.toLower()) : tr("Save as");
+    const QString target = FileDialogs::getSaveFileName(this, title, file->path(), info.fileFilter);
     if (target.isEmpty())
         return false;
     QString error;
     if (!file->saveAs(target, &error)) {
-        QMessageBox::warning(this, tr("Save as"), error);
+        QMessageBox::warning(this, title, error);
         return false;
     }
     m_context.config().setValue(file->editorId() + QStringLiteral("_path"), QFileInfo(target).absolutePath());
@@ -1549,15 +1553,50 @@ bool MainWindow::openProject(const QString& filePath)
         m_context.history().remove(path);
         return false;
     }
+    addProjectView(project, QString());
+    m_context.history().add(project->name(), path);
+    m_context.config().setValue(QStringLiteral("project_path"), project->directory());
+    return true;
+}
 
+void MainWindow::newProject()
+{
+    ProjectTemplateDialog dialog(m_context.engines(), this);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+    const ProjectTemplate chosen = dialog.selectedTemplate();
+    if (chosen.script.isEmpty())
+        return;
+    Config& config = m_context.config();
+    QString folder = config.value(QStringLiteral("project_path"));
+    if (folder.isEmpty() || !QFileInfo(folder).isDir())
+        folder = config.value(QStringLiteral("proj_open_path"));
+    if (folder.isEmpty() || !QFileInfo(folder).isDir())
+        folder = QDir::homePath();
+    Script::Environment environment;
+    environment.engines = &m_context.engines();
+    environment.parent = this;
+    environment.projectFolder = QDir::fromNativeSeparators(folder);
+    QString error;
+    Project* project = Script::runProjectTemplate(chosen.script, environment, &error);
+    if (!project) {
+        if (!error.isEmpty())
+            QMessageBox::warning(this, tr("Project template"), error);
+        return;
+    }
+    addProjectView(project, QStringLiteral("definitions"));
+}
+
+void MainWindow::addProjectView(Project* project, const QString& editorId)
+{
     auto* view = new ProjectView(project, m_context, m_stack);
     view->applyPreset(m_preset);
     view->setLeftPanelVisible(m_context.config().boolValue(QStringLiteral("show_left_panel"), true));
     view->setRightPanelVisible(m_context.config().boolValue(QStringLiteral("show_right_panel"), true));
     view->setOrganizerVisible(m_context.config().boolValue(QStringLiteral("show_organizer"), false));
-    const QString lastEditor = m_context.config().value(QStringLiteral("lastEditor"));
-    if (view->editorIds().contains(lastEditor))
-        view->setCurrentEditor(lastEditor);
+    const QString firstEditor = editorId.isEmpty() ? m_context.config().value(QStringLiteral("lastEditor")) : editorId;
+    if (view->editorIds().contains(firstEditor))
+        view->setCurrentEditor(firstEditor);
     connect(view, &ProjectView::currentFileChanged, this, [this, view] {
         if (view == currentProjectView())
             refreshStatusBar();
@@ -1609,15 +1648,21 @@ bool MainWindow::openProject(const QString& filePath)
             }
         });
     }
+    connect(project, &Project::filePathChanged, this, [this, view] {
+        for (int i = 0; i < m_projectTabs->count(); ++i) {
+            if (m_projectTabs->tabData(i).value<QObject*>() == view)
+                m_projectTabs->setTabToolTip(i, QDir::toNativeSeparators(view->project()->filePath()));
+        }
+        m_context.config().setValue(QStringLiteral("project_path"), view->project()->directory());
+    });
     m_stack->addWidget(view);
 
     const int index = m_projectTabs->addTab(project->name());
     m_projectTabs->setTabData(index, QVariant::fromValue<QObject*>(view));
-    m_projectTabs->setTabToolTip(index, QDir::toNativeSeparators(path));
-    m_context.history().add(project->name(), path);
+    if (!project->isMemoryOnly())
+        m_projectTabs->setTabToolTip(index, QDir::toNativeSeparators(project->filePath()));
     m_projectTabs->setCurrentIndex(index);
     refreshForCurrent();
-    return true;
 }
 
 void MainWindow::closeProject(int tabIndex)

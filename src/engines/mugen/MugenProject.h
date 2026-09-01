@@ -14,6 +14,8 @@ public:
     MugenProject(Engine* engine, const QString& filePath, QObject* parent = nullptr);
 
     bool load(QString* error);
+    // Project > New: a memory-only project made from the blank documents in `blankDir`.
+    bool createNew(const QString& typeId, const QString& blankDir, QString* error);
 
     // Exposed for tests.
     static QString detectType(const DefFile& def);
@@ -26,6 +28,7 @@ private:
     // engine folder (the path in the motif folder when none exists).
     QString resolveData(const QString& relative) const;
     void collectFiles(const DefFile& def);
+    void readInfo(const DefFile& def);
 };
 
 } // namespace OFS::Mugen

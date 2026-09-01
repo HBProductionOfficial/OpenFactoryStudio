@@ -1,0 +1,42 @@
+
+; Character definitions: the file M.U.G.E.N reads first. It names the character and lists the files
+; the character is made of.
+
+[Info]
+name         = "Char name"   ; Name the engine uses (the P2Name trigger and the like)
+displayname  = "Empty char"  ; Name shown on the select screen
+versiondate  = 1.0           ; Version or release date of this character
+mugenversion = 1.0           ; Engine version the character is written for
+author       = "Your name"   ; Shown on the select screen
+pal.defaults = 1,2,3,4,5,6   ; Palettes tried first, most wanted first
+localcoord   = 320,240       ; Coordinate space of the character (width, height)
+
+[Files]
+cmd      = char.cmd          ; Commands
+cns      = char.cns          ; Constants
+st       = char.cns          ; States (st0 to st9 can name more files)
+stcommon = common1.cns       ; States shared by every character (looked up in data/)
+sprite   = char.sff          ; Sprites
+anim     = char.air          ; Animations
+sound    = char.snd          ; Sounds
+ai       = char.ai           ; AI hints (not read by M.U.G.E.N)
+
+[Palette Keymap]
+; Palette picked with each button on the select screen
+x  = 1 ; x: palette 1
+y  = 2
+z  = 3
+a  = 1
+b  = 2
+c  = 3
+x2 = 4 ; x with start held: palette 4
+y2 = 5
+z2 = 6
+a2 = 4
+b2 = 5
+c2 = 6
+
+[Arcade]
+; Storyboards played before the first match and after the last one in arcade mode
+;intro.storyboard = intro.def
+;ending.storyboard = ending.def

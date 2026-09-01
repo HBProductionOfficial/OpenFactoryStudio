@@ -29,6 +29,8 @@ public:
     QList<MenuSpec> menus() const override;
     QList<MenuItemSpec> toolsMenuItems() const override;
     Project* openProject(const QString& filePath, QString* error) override;
+    Project* newProject(const QString& typeId, const QString& folder, QString* error) override;
+    QMap<QString, QVariantMap> scriptEnums() const override;
     const SyntaxDatabase* syntax() const override;
     const CompletionModels* completion() const override;
     QStringList codeTemplateDirs(const QString& editorId) const override;

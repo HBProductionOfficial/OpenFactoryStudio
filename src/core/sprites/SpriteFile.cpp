@@ -147,7 +147,7 @@ bool SpriteFile::saveAs(const QString& target, Formats::SffVersion version, QStr
 
 bool SpriteFile::isModified() const
 {
-    return !m_undo->isClean();
+    return isCopy() || !m_undo->isClean();
 }
 
 bool SpriteFile::writeCopy(const QString& target, QString* error) const

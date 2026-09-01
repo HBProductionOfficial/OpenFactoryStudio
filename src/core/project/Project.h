@@ -30,6 +30,10 @@ public:
     QString filePath() const { return m_filePath; }
     QString directory() const;
 
+    // Made by Project > New or opened as a copy, and not saved yet.
+    bool isMemoryOnly() const { return m_memoryOnly; }
+    void openAsCopy();
+
     // [Info] name, else the file base name, else "Project 1", "Project 2"... for new projects.
     QString name() const { return m_name; }
     void setName(const QString& name);
@@ -63,8 +67,11 @@ public:
 Q_SIGNALS:
     void nameChanged();
     void modifiedChanged(bool modified);
+    void filePathChanged();
 
 protected:
+    void setMemoryOnly(bool memoryOnly) { m_memoryOnly = memoryOnly; }
+    void addFile(ProjectFile* file) { adopt(file); }
     void setTypeId(const QString& id) { m_typeId = id; }
     void setVersionId(const QString& id) { m_versionId = id; }
     void setVersionDeclared(bool declared) { m_versionDeclared = declared; }
@@ -73,10 +80,14 @@ protected:
 
 private:
     void adopt(ProjectFile* file);
+    void definitionsSaved(const QString& path);
 
     Engine* m_engine;
     QString m_filePath;
     QString m_name;
+    QString m_untitledName;
+    bool m_memoryOnly = false;
+    bool m_copy = false;
     QString m_typeId;
     QString m_versionId;
     bool m_versionDeclared = true;

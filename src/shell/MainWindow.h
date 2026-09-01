@@ -60,6 +60,7 @@ public:
 
 public Q_SLOTS:
     void openProjectDialog();
+    void newProject();
     void closeProject(int tabIndex);
     void closeCurrentProject();
     void closeAllProjects();
@@ -78,6 +79,7 @@ private:
     void restoreWindowGeometry();
     void saveWindowGeometry();
 
+    void addProjectView(Project* project, const QString& editorId);
     void onCurrentTabChanged(int index);
     void refreshForCurrent();
     void refreshToolBars();

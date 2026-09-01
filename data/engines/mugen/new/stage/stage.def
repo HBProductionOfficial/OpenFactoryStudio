@@ -1,0 +1,76 @@
+; Stage definitions: the camera, where the players start, and the background elements.
+
+[Info]
+name         = "Stage name"  ; Name the engine uses
+displayname  = "Empty stage" ; Name shown on the select screen
+versiondate  = 1.0           ; Version or release date of this stage
+mugenversion = 1.0           ; Engine version the stage is written for
+author       = "Your name"   ; Author of the stage
+
+[Camera]
+startx = 0             ; Camera position when the round starts
+starty = 0
+boundleft = -150       ; How far the camera can go left
+boundright = 150       ; How far the camera can go right
+boundhigh = -22        ; How far the camera can go up (negative)
+boundlow = 0           ; How far the camera can go down (usually 0)
+verticalfollow = .2    ; How much the camera follows a jumping player (0 to 1)
+floortension = 0       ; Height a player must reach before the camera follows
+tension = 60           ; Distance from the screen edge at which the camera starts moving
+overdrawhigh = 0       ; Extra lines drawn above the screen
+overdrawlow = 0        ; Extra lines drawn below the screen
+cuthigh = 35           ; Lines cut from the top of the screen on a wide screen
+cutlow = 25            ; Lines cut from the bottom
+
+[PlayerInfo]
+p1startx = -70         ; Starting position of player 1
+p1starty = 0
+p1facing = 1           ; 1 faces right, -1 faces left
+p2startx = 70          ; Starting position of player 2
+p2starty = 0
+p2facing = -1
+leftbound  = -1000     ; How far the players can go left
+rightbound =  1000     ; How far the players can go right
+
+[Bound]
+screenleft = 15        ; Closest a player can get to the left edge of the screen
+screenright = 15       ; Closest a player can get to the right edge of the screen
+
+[StageInfo]
+zoffset = 200          ; Height of the ground line on the screen
+autoturn = 1           ; 1 turns the players to face each other
+resetBG = 1            ; 1 restarts the background at each round
+localcoord = 320, 240  ; Coordinate space of the stage (width, height)
+xscale = 1             ; Horizontal scale of the players
+yscale = 1             ; Vertical scale of the players
+
+[Shadow]
+intensity = 64         ; Darkness of the shadows (0 to 256)
+color = 0,0,0          ; Color of the shadows (red, green, blue)
+yscale = -.1           ; Vertical scale of the shadows (negative flips them)
+fade.range = -400,-100 ; Heights at which the shadows fade out (top, bottom)
+
+[Reflection]
+intensity = 128        ; Strength of the players' reflection on the floor (0 for none)
+
+[Music]
+bgmvolume = 100        ; Music volume in percent
+
+;-| Background elements |--------------------------------------------------------
+; [BG name]
+; type = normal        ; normal, anim, parallax or dummy
+; spriteno = 0, 0      ; Sprite group and image (normal and parallax)
+; actionno = 0         ; Animation (anim)
+; layerno = 0          ; 0 behind the players, 1 in front of them
+; start = 0, 0         ; Starting position
+; delta = 1, 1         ; How fast the element follows the camera
+; trans = none         ; none, add, add1, sub or addalpha
+; mask = 0             ; 1 leaves color 0 out
+; tile = 0, 0          ; Repeats the element (0 no, 1 forever, more: that many times)
+; tilespacing = 0, 0   ; Space between the repeated images
+; velocity = 0, 0      ; Movement per tick
+; sin.x = 0, 0, 0      ; Sine movement: amplitude, period, phase
+
+[BGdef]
+spr = stage.sff        ; Sprites of the background
+debugbg = 0            ; 1 fills the screen with magenta first, to show uncovered areas
