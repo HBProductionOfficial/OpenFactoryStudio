@@ -1,9 +1,12 @@
 #pragma once
 
+#include "core/project/ProjectBackup.h"
+
 #include <QDialog>
 #include <QList>
 #include <QString>
 
+class QListWidget;
 class QTabWidget;
 
 namespace OFS {
@@ -35,6 +38,20 @@ public:
 private:
     QTabWidget* m_tabs;
     QList<ProjectTemplate> m_templates;
+};
+
+class BackupDialog : public QDialog
+{
+    Q_OBJECT
+
+public:
+    BackupDialog(const QList<Backup::Item>& backups, QWidget* parent = nullptr);
+
+    QString selectedBackup() const;
+
+private:
+    QListWidget* m_list;
+    QList<Backup::Item> m_backups;
 };
 
 } // namespace OFS

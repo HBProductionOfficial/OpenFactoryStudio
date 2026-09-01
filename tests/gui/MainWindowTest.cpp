@@ -3713,6 +3713,62 @@ private Q_SLOTS:
         }
     }
 
+    void backups()
+    {
+        QTemporaryDir dir;
+        const QByteArray original = "[Command]\nname = \"x\"\ncommand = x\n";
+        writeFile(dir.filePath("bk.def"), "[Info]\nname = \"Backed\"\nmugenversion = 1.0\n[Files]\ncmd = bk.cmd\n");
+        writeFile(dir.filePath("bk.cmd"), original);
+        MainWindow window(*m_context);
+        window.show();
+        ActionRegistry& actions = m_context->actions();
+
+        m_context->config().setValue("backup_onload", true);
+        QVERIFY(window.openProject(dir.filePath("bk.def")));
+        m_context->config().setValue("backup_onload", false);
+        QStringList zips = QDir(dir.filePath("backup")).entryList({"*.zip"});
+        QCOMPARE(zips.size(), qsizetype(1));
+        QVERIFY(zips.first().endsWith("_Auto.zip"));
+
+        QVERIFY(actions.action("file_backup")->isEnabled());
+        actions.action("file_backup")->trigger();
+        QVERIFY(!QApplication::activeModalWidget());
+        QCOMPARE(QDir(dir.filePath("backup")).entryList({"*.zip"}).size(), qsizetype(2));
+
+        ProjectView* view = window.currentProjectView();
+        actions.action("editor_cmd")->trigger();
+        view->currentCodeEditor()->insertPlainText("; unsaved\n");
+        writeFile(dir.filePath("bk.cmd"), "; changed on disk\n");
+        QStringList rows;
+        QTimer::singleShot(0, this, [&rows] {
+            auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            QCOMPARE(dialog->objectName(), QStringLiteral("BackupDlg"));
+            QCOMPARE(dialog->windowTitle(), QStringLiteral("Restore backup"));
+            auto* list = dialog->findChild<QListWidget*>("listView");
+            for (int i = 0; i < list->count(); ++i)
+                rows << list->item(i)->text();
+            QVERIFY(list->currentItem() == nullptr || !list->currentItem()->isSelected());
+            list->setCurrentRow(1);
+            dialog->findChild<QDialogButtonBox*>("buttonBox")->button(QDialogButtonBox::Ok)->click();
+        });
+        actions.action("file_load_backup")->trigger();
+        QCOMPARE(rows.size(), qsizetype(2));
+        QCOMPARE(rows.filter("(automatic)").size(), qsizetype(1));
+        QCOMPARE(readFile(dir.filePath("bk.cmd")), original);
+        ProjectView* reloaded = window.currentProjectView();
+        QVERIFY(reloaded && reloaded != view);
+        QVERIFY(!reloaded->project()->isModified());
+        QCOMPARE(reloaded->currentEditor(), QStringLiteral("commands"));
+
+        chooseTemplate(0);
+        answerEmptyWizard("Stage");
+        actions.action("file_new")->trigger();
+        QVERIFY(window.currentProjectView()->project()->isMemoryOnly());
+        QVERIFY(!actions.action("file_backup")->isEnabled());
+        QVERIFY(!actions.action("file_load_backup")->isEnabled());
+    }
+
 private:
     AppContext* m_context = nullptr;
     QTemporaryDir m_dir;

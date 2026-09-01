@@ -8,6 +8,7 @@
 #include <QFileInfo>
 #include <QHash>
 #include <QIcon>
+#include <QLabel>
 #include <QListWidget>
 #include <QTabWidget>
 #include <QVBoxLayout>
@@ -98,6 +99,42 @@ ProjectTemplateDialog::ProjectTemplateDialog(const EngineManager& engines, QWidg
     layout->addWidget(m_tabs);
     layout->addWidget(buttons);
     resize(400, 300);
+}
+
+BackupDialog::BackupDialog(const QList<Backup::Item>& backups, QWidget* parent)
+    : QDialog(parent)
+    , m_list(new QListWidget(this))
+    , m_backups(backups)
+{
+    setObjectName(QStringLiteral("BackupDlg"));
+    setWindowTitle(tr("Restore backup"));
+    auto* label = new QLabel(
+        tr("Choose a backup to be restored:\nAttention: all files will be overwritten by the backup."), this);
+    label->setObjectName(QStringLiteral("label"));
+    m_list->setObjectName(QStringLiteral("listView"));
+    for (const Backup::Item& backup : backups) {
+        auto* item = new QListWidgetItem(backup.label, m_list);
+        item->setToolTip(QDir::toNativeSeparators(backup.path));
+    }
+    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    buttons->setObjectName(QStringLiteral("buttonBox"));
+    connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    connect(m_list, &QListWidget::itemDoubleClicked, this, &QDialog::accept);
+
+    auto* layout = new QVBoxLayout(this);
+    layout->addWidget(label);
+    layout->addWidget(m_list, 1);
+    layout->addWidget(buttons);
+    resize(392, 288);
+}
+
+QString BackupDialog::selectedBackup() const
+{
+    const QListWidgetItem* item = m_list->currentItem();
+    if (!item || !item->isSelected())
+        return {};
+    return m_backups.value(m_list->row(item)).path;
 }
 
 ProjectTemplate ProjectTemplateDialog::selectedTemplate() const

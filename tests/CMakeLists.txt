@@ -261,3 +261,7 @@ endif()
 ofs_add_test(NAME mugen_runtime_expr
     SOURCES mugen/RuntimeExprTest.cpp
     LIBS OFS::mugen_runtime)
+
+ofs_add_test(NAME mugen_project_backup GUI
+    SOURCES mugen/ProjectBackupTest.cpp
+    LIBS OFS::mugen)

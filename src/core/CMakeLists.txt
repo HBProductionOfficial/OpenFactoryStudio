@@ -136,6 +136,8 @@ add_library(ofscore SHARED
     app/Translations.h
     app/Translations.cpp
     project/ZipArchive.cpp
+    project/ProjectBackup.h
+    project/ProjectBackup.cpp
     palettes/PaletteOps.cpp
     sprites/PaletteEdits.h
     sprites/PaletteEdits.cpp

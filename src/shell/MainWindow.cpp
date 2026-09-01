@@ -15,6 +15,7 @@
 #include "core/preset/PresetBuilder.h"
 #include "core/preset/PresetEngine.h"
 #include "core/project/Project.h"
+#include "core/project/ProjectBackup.h"
 #include "core/project/ProjectFile.h"
 #include "core/project/ZipArchive.h"
 #include "core/script/ScriptHost.h"
@@ -352,6 +353,8 @@ void MainWindow::connectActions()
     on("file_open_archive", [this] { openArchiveDialog(); });
     on("file_open_single", [this] { openSingleFileDialog(); });
     on("file_saveas", [this] { saveProjectAs(); });
+    on("file_backup", [this] { createBackup(); });
+    on("file_load_backup", [this] { loadBackup(); });
     on("file_close", [this] { closeCurrentProject(); });
     on("file_close_all", [this] { closeAllProjects(); });
     on("file_close_others", [this] { closeOtherProjects(); });
@@ -1571,6 +1574,7 @@ bool MainWindow::openProject(const QString& filePath)
     addProjectView(project, QString());
     m_context.history().add(project->name(), path);
     m_context.config().setValue(QStringLiteral("project_path"), project->directory());
+    backupOnLoad(project);
     return true;
 }
 
@@ -1646,6 +1650,7 @@ bool MainWindow::openArchive(const QString& archivePath)
     const int index = m_projectTabs->currentIndex();
     m_projectTabs->setTabToolTip(index, QDir::toNativeSeparators(archive));
     m_context.history().add(project->name(), archive);
+    backupOnLoad(project);
     return true;
 }
 
@@ -1711,6 +1716,11 @@ void MainWindow::saveProjectAs()
         QMessageBox::warning(this, tr("Save project as..."), error);
         return;
     }
+    replaceProject(view, target);
+}
+
+bool MainWindow::replaceProject(ProjectView* view, const QString& filePath)
+{
     int index = -1;
     for (int i = 0; i < m_projectTabs->count(); ++i) {
         if (m_projectTabs->tabData(i).value<QObject*>() == view)
@@ -1718,8 +1728,8 @@ void MainWindow::saveProjectAs()
     }
     const QString editor = view->currentEditor();
     closeProject(index, false);
-    if (!openProject(target))
-        return;
+    if (!openProject(filePath))
+        return false;
     const int opened = m_projectTabs->currentIndex();
     if (index >= 0 && opened != index) {
         m_projectTabs->moveTab(opened, index);
@@ -1727,6 +1737,44 @@ void MainWindow::saveProjectAs()
     }
     if (ProjectView* reopened = currentProjectView(); reopened && reopened->editorIds().contains(editor))
         reopened->setCurrentEditor(editor);
+    return true;
+}
+
+void MainWindow::createBackup()
+{
+    ProjectView* view = currentProjectView();
+    if (!view || view->project()->isMemoryOnly())
+        return;
+    QString error;
+    if (Backup::create(*view->project(), QDateTime::currentDateTime(), false, &error).isEmpty())
+        QMessageBox::warning(this, tr("Create backup"), error);
+}
+
+void MainWindow::loadBackup()
+{
+    ProjectView* view = currentProjectView();
+    if (!view)
+        return;
+    Project* project = view->project();
+    BackupDialog dialog(Backup::list(*project), this);
+    if (dialog.exec() != QDialog::Accepted || dialog.selectedBackup().isEmpty())
+        return;
+    QString error;
+    if (!Backup::restore(*project, dialog.selectedBackup(), &error)) {
+        QMessageBox::warning(this, tr("Restore backup"), error);
+        return;
+    }
+    replaceProject(view, project->filePath());
+}
+
+void MainWindow::backupOnLoad(Project* project)
+{
+    if (!project || project->isMemoryOnly() || project->isSingleFile() ||
+        !m_context.config().boolValue(QStringLiteral("backup_onload"), false))
+        return;
+    QString error;
+    if (Backup::create(*project, QDateTime::currentDateTime(), true, &error).isEmpty())
+        qWarning("backup on load failed: %s", qPrintable(error));
 }
 
 void MainWindow::newProject()
@@ -1824,6 +1872,7 @@ void MainWindow::addProjectView(Project* project, const QString& editorId)
                 m_projectTabs->setTabToolTip(i, QDir::toNativeSeparators(view->project()->filePath()));
         }
         m_context.config().setValue(QStringLiteral("project_path"), view->project()->directory());
+        refreshActionStates();
     });
     m_stack->addWidget(view);
 
@@ -2008,6 +2057,10 @@ void MainWindow::refreshActionStates()
     enableAll({"debug_interrupt", "debug_continue", "debug_stop", "debug_restart", "debug_step_over", "debug_step_into",
                "debug_step_out", "debug_step_frame"},
               false);
+    const Project* current = view ? view->project() : nullptr;
+    enable(QStringLiteral("file_backup"), current && !current->isMemoryOnly());
+    enable(QStringLiteral("file_load_backup"),
+           current && !current->isMemoryOnly() && !current->isSingleFile() && current->archivePath().isEmpty());
     enableAll({"code_goto", "code_prev_error", "code_next_error", "code_prev_deprecation", "code_next_deprecation",
                "code_comment", "code_fold_all", "code_unfold_all", "code_autoindent", "code_autoformat",
                "view_code_bar"},

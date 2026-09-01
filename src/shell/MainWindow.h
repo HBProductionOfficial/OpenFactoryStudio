@@ -65,6 +65,11 @@ public Q_SLOTS:
     bool openArchive(const QString& archivePath);
     void openSingleFileDialog();
     void saveProjectAs();
+    void createBackup();
+    void loadBackup();
+    void backupOnLoad(Project* project);
+    // The tab of `view` is closed without asking.
+    bool replaceProject(ProjectView* view, const QString& filePath);
     bool closeProject(int tabIndex, bool ask = true);
     void closeCurrentProject();
     void closeAllProjects();
