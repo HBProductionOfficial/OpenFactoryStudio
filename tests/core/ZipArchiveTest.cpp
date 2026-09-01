@@ -1,5 +1,7 @@
 #include "core/project/ZipArchive.h"
 
+#include <miniz.h>
+
 #include <QDir>
 #include <QFile>
 #include <QTemporaryDir>
@@ -74,6 +76,28 @@ private Q_SLOTS:
         QVERIFY(!Zip::extract(archive, dir.filePath("out/inner"), &error));
         QVERIFY(!QFile::exists(dir.filePath("out/evil.txt")));
         QVERIFY(!error.isEmpty());
+    }
+
+    void backslashNames()
+    {
+        // Backslash folders, as Windows PowerShell writes them.
+        QTemporaryDir dir;
+        const QString archive = dir.filePath("ps.zip");
+        mz_zip_archive zip{};
+        QVERIFY(mz_zip_writer_init_file(&zip, archive.toLocal8Bit().constData(), 0));
+        QVERIFY(mz_zip_writer_add_mem(&zip, "kfm\\", nullptr, 0, MZ_DEFAULT_COMPRESSION));
+        QVERIFY(mz_zip_writer_add_mem(&zip, "kfm\\kfm.def", "[Info]", 6, MZ_DEFAULT_COMPRESSION));
+        QVERIFY(mz_zip_writer_finalize_archive(&zip));
+        mz_zip_writer_end(&zip);
+
+        const QList<Zip::Entry> list = Zip::entries(archive);
+        QCOMPARE(list.size(), qsizetype(2));
+        QCOMPARE(list[0].name, QStringLiteral("kfm/"));
+        QVERIFY(list[0].directory);
+        QCOMPARE(list[1].name, QStringLiteral("kfm/kfm.def"));
+        QCOMPARE(Zip::read(archive, "kfm/kfm.def"), QByteArray("[Info]"));
+        QVERIFY(Zip::extract(archive, dir.filePath("out")));
+        QCOMPARE(readFile(dir.filePath("out/kfm/kfm.def")), QByteArray("[Info]"));
     }
 };
 

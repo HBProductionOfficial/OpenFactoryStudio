@@ -29,6 +29,7 @@ public:
     void setPlaceholderPath(const QString& path);
     bool isCopy() const { return m_copy; }
     void markAsCopy();
+    void markUntitled() { m_untitled = true; }
 
     virtual bool load(QString* error) = 0;
     virtual bool save(QString* error);

@@ -77,7 +77,7 @@ ofs_add_test(NAME core_translations
     LIBS OFS::core)
 ofs_add_test(NAME core_zip_archive
     SOURCES core/ZipArchiveTest.cpp
-    LIBS OFS::core)
+    LIBS OFS::core ofs_miniz)
 ofs_add_test(NAME core_bg_edits
     SOURCES core/BgEditsTest.cpp
     LIBS OFS::core)

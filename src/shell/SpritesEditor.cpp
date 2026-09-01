@@ -561,13 +561,16 @@ bool SpritesEditor::saveAs(SpriteFile* file, QWidget* parent)
         SpriteEdits::convertToIndexed(converted);
         file->apply(tr("Convert sprites to 8-bit"), converted);
     }
-    const QString path = FileDialogs::getSaveFileName(parent, tr("Save sprites as..."), file->path(),
+    auto* project = qobject_cast<Project*>(file->parent());
+    const QString path = FileDialogs::getSaveFileName(parent, tr("Save sprites as..."),
+                                                      project ? project->suggestedPath(file) : file->path(),
                                                       tr("Sprites (*.sff);;All files (*.*)"));
     if (path.isEmpty())
         return false;
-    auto* project = qobject_cast<Project*>(file->parent());
     const QString folder = project ? QDir(project->directory()).absolutePath() + QLatin1Char('/') : QString();
-    const bool inside = project && QFileInfo(path).absoluteFilePath().startsWith(folder, Qt::CaseInsensitive);
+    // An archive's documents have no folder on disk, so any place counts as inside.
+    const bool inside = project && (!project->archivePath().isEmpty() ||
+                                    QFileInfo(path).absoluteFilePath().startsWith(folder, Qt::CaseInsensitive));
     QString error;
     bool written = false;
     if (inside) {

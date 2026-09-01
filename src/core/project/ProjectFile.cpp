@@ -293,6 +293,7 @@ void CodeFile::createEmpty(const QString& text)
     m_document->setPlainText(text);
     m_document->clearUndoRedoStacks();
     m_document->setModified(false);
+    m_original = encode(QString(text).replace(QLatin1Char('\n'), m_lineEnding), m_encoding);
 }
 
 bool CodeFile::writeCopy(const QString& target, QString* error) const

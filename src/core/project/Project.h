@@ -34,6 +34,16 @@ public:
     bool isMemoryOnly() const { return m_memoryOnly; }
     void openAsCopy();
 
+    // The extracted folder is removed with the project. Nothing is saved back into the archive.
+    QString archivePath() const { return m_archivePath; }
+    void setArchive(const QString& archive, const QString& extractedFolder);
+    bool isSingleFile() const { return m_singleFile; }
+
+    QString suggestedPath(const ProjectFile* file) const;
+
+    bool writeCopyTo(const QString& mainFile, QString* error = nullptr) const;
+    QStringList allFiles() const;
+
     // [Info] name, else the file base name, else "Project 1", "Project 2"... for new projects.
     QString name() const { return m_name; }
     void setName(const QString& name);
@@ -71,6 +81,7 @@ Q_SIGNALS:
 
 protected:
     void setMemoryOnly(bool memoryOnly) { m_memoryOnly = memoryOnly; }
+    void setSingleFile(bool singleFile) { m_singleFile = singleFile; }
     void addFile(ProjectFile* file) { adopt(file); }
     void setTypeId(const QString& id) { m_typeId = id; }
     void setVersionId(const QString& id) { m_versionId = id; }
@@ -88,6 +99,9 @@ private:
     QString m_untitledName;
     bool m_memoryOnly = false;
     bool m_copy = false;
+    bool m_singleFile = false;
+    QString m_archivePath;
+    QString m_extractedFolder;
     QString m_typeId;
     QString m_versionId;
     bool m_versionDeclared = true;

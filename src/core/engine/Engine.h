@@ -100,6 +100,8 @@ public:
 
     // A blank in-memory project that will save into folder (Project > New, FF.emptyProject).
     virtual Project* newProject(const QString& typeId, const QString& folder, QString* error);
+    virtual Project* openSingleFile(const QString& filePath, QString* error);
+    virtual QString singleFileFilter() const;
 
     // Name of the global script table ("MUGEN") that holds scriptEnums():
     // enum name -> (value name -> value), e.g. ProjectType -> Character -> "char".

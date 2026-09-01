@@ -30,6 +30,8 @@ public:
     QList<MenuItemSpec> toolsMenuItems() const override;
     Project* openProject(const QString& filePath, QString* error) override;
     Project* newProject(const QString& typeId, const QString& folder, QString* error) override;
+    Project* openSingleFile(const QString& filePath, QString* error) override;
+    QString singleFileFilter() const override;
     QMap<QString, QVariantMap> scriptEnums() const override;
     const SyntaxDatabase* syntax() const override;
     const CompletionModels* completion() const override;

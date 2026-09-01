@@ -954,7 +954,11 @@ QString ProjectView::tabCaption(const QString& path) const
 QString ProjectView::tabToolTip(const QString& path) const
 {
     const ProjectFile* f = m_project->file(path);
-    return f && f->isNameless() ? QString() : QDir::toNativeSeparators(path);
+    if (f && f->isNameless())
+        return {};
+    if (!m_project->archivePath().isEmpty() && (!f || f->isUntitled()))
+        return QDir::toNativeSeparators(m_project->archivePath());
+    return QDir::toNativeSeparators(path);
 }
 
 void ProjectView::fillProjectExplorer()
@@ -965,8 +969,8 @@ void ProjectView::fillProjectExplorer()
         for (const QString& f : m_project->editorFiles(id)) {
             // Blank documents never saved are not on disk yet, whatever is at their suggested path.
             const ProjectFile* file = m_project->file(f);
-            if (!f.isEmpty() && QFileInfo::exists(f) && !(file && file->isUntitled()) &&
-                !files.contains(f, Qt::CaseInsensitive))
+            if (!f.isEmpty() && QFileInfo::exists(f) && !(file && file->isNameless() && !file->isCopy()) &&
+                !m_project->isSingleFile() && !files.contains(f, Qt::CaseInsensitive))
                 files << f;
         }
     }

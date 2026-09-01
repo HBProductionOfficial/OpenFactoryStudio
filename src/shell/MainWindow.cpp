@@ -16,6 +16,7 @@
 #include "core/preset/PresetEngine.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
+#include "core/project/ZipArchive.h"
 #include "core/script/ScriptHost.h"
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
@@ -84,6 +85,7 @@
 #include <QTabBar>
 #include <QTabWidget>
 #include <QTableView>
+#include <QTemporaryDir>
 #include <QTimer>
 #include <QToolBar>
 #include <QUndoStack>
@@ -328,7 +330,7 @@ void MainWindow::buildCentralArea()
     });
 
     connect(m_projectTabs, &QTabBar::currentChanged, this, &MainWindow::onCurrentTabChanged);
-    connect(m_projectTabs, &QTabBar::tabCloseRequested, this, &MainWindow::closeProject);
+    connect(m_projectTabs, &QTabBar::tabCloseRequested, this, [this](int index) { closeProject(index); });
     connect(m_projectTabs, &QTabBar::tabMoved, this, [this] { refreshForCurrent(); });
     connect(m_welcome, &WelcomePage::openProjectRequested, this, &MainWindow::openProject);
     connect(m_welcome, &WelcomePage::contributeRequested, this,
@@ -346,6 +348,9 @@ void MainWindow::connectActions()
 
     on("file_new", [this] { newProject(); });
     on("file_open", [this] { openProjectDialog(); });
+    on("file_open_archive", [this] { openArchiveDialog(); });
+    on("file_open_single", [this] { openSingleFileDialog(); });
+    on("file_saveas", [this] { saveProjectAs(); });
     on("file_close", [this] { closeCurrentProject(); });
     on("file_close_all", [this] { closeAllProjects(); });
     on("file_close_others", [this] { closeOtherProjects(); });
@@ -1364,14 +1369,15 @@ bool MainWindow::saveFileAs(ProjectFile* file)
     if (!project)
         return false;
     if (qobject_cast<SoundFile*>(file)) {
-        const QString target = FileDialogs::getSaveFileName(this, tr("Save sounds as..."), file->path(),
+        const QString target = FileDialogs::getSaveFileName(this, tr("Save sounds as..."), project->suggestedPath(file),
                                                             tr("Sounds (*.snd);;All files (*.*)"));
         if (target.isEmpty())
             return false;
         const QString folder = QDir(project->directory()).absolutePath() + QLatin1Char('/');
         QString error;
         bool written = false;
-        if (QFileInfo(target).absoluteFilePath().startsWith(folder, Qt::CaseInsensitive)) {
+        if (!project->archivePath().isEmpty() ||
+            QFileInfo(target).absoluteFilePath().startsWith(folder, Qt::CaseInsensitive)) {
             written = file->saveAs(target, &error);
         } else {
             if (QMessageBox::question(this, tr("External file!"),
@@ -1388,7 +1394,7 @@ bool MainWindow::saveFileAs(ProjectFile* file)
     }
     const EditorInfo info = project->engine()->editor(file->editorId());
     const QString title = file->isNameless() ? tr("Save %1 as...").arg(info.title.toLower()) : tr("Save as");
-    const QString target = FileDialogs::getSaveFileName(this, title, file->path(), info.fileFilter);
+    const QString target = FileDialogs::getSaveFileName(this, title, project->suggestedPath(file), info.fileFilter);
     if (target.isEmpty())
         return false;
     QString error;
@@ -1526,6 +1532,8 @@ void MainWindow::openProjectDialog()
 bool MainWindow::openProject(const QString& filePath)
 {
     const QString path = QDir::fromNativeSeparators(QFileInfo(filePath).absoluteFilePath());
+    if (QFileInfo(path).suffix().compare(QLatin1String("zip"), Qt::CaseInsensitive) == 0)
+        return openArchive(path);
     for (int i = 0; i < m_projectTabs->count(); ++i) {
         auto* view = qobject_cast<ProjectView*>(m_projectTabs->tabData(i).value<QObject*>());
         if (view && view->project()->filePath().compare(path, Qt::CaseInsensitive) == 0) {
@@ -1557,6 +1565,161 @@ bool MainWindow::openProject(const QString& filePath)
     m_context.history().add(project->name(), path);
     m_context.config().setValue(QStringLiteral("project_path"), project->directory());
     return true;
+}
+
+void MainWindow::openArchiveDialog()
+{
+    Config& config = m_context.config();
+    const QString file =
+        FileDialogs::getOpenFileName(this, tr("Open archive"), config.value(QStringLiteral("proj_open_path")),
+                                     tr("All supported (*.zip)") + QStringLiteral(";;") + tr("ZIP Archive (*.zip)"));
+    if (file.isEmpty())
+        return;
+    config.setValue(QStringLiteral("proj_open_path"), QFileInfo(file).absolutePath());
+    openArchive(file);
+}
+
+bool MainWindow::openArchive(const QString& archivePath)
+{
+    const QString archive = QDir::fromNativeSeparators(QFileInfo(archivePath).absoluteFilePath());
+    for (ProjectView* view : projectViews()) {
+        if (view->project()->archivePath().compare(archive, Qt::CaseInsensitive) == 0) {
+            for (int i = 0; i < m_projectTabs->count(); ++i) {
+                if (m_projectTabs->tabData(i).value<QObject*>() == view)
+                    m_projectTabs->setCurrentIndex(i);
+            }
+            return true;
+        }
+    }
+    // The project is the first definitions file in the archive's order.
+    QString error;
+    const QList<Zip::Entry> entries = Zip::entries(archive, &error);
+    QString main;
+    for (const Zip::Entry& entry : entries) {
+        if (entry.directory)
+            continue;
+        for (Engine* engine : m_context.engines().engines()) {
+            if (engine->projectExtensions().contains(QFileInfo(entry.name).suffix(), Qt::CaseInsensitive)) {
+                main = entry.name;
+                break;
+            }
+        }
+        if (!main.isEmpty())
+            break;
+    }
+    if (main.isEmpty()) {
+        QMessageBox::warning(this, tr("Open archive"),
+                             error.isEmpty() ? tr("There is no project in '%1'.").arg(QDir::toNativeSeparators(archive))
+                                             : error);
+        m_context.history().remove(archive);
+        return false;
+    }
+    QTemporaryDir extracted(QDir::tempPath() + QStringLiteral("/ofs-archive-XXXXXX"));
+    if (!extracted.isValid() || !Zip::extract(archive, extracted.path(), &error)) {
+        QMessageBox::warning(this, tr("Open archive"), error.isEmpty() ? extracted.errorString() : error);
+        return false;
+    }
+    const QString mainPath = QDir(extracted.path()).filePath(main);
+    Engine* engine = nullptr;
+    for (Engine* e : m_context.engines().engines()) {
+        if (e->canOpen(mainPath)) {
+            engine = e;
+            break;
+        }
+    }
+    Project* project = engine ? engine->openProject(mainPath, &error) : nullptr;
+    if (!project) {
+        QMessageBox::warning(this, tr("Open archive"),
+                             error.isEmpty() ? tr("'%1' is not a project of any supported engine.").arg(main) : error);
+        return false;
+    }
+    extracted.setAutoRemove(false);
+    project->setArchive(archive, extracted.path());
+    addProjectView(project, QString());
+    const int index = m_projectTabs->currentIndex();
+    m_projectTabs->setTabToolTip(index, QDir::toNativeSeparators(archive));
+    m_context.history().add(project->name(), archive);
+    return true;
+}
+
+void MainWindow::openSingleFileDialog()
+{
+    Config& config = m_context.config();
+    QStringList filters;
+    for (Engine* engine : m_context.engines().engines()) {
+        if (!engine->singleFileFilter().isEmpty())
+            filters << engine->singleFileFilter();
+    }
+    const QStringList files = FileDialogs::getOpenFileNames(
+        this, tr("Open file"), config.value(QStringLiteral("proj_open_path")), filters.join(QStringLiteral(";;")));
+    if (files.isEmpty())
+        return;
+    config.setValue(QStringLiteral("proj_open_path"), QFileInfo(files.first()).absolutePath());
+    for (const QString& file : files) {
+        QString error;
+        Project* project = nullptr;
+        for (Engine* engine : m_context.engines().engines()) {
+            project = engine->openSingleFile(file, &error);
+            if (project)
+                break;
+        }
+        if (!project) {
+            QMessageBox::warning(this, tr("Open file"), error);
+            continue;
+        }
+        addProjectView(project, project->editorIds().value(0));
+        m_projectTabs->setTabToolTip(m_projectTabs->currentIndex(), QDir::toNativeSeparators(project->filePath()));
+    }
+}
+
+void MainWindow::saveProjectAs()
+{
+    ProjectView* view = currentProjectView();
+    if (!view)
+        return;
+    Project* project = view->project();
+    if (project->isSingleFile()) {
+        if (ProjectFile* file = project->file(project->filePath()))
+            saveFileAs(file);
+        else if (!view->editorFiles(view->editorIds().value(0)).isEmpty())
+            saveFileAs(view->editorFiles(view->editorIds().value(0)).first());
+        return;
+    }
+    Config& config = m_context.config();
+    QString folder = config.value(QStringLiteral("proj_save_path"));
+    if (folder.isEmpty() || !QFileInfo(folder).isDir())
+        folder = project->isMemoryOnly() || !project->archivePath().isEmpty() ? QDir::homePath() : project->directory();
+    const QString suggestion = QDir(folder).filePath(QFileInfo(project->filePath()).fileName());
+    QStringList patterns;
+    for (const QString& extension : project->engine()->projectExtensions())
+        patterns << QStringLiteral("*.") + extension;
+    const QString target = FileDialogs::getSaveFileName(
+        this, tr("Save project as..."), suggestion,
+        tr("%1 project (%2)").arg(project->engine()->displayName(), patterns.join(QLatin1Char(' '))));
+    if (target.isEmpty())
+        return;
+    config.setValue(QStringLiteral("proj_save_path"), QFileInfo(target).absolutePath());
+    QString error;
+    if (!project->writeCopyTo(target, &error)) {
+        QMessageBox::warning(this, tr("Save project as..."), error);
+        return;
+    }
+    int index = -1;
+    for (int i = 0; i < m_projectTabs->count(); ++i) {
+        if (m_projectTabs->tabData(i).value<QObject*>() == view)
+            index = i;
+    }
+    const QString editor = view->currentEditor();
+    closeProject(index, false);
+    if (!openProject(target))
+        return;
+    const int opened = m_projectTabs->currentIndex();
+    if (index >= 0 && opened != index) {
+        m_projectTabs->moveTab(opened, index);
+        m_projectTabs->setCurrentIndex(index);
+    }
+    if (ProjectView* reopened = currentProjectView(); reopened && reopened->editorIds().contains(editor))
+        reopened->setCurrentEditor(editor);
 }
 
 void MainWindow::newProject()
@@ -1665,13 +1828,13 @@ void MainWindow::addProjectView(Project* project, const QString& editorId)
     refreshForCurrent();
 }
 
-void MainWindow::closeProject(int tabIndex)
+void MainWindow::closeProject(int tabIndex, bool ask)
 {
     if (tabIndex < 0 || tabIndex >= m_projectTabs->count())
         return;
     const QVariant tab = m_projectTabs->tabData(tabIndex);
     auto* view = qobject_cast<ProjectView*>(tab.value<QObject*>());
-    if (view && !confirmClose(view))
+    if (view && ask && !confirmClose(view))
         return;
     if (view && m_dock->parentWidget() && view->isAncestorOf(m_dock)) {
         m_dock->hide();

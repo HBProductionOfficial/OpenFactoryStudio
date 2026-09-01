@@ -29,9 +29,16 @@ DefFile parse(const char* text)
 
 void writeFile(const QString& path, const QByteArray& data)
 {
+    QDir().mkpath(QFileInfo(path).absolutePath());
     QFile f(path);
     QVERIFY(f.open(QIODevice::WriteOnly));
     f.write(data);
+}
+
+QByteArray readFile(const QString& path)
+{
+    QFile f(path);
+    return f.open(QIODevice::ReadOnly) ? f.readAll() : QByteArray();
 }
 
 } // namespace
@@ -282,6 +289,87 @@ private Q_SLOTS:
         QFile original(dir.filePath("tpl.cmd"));
         QVERIFY(original.open(QIODevice::ReadOnly));
         QCOMPARE(original.readAll(), QByteArray("[Command]\nname = \"x\"\ncommand = x\n"));
+    }
+
+    void writeCopyTo()
+    {
+        QTemporaryDir dir;
+        const QByteArray def = "[Info]\nname = \"C\"\nmugenversion = 1.0\n[Files]\ncmd = c.cmd\ncns = sub/c.cns\n"
+                               "stcommon = common1.cns\nsprite = ../outside.sff\n";
+        writeFile(dir.filePath("c.def"), def);
+        writeFile(dir.filePath("c.cmd"), "[Command]\nname = \"x\"\ncommand = x\n");
+        writeFile(dir.filePath("sub/c.cns"), "[Data]\nlife = 1000\n");
+        MugenEngine engine;
+        QString error;
+        std::unique_ptr<Project> project(engine.openProject(dir.filePath("c.def"), &error));
+        QVERIFY2(project, qPrintable(error));
+        CodeFile* commands = project->codeFile(dir.filePath("c.cmd"), "commands", &error);
+        QVERIFY(commands);
+        commands->document()->setPlainText("[Command]\nname = \"y\"\ncommand = y\n");
+
+        QTemporaryDir target;
+        QVERIFY2(project->writeCopyTo(target.filePath("new/n.def"), &error), qPrintable(error));
+        QCOMPARE(readFile(target.filePath("new/n.def")), def);
+        QCOMPARE(readFile(target.filePath("new/c.cmd")), QByteArray("[Command]\nname = \"y\"\ncommand = y\n"));
+        QCOMPARE(readFile(target.filePath("new/sub/c.cns")), QByteArray("[Data]\nlife = 1000\n"));
+        QVERIFY(!QFile::exists(target.filePath("outside.sff")));
+        QVERIFY(!QFile::exists(target.filePath("new/c.def")));
+        QVERIFY(commands->isModified());
+        QCOMPARE(project->filePath(), dir.filePath("c.def"));
+        QCOMPARE(readFile(dir.filePath("c.cmd")), QByteArray("[Command]\nname = \"x\"\ncommand = x\n"));
+
+        std::unique_ptr<Project> blank(engine.newProject("char", dir.filePath("blank"), &error));
+        QVERIFY2(blank, qPrintable(error));
+        QVERIFY2(blank->writeCopyTo(target.filePath("b/mine.def"), &error), qPrintable(error));
+        for (const char* name : {"mine.def", "char.cmd", "char.cns", "char.air", "char.sff", "char.snd"})
+            QVERIFY2(QFile::exists(target.filePath(QStringLiteral("b/") + name)), name);
+        QVERIFY(readFile(target.filePath("b/mine.def")).contains("\r\n[Files]\r\n"));
+    }
+
+    void singleFiles()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("x.cmd"), "[Command]\nname = \"x\"\ncommand = x\n");
+        writeFile(dir.filePath("x.txt"), "text");
+        MugenEngine engine;
+        QString error;
+        std::unique_ptr<Project> project(engine.openSingleFile(dir.filePath("x.cmd"), &error));
+        QVERIFY2(project, qPrintable(error));
+        QVERIFY(project->isSingleFile());
+        QVERIFY(!project->isMemoryOnly());
+        QVERIFY(project->name().startsWith("Project "));
+        QCOMPARE(project->typeId(), QStringLiteral("char"));
+        QCOMPARE(project->versionId(), QStringLiteral("1.1"));
+        QCOMPARE(project->editorIds(), (QStringList{"commands", "emulator"}));
+        QCOMPARE(project->editorFiles("commands"), QStringList{dir.filePath("x.cmd")});
+        QCOMPARE(MugenProject::singleFileEditor("A.ST"), QStringLiteral("states"));
+        QCOMPARE(MugenProject::singleFileEditor("kfm.def"), QStringLiteral("definitions"));
+        QVERIFY(!engine.openSingleFile(dir.filePath("x.txt"), &error));
+        QVERIFY(!error.isEmpty());
+        QVERIFY(!engine.openSingleFile(dir.filePath("missing.sff"), &error));
+    }
+
+    void archiveProjects()
+    {
+        QTemporaryDir extracted(QDir::tempPath() + "/ofs-test-XXXXXX");
+        extracted.setAutoRemove(false);
+        writeFile(extracted.filePath("a.def"), "[Info]\nname = \"A\"\n[Files]\ncmd = a.cmd\ncns = a.cns\n");
+        writeFile(extracted.filePath("a.cmd"), "[Command]\nname = \"x\"\ncommand = x\n");
+        writeFile(extracted.filePath("a.cns"), "[Data]\nlife = 1000\n");
+        MugenEngine engine;
+        QString error;
+        std::unique_ptr<Project> project(engine.openProject(extracted.filePath("a.def"), &error));
+        QVERIFY2(project, qPrintable(error));
+        CodeFile* commands = project->codeFile(extracted.filePath("a.cmd"), "commands", &error);
+        project->setArchive("C:/somewhere/pack.zip", extracted.path());
+        CodeFile* states = project->codeFile(extracted.filePath("a.cns"), "states", &error);
+        QVERIFY(commands && states);
+        QVERIFY(commands->isUntitled() && states->isUntitled());
+        QVERIFY(!commands->isNameless() && !commands->isModified());
+        QCOMPARE(project->archivePath(), QStringLiteral("C:/somewhere/pack.zip"));
+        QCOMPARE(project->suggestedPath(commands), QStringLiteral("C:/somewhere/a.cmd"));
+        project.reset();
+        QVERIFY(!QFileInfo::exists(extracted.path()));
     }
 
     void missingFileFails()

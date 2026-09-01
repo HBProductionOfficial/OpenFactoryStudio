@@ -147,6 +147,21 @@ Project* MugenEngine::newProject(const QString& typeId, const QString& folder, Q
     return project;
 }
 
+Project* MugenEngine::openSingleFile(const QString& filePath, QString* error)
+{
+    auto* project = new MugenProject(this, filePath);
+    if (!project->loadSingle(error)) {
+        delete project;
+        return nullptr;
+    }
+    return project;
+}
+
+QString MugenEngine::singleFileFilter() const
+{
+    return QStringLiteral("%1 (*.def *.sff *.snd *.air *.cns *.st *.cmd *.*)").arg(displayName());
+}
+
 QMap<QString, QVariantMap> MugenEngine::scriptEnums() const
 {
     return {

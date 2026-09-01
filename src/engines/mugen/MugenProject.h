@@ -16,6 +16,9 @@ public:
     bool load(QString* error);
     // Project > New: a memory-only project made from the blank documents in `blankDir`.
     bool createNew(const QString& typeId, const QString& blankDir, QString* error);
+    // Project > Open single file: filePath() alone, without the files a definitions file names.
+    bool loadSingle(QString* error);
+    static QString singleFileEditor(const QString& filePath);
 
     // Exposed for tests.
     static QString detectType(const DefFile& def);

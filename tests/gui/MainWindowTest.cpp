@@ -6,6 +6,7 @@
 #include "core/engine/RunConfiguration.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
+#include "core/project/ZipArchive.h"
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
 #include "core/sounds/SoundFile.h"
@@ -84,6 +85,12 @@ void writeFile(const QString& path, const QByteArray& data)
     QFile f(path);
     QVERIFY(f.open(QIODevice::WriteOnly));
     f.write(data);
+}
+
+QByteArray readFile(const QString& path)
+{
+    QFile f(path);
+    return f.open(QIODevice::ReadOnly) ? f.readAll() : QByteArray();
 }
 
 QString keyText(const char* keys)
@@ -246,76 +253,6 @@ private Q_SLOTS:
                                        "Welcome screen",
                                        "|",
                                        "Exit"}));
-    }
-
-    void newProject()
-    {
-        MainWindow window(*m_context);
-        window.show();
-        QVERIFY(QTest::qWaitForWindowExposed(&window));
-        ActionRegistry& actions = m_context->actions();
-        QVERIFY(actions.action("file_new")->isEnabled());
-        const qsizetype history = m_context->history().entries().size();
-        QTemporaryDir folder;
-        m_context->config().setValue("project_path", folder.path());
-
-        chooseTemplate(-1);
-        actions.action("file_new")->trigger();
-        QVERIFY(!window.currentProjectView());
-
-        chooseTemplate(0);
-        answerEmptyWizard("Character");
-        actions.action("file_new")->trigger();
-        ProjectView* view = window.currentProjectView();
-        QVERIFY(view);
-        Project* project = view->project();
-        QVERIFY(project->isMemoryOnly());
-        QCOMPARE(project->name(), QStringLiteral("Char name"));
-        QCOMPARE(view->currentEditor(), QStringLiteral("definitions"));
-        QCOMPARE(window.windowTitle(), QStringLiteral("Char name - Open Factory Studio"));
-        QCOMPARE(m_context->history().entries().size(), history);
-        QVERIFY(actions.action("file_save")->isEnabled());
-        auto* tabs = view->findChild<QTabWidget*>("fileTabs_definitions");
-        QVERIFY(tabs);
-        QCOMPARE(tabs->tabText(0), QString());
-        QVERIFY(tabs->tabToolTip(0).isEmpty());
-        QCOMPARE(view->findChild<QTabWidget*>("fileTabs_states")->count(), 1);
-
-        QStringList asked;
-        FileDialogs::setSavePromptOverride([&](const QString& caption, const QString& path, const QString&) {
-            asked << caption + '|' + path;
-            return QString();
-        });
-        actions.action("file_save")->trigger();
-        QVERIFY(asked.isEmpty());
-
-        view->currentCodeEditor()->moveCursor(QTextCursor::End);
-        view->currentCodeEditor()->insertPlainText("; mine\n");
-        QCOMPARE(tabs->tabText(0), QStringLiteral("*"));
-        CodeFile* commands = qobject_cast<CodeFile*>(project->file(folder.path() + "/char.cmd"));
-        QVERIFY(commands);
-        commands->document()->setPlainText(commands->document()->toPlainText() + "; more\n");
-        QTemporaryDir target;
-        FileDialogs::setSavePromptOverride([&](const QString& caption, const QString& path, const QString&) {
-            asked << caption + '|' + path;
-            return target.filePath(caption.contains("definitions") ? "mychar.def" : QFileInfo(path).fileName());
-        });
-        actions.action("file_save")->trigger();
-        FileDialogs::setSavePromptOverride({});
-        QCOMPARE(asked, (QStringList{"Save definitions as...|" + folder.path() + "/char.def",
-                                     "Save commands as...|" + target.path() + "/char.cmd"}));
-        QVERIFY(!project->isMemoryOnly());
-        QCOMPARE(project->filePath(), target.path() + "/mychar.def");
-        QCOMPARE(tabs->tabText(0), QStringLiteral("mychar.def"));
-        QVERIFY(QFile::exists(target.filePath("char.cmd")));
-        QCOMPARE(m_context->history().entries().size(), history);
-
-        chooseTemplate(0);
-        answerEmptyWizard("Font");
-        actions.action("file_new")->trigger();
-        QVERIFY(window.currentProjectView() != view);
-        QVERIFY(window.currentProjectView()->project()->name().startsWith("Project "));
-        QCOMPARE(window.currentProjectView()->editorIds(), (QStringList{"definitions", "sprites", "emulator"}));
     }
 
     void characterProject()
@@ -3476,6 +3413,223 @@ private Q_SLOTS:
         QVERIFY(templates->names().contains("Width"));
 
         editor->document()->setModified(false);
+    }
+
+    void newProject()
+    {
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        ActionRegistry& actions = m_context->actions();
+        QVERIFY(actions.action("file_new")->isEnabled());
+        const qsizetype history = m_context->history().entries().size();
+        QTemporaryDir folder;
+        m_context->config().setValue("project_path", folder.path());
+
+        chooseTemplate(-1);
+        actions.action("file_new")->trigger();
+        QVERIFY(!window.currentProjectView());
+
+        chooseTemplate(0);
+        answerEmptyWizard("Character");
+        actions.action("file_new")->trigger();
+        ProjectView* view = window.currentProjectView();
+        QVERIFY(view);
+        Project* project = view->project();
+        QVERIFY(project->isMemoryOnly());
+        QCOMPARE(project->name(), QStringLiteral("Char name"));
+        QCOMPARE(view->currentEditor(), QStringLiteral("definitions"));
+        QCOMPARE(window.windowTitle(), QStringLiteral("Char name - Open Factory Studio"));
+        QCOMPARE(m_context->history().entries().size(), history);
+        QVERIFY(actions.action("file_save")->isEnabled());
+        auto* tabs = view->findChild<QTabWidget*>("fileTabs_definitions");
+        QVERIFY(tabs);
+        QCOMPARE(tabs->tabText(0), QString());
+        QVERIFY(tabs->tabToolTip(0).isEmpty());
+        QCOMPARE(view->findChild<QTabWidget*>("fileTabs_states")->count(), 1);
+
+        QStringList asked;
+        FileDialogs::setSavePromptOverride([&](const QString& caption, const QString& path, const QString&) {
+            asked << caption + '|' + path;
+            return QString();
+        });
+        actions.action("file_save")->trigger();
+        QVERIFY(asked.isEmpty());
+
+        view->currentCodeEditor()->moveCursor(QTextCursor::End);
+        view->currentCodeEditor()->insertPlainText("; mine\n");
+        QCOMPARE(tabs->tabText(0), QStringLiteral("*"));
+        CodeFile* commands = qobject_cast<CodeFile*>(project->file(folder.path() + "/char.cmd"));
+        QVERIFY(commands);
+        commands->document()->setPlainText(commands->document()->toPlainText() + "; more\n");
+        QTemporaryDir target;
+        FileDialogs::setSavePromptOverride([&](const QString& caption, const QString& path, const QString&) {
+            asked << caption + '|' + path;
+            return target.filePath(caption.contains("definitions") ? "mychar.def" : QFileInfo(path).fileName());
+        });
+        actions.action("file_save")->trigger();
+        FileDialogs::setSavePromptOverride({});
+        QCOMPARE(asked, (QStringList{"Save definitions as...|" + folder.path() + "/char.def",
+                                     "Save commands as...|" + target.path() + "/char.cmd"}));
+        QVERIFY(!project->isMemoryOnly());
+        QCOMPARE(project->filePath(), target.path() + "/mychar.def");
+        QCOMPARE(tabs->tabText(0), QStringLiteral("mychar.def"));
+        QVERIFY(QFile::exists(target.filePath("char.cmd")));
+        QCOMPARE(m_context->history().entries().size(), history);
+
+        chooseTemplate(0);
+        answerEmptyWizard("Font");
+        actions.action("file_new")->trigger();
+        QVERIFY(window.currentProjectView() != view);
+        QVERIFY(window.currentProjectView()->project()->name().startsWith("Project "));
+        QCOMPARE(window.currentProjectView()->editorIds(), (QStringList{"definitions", "sprites", "emulator"}));
+    }
+
+    void archiveProject()
+    {
+        QTemporaryDir dir;
+        QDir().mkpath(dir.filePath("src/fighter"));
+        const QByteArray commandsText = "[Command]\nname = \"x\"\ncommand = x\n";
+        writeFile(dir.filePath("src/fighter/fighter.def"), "[Info]\nname = \"Zip Fighter\"\nmugenversion = 1.0\n"
+                                                           "[Files]\ncmd = fighter.cmd\ncns = fighter.cns\n");
+        writeFile(dir.filePath("src/fighter/fighter.cmd"), commandsText);
+        writeFile(dir.filePath("src/fighter/fighter.cns"), "[Data]\nlife = 1000\n");
+        writeFile(dir.filePath("src/stage.def"), "[Info]\nname = \"Zip Stage\"\n[Camera]\nstartx = 0\n");
+        const QString archive = dir.filePath("pack.zip");
+        QVERIFY(Zip::create(archive, dir.filePath("src"),
+                            {"fighter/fighter.def", "fighter/fighter.cmd", "fighter/fighter.cns", "stage.def"}));
+
+        MainWindow window(*m_context);
+        window.show();
+        ActionRegistry& actions = m_context->actions();
+        QVERIFY(actions.action("file_open_archive")->isEnabled());
+        QStringList captions;
+        FileDialogs::setOpenPromptOverride([&](const QString& caption, const QString&, const QString& filter) {
+            captions << caption << filter;
+            return archive;
+        });
+        actions.action("file_open_archive")->trigger();
+        FileDialogs::setOpenPromptOverride({});
+        QCOMPARE(captions, (QStringList{"Open archive", "All supported (*.zip);;ZIP Archive (*.zip)"}));
+        ProjectView* view = window.currentProjectView();
+        QVERIFY(view);
+        Project* project = view->project();
+        QCOMPARE(project->name(), QStringLiteral("Zip Fighter"));
+        QCOMPARE(project->archivePath(), archive);
+        QCOMPARE(m_context->history().entries().first().file, archive);
+        auto* tabs = view->findChild<QTabWidget*>("fileTabs_definitions");
+        QCOMPARE(tabs->tabText(0), QStringLiteral("fighter.def"));
+        QCOMPARE(tabs->tabToolTip(0), QDir::toNativeSeparators(archive));
+        auto* explorer = view->findChild<QTreeView*>("projectExplorer");
+        QCOMPARE(explorer->model()->rowCount(), 3);
+        const int tabCount = window.findChild<QTabBar*>()->count();
+        QVERIFY(window.openProject(archive));
+        QCOMPARE(window.findChild<QTabBar*>()->count(), tabCount);
+
+        actions.action("editor_cmd")->trigger();
+        view->currentCodeEditor()->insertPlainText("; mine\n");
+        QStringList asked;
+        FileDialogs::setSavePromptOverride([&](const QString& caption, const QString& path, const QString&) {
+            asked << caption + '|' + path;
+            return QString();
+        });
+        actions.action("file_save")->trigger();
+        QCOMPARE(asked, QStringList{"Save as|" + dir.path() + "/fighter.cmd"});
+        QVERIFY(view->currentFile()->isModified());
+        QCOMPARE(Zip::read(archive, "fighter/fighter.cmd"), commandsText);
+        FileDialogs::setSavePromptOverride([&](const QString&, const QString& path, const QString&) { return path; });
+        actions.action("file_save")->trigger();
+        FileDialogs::setSavePromptOverride({});
+        QVERIFY(!view->currentFile()->isModified());
+        QVERIFY(readFile(dir.filePath("fighter.cmd")).startsWith("; mine"));
+        QCOMPARE(Zip::read(archive, "fighter/fighter.cmd"), commandsText);
+
+        const QString extractedDef = project->filePath();
+        QVERIFY(QFile::exists(extractedDef));
+        actions.action("file_close")->trigger();
+        QTRY_VERIFY(!QFile::exists(extractedDef));
+
+        QVERIFY(Zip::create(dir.filePath("empty.zip"), dir.filePath("src/fighter"), {"fighter.cmd"}));
+        QTimer::singleShot(0, this, [] {
+            auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            QVERIFY(box->text().startsWith("There is no project in"));
+            box->accept();
+        });
+        QVERIFY(!window.openProject(dir.filePath("empty.zip")));
+    }
+
+    void singleFileProjects()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("one.cmd"), "[Command]\nname = \"x\"\ncommand = x\n");
+        writeFile(dir.filePath("two.air"), "[Begin Action 0]\n0,0, 0,0, 10\n");
+        MainWindow window(*m_context);
+        window.show();
+        const qsizetype history = m_context->history().entries().size();
+        QString filter;
+        FileDialogs::setOpenPromptOverride([&](const QString& caption, const QString&, const QString& f) {
+            filter = caption + '|' + f;
+            return dir.filePath("one.cmd") + '\n' + dir.filePath("two.air");
+        });
+        m_context->actions().action("file_open_single")->trigger();
+        FileDialogs::setOpenPromptOverride({});
+        QCOMPARE(filter, QStringLiteral("Open file|M.U.G.E.N (*.def *.sff *.snd *.air *.cns *.st *.cmd *.*)"));
+        ProjectView* animations = window.currentProjectView();
+        QVERIFY(animations && animations->project()->isSingleFile());
+        QCOMPARE(animations->editorIds(), (QStringList{"animations", "emulator"}));
+        QCOMPARE(animations->currentEditor(), QStringLiteral("animations"));
+        QVERIFY(animations->project()->name().startsWith("Project "));
+        QCOMPARE(window.projectViews().size(), qsizetype(2));
+        ProjectView* commands = window.projectViews().first();
+        QCOMPARE(commands->editorIds(), (QStringList{"commands", "emulator"}));
+        QCOMPARE(m_context->history().entries().size(), history);
+        QCOMPARE(animations->findChild<QTreeView*>("projectExplorer")->model()->rowCount(), 0);
+        QVERIFY(window.windowTitle().startsWith("Project "));
+
+        m_context->actions().action("editor_cmd");
+        window.findChild<QTabBar*>()->setCurrentIndex(window.findChild<QTabBar*>()->count() - 2);
+        QCOMPARE(window.currentProjectView(), commands);
+        commands->currentCodeEditor()->insertPlainText("; mine\n");
+        m_context->actions().action("file_save")->trigger();
+        QVERIFY(readFile(dir.filePath("one.cmd")).startsWith("; mine"));
+    }
+
+    void saveProjectAs()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("hero.def"), "[Info]\nname = \"Hero\"\nmugenversion = 1.0\n"
+                                            "[Files]\ncmd = hero.cmd\ncns = hero.cns\n");
+        writeFile(dir.filePath("hero.cmd"), "[Command]\nname = \"x\"\ncommand = x\n");
+        writeFile(dir.filePath("hero.cns"), "[Data]\nlife = 1000\n");
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("hero.def")));
+        const int index = window.findChild<QTabBar*>()->currentIndex();
+        ActionRegistry& actions = m_context->actions();
+        actions.action("editor_cmd")->trigger();
+        window.currentProjectView()->currentCodeEditor()->insertPlainText("; changed\n");
+
+        QTemporaryDir target;
+        QString asked;
+        FileDialogs::setSavePromptOverride([&](const QString& caption, const QString& path, const QString& f) {
+            asked = caption + '|' + QFileInfo(path).fileName() + '|' + f;
+            return target.filePath("copy/hero2.def");
+        });
+        actions.action("file_saveas")->trigger();
+        FileDialogs::setSavePromptOverride({});
+        QCOMPARE(asked, QStringLiteral("Save project as...|hero.def|M.U.G.E.N project (*.def)"));
+        ProjectView* view = window.currentProjectView();
+        QVERIFY(view);
+        QCOMPARE(view->project()->filePath(), target.filePath("copy/hero2.def"));
+        QCOMPARE(window.findChild<QTabBar*>()->currentIndex(), index);
+        QCOMPARE(view->currentEditor(), QStringLiteral("commands"));
+        QVERIFY(!view->project()->isModified());
+        QVERIFY(readFile(target.filePath("copy/hero.cmd")).startsWith("; changed"));
+        QVERIFY(QFile::exists(target.filePath("copy/hero.cns")));
+        QCOMPARE(readFile(dir.filePath("hero.cmd")), QByteArray("[Command]\nname = \"x\"\ncommand = x\n"));
+        QCOMPARE(m_context->history().entries().first().file, target.filePath("copy/hero2.def"));
+        QCOMPARE(m_context->config().value("proj_save_path"), target.filePath("copy"));
     }
 
 private:

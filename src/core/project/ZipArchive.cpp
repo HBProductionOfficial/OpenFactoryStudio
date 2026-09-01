@@ -59,7 +59,9 @@ QString entryName(mz_zip_archive* zip, mz_uint index)
         return {};
     // General purpose bit 11: the name is UTF-8.
     const bool utf8 = (stat.m_bit_flag & (1u << 11)) != 0;
-    return utf8 ? QString::fromUtf8(stat.m_filename) : QString::fromLocal8Bit(stat.m_filename);
+    QString name = utf8 ? QString::fromUtf8(stat.m_filename) : QString::fromLocal8Bit(stat.m_filename);
+    // Some archivers (Windows PowerShell's Compress-Archive) separate folders with backslashes.
+    return name.replace(QLatin1Char('\\'), QLatin1Char('/'));
 }
 
 } // namespace
@@ -78,7 +80,7 @@ QList<Entry> entries(const QString& archive, QString* error)
         Entry entry;
         entry.name = entryName(&reader.zip, i);
         entry.size = qint64(stat.m_uncomp_size);
-        entry.directory = mz_zip_reader_is_file_a_directory(&reader.zip, i);
+        entry.directory = mz_zip_reader_is_file_a_directory(&reader.zip, i) || entry.name.endsWith(QLatin1Char('/'));
         list << entry;
     }
     return list;
@@ -99,7 +101,7 @@ bool extract(const QString& archive, const QString& folder, QString* error)
             fail(error, tr("The archive entry %1 points outside the folder.").arg(name));
             return false;
         }
-        if (mz_zip_reader_is_file_a_directory(&reader.zip, i)) {
+        if (mz_zip_reader_is_file_a_directory(&reader.zip, i) || name.endsWith(QLatin1Char('/'))) {
             QDir().mkpath(target);
             continue;
         }

@@ -9,6 +9,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
 
 namespace OFS::Mugen {
 
@@ -89,6 +90,37 @@ bool MugenProject::createNew(const QString& typeId, const QString& blankDir, QSt
             addFile(document);
         }
     }
+    return true;
+}
+
+QString MugenProject::singleFileEditor(const QString& filePath)
+{
+    static const QHash<QString, QString> editors = {
+        {QStringLiteral("def"), QStringLiteral("definitions")}, {QStringLiteral("sff"), QStringLiteral("sprites")},
+        {QStringLiteral("snd"), QStringLiteral("sounds")},      {QStringLiteral("air"), QStringLiteral("animations")},
+        {QStringLiteral("cns"), QStringLiteral("states")},      {QStringLiteral("st"), QStringLiteral("states")},
+        {QStringLiteral("cmd"), QStringLiteral("commands")},
+    };
+    return editors.value(QFileInfo(filePath).suffix().toLower());
+}
+
+bool MugenProject::loadSingle(QString* error)
+{
+    const QString editorId = singleFileEditor(filePath());
+    if (editorId.isEmpty() || !QFileInfo(filePath()).isFile()) {
+        if (error)
+            *error = tr("'%1' is not a file the editors can open.").arg(QDir::toNativeSeparators(filePath()));
+        return false;
+    }
+    // Shown as a M.U.G.E.N 1.1 character, whatever the file is.
+    setSingleFile(true);
+    setTypeId(QStringLiteral("char"));
+    setVersionId(QStringLiteral("1.1"));
+    setVersionDeclared(true);
+    setEditorIds({editorId, QStringLiteral("emulator")});
+    setEditorFiles(editorId, {filePath()});
+    setEditorFiles(QStringLiteral("emulator"), {});
+    setName(QString());
     return true;
 }
 

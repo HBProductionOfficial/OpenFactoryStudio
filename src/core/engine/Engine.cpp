@@ -37,6 +37,18 @@ Project* Engine::newProject(const QString& typeId, const QString& folder, QStrin
     return nullptr;
 }
 
+Project* Engine::openSingleFile(const QString& filePath, QString* error)
+{
+    if (error)
+        *error = tr("'%1' is not a file %2 can open.").arg(QDir::toNativeSeparators(filePath), displayName());
+    return nullptr;
+}
+
+QString Engine::singleFileFilter() const
+{
+    return {};
+}
+
 QString Engine::scriptName() const
 {
     return name().toUpper();

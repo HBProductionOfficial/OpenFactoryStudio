@@ -23,6 +23,76 @@ Project::~Project()
         disconnect(f, nullptr, this, nullptr);
     qDeleteAll(m_files);
     m_files.clear();
+    // Remove the archive's extraction folder, but only one we made under the temp folder.
+    const QString temp = QDir::cleanPath(QDir::tempPath()) + QLatin1Char('/');
+    if (!m_extractedFolder.isEmpty() && QDir::cleanPath(m_extractedFolder).startsWith(temp, Qt::CaseInsensitive))
+        QDir(m_extractedFolder).removeRecursively();
+}
+
+void Project::setArchive(const QString& archive, const QString& extractedFolder)
+{
+    m_archivePath = QDir::fromNativeSeparators(QFileInfo(archive).absoluteFilePath());
+    m_extractedFolder = extractedFolder;
+    for (ProjectFile* f : std::as_const(m_files))
+        f->markUntitled();
+}
+
+QString Project::suggestedPath(const ProjectFile* file) const
+{
+    if (!file)
+        return {};
+    if (!m_archivePath.isEmpty() && file->isUntitled())
+        return QFileInfo(m_archivePath).absolutePath() + QLatin1Char('/') + file->fileName();
+    return file->path();
+}
+
+QStringList Project::allFiles() const
+{
+    QStringList paths;
+    auto add = [&paths](const QString& path) {
+        if (!path.isEmpty() && !paths.contains(path, Qt::CaseInsensitive))
+            paths << path;
+    };
+    for (const QString& editorId : m_editorIds) {
+        for (const QString& path : m_editorFiles.value(editorId))
+            add(path);
+    }
+    for (const ProjectFile* f : m_files)
+        add(f->path());
+    return paths;
+}
+
+bool Project::writeCopyTo(const QString& mainFile, QString* error) const
+{
+    const QString target = QDir::fromNativeSeparators(QFileInfo(mainFile).absoluteFilePath());
+    const QString folder = directory() + QLatin1Char('/');
+    const QDir targetDir = QFileInfo(target).absoluteDir();
+    for (const QString& path : allFiles()) {
+        QString destination;
+        if (path.compare(m_filePath, Qt::CaseInsensitive) == 0)
+            destination = target;
+        else if (path.startsWith(folder, Qt::CaseInsensitive))
+            destination = targetDir.filePath(path.mid(folder.size()));
+        else
+            continue;
+        if (const ProjectFile* f = file(path)) {
+            QDir().mkpath(QFileInfo(destination).absolutePath());
+            if (!f->writeCopy(destination, error))
+                return false;
+            continue;
+        }
+        if (!QFileInfo::exists(path) || QFileInfo(path) == QFileInfo(destination))
+            continue;
+        QDir().mkpath(QFileInfo(destination).absolutePath());
+        QFile::remove(destination);
+        QFile source(path);
+        if (!source.copy(destination)) {
+            if (error)
+                *error = source.errorString();
+            return false;
+        }
+    }
+    return true;
 }
 
 QString Project::directory() const
@@ -33,7 +103,7 @@ QString Project::directory() const
 void Project::setName(const QString& name)
 {
     QString n = name.trimmed();
-    if (n.isEmpty() && m_memoryOnly) {
+    if (n.isEmpty() && (m_memoryOnly || m_singleFile)) {
         static int s_untitledCount = 0;
         if (m_untitledName.isEmpty())
             m_untitledName = tr("Project %1").arg(++s_untitledCount);
@@ -194,6 +264,8 @@ void Project::adopt(ProjectFile* f)
     m_files << f;
     if (m_copy)
         f->markAsCopy();
+    if (!m_archivePath.isEmpty())
+        f->markUntitled();
 }
 
 void Project::definitionsSaved(const QString& path)
