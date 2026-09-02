@@ -5,6 +5,7 @@
 #include "core/anims/AirGif.h"
 #include "core/app/AppContext.h"
 #include "core/app/Messages.h"
+#include "core/editors/Organize.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
 #include "core/settings/Config.h"
@@ -12,6 +13,7 @@
 #include "core/sprites/SpriteFile.h"
 #include "shell/AnimationPage.h"
 #include "shell/FileDialogs.h"
+#include "shell/OrganizerBinding.h"
 #include "shell/dialogs/AnimationDialogs.h"
 
 #include <QAction>
@@ -63,7 +65,45 @@ const int InterpolationFlags[4] = {AirFrame::InterpolateBlend, AirFrame::Interpo
 AnimationsEditor::AnimationsEditor(AppContext& context, QObject* parent)
     : QObject(parent)
     , m_context(context)
-{}
+{
+    // Organizer rows read "<number> - <name>". Moving an animation takes the comments above it along.
+    OrganizerBinding::Source source;
+    source.captions = [this] {
+        QStringList rows;
+        if (m_page) {
+            for (const AirAnimation& a : m_page->document().animations())
+                rows << QStringLiteral("%1 - %2").arg(a.number).arg(a.name);
+        }
+        return rows;
+    };
+    source.reorder = [this](const QList<int>& order) {
+        if (!m_page)
+            return;
+        static const QRegularExpression header(QStringLiteral("^\\s*\\[\\s*begin\\s+action\\b"),
+                                               QRegularExpression::CaseInsensitiveOption);
+        m_page->edit([&order](QStringList& lines) {
+            const QList<Organize::Block> blocks = Organize::sectionBlocks(lines, header);
+            if (blocks.size() == order.size())
+                Organize::reorderBlocks(lines, blocks, order);
+        });
+    };
+    source.sortedOrder = [this] {
+        QList<int> order;
+        if (!m_page)
+            return order;
+        const QList<AirAnimation>& animations = m_page->document().animations();
+        for (int i = 0; i < animations.size(); ++i)
+            order << i;
+        std::stable_sort(order.begin(), order.end(),
+                         [&animations](int a, int b) { return animations[a].number < animations[b].number; });
+        return order;
+    };
+    source.activate = [this](int row) {
+        if (m_page)
+            m_page->setCurrent(row);
+    };
+    m_organizer = new OrganizerBinding(source, this);
+}
 
 AnimationsEditor::~AnimationsEditor()
 {
@@ -261,9 +301,11 @@ void AnimationsEditor::setPage(AnimationPage* page)
             });
         connect(m_page, &AnimationPage::drawingChanged, this, &AnimationsEditor::stateChanged);
         connect(m_page, &AnimationPage::selectionChanged, this, &AnimationsEditor::stateChanged);
+        connect(m_page, &AnimationPage::documentChanged, m_organizer, &OrganizerBinding::refresh);
     }
     refresh();
     refreshOnion();
+    m_organizer->refresh();
     Q_EMIT stateChanged();
 }
 

@@ -65,6 +65,8 @@ add_library(ofsshell STATIC
     dialogs/OptionsDialog.cpp
     dialogs/ProjectDialogs.h
     dialogs/ProjectDialogs.cpp
+    OrganizerBinding.h
+    OrganizerBinding.cpp
     dialogs/MultiLineFindDialog.h
     dialogs/MultiLineFindDialog.cpp
     dialogs/SnippetEditorDialog.h

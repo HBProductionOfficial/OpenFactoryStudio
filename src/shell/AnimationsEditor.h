@@ -23,6 +23,7 @@ namespace OFS {
 class AnimationCodeWindow;
 class AnimationPage;
 class AppContext;
+class OrganizerBinding;
 
 // Left panel of the Animations editor, bound to the current animation page, plus the editor's actions.
 class AnimationsEditor : public QObject
@@ -39,6 +40,7 @@ public:
     void setExplorerActive(bool active);
     void setPage(AnimationPage* page);
     AnimationPage* page() const { return m_page; }
+    OrganizerBinding* organizer() const { return m_organizer; }
 
     bool perform(const QString& actionId);
     void copyBox();
@@ -91,6 +93,7 @@ private:
     QPointer<QListView> m_explorerView;
     QStandardItemModel* m_explorerModel = nullptr;
     QPointer<AnimationCodeWindow> m_codeWindow;
+    OrganizerBinding* m_organizer = nullptr;
     bool m_updating = false;
     bool m_onionUsed = false;
     bool m_explorerActive = false;

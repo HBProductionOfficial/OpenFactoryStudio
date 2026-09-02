@@ -30,6 +30,8 @@ class Engine;
 class Project;
 class ProjectFile;
 class AnimationsEditor;
+class CodeFile;
+class OrganizerBinding;
 class BackgroundsEditor;
 class SoundsEditor;
 class SpritesEditor;
@@ -67,6 +69,9 @@ public:
     QList<CodePage*> codePages() const;
     // `line` is 1-based, 0 keeps the cursor where it is.
     bool showFileLine(const QString& filePath, int line);
+    // Returns false when the Sprites editor's list is shown.
+    bool performOrganizer(const QString& actionId);
+    OrganizerBinding* commandsOrganizer() const { return m_commandsOrganizer; }
     void setCodeToolBarsVisible(bool visible);
     void setCodeMenu(QMenu* menu);
     void refreshSnippets();
@@ -119,6 +124,8 @@ private:
     QString tabToolTip(const QString& path) const;
     void fillProjectExplorer();
     void updateRightPanel();
+    CodeFile* commandsFile() const;
+    void createCommandsOrganizer();
     void updateDockStretch();
 
     Project* m_project;
@@ -149,6 +156,7 @@ private:
     AnimationsEditor* m_animations = nullptr;
     BackgroundsEditor* m_backgrounds = nullptr;
     SoundsEditor* m_sounds = nullptr;
+    OrganizerBinding* m_commandsOrganizer = nullptr;
 };
 
 } // namespace OFS

@@ -1,11 +1,13 @@
 #include "shell/ProjectView.h"
 
 #include "core/actions/ActionRegistry.h"
+#include "core/anims/AirEdits.h"
 #include "core/app/AppContext.h"
 #include "core/code/CodeCompletion.h"
 #include "core/code/CodeEditor.h"
 #include "core/code/CodeOutline.h"
 #include "core/code/Snippet.h"
+#include "core/editors/Organize.h"
 #include "core/engine/Engine.h"
 #include "core/preset/ControlRegistry.h"
 #include "core/preset/PresetBuilder.h"
@@ -27,6 +29,7 @@
 #include "shell/CodePage.h"
 #include "shell/ControllerTemplatesWidget.h"
 #include "shell/DocumentationPopup.h"
+#include "shell/OrganizerBinding.h"
 #include "shell/SoundPage.h"
 #include "shell/SoundsEditor.h"
 #include "shell/SpritePage.h"
@@ -247,6 +250,8 @@ void ProjectView::createEditor(const EditorInfo& info)
         m_backgrounds = new BackgroundsEditor(m_context, this);
         m_backgrounds->setPage(qobject_cast<BackgroundsPage*>(tabs->currentWidget()));
     }
+    if (info.id == QLatin1String("commands"))
+        createCommandsOrganizer();
     connect(tabs, &QTabWidget::currentChanged, this, [this, tabs] {
         if (auto* page = qobject_cast<CodePage*>(tabs->currentWidget()))
             updateOutline(page);
@@ -258,6 +263,8 @@ void ProjectView::createEditor(const EditorInfo& info)
             m_sounds->setPage(qobject_cast<SoundPage*>(tabs->currentWidget()));
         if (m_backgrounds && tabs->objectName() == QLatin1String("fileTabs_backgrounds"))
             m_backgrounds->setPage(qobject_cast<BackgroundsPage*>(tabs->currentWidget()));
+        if (m_commandsOrganizer && tabs->objectName() == QLatin1String("fileTabs_commands"))
+            m_commandsOrganizer->refresh();
         if (tabs == m_center->currentWidget())
             Q_EMIT currentFileChanged();
     });
@@ -767,6 +774,91 @@ void ProjectView::validateAll()
     }
 }
 
+bool ProjectView::performOrganizer(const QString& actionId)
+{
+    if (m_currentEditor == QLatin1String("backgrounds") && m_backgrounds)
+        return m_backgrounds->perform(actionId);
+    if (m_currentEditor == QLatin1String("animations") && m_animations)
+        return m_animations->organizer()->perform(actionId);
+    if (m_currentEditor == QLatin1String("sounds") && m_sounds)
+        return m_sounds->organizer()->perform(actionId);
+    if (m_currentEditor == QLatin1String("commands") && m_commandsOrganizer)
+        return m_commandsOrganizer->perform(actionId);
+    return false;
+}
+
+CodeFile* ProjectView::commandsFile() const
+{
+    QTabWidget* tabs = m_fileTabs.value(QStringLiteral("commands"));
+    QWidget* page = tabs ? tabs->currentWidget() : nullptr;
+    return page ? qobject_cast<CodeFile*>(m_project->file(page->property("filePath").toString())) : nullptr;
+}
+
+void ProjectView::createCommandsOrganizer()
+{
+    // The organizer lists the [Command] blocks by name and moves whole blocks. Organize automatically leaves them alone
+    // because their order decides which command wins.
+    static const QRegularExpression header(QStringLiteral("^\\s*\\[\\s*command\\s*\\]"),
+                                           QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression name(QStringLiteral("^\\s*name\\s*=\\s*([^;]*)"),
+                                         QRegularExpression::CaseInsensitiveOption);
+    OrganizerBinding::Source source;
+    source.captions = [this] {
+        QStringList rows;
+        const CodeFile* file = commandsFile();
+        if (!file)
+            return rows;
+        const QStringList lines = AirEdits::lines(file->document());
+        for (const Organize::Block& block : Organize::sectionBlocks(lines, header)) {
+            QString caption;
+            for (int i = block.start; i < block.contentEnd && caption.isEmpty(); ++i) {
+                const QRegularExpressionMatch m = name.match(lines.at(i));
+                if (m.hasMatch())
+                    caption = m.captured(1).trimmed().remove(QLatin1Char('"'));
+            }
+            rows << caption;
+        }
+        return rows;
+    };
+    source.reorder = [this](const QList<int>& order) {
+        CodeFile* file = commandsFile();
+        if (!file)
+            return;
+        QStringList lines = AirEdits::lines(file->document());
+        const QList<Organize::Block> blocks = Organize::sectionBlocks(lines, header);
+        if (blocks.size() != order.size())
+            return;
+        Organize::reorderBlocks(lines, blocks, order);
+        AirEdits::apply(file->document(), lines);
+    };
+    source.activate = [this](int row) {
+        const CodeFile* file = commandsFile();
+        if (!file)
+            return;
+        const QStringList lines = AirEdits::lines(file->document());
+        const QList<Organize::Block> blocks = Organize::sectionBlocks(lines, header);
+        if (row < 0 || row >= blocks.size())
+            return;
+        int line = blocks[row].start;
+        while (line < blocks[row].contentEnd && !header.match(lines.at(line)).hasMatch())
+            ++line;
+        showFileLine(file->path(), line + 1);
+    };
+    m_commandsOrganizer = new OrganizerBinding(source, this);
+    auto* timer = new QTimer(this);
+    timer->setSingleShot(true);
+    timer->setInterval(300);
+    connect(timer, &QTimer::timeout, m_commandsOrganizer, &OrganizerBinding::refresh);
+    for (ProjectFile* f : m_project->files()) {
+        if (auto* code = qobject_cast<CodeFile*>(f); code && code->editorId() == QLatin1String("commands"))
+            connect(code->document(), &QTextDocument::contentsChanged, timer, qOverload<>(&QTimer::start));
+    }
+    connect(m_project, &Project::fileAdded, this, [timer](ProjectFile* f) {
+        if (auto* code = qobject_cast<CodeFile*>(f); code && code->editorId() == QLatin1String("commands"))
+            connect(code->document(), &QTextDocument::contentsChanged, timer, qOverload<>(&QTimer::start));
+    });
+}
+
 bool ProjectView::showFileLine(const QString& filePath, int line)
 {
     for (auto it = m_fileTabs.cbegin(); it != m_fileTabs.cend(); ++it) {
@@ -1062,7 +1154,13 @@ void ProjectView::applyPreset(const Preset::Model& model)
             m_backgrounds->bindControllers(controllers->widget());
         m_backgrounds->bindOrganizer(m_extraPanels.value(QStringLiteral("organizer"))->widget());
     }
+    QWidget* organizerPanel = m_extraPanels.value(QStringLiteral("organizer"))->widget();
+    if (m_sounds)
+        m_sounds->organizer()->bind(organizerPanel);
+    if (m_commandsOrganizer)
+        m_commandsOrganizer->bind(organizerPanel);
     if (m_animations) {
+        m_animations->organizer()->bind(organizerPanel);
         m_animations->bindPanel(m_editorPanels.value(QStringLiteral("animations"))->widget());
         if (QScrollArea* thumbnails = m_extraPanels.value(QStringLiteral("thumbnails")))
             m_animations->bindExplorer(thumbnails->widget());
@@ -1113,12 +1211,34 @@ void ProjectView::updateRightPanel()
     QString name = currentEditorInfo().extraPanel;
     if (m_organizerVisible && organizerEditors.contains(m_currentEditor))
         name = QStringLiteral("organizer");
-    const bool backgroundsOrganizer =
-        name == QLatin1String("organizer") && m_currentEditor == QLatin1String("backgrounds") && m_backgrounds;
-    if (m_sprites)
-        m_sprites->setOrganizerActive(!backgroundsOrganizer);
-    if (m_backgrounds)
-        m_backgrounds->setOrganizerActive(backgroundsOrganizer);
+    // The organizer lists the items of the editor shown, or the sprites in other editors.
+    const bool organizer = name == QLatin1String("organizer");
+    const bool backgroundsOrganizer = organizer && m_currentEditor == QLatin1String("backgrounds") && m_backgrounds;
+    const bool animationsOrganizer = organizer && m_currentEditor == QLatin1String("animations") && m_animations;
+    const bool soundsOrganizer = organizer && m_currentEditor == QLatin1String("sounds") && m_sounds;
+    const bool commandsOrganizer = organizer && m_currentEditor == QLatin1String("commands") && m_commandsOrganizer;
+    const bool spritesOrganizer =
+        !backgroundsOrganizer && !animationsOrganizer && !soundsOrganizer && !commandsOrganizer;
+    if (m_sprites && !spritesOrganizer)
+        m_sprites->setOrganizerActive(false);
+    if (m_backgrounds && !backgroundsOrganizer)
+        m_backgrounds->setOrganizerActive(false);
+    if (m_animations && !animationsOrganizer)
+        m_animations->organizer()->setActive(false);
+    if (m_sounds && !soundsOrganizer)
+        m_sounds->organizer()->setActive(false);
+    if (m_commandsOrganizer && !commandsOrganizer)
+        m_commandsOrganizer->setActive(false);
+    if (m_sprites && spritesOrganizer)
+        m_sprites->setOrganizerActive(true);
+    if (backgroundsOrganizer)
+        m_backgrounds->setOrganizerActive(true);
+    if (animationsOrganizer)
+        m_animations->organizer()->setActive(true);
+    if (soundsOrganizer)
+        m_sounds->organizer()->setActive(true);
+    if (commandsOrganizer)
+        m_commandsOrganizer->setActive(true);
     const bool spriteExplorer = m_currentEditor == QLatin1String("sprites") && m_sprites && m_sprites->explorerShown();
     if (spriteExplorer)
         name = QStringLiteral("thumbnails");

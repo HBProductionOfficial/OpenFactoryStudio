@@ -11,6 +11,8 @@ class QWidget;
 
 namespace OFS {
 
+class OrganizerBinding;
+
 class AppContext;
 class SoundPage;
 
@@ -25,6 +27,7 @@ public:
     void bindPanel(QWidget* panel);
     void setPage(SoundPage* page);
     SoundPage* page() const { return m_page; }
+    OrganizerBinding* organizer() const { return m_organizer; }
 
     bool perform(const QString& actionId);
     bool confirmLeave();
@@ -48,6 +51,7 @@ private:
     QPointer<QSpinBox> m_start;
     QPointer<QSpinBox> m_end;
     bool m_updating = false;
+    OrganizerBinding* m_organizer = nullptr;
 };
 
 } // namespace OFS

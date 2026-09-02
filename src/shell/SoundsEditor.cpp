@@ -9,6 +9,7 @@
 #include "core/widgets/WaveformView.h"
 #include "formats/audio/Resampler.h"
 #include "shell/FileDialogs.h"
+#include "shell/OrganizerBinding.h"
 #include "shell/SoundPage.h"
 #include "shell/dialogs/SoundDialogs.h"
 #include "shell/dialogs/SpriteDialogs.h"
@@ -60,7 +61,46 @@ QString seconds(double value)
 SoundsEditor::SoundsEditor(AppContext& context, QObject* parent)
     : QObject(parent)
     , m_context(context)
-{}
+{
+    // Organizer rows read "<group>, <number>". Moves change the order the sounds are stored in.
+    OrganizerBinding::Source source;
+    source.captions = [this] {
+        QStringList rows;
+        if (m_page) {
+            for (const SoundEntry& sound : m_page->file()->document().sounds())
+                rows << QStringLiteral("%1, %2").arg(sound.group).arg(sound.number);
+        }
+        return rows;
+    };
+    source.reorder = [this](const QList<int>& order) {
+        if (!m_page || !m_page->confirmDiscard())
+            return;
+        const SoundDocument& doc = m_page->file()->document();
+        if (order.size() != doc.count())
+            return;
+        SoundDocument edited = doc;
+        for (int i = 0; i < order.size(); ++i)
+            edited.sounds()[i] = doc.sounds()[order[i]];
+        m_page->file()->apply(tr("Organize"), edited);
+    };
+    source.sortedOrder = [this] {
+        QList<int> order;
+        if (!m_page)
+            return order;
+        const QList<SoundEntry>& sounds = m_page->file()->document().sounds();
+        for (int i = 0; i < sounds.size(); ++i)
+            order << i;
+        std::stable_sort(order.begin(), order.end(), [&sounds](int a, int b) {
+            return std::pair(sounds[a].group, sounds[a].number) < std::pair(sounds[b].group, sounds[b].number);
+        });
+        return order;
+    };
+    source.activate = [this](int row) {
+        if (m_page)
+            m_page->setCurrent(row);
+    };
+    m_organizer = new OrganizerBinding(source, this);
+}
 
 void SoundsEditor::bindPanel(QWidget* panel)
 {
@@ -138,10 +178,12 @@ void SoundsEditor::setPage(SoundPage* page)
             Q_EMIT stateChanged();
         });
         connect(m_page, &SoundPage::currentChanged, this, &SoundsEditor::refresh);
+        connect(m_page->file(), &SoundFile::documentChanged, m_organizer, &OrganizerBinding::refresh);
         if (m_volume)
             m_page->setVolume(m_volume->value());
     }
     refresh();
+    m_organizer->refresh();
     Q_EMIT stateChanged();
 }
 

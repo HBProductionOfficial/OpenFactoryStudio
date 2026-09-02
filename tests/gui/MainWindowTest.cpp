@@ -22,6 +22,7 @@
 #include "shell/AdvancedPaletteEditor.h"
 #include "shell/AdvancedSearchPanel.h"
 #include "shell/AnimationPage.h"
+#include "shell/AnimationsEditor.h"
 #include "shell/BackgroundsPage.h"
 #include "shell/CodePage.h"
 #include "shell/ControllerTemplatesWidget.h"
@@ -3854,6 +3855,99 @@ private Q_SLOTS:
         QVERIFY(editor->document()->toPlainText().contains("; saved"));
         QVERIFY(!editor->document()->toPlainText().contains("; fourth"));
         config.setValue("showmsg_reload_file", "1");
+    }
+
+    void organizerInOtherEditors()
+    {
+        QTemporaryDir dir;
+        auto wav = [](std::size_t frames, std::int16_t value) {
+            auto bytes = Formats::encodeAudio(
+                Formats::SampleBuffer::fromInt16(std::vector<std::int16_t>(frames, value), 1, 11025));
+            return bytes ? bytes.value() : Formats::Bytes();
+        };
+        Formats::SndDocument snd;
+        snd.sounds.push_back(Formats::SndSound{5, 2, wav(100, 1)});
+        snd.sounds.push_back(Formats::SndSound{0, 1, wav(100, 2)});
+        snd.sounds.push_back(Formats::SndSound{0, 0, wav(100, 3)});
+        const Formats::Bytes sndBytes = snd.write();
+        writeFile(dir.filePath("o.snd"),
+                  QByteArray(reinterpret_cast<const char*>(sndBytes.data()), qsizetype(sndBytes.size())));
+        writeFile(dir.filePath("o.def"), "[Info]\nname = \"Org\"\nmugenversion = 1.0\n"
+                                         "[Files]\ncmd = o.cmd\ncns = o.cns\nanim = o.air\nsound = o.snd\n");
+        writeFile(dir.filePath("o.cns"), "[Data]\nlife = 1000\n");
+        writeFile(dir.filePath("o.air"), "; Standing\n[Begin Action 0]\n0,0, 0,0, 10\n\n"
+                                         "; Turning\n[Begin Action 5]\n5,0, 0,0, 7\n\n"
+                                         "; Crouching\n[Begin Action 2]\n2,0, 0,0, 3\n");
+        writeFile(dir.filePath("o.cmd"), "[Remap]\nx = x\n\n[Command]\nname = \"FF\"\ncommand = F, F\n\n"
+                                         "[Command]\nname = \"BB\"\ncommand = B, B\n\n"
+                                         "[Command]\nname = \"x\"\ncommand = x\n\n[Statedef -1]\n");
+        MainWindow window(*m_context);
+        window.show();
+        ActionRegistry& actions = m_context->actions();
+        QVERIFY(window.openProject(dir.filePath("o.def")));
+        ProjectView* view = window.currentProjectView();
+        actions.action("view_organizer")->setChecked(true);
+        auto* list = view->findChild<QListView*>("org_list");
+        QVERIFY(list);
+        auto rows = [list] {
+            QStringList captions;
+            for (int r = 0; r < list->model()->rowCount(); ++r)
+                captions << list->model()->index(r, 0).data().toString();
+            return captions;
+        };
+        auto selectRow = [list](int row) {
+            list->selectionModel()->clearSelection();
+            list->selectionModel()->select(list->model()->index(row, 0), QItemSelectionModel::Select);
+        };
+
+        actions.action("editor_anim")->trigger();
+        QCOMPARE(rows(), (QStringList{"0 - Standing", "5 - Turning", "2 - Crouching"}));
+        selectRow(2);
+        actions.action("org_top")->trigger();
+        QCOMPARE(rows(), (QStringList{"2 - Crouching", "0 - Standing", "5 - Turning"}));
+        QCOMPARE(list->selectionModel()->selectedRows().first().row(), 0);
+        auto* anims = qobject_cast<CodeFile*>(view->project()->file(dir.filePath("o.air")));
+        QCOMPARE(anims->document()->toPlainText(),
+                 QStringLiteral("; Crouching\n[Begin Action 2]\n2,0, 0,0, 3\n\n; Standing\n[Begin Action 0]\n"
+                                "0,0, 0,0, 10\n\n; Turning\n[Begin Action 5]\n5,0, 0,0, 7\n"));
+        actions.action("org_auto")->trigger();
+        QCOMPARE(rows(), (QStringList{"0 - Standing", "2 - Crouching", "5 - Turning"}));
+        actions.action("edit_undo")->trigger();
+        QCOMPARE(rows(), (QStringList{"2 - Crouching", "0 - Standing", "5 - Turning"}));
+        Q_EMIT list->doubleClicked(list->model()->index(2, 0));
+        QCOMPARE(view->animationsEditor()->page()->current(), 2);
+
+        actions.action("editor_snd")->trigger();
+        QCOMPARE(rows(), (QStringList{"5, 2", "0, 1", "0, 0"}));
+        actions.action("org_auto")->trigger();
+        QCOMPARE(rows(), (QStringList{"0, 0", "0, 1", "5, 2"}));
+        auto* sounds = qobject_cast<SoundFile*>(view->project()->file(dir.filePath("o.snd")));
+        QVERIFY(sounds->isModified());
+        selectRow(0);
+        actions.action("org_down")->trigger();
+        QCOMPARE(rows(), (QStringList{"0, 1", "0, 0", "5, 2"}));
+
+        actions.action("editor_cmd")->trigger();
+        QCOMPARE(rows(), (QStringList{"FF", "BB", "x"}));
+        selectRow(0);
+        actions.action("org_down_10")->trigger();
+        QCOMPARE(rows(), (QStringList{"BB", "x", "FF"}));
+        selectRow(2);
+        actions.action("org_top")->trigger();
+        QCOMPARE(rows(), (QStringList{"FF", "BB", "x"}));
+        auto* commands = qobject_cast<CodeFile*>(view->project()->file(dir.filePath("o.cmd")));
+        const QString text = commands->document()->toPlainText();
+        actions.action("org_auto")->trigger();
+        QCOMPARE(commands->document()->toPlainText(), text);
+        QVERIFY(text.startsWith("[Remap]\nx = x\n\n[Command]\nname = \"FF\""));
+        QVERIFY(text.endsWith("\n\n[Statedef -1]\n"));
+
+        actions.action("view_organizer")->setChecked(false);
+        for (ProjectFile* file : view->project()->files()) {
+            if (auto* code = qobject_cast<CodeFile*>(file))
+                code->document()->setModified(false);
+        }
+        sounds->undoStack()->setClean();
     }
 
 private:

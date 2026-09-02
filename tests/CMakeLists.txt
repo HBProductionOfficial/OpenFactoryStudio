@@ -269,3 +269,7 @@ ofs_add_test(NAME mugen_project_backup GUI
 ofs_add_test(NAME mugen_project_watcher GUI
     SOURCES mugen/ProjectWatcherTest.cpp
     LIBS OFS::mugen)
+
+ofs_add_test(NAME core_organize
+    SOURCES core/OrganizeTest.cpp
+    LIBS OFS::core)
