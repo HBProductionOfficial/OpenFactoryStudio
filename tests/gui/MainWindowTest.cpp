@@ -213,6 +213,7 @@ private Q_SLOTS:
         qputenv("OFS_AUDIO_BACKEND", "null");
         m_context = new AppContext;
         m_context->loadSettings();
+        m_context->history().clear();
         m_context->initializeEngines();
         QVERIFY(m_dir.isValid());
 
