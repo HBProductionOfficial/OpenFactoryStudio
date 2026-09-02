@@ -3950,6 +3950,33 @@ private Q_SLOTS:
         sounds->undoStack()->setClean();
     }
 
+    void recentProjects()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("r.def"), "[Info]\nname = \"Recent\"\nmugenversion = 1.0\n[Files]\ncmd = r.cmd\n");
+        writeFile(dir.filePath("r.cmd"), "[Command]\nname = \"x\"\ncommand = x\n");
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("r.def")));
+        const QByteArray xml = readFile(qEnvironmentVariable("OFS_CONFIG_DIR") + "/history.xml");
+        QVERIFY(xml.contains(dir.filePath("r.def").toUtf8()));
+
+        m_context->history().add("Gone", dir.filePath("gone.def"));
+        QString asked;
+        QTimer::singleShot(0, this, [&asked] {
+            auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            asked = box->windowTitle() + '|' + box->text();
+            QCOMPARE(box->defaultButton(), box->button(QMessageBox::Yes));
+            box->button(QMessageBox::Yes)->click();
+        });
+        QVERIFY(!window.openRecentProject(dir.filePath("gone.def")));
+        QCOMPARE(asked, boxTitle("File not found!") + "|The file '" + dir.filePath("gone.def") +
+                            "' doesn't exist. Do you want to remove it from the history?");
+        for (const History::Entry& entry : m_context->history().entries())
+            QVERIFY(entry.file != dir.filePath("gone.def"));
+    }
+
 private:
     AppContext* m_context = nullptr;
     QTemporaryDir m_dir;

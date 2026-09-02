@@ -45,6 +45,8 @@ AppContext::AppContext(QObject* parent)
 {
     Q_ASSERT_X(!g_instance, "AppContext", "only one AppContext may exist at a time");
     g_instance = this;
+    // Save the history on every change, so nothing is lost if the program crashes.
+    connect(m_history, &History::changed, this, [this] { m_history->save(); });
 }
 
 AppContext::~AppContext()

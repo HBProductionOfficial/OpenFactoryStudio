@@ -46,6 +46,7 @@ public:
 
     // Returns false, after telling the user, when no engine can open the file.
     bool openProject(const QString& filePath);
+    bool openRecentProject(const QString& filePath);
 
     ProjectView* currentProjectView() const;
     QList<ProjectView*> projectViews() const;

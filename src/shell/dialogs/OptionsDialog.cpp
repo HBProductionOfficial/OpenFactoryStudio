@@ -203,7 +203,7 @@ QWidget* OptionsDialog::createGeneralTab()
     grid->addWidget(new QLabel(tr("Max history:"), page), 5, 0);
     grid->addWidget(new QLabel(tr("Thumbnail size:"), page), 5, 1);
     auto* history = new QSpinBox(page);
-    history->setObjectName(QStringLiteral("max_history"));
+    history->setObjectName(QStringLiteral("maxHistory"));
     history->setRange(10, 32);
     bindSpin(history, QStringLiteral("max_history"), 32);
     grid->addWidget(history, 6, 0);

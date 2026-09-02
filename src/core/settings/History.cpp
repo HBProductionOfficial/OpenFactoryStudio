@@ -46,6 +46,8 @@ void History::load(const QString& path)
 
 bool History::save(QString* error) const
 {
+    if (m_path.isEmpty())
+        return false; // never loaded: nowhere to write
     QList<XmlRecord> records;
     for (const Entry& entry : m_entries)
         records.append(XmlRecord{{kName, entry.name}, {kFile, entry.file}});

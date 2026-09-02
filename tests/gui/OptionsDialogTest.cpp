@@ -185,7 +185,7 @@ private Q_SLOTS:
         auto* undo = child<QSpinBox>(&dialog, "undo_limit");
         QCOMPARE(undo->maximum(), 256);
         QCOMPARE(undo->value(), 64);
-        auto* history = child<QSpinBox>(&dialog, "max_history");
+        auto* history = child<QSpinBox>(&dialog, "maxHistory");
         QCOMPARE(history->minimum(), 10);
         QCOMPARE(history->maximum(), 32);
         QCOMPARE(child<QSpinBox>(&dialog, "thumb_size")->maximum(), 256);

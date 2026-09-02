@@ -336,7 +336,7 @@ void MainWindow::buildCentralArea()
     connect(m_projectTabs, &QTabBar::currentChanged, this, &MainWindow::onCurrentTabChanged);
     connect(m_projectTabs, &QTabBar::tabCloseRequested, this, [this](int index) { closeProject(index); });
     connect(m_projectTabs, &QTabBar::tabMoved, this, [this] { refreshForCurrent(); });
-    connect(m_welcome, &WelcomePage::openProjectRequested, this, &MainWindow::openProject);
+    connect(m_welcome, &WelcomePage::openProjectRequested, this, &MainWindow::openRecentProject);
     connect(m_welcome, &WelcomePage::contributeRequested, this,
             [] { QDesktopServices::openUrl(QUrl(QStringLiteral(OFS_HOMEPAGE))); });
 }
@@ -1583,6 +1583,19 @@ bool MainWindow::openProject(const QString& filePath)
     return true;
 }
 
+bool MainWindow::openRecentProject(const QString& filePath)
+{
+    if (!QFileInfo::exists(filePath)) {
+        if (QMessageBox::question(this, tr("File not found!"),
+                                  tr("The file '%1' doesn't exist. Do you want to remove it from the history?")
+                                      .arg(QDir::fromNativeSeparators(filePath)),
+                                  QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes) == QMessageBox::Yes)
+            m_context.history().remove(filePath);
+        return false;
+    }
+    return openProject(filePath);
+}
+
 void MainWindow::openArchiveDialog()
 {
     Config& config = m_context.config();
@@ -2388,7 +2401,7 @@ void MainWindow::populateRecentProjects(QMenu* menu, QAction* before, QList<QAct
     for (const History::Entry& e : entries) {
         auto* a = new QAction(e.name + QLatin1Char('\t') + QDir::toNativeSeparators(e.file), menu);
         const QString file = e.file;
-        connect(a, &QAction::triggered, this, [this, file] { openProject(file); });
+        connect(a, &QAction::triggered, this, [this, file] { openRecentProject(file); });
         menu->insertAction(before, a);
         created << a;
     }
@@ -2402,7 +2415,7 @@ void MainWindow::populateRecentProjects(QMenu* menu, QAction* before, QList<QAct
     connect(openAll, &QAction::triggered, this, [this] {
         const auto list = m_context.history().entries();
         for (auto it = list.crbegin(); it != list.crend(); ++it)
-            openProject(it->file);
+            openRecentProject(it->file);
     });
     menu->insertAction(before, openAll);
     created << openAll;
