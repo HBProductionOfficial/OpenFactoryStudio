@@ -138,6 +138,8 @@ add_library(ofscore SHARED
     project/ZipArchive.cpp
     project/ProjectBackup.h
     project/ProjectBackup.cpp
+    project/ProjectWatcher.h
+    project/ProjectWatcher.cpp
     palettes/PaletteOps.cpp
     sprites/PaletteEdits.h
     sprites/PaletteEdits.cpp

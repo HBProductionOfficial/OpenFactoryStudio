@@ -266,6 +266,7 @@ void Project::adopt(ProjectFile* f)
         f->markAsCopy();
     if (!m_archivePath.isEmpty())
         f->markUntitled();
+    Q_EMIT fileAdded(f);
 }
 
 void Project::definitionsSaved(const QString& path)

@@ -17,6 +17,7 @@
 #include "core/project/Project.h"
 #include "core/project/ProjectBackup.h"
 #include "core/project/ProjectFile.h"
+#include "core/project/ProjectWatcher.h"
 #include "core/project/ZipArchive.h"
 #include "core/script/ScriptHost.h"
 #include "core/settings/Config.h"
@@ -433,6 +434,11 @@ void MainWindow::connectActions()
         OptionsDialog::showOptions(this, [this] {
             m_context.applySettings();
             restartAutosave();
+            const bool watching = m_context.config().boolValue(QStringLiteral("enable_file_watcher"), true);
+            for (ProjectView* view : projectViews()) {
+                if (auto* watcher = view->findChild<ProjectWatcher*>())
+                    watcher->setEnabled(watching);
+            }
             applyInterface();
             for (ProjectView* view : projectViews())
                 view->reconfigureEditors();
@@ -1768,6 +1774,40 @@ void MainWindow::autosave()
     }
 }
 
+void MainWindow::fileChangedOnDisk(ProjectFile* changed)
+{
+    QPointer<ProjectFile> file(changed);
+    if (!file || m_reloadQuestions.contains(file))
+        return;
+    Config& config = m_context.config();
+    const QString key = QStringLiteral("showmsg_reload_file");
+    const QString setting = config.value(key);
+    if (!setting.isEmpty() && setting != QLatin1String("1"))
+        return;
+    bool reload = setting == QLatin1String("1");
+    // With "Always", reload without asking unless that would lose unsaved changes.
+    if (!reload || file->isModified()) {
+        const QString text = tr("The file '%1' has been modified. Do you want to reload all other instances of "
+                                "this file now?")
+                                 .arg(file->path());
+        m_reloadQuestions.insert(file);
+        if (reload) {
+            reload = QMessageBox::question(this, tr("File modified"), text, QMessageBox::Yes | QMessageBox::No,
+                                           QMessageBox::Yes) == QMessageBox::Yes;
+        } else {
+            reload = askQuestion(this, config, key, tr("File modified"), text);
+        }
+        m_reloadQuestions.remove(changed);
+        if (!file)
+            return;
+    }
+    if (!reload)
+        return;
+    QString error;
+    if (!file->load(&error))
+        QMessageBox::warning(this, tr("File modified"), error);
+}
+
 void MainWindow::createBackup()
 {
     ProjectView* view = currentProjectView();
@@ -1894,6 +1934,9 @@ void MainWindow::addProjectView(Project* project, const QString& editorId)
             }
         });
     }
+    auto* watcher = new ProjectWatcher(project, view);
+    watcher->setEnabled(m_context.config().boolValue(QStringLiteral("enable_file_watcher"), true));
+    connect(watcher, &ProjectWatcher::fileChanged, this, &MainWindow::fileChangedOnDisk);
     connect(project, &Project::filePathChanged, this, [this, view] {
         for (int i = 0; i < m_projectTabs->count(); ++i) {
             if (m_projectTabs->tabData(i).value<QObject*>() == view)

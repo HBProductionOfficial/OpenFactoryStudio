@@ -78,6 +78,7 @@ Q_SIGNALS:
     void nameChanged();
     void modifiedChanged(bool modified);
     void filePathChanged();
+    void fileAdded(OFS::ProjectFile* file);
 
 protected:
     void setMemoryOnly(bool memoryOnly) { m_memoryOnly = memoryOnly; }

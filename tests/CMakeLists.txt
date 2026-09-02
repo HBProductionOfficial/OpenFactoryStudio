@@ -265,3 +265,7 @@ ofs_add_test(NAME mugen_runtime_expr
 ofs_add_test(NAME mugen_project_backup GUI
     SOURCES mugen/ProjectBackupTest.cpp
     LIBS OFS::mugen)
+
+ofs_add_test(NAME mugen_project_watcher GUI
+    SOURCES mugen/ProjectWatcherTest.cpp
+    LIBS OFS::mugen)

@@ -9,6 +9,7 @@
 #include <QMainWindow>
 #include <QPointer>
 #include <QProcess>
+#include <QSet>
 
 #include <memory>
 
@@ -72,6 +73,7 @@ public Q_SLOTS:
     bool replaceProject(ProjectView* view, const QString& filePath);
     void restartAutosave();
     void autosave();
+    void fileChangedOnDisk(ProjectFile* file);
     bool closeProject(int tabIndex, bool ask = true);
     void closeCurrentProject();
     void closeAllProjects();
@@ -145,6 +147,7 @@ private:
     QuickFindBar* m_quickFind = nullptr;
     QPointer<QProcess> m_engineProcess;
     QTimer* m_autosave = nullptr;
+    QSet<ProjectFile*> m_reloadQuestions;
     RunCopy m_runCopy;
     QString m_runLog;
     QDateTime m_runStarted;

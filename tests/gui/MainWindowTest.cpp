@@ -3801,6 +3801,61 @@ private Q_SLOTS:
         QVERIFY(!quiet.findChild<QTimer*>("autosaveTimer")->isActive());
     }
 
+    void fileWatcher()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("fw.def"), "[Info]\nname = \"Watched\"\nmugenversion = 1.0\n[Files]\ncmd = fw.cmd\n");
+        writeFile(dir.filePath("fw.cmd"), "[Command]\nname = \"x\"\ncommand = x\n");
+        Config& config = m_context->config();
+        config.setValue("enable_file_watcher", true);
+        config.setValue("showmsg_reload_file", "1"); // Always
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("fw.def")));
+        m_context->actions().action("editor_cmd")->trigger();
+        CodeEditor* editor = window.currentProjectView()->currentCodeEditor();
+        QTest::qWait(300); // the OS starts watching a moment after a file is added
+
+        writeFile(dir.filePath("fw.cmd"), "; first\n");
+        QTRY_COMPARE(editor->document()->toPlainText(), QStringLiteral("; first\n"));
+        QVERIFY(!editor->document()->isModified());
+        QVERIFY(!editor->document()->isUndoAvailable());
+
+        editor->insertPlainText("; mine\n");
+        QString asked;
+        whenModal<QMessageBox>([&asked](QMessageBox* box) {
+            asked = box->windowTitle() + '|' + box->text();
+            box->button(QMessageBox::No)->click();
+        });
+        writeFile(dir.filePath("fw.cmd"), "; second\n");
+        QTRY_VERIFY(!asked.isEmpty());
+        QCOMPARE(asked, boxTitle("File modified") + "|The file '" + dir.filePath("fw.cmd") +
+                            "' has been modified. Do you want to reload all other instances of this file now?");
+        QVERIFY(editor->document()->toPlainText().contains("; mine"));
+        editor->document()->setModified(false);
+
+        config.setValue("showmsg_reload_file", QString()); // Ask
+        whenModal<QMessageBox>([](QMessageBox* box) {
+            QVERIFY(box->checkBox());
+            box->button(QMessageBox::Yes)->click();
+        });
+        writeFile(dir.filePath("fw.cmd"), "; third\n");
+        QTRY_COMPARE(editor->document()->toPlainText(), QStringLiteral("; third\n"));
+
+        editor->insertPlainText("; saved\n");
+        m_context->actions().action("file_save")->trigger();
+        QTest::qWait(500);
+        QVERIFY(!QApplication::activeModalWidget());
+
+        config.setValue("showmsg_reload_file", "2"); // Never
+        writeFile(dir.filePath("fw.cmd"), "; fourth\n");
+        QTest::qWait(500);
+        QVERIFY(!QApplication::activeModalWidget());
+        QVERIFY(editor->document()->toPlainText().contains("; saved"));
+        QVERIFY(!editor->document()->toPlainText().contains("; fourth"));
+        config.setValue("showmsg_reload_file", "1");
+    }
+
 private:
     AppContext* m_context = nullptr;
     QTemporaryDir m_dir;
