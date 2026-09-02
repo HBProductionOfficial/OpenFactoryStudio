@@ -142,6 +142,7 @@ MainWindow::MainWindow(AppContext& context, QWidget* parent)
 
     applyInterface();
     restoreWindowGeometry();
+    restartAutosave();
     refreshForCurrent();
     if (m_context.config().boolValue(QStringLiteral("show_find_multi")))
         QTimer::singleShot(0, this, &MainWindow::showMultiLineFind);
@@ -431,6 +432,7 @@ void MainWindow::connectActions()
     on("tools_options", [this] {
         OptionsDialog::showOptions(this, [this] {
             m_context.applySettings();
+            restartAutosave();
             applyInterface();
             for (ProjectView* view : projectViews())
                 view->reconfigureEditors();
@@ -1738,6 +1740,32 @@ bool MainWindow::replaceProject(ProjectView* view, const QString& filePath)
     if (ProjectView* reopened = currentProjectView(); reopened && reopened->editorIds().contains(editor))
         reopened->setCurrentEditor(editor);
     return true;
+}
+
+void MainWindow::restartAutosave()
+{
+    if (!m_autosave) {
+        m_autosave = new QTimer(this);
+        m_autosave->setObjectName(QStringLiteral("autosaveTimer"));
+        connect(m_autosave, &QTimer::timeout, this, &MainWindow::autosave);
+    }
+    const int minutes = qBound(0, m_context.config().intValue(QStringLiteral("autosave_interval"), 0), 99);
+    m_autosave->stop();
+    if (minutes > 0)
+        m_autosave->start(minutes * 60 * 1000);
+}
+
+void MainWindow::autosave()
+{
+    for (ProjectView* view : projectViews()) {
+        for (ProjectFile* file : view->project()->files()) {
+            if (!file->isModified() || file->isUntitled())
+                continue;
+            QString error;
+            if (!file->save(&error))
+                qWarning("auto save of %s failed: %s", qPrintable(file->path()), qPrintable(error));
+        }
+    }
 }
 
 void MainWindow::createBackup()

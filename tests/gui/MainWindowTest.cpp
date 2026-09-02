@@ -3769,6 +3769,38 @@ private Q_SLOTS:
         QVERIFY(!actions.action("file_load_backup")->isEnabled());
     }
 
+    void autosave()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("au.def"), "[Info]\nname = \"Auto\"\nmugenversion = 1.0\n[Files]\ncmd = au.cmd\n");
+        writeFile(dir.filePath("au.cmd"), "[Command]\nname = \"x\"\ncommand = x\n");
+        m_context->config().setValue("autosave_interval", 2);
+        MainWindow window(*m_context);
+        window.show();
+        auto* timer = window.findChild<QTimer*>("autosaveTimer");
+        QVERIFY(timer);
+        QVERIFY(timer->isActive());
+        QCOMPARE(timer->interval(), 2 * 60 * 1000);
+        QVERIFY(window.openProject(dir.filePath("au.def")));
+        m_context->actions().action("editor_cmd")->trigger();
+        window.currentProjectView()->currentCodeEditor()->insertPlainText("; auto\n");
+        chooseTemplate(0);
+        answerEmptyWizard("Character");
+        m_context->actions().action("file_new")->trigger();
+        ProjectView* blank = window.currentProjectView();
+        blank->currentCodeEditor()->insertPlainText("; blank\n");
+
+        timer->start(1);
+        QTRY_VERIFY(readFile(dir.filePath("au.cmd")).startsWith("; auto"));
+        QVERIFY(!QApplication::activeModalWidget());
+        QVERIFY(blank->project()->isModified());
+        blank->currentCodeEditor()->document()->setModified(false);
+
+        m_context->config().setValue("autosave_interval", 0);
+        MainWindow quiet(*m_context);
+        QVERIFY(!quiet.findChild<QTimer*>("autosaveTimer")->isActive());
+    }
+
 private:
     AppContext* m_context = nullptr;
     QTemporaryDir m_dir;

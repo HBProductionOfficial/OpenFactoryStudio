@@ -70,6 +70,8 @@ public Q_SLOTS:
     void backupOnLoad(Project* project);
     // The tab of `view` is closed without asking.
     bool replaceProject(ProjectView* view, const QString& filePath);
+    void restartAutosave();
+    void autosave();
     bool closeProject(int tabIndex, bool ask = true);
     void closeCurrentProject();
     void closeAllProjects();
@@ -142,6 +144,7 @@ private:
     UpdateChecker* m_updates = nullptr;
     QuickFindBar* m_quickFind = nullptr;
     QPointer<QProcess> m_engineProcess;
+    QTimer* m_autosave = nullptr;
     RunCopy m_runCopy;
     QString m_runLog;
     QDateTime m_runStarted;

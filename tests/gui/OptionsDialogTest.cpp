@@ -176,7 +176,7 @@ private Q_SLOTS:
             {"sort_file_names", "Sort file names from the open dialog"},
             {"backup_onload", "Make a backup before loading a project"},
             {"auto_update", "Automatically check updates on startup"},
-            {"autosave_async", "Only save if asynchronous mode is supported"}};
+            {"saveAsyncOnly", "Only save if asynchronous mode is supported"}};
         for (const auto& [key, text] : checks)
             QCOMPARE(child<QCheckBox>(&dialog, key)->text(), QString::fromLatin1(text));
         QCOMPARE(comboItems(child<QComboBox>(&dialog, "cache_type")),
@@ -189,7 +189,7 @@ private Q_SLOTS:
         QCOMPARE(history->minimum(), 10);
         QCOMPARE(history->maximum(), 32);
         QCOMPARE(child<QSpinBox>(&dialog, "thumb_size")->maximum(), 256);
-        QCOMPARE(child<QSpinBox>(&dialog, "autosave_interval")->maximum(), 99);
+        QCOMPARE(child<QSpinBox>(&dialog, "saveInterval")->maximum(), 99);
         QCOMPARE(child<QGroupBox>(&dialog, "autoSave")->title(), QStringLiteral("Auto save:"));
         auto* language = child<QComboBox>(&dialog, "language");
         QCOMPARE(language->currentText(), QStringLiteral("English (USA)"));
