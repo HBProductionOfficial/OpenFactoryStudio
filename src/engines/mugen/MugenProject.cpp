@@ -1,5 +1,6 @@
 #include "engines/mugen/MugenProject.h"
 
+#include "core/anims/AirEdits.h"
 #include "core/engine/Engine.h"
 #include "core/project/ProjectFile.h"
 #include "core/sounds/SoundFile.h"
@@ -10,6 +11,8 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QHash>
+#include <QRegularExpression>
+#include <QTextDocument>
 
 namespace OFS::Mugen {
 
@@ -88,9 +91,41 @@ bool MugenProject::createNew(const QString& typeId, const QString& blankDir, QSt
             }
             document->setNameless(true);
             addFile(document);
+            if (path != filePath()) {
+                connect(document, &ProjectFile::pathChanged, this, [this, document](const QString& oldPath) {
+                    if (!document->isUntitled())
+                        renameReference(oldPath, document->path());
+                });
+            }
         }
     }
     return true;
+}
+
+void MugenProject::renameReference(const QString& oldPath, const QString& newPath)
+{
+    auto* definitions = qobject_cast<CodeFile*>(file(filePath()));
+    if (!definitions || oldPath.compare(newPath, Qt::CaseInsensitive) == 0)
+        return;
+    const QDir folder(directory());
+    const QString before = folder.relativeFilePath(oldPath);
+    QString after = folder.relativeFilePath(newPath);
+    if (after.startsWith(QLatin1String("../")))
+        after = QDir::toNativeSeparators(newPath);
+    // "key = value ; comment" lines whose value is the old name.
+    static const QRegularExpression entry(QStringLiteral("^(\\s*[^=;\\[]+?=\\s*)(\"?)([^\";]*?)(\"?)(\\s*(;.*)?)$"));
+    QStringList lines = AirEdits::lines(definitions->document());
+    bool changed = false;
+    for (QString& line : lines) {
+        const QRegularExpressionMatch m = entry.match(line);
+        if (!m.hasMatch() ||
+            QDir::fromNativeSeparators(m.captured(3).trimmed()).compare(before, Qt::CaseInsensitive) != 0)
+            continue;
+        line = m.captured(1) + m.captured(2) + after + m.captured(4) + m.captured(5);
+        changed = true;
+    }
+    if (changed)
+        AirEdits::apply(definitions->document(), lines);
 }
 
 QString MugenProject::singleFileEditor(const QString& filePath)

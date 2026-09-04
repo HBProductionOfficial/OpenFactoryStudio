@@ -32,6 +32,7 @@ private:
     QString resolveData(const QString& relative) const;
     void collectFiles(const DefFile& def);
     void readInfo(const DefFile& def);
+    void renameReference(const QString& oldPath, const QString& newPath);
 };
 
 } // namespace OFS::Mugen

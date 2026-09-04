@@ -230,6 +230,15 @@ private Q_SLOTS:
         QVERIFY(commands->saveAs(target.filePath("char.cmd"), &error));
         QCOMPARE(renamed.count(), 1);
         QVERIFY(!commands->isUntitled() && !commands->isNameless());
+        QVERIFY(!definitions->isModified());
+        QVERIFY(states->saveAs(target.filePath("sub/mine.cns"), &error));
+        const QString text = definitions->document()->toPlainText();
+        QVERIFY(text.contains("cns      = sub/mine.cns          ; Constants"));
+        QVERIFY(text.contains("st       = sub/mine.cns          ; States"));
+        QVERIFY(text.contains("cmd      = char.cmd"));
+        QVERIFY(definitions->isModified());
+        definitions->document()->undo();
+        QVERIFY(definitions->document()->toPlainText().contains("cns      = char.cns"));
     }
 
     void newProjectTypes()
