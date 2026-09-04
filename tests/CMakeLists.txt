@@ -273,3 +273,8 @@ ofs_add_test(NAME mugen_project_watcher GUI
 ofs_add_test(NAME core_organize
     SOURCES core/OrganizeTest.cpp
     LIBS OFS::core)
+
+ofs_add_test(NAME mugen_html_export GUI
+    SOURCES mugen/HtmlExportTest.cpp
+    LIBS OFS::mugen)
+add_dependencies(test_mugen_html_export ofs_data)

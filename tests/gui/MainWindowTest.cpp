@@ -4075,6 +4075,34 @@ private Q_SLOTS:
         sounds->undoStack()->setClean();
     }
 
+    void exportToHtml()
+    {
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(m_dir.filePath("fighter.def")));
+        QAction* action = m_context->actions().action("tools_export_html");
+        QVERIFY(action->isEnabled());
+        QTemporaryDir out;
+        QString asked;
+        FileDialogs::setSavePromptOverride([&](const QString& caption, const QString& path, const QString& filter) {
+            asked = caption + '|' + QFileInfo(path).fileName() + '|' + filter;
+            return out.filePath("page.html");
+        });
+        whenModal<QDialog>([](QDialog* dialog) {
+            QCOMPARE(dialog->objectName(), QStringLiteral("ExpHtmlDlg"));
+            QCOMPARE(dialog->findChild<QComboBox*>("lay")->currentText(), QStringLiteral("Default"));
+            dialog->findChild<QLineEdit*>("mail")->setText("me@example.com");
+            dialog->findChild<QDialogButtonBox*>("buttonBox")->button(QDialogButtonBox::Ok)->click();
+        });
+        action->trigger();
+        FileDialogs::setSavePromptOverride({});
+        QCOMPARE(asked, QStringLiteral("Save As|fighter.html|HyperText Markup Language (*.html)"));
+        const QString page = QString::fromUtf8(readFile(out.filePath("page.html")));
+        QVERIFY(page.contains("<title>Test Fighter</title>"));
+        QVERIFY(page.contains("me@example.com"));
+        QVERIFY(page.contains("<img src=\"images/x.png\" alt=\"x\"/>"));
+    }
+
 private:
     AppContext* m_context = nullptr;
     QTemporaryDir m_dir;

@@ -63,6 +63,7 @@ struct ToolContext
     std::function<void(const QString& editorId, const QString& text)> insertInEditor;
     int spriteIndex = -1;
     std::function<QIcon(const QString&)> icon;
+    std::function<QString(const QString& caption, const QString& path, const QString& filter)> saveFileName;
 };
 
 // A game engine supported by the editor. Each one is a plugin under engines/<name>/ with its own

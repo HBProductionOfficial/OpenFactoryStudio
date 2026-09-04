@@ -11,18 +11,24 @@
 #include "engines/mugen/AirEdits.h"
 #include "engines/mugen/MugenActions.h"
 #include "engines/mugen/MugenControls.h"
+#include "engines/mugen/MugenHtmlExport.h"
 #include "engines/mugen/MugenMenus.h"
 #include "engines/mugen/MugenOutline.h"
 #include "engines/mugen/MugenProject.h"
 #include "engines/mugen/MugenRun.h"
 #include "engines/mugen/MugenSyntax.h"
 #include "engines/mugen/MugenVariables.h"
+#include "engines/mugen/dialogs/ExportHtmlDialog.h"
 #include "engines/mugen/dialogs/OffsetViewerDialog.h"
 #include "engines/mugen/dialogs/PalFXDialog.h"
 #include "engines/mugen/dialogs/ThrowCreatorDialog.h"
 
 #include <QDir>
+#include <QFile>
+#include <QFileDialog>
 #include <QFileInfo>
+#include <QMessageBox>
+#include <QTextDocument>
 
 namespace OFS::Mugen {
 
@@ -225,15 +231,63 @@ void MugenEngine::scaleContactBoxes(Project& project, const QList<QPair<int, int
         AirEdits::scaleContactBoxes(file->document(), sprites, widthScale, heightScale);
 }
 
+void MugenEngine::exportHtml(const ToolContext& context)
+{
+    Project* project = context.project;
+    const QString kind = htmlLayoutKind(project->typeId());
+    const QList<QPair<QString, QString>> layouts = htmlLayouts({dataDir(), userDataDir()}, kind);
+    if (kind.isEmpty() || layouts.isEmpty()) {
+        QMessageBox::information(context.parent, tr("Export to HTML"),
+                                 tr("There is no layout for this kind of project."));
+        return;
+    }
+    QList<HtmlCommand> commands;
+    if (kind == QLatin1String("char")) {
+        const QString path = project->editorFiles(QStringLiteral("commands")).value(0);
+        QString text;
+        if (auto* code = qobject_cast<CodeFile*>(project->file(path))) {
+            text = code->document()->toPlainText();
+        } else if (QFile file(path); file.open(QIODevice::ReadOnly)) {
+            QString encoding;
+            QByteArray bom;
+            text = CodeFile::decode(file.readAll(), &encoding, &bom);
+        }
+        commands = htmlCommands(text);
+    }
+    ExportHtmlDialog dialog(layouts, kind == QLatin1String("stage"), commands, context.parent);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+    const QString suggestion =
+        project->isMemoryOnly()
+            ? QString()
+            : QDir(project->directory())
+                  .filePath(QFileInfo(project->filePath()).completeBaseName() + QStringLiteral(".html"));
+    const QString caption = tr("Save As");
+    const QString filter = tr("HyperText Markup Language (*.html)");
+    const QString path = context.saveFileName
+                             ? context.saveFileName(caption, suggestion, filter)
+                             : QFileDialog::getSaveFileName(context.parent, caption, suggestion, filter);
+    if (path.isEmpty())
+        return;
+    QString error;
+    if (!Mugen::exportHtml(*project, dialog.options(), path, &error))
+        QMessageBox::warning(context.parent, tr("Export to HTML"), error);
+}
+
 QStringList MugenEngine::toolActions() const
 {
-    return {QStringLiteral("st_throw"), QStringLiteral("st_offset"), QStringLiteral("st_palfx")};
+    return {QStringLiteral("st_throw"), QStringLiteral("st_offset"), QStringLiteral("st_palfx"),
+            QStringLiteral("tools_export_html")};
 }
 
 void MugenEngine::runTool(const QString& actionId, const ToolContext& context)
 {
     if (!context.project || context.project->engine() != this)
         return;
+    if (actionId == QLatin1String("tools_export_html")) {
+        exportHtml(context);
+        return;
+    }
     if (actionId == QLatin1String("st_throw")) {
         ThrowCreatorDialog dialog(context.project, context.projects, dataDir() + QStringLiteral("/scripts/throw.lua"),
                                   context.parent);

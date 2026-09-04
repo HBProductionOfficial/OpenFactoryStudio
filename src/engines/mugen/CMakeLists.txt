@@ -36,6 +36,10 @@ add_library(ofs_mugen_lib STATIC
     dialogs/PalFXDialog.cpp
     dialogs/ThrowCreatorDialog.h
     dialogs/ThrowCreatorDialog.cpp
+    dialogs/ExportHtmlDialog.h
+    dialogs/ExportHtmlDialog.cpp
+    MugenHtmlExport.h
+    MugenHtmlExport.cpp
     MugenSyntax.h
     MugenSyntax.cpp
     expr/Expression.h

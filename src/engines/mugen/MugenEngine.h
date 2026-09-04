@@ -54,6 +54,7 @@ public:
     IssueList validate(const Project& project, const QString& editorId, const QString& text) const override;
 
 private:
+    void exportHtml(const ToolContext& context);
     mutable std::unique_ptr<SyntaxDatabase> m_syntax;
     mutable std::unique_ptr<CompletionModels> m_completion;
 };

@@ -1277,6 +1277,9 @@ void MainWindow::runEngineTool(Engine* engine, const QString& actionId)
     };
     if (SpritesEditor* sprites = view->spritesEditor(); sprites && sprites->page())
         context.spriteIndex = sprites->page()->current();
+    context.saveFileName = [this](const QString& caption, const QString& path, const QString& filter) {
+        return FileDialogs::getSaveFileName(this, caption, path, filter);
+    };
     engine->runTool(actionId, context);
 }
 
