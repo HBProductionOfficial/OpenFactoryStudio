@@ -3,6 +3,7 @@
 #include "core/Version.h"
 #include "core/actions/ActionRegistry.h"
 #include "core/actions/MenuSpec.h"
+#include "core/anims/AirEdits.h"
 #include "core/app/AppContext.h"
 #include "core/app/Messages.h"
 #include "core/app/Paths.h"
@@ -793,9 +794,9 @@ void MainWindow::connectEditActions()
           "snd_resample",    "snd_play",         "snd_play_loop",       "snd_pause",        "snd_stop",
           "snd_select_all",  "snd_select_none",  "snd_remove_selected", "snd_fill_silence", "snd_fade_in",
           "snd_fade_out",    "snd_save_changes", "snd_discard_changes", "snd_tool_offset",  "snd_tool_zoom",
-          "snd_tool_select", "snd_tool_move",    "snd_tool_hresize",    "snd_tool_vresize", "snd_import_proj",
-          "snd_prev",        "snd_next",         "snd_delete_grp",      "snd_rename_grp",   "snd_export",
-          "snd_import",      "snd_prev_grp",     "snd_next_grp"}) {
+          "snd_tool_select", "snd_tool_move",    "snd_tool_hresize",    "snd_tool_vresize", "snd_prev",
+          "snd_next",        "snd_delete_grp",   "snd_rename_grp",      "snd_export",       "snd_import",
+          "snd_prev_grp",    "snd_next_grp"}) {
         const QString action = QString::fromLatin1(id);
         on(id, [this, action] {
             ProjectView* view = currentProjectView();
@@ -829,10 +830,10 @@ void MainWindow::connectEditActions()
                            "anim_frame_align",   "anim_box_add_attack",  "anim_box_add_collision",
                            "anim_box_del",       "anim_box_delall",      "anim_box_delall_anim",
                            "anim_box_type",      "anim_box_default",     "anim_box_prev",
-                           "anim_box_allinst",   "anim_optimize",        "anim_import_proj",
-                           "anim_pos_left",      "anim_pos_up",          "anim_pos_right",
-                           "anim_pos_down",      "anim_onion_find",      "anim_prev_anim",
-                           "anim_next_anim",     "anim_prev_frame",      "anim_next_frame"}) {
+                           "anim_box_allinst",   "anim_optimize",        "anim_pos_left",
+                           "anim_pos_up",        "anim_pos_right",       "anim_pos_down",
+                           "anim_onion_find",    "anim_prev_anim",       "anim_next_anim",
+                           "anim_prev_frame",    "anim_next_frame"}) {
         const QString action = QString::fromLatin1(id);
         on(id, [this, action] {
             ProjectView* view = currentProjectView();
@@ -841,6 +842,36 @@ void MainWindow::connectEditActions()
             refreshActionStates();
         });
     }
+    on("anim_import_proj", [this] {
+        ProjectView* view = currentProjectView();
+        if (!view || !view->animationsEditor())
+            return;
+        QList<AnimationsEditor::ImportSource> sources;
+        for (ProjectView* other : projectViews()) {
+            AnimationsEditor* animations = other->animationsEditor();
+            if (other == view || !animations || !animations->page())
+                continue;
+            AnimationsEditor::ImportSource source;
+            source.name = other->project()->name();
+            source.lines = AirEdits::lines(animations->page()->file()->document());
+            if (SpritesEditor* sprites = other->spritesEditor(); sprites && sprites->page())
+                source.sprites = &sprites->page()->file()->document();
+            sources << source;
+        }
+        view->animationsEditor()->importFromProject(sources);
+    });
+    on("snd_import_proj", [this] {
+        ProjectView* view = currentProjectView();
+        if (!view || !view->soundsEditor())
+            return;
+        QList<QPair<QString, const SoundDocument*>> sources;
+        for (ProjectView* other : projectViews()) {
+            SoundsEditor* sounds = other->soundsEditor();
+            if (other != view && sounds && sounds->page())
+                sources << qMakePair(other->project()->name(), &sounds->page()->file()->document());
+        }
+        view->soundsEditor()->importFromProject(sources);
+    });
     on("spr_import_proj", [this] {
         ProjectView* view = currentProjectView();
         if (!view || !view->spritesEditor())

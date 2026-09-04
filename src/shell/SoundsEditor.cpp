@@ -11,6 +11,7 @@
 #include "shell/FileDialogs.h"
 #include "shell/OrganizerBinding.h"
 #include "shell/SoundPage.h"
+#include "shell/dialogs/ProjectDialogs.h"
 #include "shell/dialogs/SoundDialogs.h"
 #include "shell/dialogs/SpriteDialogs.h"
 
@@ -163,6 +164,71 @@ void SoundsEditor::bindPanel(QWidget* panel)
         });
     }
     refresh();
+}
+
+void SoundsEditor::importFromProject(const QList<QPair<QString, const SoundDocument*>>& sources)
+{
+    if (!m_page)
+        return;
+    QWidget* parent = m_page->window();
+    if (sources.isEmpty()) {
+        QMessageBox::warning(parent, tr("Warning"), tr("You can't import from the destination project!"));
+        return;
+    }
+    QList<ItemImportDialog::Source> projects;
+    for (const auto& source : sources) {
+        ItemImportDialog::Source project{source.first, {}};
+        for (const SoundEntry& sound : source.second->sounds())
+            project.items << ItemImportDialog::Item{QStringLiteral("%1, %2").arg(sound.group).arg(sound.number),
+                                                    QStringLiteral("%1,%2").arg(sound.group).arg(sound.number),
+                                                    sound.group * 65536 + sound.number};
+        projects << project;
+    }
+    ItemImportDialog dialog(ItemImportDialog::Kind::Sounds, projects, parent);
+    if (dialog.exec() != QDialog::Accepted || dialog.project() < 0 || dialog.project() >= sources.size() ||
+        !m_page->confirmDiscard())
+        return;
+    const SoundDocument& from = *sources[dialog.project()].second;
+    SoundFile* file = m_page->file();
+    SoundDocument edited = file->document();
+    QList<int> added;
+    int replaced = 0;
+    int after = m_page->current();
+    for (const ItemImportDialog::Chosen& chosen : dialog.items()) {
+        const QStringList parts = chosen.identifier.split(QLatin1Char(','));
+        bool okGroup = false;
+        bool okNumber = false;
+        const int group = parts.value(0).trimmed().toInt(&okGroup);
+        const int number = parts.value(1).trimmed().toInt(&okNumber);
+        if (parts.size() != 2 || !okGroup || !okNumber || chosen.source < 0 || chosen.source >= from.count())
+            continue;
+        const SoundEntry& sound = from.sounds()[chosen.source];
+        if (const int existing = edited.find(group, number); existing >= 0) {
+            bool replace = dialog.conflict() == ItemImportDialog::Conflict::Replace;
+            if (dialog.conflict() == ItemImportDialog::Conflict::Ask)
+                replace = QMessageBox::question(
+                              parent, tr("Conflict resolution!"),
+                              tr("Sound '%1,%2' already exists, do you want to replace it?").arg(group).arg(number),
+                              QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::Yes;
+            if (replace) {
+                edited.sounds()[existing].data = sound.data;
+                ++replaced;
+                continue;
+            }
+            if (dialog.conflict() != ItemImportDialog::Conflict::AsIs)
+                continue;
+        }
+        after = SoundEdits::insert(edited, after, group, number, sound.data ? *sound.data : Formats::Bytes());
+        added << after;
+    }
+    if (!added.isEmpty() || replaced > 0) {
+        file->apply(tr("Import from another project"), edited);
+        if (!added.isEmpty())
+            m_page->setCurrent(added.first());
+    }
+    const int count = int(added.size()) + replaced;
+    QMessageBox::information(parent, tr("Import from another project..."),
+                             count > 0 ? tr("%1 sound(s) were imported!").arg(count) : tr("No sound imported!"));
 }
 
 void SoundsEditor::setPage(SoundPage* page)
@@ -522,8 +588,6 @@ bool SoundsEditor::performFiles(const QString& id)
         file->apply(tr("Import"), edited);
         if (!added.isEmpty())
             page->setCurrent(added.first());
-    } else if (id == QLatin1String("snd_import_proj")) {
-        QMessageBox::warning(parent, tr("Warning"), tr("You can't import from the destination project!"));
     } else {
         return false;
     }

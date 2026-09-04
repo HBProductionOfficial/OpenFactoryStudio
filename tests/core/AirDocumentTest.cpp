@@ -185,6 +185,44 @@ private Q_SLOTS:
         QCOMPARE(lines.at(10), QStringLiteral("0,2, 0,0, 7"));
     }
 
+    void importAnimations()
+    {
+        const QStringList source = {"; Standing", "[Begin Action 0]",  "0,0, 0,0, 10", "",
+                                    "; Walking",  "[Begin Action 20]", "20,0, 0,0, 5"};
+        QStringList lines = {"; Old", "[Begin Action 0]", "9,9, 0,0, 1", "", "[Begin Action 6]", "6,0, 0,0, 4"};
+        using AirEdits::ImportConflict;
+
+        QStringList added = lines;
+        AirEdits::AnimationImportResult result =
+            AirEdits::importAnimations(added, 0, source, {{1, 7777}, {0, 5}}, ImportConflict::Ask);
+        QCOMPARE(result.added, (QList<int>{1, 2}));
+        QCOMPARE(result.replaced, 0);
+        QCOMPARE(added, (QStringList{"; Old", "[Begin Action 0]", "9,9, 0,0, 1", "", "; Walking", "[Begin Action 7777]",
+                                     "20,0, 0,0, 5", "", "; Standing", "[Begin Action 5]", "0,0, 0,0, 10", "",
+                                     "[Begin Action 6]", "6,0, 0,0, 4"}));
+
+        QStringList replaced = lines;
+        result = AirEdits::importAnimations(replaced, 1, source, {{0, 0}}, ImportConflict::Replace);
+        QCOMPARE(result.replaced, 1);
+        QCOMPARE(replaced.mid(0, 3), (QStringList{"; Standing", "[Begin Action 0]", "0,0, 0,0, 10"}));
+        QStringList skipped = lines;
+        result = AirEdits::importAnimations(skipped, 1, source, {{0, 6}}, ImportConflict::Skip);
+        QVERIFY(result.added.isEmpty());
+        QCOMPARE(skipped, lines);
+        int asked = 0;
+        result = AirEdits::importAnimations(skipped, 1, source, {{0, 6}}, ImportConflict::Ask, [&asked](int number) {
+            asked = number;
+            return false;
+        });
+        QCOMPARE(asked, 6);
+        QCOMPARE(skipped, lines);
+        QStringList twice = lines;
+        result = AirEdits::importAnimations(twice, -1, source, {{0, 6}}, ImportConflict::AsIs);
+        QCOMPARE(result.added, QList<int>{2});
+        QCOMPARE(twice.last(), QStringLiteral(""));
+        QCOMPARE(AirDocument::parse(twice).count(), 3);
+    }
+
     void animationEdits()
     {
         QStringList lines = sample();

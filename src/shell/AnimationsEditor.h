@@ -24,6 +24,7 @@ class AnimationCodeWindow;
 class AnimationPage;
 class AppContext;
 class OrganizerBinding;
+class SpriteDocument;
 
 // Left panel of the Animations editor, bound to the current animation page, plus the editor's actions.
 class AnimationsEditor : public QObject
@@ -41,6 +42,14 @@ public:
     void setPage(AnimationPage* page);
     AnimationPage* page() const { return m_page; }
     OrganizerBinding* organizer() const { return m_organizer; }
+
+    struct ImportSource
+    {
+        QString name;
+        QStringList lines;
+        const SpriteDocument* sprites = nullptr;
+    };
+    void importFromProject(const QList<ImportSource>& sources);
 
     bool perform(const QString& actionId);
     void copyBox();

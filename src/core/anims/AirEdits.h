@@ -2,6 +2,8 @@
 
 #include "core/anims/AirDocument.h"
 
+#include <functional>
+
 class QTextDocument;
 
 namespace OFS::AirEdits {
@@ -36,6 +38,27 @@ OFS_CORE_EXPORT int addAnimation(QStringList& lines, int after, int number, cons
 OFS_CORE_EXPORT void deleteAnimation(QStringList& lines, int animation);
 OFS_CORE_EXPORT int duplicateAnimation(QStringList& lines, int animation, int number);
 OFS_CORE_EXPORT QStringList animationText(const QStringList& lines, int animation);
+
+enum class ImportConflict
+{
+    Ask,
+    Replace,
+    Skip,
+    AsIs,
+};
+struct AnimationImport
+{
+    int source = 0;
+    int number = 0;
+};
+struct AnimationImportResult
+{
+    QList<int> added;
+    int replaced = 0;
+};
+OFS_CORE_EXPORT AnimationImportResult importAnimations(QStringList& lines, int after, const QStringList& source,
+                                                       const QList<AnimationImport>& items, ImportConflict conflict,
+                                                       const std::function<bool(int number)>& askReplace = {});
 OFS_CORE_EXPORT void replaceAnimation(QStringList& lines, int animation, const QStringList& text);
 
 OFS_CORE_EXPORT int insertFrames(QStringList& lines, int animation, int after, const QList<AirFrame>& frames);

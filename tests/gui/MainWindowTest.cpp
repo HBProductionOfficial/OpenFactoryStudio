@@ -30,6 +30,7 @@
 #include "shell/ImageEditor.h"
 #include "shell/ProjectView.h"
 #include "shell/SoundPage.h"
+#include "shell/SoundsEditor.h"
 #include "shell/SpritePage.h"
 #include "shell/SpritesEditor.h"
 #include "shell/StatusBar.h"
@@ -3976,6 +3977,102 @@ private Q_SLOTS:
                             "' doesn't exist. Do you want to remove it from the history?");
         for (const History::Entry& entry : m_context->history().entries())
             QVERIFY(entry.file != dir.filePath("gone.def"));
+    }
+
+    void importFromAnotherProject()
+    {
+        QTemporaryDir dir;
+        auto wav = [](std::size_t frames, std::int16_t value) {
+            auto bytes = Formats::encodeAudio(
+                Formats::SampleBuffer::fromInt16(std::vector<std::int16_t>(frames, value), 1, 11025));
+            return bytes ? bytes.value() : Formats::Bytes();
+        };
+        auto writeSnd = [&wav](const QString& path, const QList<QPair<int, int>>& ids) {
+            Formats::SndDocument snd;
+            for (const auto& id : ids)
+                snd.sounds.push_back(Formats::SndSound{id.first, id.second, wav(50, std::int16_t(id.second))});
+            const Formats::Bytes bytes = snd.write();
+            writeFile(path, QByteArray(reinterpret_cast<const char*>(bytes.data()), qsizetype(bytes.size())));
+        };
+        for (const char* name : {"a", "b"}) {
+            writeFile(dir.filePath(QStringLiteral("%1.def").arg(name)),
+                      QStringLiteral("[Info]\nname = \"%1\"\nmugenversion = 1.0\n[Files]\ncns = %1.cns\n"
+                                     "anim = %1.air\nsound = %1.snd\n")
+                          .arg(QString::fromLatin1(name).toUpper())
+                          .toUtf8());
+            writeFile(dir.filePath(QStringLiteral("%1.cns").arg(name)), "[Data]\nlife = 1000\n");
+        }
+        writeFile(dir.filePath("a.air"), "; Old\n[Begin Action 0]\n9,9, 0,0, 1\n\n[Begin Action 6]\n6,0, 0,0, 4\n");
+        writeFile(dir.filePath("b.air"), "; Standing\n[Begin Action 0]\n0,0, 0,0, 10\n\n"
+                                         "; Walking\n[Begin Action 20]\n20,0, 0,0, 5\n");
+        writeSnd(dir.filePath("a.snd"), {{0, 0}});
+        writeSnd(dir.filePath("b.snd"), {{0, 77}, {0, 1}});
+
+        MainWindow window(*m_context);
+        window.show();
+        ActionRegistry& actions = m_context->actions();
+        QVERIFY(window.openProject(dir.filePath("b.def")));
+        QVERIFY(window.openProject(dir.filePath("a.def")));
+        ProjectView* a = window.currentProjectView();
+        QCOMPARE(a->project()->name(), QStringLiteral("A"));
+
+        actions.action("editor_anim")->trigger();
+        QStringList sourceRows;
+        whenModal<QDialog>([&sourceRows](QDialog* dialog) {
+            QCOMPARE(dialog->objectName(), QStringLiteral("ProjImportDlg"));
+            QCOMPARE(dialog->findChild<QComboBox*>("projList")->currentText(), QStringLiteral("B"));
+            auto* list = dialog->findChild<QListWidget*>("list");
+            for (int i = 0; i < list->count(); ++i)
+                sourceRows << list->item(i)->text();
+            list->selectAll();
+            dialog->findChild<QPushButton*>("addBut")->click();
+            auto* destination = dialog->findChild<QListWidget*>("destList");
+            QCOMPARE(destination->count(), 2);
+            destination->item(1)->setText("7777");
+            QVERIFY(dialog->findChild<QRadioButton*>("ask")->isChecked());
+            dialog->findChild<QDialogButtonBox*>("buttonBox")->button(QDialogButtonBox::Ok)->click();
+        });
+        QStringList boxes;
+        answerBoxes({QMessageBox::No, QMessageBox::Ok}, &boxes);
+        actions.action("anim_import_proj")->trigger();
+        QCOMPARE(sourceRows, (QStringList{"0 - Standing", "20 - Walking"}));
+        QCOMPARE(boxes, (QStringList{"Animation '0' already exists, do you want to replace it?",
+                                     "1 animation(s) were imported!"}));
+        auto* anims = qobject_cast<CodeFile*>(a->project()->file(dir.filePath("a.air")));
+        QCOMPARE(anims->document()->toPlainText(),
+                 QStringLiteral("; Old\n[Begin Action 0]\n9,9, 0,0, 1\n\n; Walking\n[Begin Action 7777]\n"
+                                "20,0, 0,0, 5\n\n[Begin Action 6]\n6,0, 0,0, 4\n"));
+        QCOMPARE(a->animationsEditor()->page()->current(), 1);
+
+        actions.action("editor_snd")->trigger();
+        whenModal<QDialog>([](QDialog* dialog) {
+            auto* list = dialog->findChild<QListWidget*>("list");
+            QCOMPARE(list->item(0)->text(), QStringLiteral("0, 77"));
+            list->selectAll();
+            dialog->findChild<QPushButton*>("addBut")->click();
+            auto* destination = dialog->findChild<QListWidget*>("destList");
+            QCOMPARE(destination->item(0)->text(), QStringLiteral("0,77"));
+            destination->item(1)->setText("0,0");
+            dialog->findChild<QRadioButton*>("replace")->setChecked(true);
+            dialog->findChild<QDialogButtonBox*>("buttonBox")->button(QDialogButtonBox::Ok)->click();
+        });
+        boxes.clear();
+        answerBoxes({QMessageBox::Ok}, &boxes);
+        actions.action("snd_import_proj")->trigger();
+        QCOMPARE(boxes, QStringList{"2 sound(s) were imported!"});
+        auto* sounds = qobject_cast<SoundFile*>(a->project()->file(dir.filePath("a.snd")));
+        QCOMPARE(sounds->document().count(), 2);
+        QCOMPARE(sounds->document().sounds()[1].number, 77);
+        QCOMPARE(a->soundsEditor()->page()->current(), 1);
+
+        actions.action("file_close_others")->trigger();
+        boxes.clear();
+        answerBoxes({QMessageBox::Ok}, &boxes);
+        actions.action("snd_import_proj")->trigger();
+        QCOMPARE(boxes, QStringList{"You can't import from the destination project!"});
+
+        anims->document()->setModified(false);
+        sounds->undoStack()->setClean();
     }
 
 private:

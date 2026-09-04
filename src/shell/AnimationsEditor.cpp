@@ -11,10 +11,12 @@
 #include "core/settings/Config.h"
 #include "core/sprites/SpriteExport.h"
 #include "core/sprites/SpriteFile.h"
+#include "core/sprites/SpriteTransfer.h"
 #include "shell/AnimationPage.h"
 #include "shell/FileDialogs.h"
 #include "shell/OrganizerBinding.h"
 #include "shell/dialogs/AnimationDialogs.h"
+#include "shell/dialogs/ProjectDialogs.h"
 
 #include <QAction>
 #include <QCheckBox>
@@ -307,6 +309,91 @@ void AnimationsEditor::setPage(AnimationPage* page)
     refreshOnion();
     m_organizer->refresh();
     Q_EMIT stateChanged();
+}
+
+void AnimationsEditor::importFromProject(const QList<ImportSource>& sources)
+{
+    if (!m_page)
+        return;
+    QWidget* parent = m_page->window();
+    if (sources.isEmpty()) {
+        QMessageBox::warning(parent, tr("Warning"), tr("You can't import from the destination project!"));
+        return;
+    }
+    QList<ItemImportDialog::Source> projects;
+    QList<AirDocument> documents;
+    for (const ImportSource& source : sources) {
+        documents << AirDocument::parse(source.lines);
+        ItemImportDialog::Source project{source.name, {}};
+        for (const AirAnimation& a : documents.last().animations())
+            project.items << ItemImportDialog::Item{QStringLiteral("%1 - %2").arg(a.number).arg(a.name),
+                                                    QString::number(a.number), a.number};
+        projects << project;
+    }
+    ItemImportDialog dialog(ItemImportDialog::Kind::Animations, projects, parent);
+    if (dialog.exec() != QDialog::Accepted || dialog.project() < 0 || dialog.project() >= sources.size())
+        return;
+    const ImportSource& source = sources[dialog.project()];
+    QList<AirEdits::AnimationImport> imports;
+    for (const ItemImportDialog::Chosen& chosen : dialog.items()) {
+        bool ok = false;
+        const int number = chosen.identifier.toInt(&ok);
+        if (ok)
+            imports << AirEdits::AnimationImport{chosen.source, number};
+    }
+    AirEdits::AnimationImportResult result;
+    if (!imports.isEmpty()) {
+        const AirEdits::ImportConflict conflict = static_cast<AirEdits::ImportConflict>(dialog.conflict());
+        auto ask = [parent](int number) {
+            return QMessageBox::question(parent, tr("Conflict resolution!"),
+                                         tr("Animation '%1' already exists, do you want to replace it?").arg(number),
+                                         QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::Yes;
+        };
+        const int after = m_page->current();
+        m_page->edit([&](QStringList& lines) {
+            result = AirEdits::importAnimations(lines, after, source.lines, imports, conflict, ask);
+        });
+        if (!result.added.isEmpty())
+            m_page->setCurrent(result.added.first());
+    }
+
+    if (dialog.importSprites() && source.sprites && !imports.isEmpty()) {
+        auto* project = qobject_cast<Project*>(m_page->file()->parent());
+        const QStringList files = project ? project->editorFiles(QStringLiteral("sprites")) : QStringList();
+        SpriteFile* sprites = project && !files.isEmpty() && !files.first().isEmpty()
+                                  ? project->spriteFile(files.first(), QStringLiteral("sprites"))
+                                  : nullptr;
+        if (sprites) {
+            const AirDocument& from = documents[dialog.project()];
+            QList<ProjectImportItem> items;
+            QSet<QPair<int, int>> wanted;
+            for (const AirEdits::AnimationImport& import : std::as_const(imports)) {
+                if (import.source < 0 || import.source >= from.count())
+                    continue;
+                for (const AirFrame& frame : from.animations()[import.source].frames) {
+                    const QPair<int, int> id(frame.group, frame.number);
+                    if (frame.group < 0 || wanted.contains(id))
+                        continue;
+                    wanted.insert(id);
+                    const int at = source.sprites->findSprite(frame.group, frame.number);
+                    if (at >= 0 && sprites->document().findSprite(frame.group, frame.number) < 0)
+                        items << ProjectImportItem{at, frame.group, frame.number};
+                }
+            }
+            if (!items.isEmpty()) {
+                SpriteDocument edited = sprites->document();
+                ProjectImportOptions options;
+                options.conflict = ProjectImportOptions::Conflict::Skip;
+                OFS::importFromProject(edited, edited.spriteCount() - 1, *source.sprites, items, options);
+                sprites->apply(tr("Import from another project"), edited);
+            }
+        }
+    }
+
+    const int count = int(result.added.size()) + result.replaced;
+    QMessageBox::information(parent, tr("Import from another project..."),
+                             count > 0 ? tr("%1 animation(s) were imported!").arg(count)
+                                       : tr("No animation imported!"));
 }
 
 void AnimationsEditor::applyFrame(const std::function<void(AirFrame&)>& change)
@@ -651,8 +738,6 @@ bool AnimationsEditor::performDialog(const QString& id)
         refreshOnion();
     } else if (id == QLatin1String("anim_save_gif")) {
         saveGif();
-    } else if (id == QLatin1String("anim_import_proj")) {
-        QMessageBox::warning(parent, tr("Warning"), tr("You can't import from the destination project!"));
     } else if (id == QLatin1String("thumb_save")) {
         const QList<int> sprites = explorerSprites(false);
         auto* project = qobject_cast<Project*>(page->file()->parent());

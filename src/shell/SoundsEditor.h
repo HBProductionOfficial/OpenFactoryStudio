@@ -12,6 +12,7 @@ class QWidget;
 namespace OFS {
 
 class OrganizerBinding;
+class SoundDocument;
 
 class AppContext;
 class SoundPage;
@@ -28,6 +29,8 @@ public:
     void setPage(SoundPage* page);
     SoundPage* page() const { return m_page; }
     OrganizerBinding* organizer() const { return m_organizer; }
+
+    void importFromProject(const QList<QPair<QString, const SoundDocument*>>& sources);
 
     bool perform(const QString& actionId);
     bool confirmLeave();

@@ -374,6 +374,54 @@ QStringList animationText(const QStringList& lines, int animation)
     return lines.mid(first, anim->lastLine - first + 1);
 }
 
+AnimationImportResult importAnimations(QStringList& lines, int after, const QStringList& source,
+                                       const QList<AnimationImport>& items, ImportConflict conflict,
+                                       const std::function<bool(int number)>& askReplace)
+{
+    static const QRegularExpression header(QStringLiteral("^(\\s*\\[\\s*begin\\s+action\\s+)(-?\\d+)(.*)$"),
+                                           QRegularExpression::CaseInsensitiveOption);
+    AnimationImportResult result;
+    for (const AnimationImport& item : items) {
+        QStringList text = animationText(source, item.source);
+        if (text.isEmpty())
+            continue;
+        for (QString& line : text) {
+            const QRegularExpressionMatch m = header.match(line);
+            if (m.hasMatch()) {
+                line = m.captured(1) + QString::number(item.number) + m.captured(3);
+                break;
+            }
+        }
+        const AirDocument doc = AirDocument::parse(lines);
+        if (const int existing = doc.indexOf(item.number); existing >= 0) {
+            const bool replace = conflict == ImportConflict::Replace ||
+                                 (conflict == ImportConflict::Ask && askReplace && askReplace(item.number));
+            if (replace) {
+                replaceAnimation(lines, existing, text);
+                ++result.replaced;
+                continue;
+            }
+            if (conflict != ImportConflict::AsIs)
+                continue;
+        }
+        const bool inside = after >= 0 && after < doc.count();
+        const int at = inside ? doc.animations()[after].lastLine + 1 : int(lines.size());
+        QStringList block;
+        if (at > 0 && !lines.at(at - 1).trimmed().isEmpty())
+            block << QString();
+        block << text;
+        if (at < lines.size() && !lines.at(at).trimmed().isEmpty())
+            block << QString();
+        else if (at >= lines.size())
+            block << QString();
+        for (int i = 0; i < block.size(); ++i)
+            lines.insert(at + i, block.at(i));
+        after = inside ? after + 1 : doc.count();
+        result.added << after;
+    }
+    return result;
+}
+
 void replaceAnimation(QStringList& lines, int animation, const QStringList& text)
 {
     const AirDocument doc = AirDocument::parse(lines);
