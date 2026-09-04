@@ -31,6 +31,18 @@ private Q_SLOTS:
         QCOMPARE(moved, QList<int>{0});
     }
 
+    void dropOrder()
+    {
+        QList<int> moved;
+        QCOMPARE(Organize::dropOrder(5, {3}, 1, &moved), (QList<int>{0, 3, 1, 2, 4}));
+        QCOMPARE(moved, QList<int>{1});
+        QCOMPARE(Organize::dropOrder(5, {0, 2}, 5, &moved), (QList<int>{1, 3, 4, 0, 2}));
+        QCOMPARE(moved, (QList<int>{3, 4}));
+        QCOMPARE(Organize::dropOrder(5, {1, 4}, 0, &moved), (QList<int>{1, 4, 0, 2, 3}));
+        QCOMPARE(Organize::dropOrder(3, {1}, 2, &moved), (QList<int>{0, 1, 2}));
+        QCOMPARE(moved, QList<int>{1});
+    }
+
     void blocks()
     {
         const QStringList lines = {

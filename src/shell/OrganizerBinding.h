@@ -36,9 +36,14 @@ public:
     void refresh();
     bool perform(const QString& actionId);
     QList<int> selection() const;
+    void dropSelection(int target);
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
     void select(const QList<int>& rows);
+    void apply(const QList<int>& order, const QList<int>& moved);
 
     Source m_source;
     QPointer<QListView> m_list;

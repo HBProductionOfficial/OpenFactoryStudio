@@ -54,6 +54,31 @@ QList<int> moveOrder(int count, QList<int> rows, int delta, QList<int>* moved)
     return order;
 }
 
+QList<int> dropOrder(int count, QList<int> rows, int target, QList<int>* moved)
+{
+    rows.removeIf([count](int r) { return r < 0 || r >= count; });
+    std::sort(rows.begin(), rows.end());
+    rows.erase(std::unique(rows.begin(), rows.end()), rows.end());
+    target = std::clamp(target, 0, count);
+    QList<int> order;
+    int insertAt = 0;
+    for (int i = 0; i < count; ++i) {
+        if (rows.contains(i))
+            continue;
+        if (i < target)
+            ++insertAt;
+        order << i;
+    }
+    QList<int> positions;
+    for (int k = 0; k < rows.size(); ++k) {
+        order.insert(insertAt + k, rows[k]);
+        positions << insertAt + k;
+    }
+    if (moved)
+        *moved = positions;
+    return order;
+}
+
 namespace {
 
 bool isHeader(const QString& line)

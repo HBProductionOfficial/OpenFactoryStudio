@@ -28,6 +28,7 @@
 #include "shell/ControllerTemplatesWidget.h"
 #include "shell/FileDialogs.h"
 #include "shell/ImageEditor.h"
+#include "shell/OrganizerBinding.h"
 #include "shell/ProjectView.h"
 #include "shell/SoundPage.h"
 #include "shell/SoundsEditor.h"
@@ -49,6 +50,7 @@
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QDoubleSpinBox>
+#include <QDropEvent>
 #include <QFile>
 #include <QInputDialog>
 #include <QLabel>
@@ -3941,6 +3943,14 @@ private Q_SLOTS:
         const QString text = commands->document()->toPlainText();
         actions.action("org_auto")->trigger();
         QCOMPARE(commands->document()->toPlainText(), text);
+        QVERIFY(list->viewport()->acceptDrops());
+        QCOMPARE(list->dragDropMode(), QAbstractItemView::InternalMove);
+        selectRow(0);
+        view->commandsOrganizer()->dropSelection(3);
+        QCOMPARE(rows(), (QStringList{"BB", "x", "FF"}));
+        QCOMPARE(list->selectionModel()->selectedRows().first().row(), 2);
+        actions.action("edit_undo")->trigger();
+        QTRY_COMPARE(rows(), (QStringList{"FF", "BB", "x"})); // the list catches up with the text shortly after
         QVERIFY(text.startsWith("[Remap]\nx = x\n\n[Command]\nname = \"FF\""));
         QVERIFY(text.endsWith("\n\n[Statedef -1]\n"));
 

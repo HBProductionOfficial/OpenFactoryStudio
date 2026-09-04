@@ -2,6 +2,7 @@
 
 #include "core/editors/Organize.h"
 
+#include <QDropEvent>
 #include <QListView>
 #include <QStringListModel>
 
@@ -29,11 +30,20 @@ void OrganizerBinding::setActive(bool active)
     if (!m_list)
         return;
     disconnect(m_list, nullptr, this, nullptr);
-    if (!active)
+    m_list->viewport()->removeEventFilter(this);
+    if (!active) {
+        m_list->setDragDropMode(QAbstractItemView::NoDragDrop);
         return;
+    }
     m_list->setModel(m_model);
     m_list->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_list->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_list->setDragDropMode(QAbstractItemView::InternalMove);
+    m_list->setDefaultDropAction(Qt::MoveAction);
+    m_list->setDropIndicatorShown(true);
+    // Qt only sends drops to a widget that accepts them.
+    m_list->viewport()->setAcceptDrops(true);
+    m_list->viewport()->installEventFilter(this);
     connect(m_list, &QListView::doubleClicked, this, [this](const QModelIndex& index) {
         if (m_source.activate)
             m_source.activate(index.row());
@@ -74,6 +84,44 @@ void OrganizerBinding::select(const QList<int>& rows)
     }
 }
 
+bool OrganizerBinding::eventFilter(QObject* watched, QEvent* event)
+{
+    if (!m_list || watched != m_list->viewport() || event->type() != QEvent::Drop || !m_active ||
+        m_list->model() != m_model)
+        return QObject::eventFilter(watched, event);
+    auto* drop = static_cast<QDropEvent*>(event);
+    // Drop before the item under the pointer, or after it on its lower half. Below the rows means the end.
+    const QPoint position = drop->position().toPoint();
+    const QModelIndex index = m_list->indexAt(position);
+    int target = m_model->rowCount();
+    if (index.isValid()) {
+        const QRect rect = m_list->visualRect(index);
+        target = index.row() + (position.y() > rect.center().y() ? 1 : 0);
+    }
+    drop->setDropAction(Qt::IgnoreAction); // the list itself does not move anything
+    drop->accept();
+    dropSelection(target);
+    return true;
+}
+
+void OrganizerBinding::dropSelection(int target)
+{
+    const QList<int> rows = selection();
+    if (rows.isEmpty() || !m_source.reorder)
+        return;
+    QList<int> moved;
+    const QList<int> order = Organize::dropOrder(m_model->rowCount(), rows, target, &moved);
+    if (moved != rows)
+        apply(order, moved);
+}
+
+void OrganizerBinding::apply(const QList<int>& order, const QList<int>& moved)
+{
+    m_source.reorder(order);
+    refresh();
+    select(moved);
+}
+
 bool OrganizerBinding::perform(const QString& actionId)
 {
     if (!actionId.startsWith(QLatin1String("org_")))
@@ -98,9 +146,7 @@ bool OrganizerBinding::perform(const QString& actionId)
     const QList<int> order = Organize::moveOrder(count, rows, delta, &moved);
     if (moved == rows)
         return true;
-    m_source.reorder(order);
-    refresh();
-    select(moved);
+    apply(order, moved);
     return true;
 }
 

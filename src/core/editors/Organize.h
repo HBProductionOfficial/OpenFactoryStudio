@@ -14,6 +14,7 @@ OFS_CORE_EXPORT int deltaOf(const QString& actionId, int count);
 
 // order[i] is the old position of the item now at i. *moved gets the rows' new positions.
 OFS_CORE_EXPORT QList<int> moveOrder(int count, QList<int> rows, int delta, QList<int>* moved = nullptr);
+OFS_CORE_EXPORT QList<int> dropOrder(int count, QList<int> rows, int target, QList<int>* moved = nullptr);
 
 // A section as the organizer moves it: from the comment lines right above its header to its last
 // non-blank line (contentEnd, exclusive). Blank lines after it, up to `end`, stay in place.
