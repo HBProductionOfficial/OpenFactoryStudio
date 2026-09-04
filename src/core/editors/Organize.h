@@ -26,6 +26,7 @@ struct Block
 };
 
 OFS_CORE_EXPORT QList<Block> sectionBlocks(const QStringList& lines, const QRegularExpression& header);
+OFS_CORE_EXPORT QList<Block> sectionBlocks(const QStringList& lines, const QList<int>& headerLines);
 
 OFS_CORE_EXPORT void reorderBlocks(QStringList& lines, const QList<Block>& blocks, const QList<int>& order);
 

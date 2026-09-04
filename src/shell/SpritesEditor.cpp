@@ -1,6 +1,7 @@
 #include "shell/SpritesEditor.h"
 
 #include "core/app/AppContext.h"
+#include "core/editors/Organize.h"
 #include "core/engine/Engine.h"
 #include "core/project/Project.h"
 #include "core/settings/Config.h"
@@ -12,6 +13,7 @@
 #include "core/widgets/GraphicsView.h"
 #include "shell/FileDialogs.h"
 #include "shell/ImageEditor.h"
+#include "shell/OrganizerBinding.h"
 #include "shell/PalettesPanel.h"
 #include "shell/SpritePage.h"
 #include "shell/dialogs/SpriteDialogs.h"
@@ -172,8 +174,10 @@ void SpritesEditor::setOrganizerActive(bool active)
         disconnect(m_organizer, nullptr, this, nullptr);
     if (m_organizePalettes)
         disconnect(m_organizePalettes, nullptr, this, nullptr);
-    if (!active)
+    if (!active) {
+        OrganizerDrops::disable(m_organizer, this);
         return;
+    }
     if (m_organizer) {
         if (!m_organizerModel)
             m_organizerModel = new QStringListModel(this);
@@ -184,10 +188,39 @@ void SpritesEditor::setOrganizerActive(bool active)
             if (m_page && !organizePalettes())
                 m_page->setCurrent(index.row());
         });
+        OrganizerDrops::enable(m_organizer, this, [this](int target) { dropOrganizerRows(target); });
     }
     if (m_organizePalettes)
         connect(m_organizePalettes, &QToolButton::toggled, this, &SpritesEditor::refreshOrganizer);
     refreshOrganizer();
+}
+
+void SpritesEditor::dropOrganizerRows(int target)
+{
+    if (!m_page)
+        return;
+    const QList<int> rows = organizerSelection();
+    SpriteFile* file = m_page->file();
+    const SpriteDocument& doc = file->document();
+    const bool palettes = organizePalettes();
+    const int count = palettes ? int(doc.palettes().size()) : doc.spriteCount();
+    QList<int> moved;
+    const QList<int> order = Organize::dropOrder(count, rows, target, &moved);
+    if (rows.isEmpty() || moved == rows)
+        return;
+    SpriteDocument edited = doc;
+    for (int i = 0; i < count; ++i) {
+        if (palettes)
+            edited.palettes()[i] = doc.palettes()[order[i]];
+        else
+            edited.sprites()[i] = doc.sprites()[order[i]];
+    }
+    file->apply(tr("Organize"), edited);
+    if (m_organizer && m_organizerModel) {
+        m_organizer->selectionModel()->clearSelection();
+        for (int row : std::as_const(moved))
+            m_organizer->selectionModel()->select(m_organizerModel->index(row), QItemSelectionModel::Select);
+    }
 }
 
 bool SpritesEditor::organizePalettes() const

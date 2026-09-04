@@ -38,6 +38,7 @@ public:
     void bindPanel(QWidget* panel);
     void bindOrganizer(QWidget* panel);
     void setOrganizerActive(bool active);
+    void dropOrganizerRows(int target);
     void bindPalettes(QWidget* panel);
     PalettesPanel* palettes() const { return m_palettes; }
     void bindExplorer(QWidget* panel);

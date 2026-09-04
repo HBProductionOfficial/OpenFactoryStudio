@@ -23,6 +23,7 @@
 #include "shell/AdvancedSearchPanel.h"
 #include "shell/AnimationPage.h"
 #include "shell/AnimationsEditor.h"
+#include "shell/BackgroundsEditor.h"
 #include "shell/BackgroundsPage.h"
 #include "shell/CodePage.h"
 #include "shell/ControllerTemplatesWidget.h"
@@ -1311,6 +1312,12 @@ private Q_SLOTS:
         QCOMPARE(page->file()->document().sprites()[0].number(), 1);
         page->file()->undoStack()->undo();
         QCOMPARE(page->file()->document().sprites()[2].number(), 1);
+        QVERIFY(organizer->viewport()->acceptDrops());
+        organizer->selectionModel()->select(organizer->model()->index(2, 0), QItemSelectionModel::ClearAndSelect);
+        view->spritesEditor()->dropOrganizerRows(0);
+        QCOMPARE(page->file()->document().sprites()[0].number(), 1);
+        QCOMPARE(organizer->selectionModel()->selectedRows().first().row(), 0);
+        page->file()->undoStack()->undo();
 
         m_context->config().setValue("confirm_delete", false);
         actions.action("spr_delete")->trigger();
@@ -3101,6 +3108,11 @@ private Q_SLOTS:
         QVERIFY(text->toPlainText().indexOf("[BG Sky]") < text->toPlainText().indexOf("[BG Floor]"));
         QCOMPARE(organizer->model()->index(0, 0).data().toString(), QStringLiteral("Sky"));
         page->view()->setFocus();
+        actions.action("edit_undo")->trigger();
+        QVERIFY(text->toPlainText().indexOf("[BG Floor]") < text->toPlainText().indexOf("[BG Sky]"));
+        organizer->selectionModel()->select(organizer->model()->index(0, 0), QItemSelectionModel::ClearAndSelect);
+        view->backgroundsEditor()->dropElements(2);
+        QVERIFY(text->toPlainText().indexOf("[BG Sky]") < text->toPlainText().indexOf("[BG Floor]"));
         actions.action("edit_undo")->trigger();
         QVERIFY(text->toPlainText().indexOf("[BG Floor]") < text->toPlainText().indexOf("[BG Sky]"));
         actions.action("view_organizer")->setChecked(false);

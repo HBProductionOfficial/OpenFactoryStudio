@@ -39,6 +39,8 @@ public:
     void bindControllers(QWidget* panel);
     void bindOrganizer(QWidget* panel);
     void setOrganizerActive(bool active);
+    // `target` is the row to drop before, the row count for the end.
+    void dropElements(int target);
     void setPage(BackgroundsPage* page);
     BackgroundsPage* page() const { return m_page; }
 

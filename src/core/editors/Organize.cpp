@@ -105,6 +105,16 @@ int sectionStart(const QStringList& lines, int header, int floor)
 
 QList<Block> sectionBlocks(const QStringList& lines, const QRegularExpression& header)
 {
+    QList<int> wanted;
+    for (int i = 0; i < lines.size(); ++i) {
+        if (isHeader(lines.at(i)) && header.match(lines.at(i)).hasMatch())
+            wanted << i;
+    }
+    return sectionBlocks(lines, wanted);
+}
+
+QList<Block> sectionBlocks(const QStringList& lines, const QList<int>& headerLines)
+{
     QList<int> headers;
     for (int i = 0; i < lines.size(); ++i) {
         if (isHeader(lines.at(i)))
@@ -118,7 +128,7 @@ QList<Block> sectionBlocks(const QStringList& lines, const QRegularExpression& h
     }
     QList<Block> blocks;
     for (int k = 0; k < headers.size(); ++k) {
-        if (!header.match(lines.at(headers[k])).hasMatch())
+        if (!headerLines.contains(headers[k]))
             continue;
         Block block;
         block.start = starts[k];

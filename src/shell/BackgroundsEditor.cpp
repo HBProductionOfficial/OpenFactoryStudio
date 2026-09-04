@@ -2,11 +2,13 @@
 
 #include "core/app/AppContext.h"
 #include "core/bg/BgEdits.h"
+#include "core/editors/Organize.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
 #include "core/settings/Config.h"
 #include "core/sprites/SpriteFile.h"
 #include "shell/BackgroundsPage.h"
+#include "shell/OrganizerBinding.h"
 #include "shell/dialogs/BackgroundDialogs.h"
 
 #include <QCheckBox>
@@ -446,6 +448,8 @@ void BackgroundsEditor::setOrganizerActive(bool active)
         return;
     disconnect(m_organizer, nullptr, this, nullptr);
     if (!active)
+        OrganizerDrops::disable(m_organizer, this);
+    if (!active)
         return;
     if (!m_organizerModel) {
         m_organizerModel = new QStandardItemModel(this);
@@ -463,6 +467,7 @@ void BackgroundsEditor::setOrganizerActive(bool active)
     m_organizer->setModel(m_organizerModel);
     m_organizer->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_organizer->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    OrganizerDrops::enable(m_organizer, this, [this](int target) { dropElements(target); });
     connect(m_organizer, &QListView::doubleClicked, this, [this](const QModelIndex& index) {
         if (m_page)
             m_page->setCurrent(index.row());
@@ -542,6 +547,34 @@ void BackgroundsEditor::moveElements(const QString& id)
             if (!changed)
                 break;
         }
+    });
+    if (m_organizer && m_organizerModel) {
+        m_organizer->selectionModel()->clearSelection();
+        for (int row : std::as_const(moved))
+            m_organizer->selectionModel()->select(m_organizerModel->index(row, 0), QItemSelectionModel::Select);
+    }
+}
+
+void BackgroundsEditor::dropElements(int target)
+{
+    const BgGroup* g = m_page ? m_page->currentGroup() : nullptr;
+    const QList<int> rows = organizerSelection();
+    if (!g || rows.isEmpty())
+        return;
+    const int count = int(g->elements.size());
+    QList<int> moved;
+    const QList<int> order = Organize::dropOrder(count, rows, target, &moved);
+    if (moved == rows)
+        return;
+    const int group = m_page->group();
+    m_page->edit([&](QStringList& lines) {
+        const BgDocument doc = BgDocument::parse(lines);
+        QList<int> headers;
+        for (const BgElement& element : doc.groups()[group].elements)
+            headers << element.section.headerLine;
+        const QList<Organize::Block> blocks = Organize::sectionBlocks(lines, headers);
+        if (blocks.size() == order.size())
+            Organize::reorderBlocks(lines, blocks, order);
     });
     if (m_organizer && m_organizerModel) {
         m_organizer->selectionModel()->clearSelection();

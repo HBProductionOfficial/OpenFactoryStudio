@@ -10,6 +10,83 @@
 
 namespace OFS {
 
+namespace {
+
+// Turns the drops of a list into "dropped before row n".
+class DropFilter : public QObject
+{
+public:
+    DropFilter(QListView* list, QObject* owner, std::function<void(int)> dropped)
+        : QObject(list)
+        , m_list(list)
+        , m_owner(owner)
+        , m_dropped(std::move(dropped))
+    {}
+
+    QObject* owner() const { return m_owner; }
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override
+    {
+        if (watched != m_list->viewport() || event->type() != QEvent::Drop)
+            return QObject::eventFilter(watched, event);
+        auto* drop = static_cast<QDropEvent*>(event);
+        // Drop before the item under the pointer, or after it on its lower half. Below the rows means the end.
+        const QPoint position = drop->position().toPoint();
+        const QModelIndex index = m_list->indexAt(position);
+        int target = m_list->model() ? m_list->model()->rowCount() : 0;
+        if (index.isValid())
+            target = index.row() + (position.y() > m_list->visualRect(index).center().y() ? 1 : 0);
+        drop->setDropAction(Qt::IgnoreAction); // the list itself does not move anything
+        drop->accept();
+        m_dropped(target);
+        return true;
+    }
+
+private:
+    QListView* m_list;
+    QPointer<QObject> m_owner;
+    std::function<void(int)> m_dropped;
+};
+
+DropFilter* currentFilter(QListView* list)
+{
+    return dynamic_cast<DropFilter*>(list->property("organizerDrops").value<QObject*>());
+}
+
+} // namespace
+
+namespace OrganizerDrops {
+
+void enable(QListView* list, QObject* owner, std::function<void(int target)> dropped)
+{
+    if (!list)
+        return;
+    delete currentFilter(list);
+    auto* filter = new DropFilter(list, owner, std::move(dropped));
+    list->setProperty("organizerDrops", QVariant::fromValue<QObject*>(filter));
+    list->setDragDropMode(QAbstractItemView::InternalMove);
+    list->setDefaultDropAction(Qt::MoveAction);
+    list->setDropIndicatorShown(true);
+    // Qt only sends drops to a widget that accepts them.
+    list->viewport()->setAcceptDrops(true);
+    list->viewport()->installEventFilter(filter);
+}
+
+void disable(QListView* list, QObject* owner)
+{
+    if (!list)
+        return;
+    DropFilter* filter = currentFilter(list);
+    if (!filter || filter->owner() != owner)
+        return;
+    delete filter;
+    list->setProperty("organizerDrops", QVariant());
+    list->setDragDropMode(QAbstractItemView::NoDragDrop);
+}
+
+} // namespace OrganizerDrops
+
 OrganizerBinding::OrganizerBinding(Source source, QObject* parent)
     : QObject(parent)
     , m_source(std::move(source))
@@ -30,20 +107,14 @@ void OrganizerBinding::setActive(bool active)
     if (!m_list)
         return;
     disconnect(m_list, nullptr, this, nullptr);
-    m_list->viewport()->removeEventFilter(this);
     if (!active) {
-        m_list->setDragDropMode(QAbstractItemView::NoDragDrop);
+        OrganizerDrops::disable(m_list, this);
         return;
     }
     m_list->setModel(m_model);
     m_list->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_list->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    m_list->setDragDropMode(QAbstractItemView::InternalMove);
-    m_list->setDefaultDropAction(Qt::MoveAction);
-    m_list->setDropIndicatorShown(true);
-    // Qt only sends drops to a widget that accepts them.
-    m_list->viewport()->setAcceptDrops(true);
-    m_list->viewport()->installEventFilter(this);
+    OrganizerDrops::enable(m_list, this, [this](int target) { dropSelection(target); });
     connect(m_list, &QListView::doubleClicked, this, [this](const QModelIndex& index) {
         if (m_source.activate)
             m_source.activate(index.row());
@@ -82,26 +153,6 @@ void OrganizerBinding::select(const QList<int>& rows)
         if (row >= 0 && row < m_model->rowCount())
             m_list->selectionModel()->select(m_model->index(row), QItemSelectionModel::Select);
     }
-}
-
-bool OrganizerBinding::eventFilter(QObject* watched, QEvent* event)
-{
-    if (!m_list || watched != m_list->viewport() || event->type() != QEvent::Drop || !m_active ||
-        m_list->model() != m_model)
-        return QObject::eventFilter(watched, event);
-    auto* drop = static_cast<QDropEvent*>(event);
-    // Drop before the item under the pointer, or after it on its lower half. Below the rows means the end.
-    const QPoint position = drop->position().toPoint();
-    const QModelIndex index = m_list->indexAt(position);
-    int target = m_model->rowCount();
-    if (index.isValid()) {
-        const QRect rect = m_list->visualRect(index);
-        target = index.row() + (position.y() > rect.center().y() ? 1 : 0);
-    }
-    drop->setDropAction(Qt::IgnoreAction); // the list itself does not move anything
-    drop->accept();
-    dropSelection(target);
-    return true;
 }
 
 void OrganizerBinding::dropSelection(int target)

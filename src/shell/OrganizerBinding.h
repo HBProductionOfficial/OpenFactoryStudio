@@ -13,6 +13,13 @@ class QWidget;
 
 namespace OFS {
 
+// Drag and drop in the shared organizer list. `dropped` gets the row they were dropped before, or the row count for the
+// end.
+namespace OrganizerDrops {
+void enable(QListView* list, QObject* owner, std::function<void(int target)> dropped);
+void disable(QListView* list, QObject* owner);
+} // namespace OrganizerDrops
+
 // Organizer panel list for an editor whose items are reordered as a whole (animations, sounds, commands).
 class OrganizerBinding : public QObject
 {
@@ -37,9 +44,6 @@ public:
     bool perform(const QString& actionId);
     QList<int> selection() const;
     void dropSelection(int target);
-
-protected:
-    bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
     void select(const QList<int>& rows);
