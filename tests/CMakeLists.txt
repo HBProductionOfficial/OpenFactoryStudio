@@ -290,3 +290,7 @@ ofs_add_test(NAME mugen_runtime_states
 ofs_add_test(NAME mugen_runtime_commands
     SOURCES mugen/RuntimeCommandTest.cpp
     LIBS OFS::mugen_runtime)
+
+ofs_add_test(NAME mugen_runtime_hits
+    SOURCES mugen/RuntimeHitTest.cpp
+    LIBS OFS::mugen_runtime)

@@ -64,6 +64,7 @@ add_library(ofs_mugen_runtime STATIC
     runtime/Character.cpp
     runtime/Commands.h
     runtime/Commands.cpp
+    runtime/Hits.h
 )
 add_library(OFS::mugen_runtime ALIAS ofs_mugen_runtime)
 ofs_target_defaults(ofs_mugen_runtime)

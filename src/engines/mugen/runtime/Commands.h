@@ -76,6 +76,7 @@ public:
     void update(const InputState& input, int facing);
     int state(const StepKey& key) const;
     int charge(const StepKey& key) const;
+    bool holdingBack() const { return m_now[B] > 0; }
 
 private:
     enum Raw
@@ -134,6 +135,7 @@ public:
 
     void update(const InputState& input, int facing);
     bool active(const QString& name) const;
+    bool holdingBack() const { return m_input.holdingBack(); }
     void clear();
 
 private:

@@ -3,10 +3,12 @@
 #include "engines/mugen/runtime/AnimPlayer.h"
 #include "engines/mugen/runtime/CharacterData.h"
 #include "engines/mugen/runtime/Expr.h"
+#include "engines/mugen/runtime/Hits.h"
 
 #include <QHash>
 #include <QList>
 #include <QPointF>
+#include <QRectF>
 #include <QString>
 #include <QStringList>
 
@@ -36,6 +38,7 @@ public:
     int gameTime() const { return m_time; }
     int random(int max);
 
+    // Every character's states, then the hits, then the reactions and animations.
     void tick();
 
 private:
@@ -50,7 +53,19 @@ public:
     explicit Character(const CharacterData& data, Match* match = nullptr);
 
     void start(int state = 0);
+    // States -3, -2 and -1, then the current state, the movement, the time and the animation. In a match
+    // the tick is split around the hit checks: runActions, then the attacks, then finishTick.
     void tick();
+    void runActions();
+    void finishTick();
+
+    bool attack(Character& target);
+    // 1: attack (Clsn1), 2: body (Clsn2), in screen coordinates.
+    QList<QRectF> boxes(int type) const;
+    const HitDef& hitDef() const { return m_hitDef; }
+    const GetHitVars& getHitVars() const { return m_ghv; }
+    int hitPauseTime() const { return m_hitPauseTime; }
+    void setInGuardDist(bool in) { m_inGuardDist = in; }
 
     void changeState(int number, int anim = -1, int ctrl = -1);
     void changeAnim(int number);
@@ -93,6 +108,9 @@ private:
     bool execute(const Controller& controller);
     void enterState();
     void updatePosition();
+    void readHitDef(const Controller& c);
+    bool canGuard(const HitDef& hit) const;
+    void enterGetHitState();
 
     Value eval(const Param* param, int index = 0);
     int intParam(const Controller& c, const QString& name, int fallback, int index = 0);
@@ -131,6 +149,19 @@ private:
 
     CommandList m_commands;
     InputState m_input;
+
+    HitDef m_hitDef;
+    GetHitVars m_ghv;
+    int m_hitPauseTime = 0;
+    bool m_gotHit = false;
+    int m_hitStateNo = -1;
+    int m_pendingP1State = -1;
+    int m_moveContactTime = 0;
+    bool m_moveGuarded = false;
+    int m_hitCount = 0;
+    int m_uniqHitCount = 0;
+    bool m_inGuardDist = false;
+    bool m_posFreeze = false;
 
     QStringList m_messages;
     QStringList m_trace;
