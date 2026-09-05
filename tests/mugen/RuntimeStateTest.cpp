@@ -173,6 +173,61 @@ private Q_SLOTS:
         QVERIFY(c.messages().first().startsWith("state machine stuck in loop"));
     }
 
+    void pushBoundsAndTurning()
+    {
+        CharacterData data;
+        data.setAnimations("[Begin Action 0]\n0,0, 0,0, -1\n\n[Begin Action 5]\n5,0, 0,0, 3\n\n"
+                           "[Begin Action 20]\n20,0, 0,0, -1\n");
+        data.addStates("[Statedef 0]\ntype = S\nphysics = S\nctrl = 1\n"
+                       "[State 0]\ntype = VarSet\ntrigger1 = 1\nv = 0\nvalue = BackEdgeDist\n"
+                       "[State 0, b]\ntype = VarSet\ntrigger1 = 1\nv = 1\nvalue = FrontEdgeBodyDist\n"
+                       "[Statedef 20]\ntype = S\nphysics = S\nanim = 20\nctrl = 1\n"
+                       "[State 20]\ntype = VelSet\ntrigger1 = 1\nx = 3\n");
+        Match match;
+        Character a(data, &match);
+        Character b(data, &match);
+        a.setPos({-5, 0});
+        b.setPos({5, 0});
+        b.setFacing(-1);
+        a.start(0);
+        b.start(0);
+        match.tick();
+        QVERIFY(b.pos().x() - a.pos().x() >= 31 - 0.001); // front widths 16 + 15
+        QCOMPARE(a.pos().x(), -b.pos().x());
+
+        a.start(20);
+        for (int i = 0; i < 30; ++i)
+            match.tick();
+        QVERIFY(a.pos().x() < b.pos().x());
+
+        // The screen keeps them within 320 units (15 from each edge).
+        Match far;
+        Character c(data, &far);
+        Character d(data, &far);
+        c.setPos({-400, 0});
+        d.setPos({400, 0});
+        d.setFacing(-1);
+        c.start(0);
+        d.start(0);
+        far.tick();
+        far.tick(); // the triggers see where the last tick left them
+        QCOMPARE(d.pos().x() - c.pos().x(), 290.0);
+        QCOMPARE(far.cameraX(), 0.f);
+        QCOMPARE(c.var(0), 15);
+        QCOMPARE(c.var(1), 305 - 16);
+
+        Match turn;
+        Character e(data, &turn);
+        Character f(data, &turn);
+        e.setPos({50, 0});
+        f.setPos({-50, 0});
+        e.start(0);
+        f.start(0);
+        turn.tick();
+        QCOMPARE(e.facing(), -1);
+        QCOMPARE(e.animNo(), 5);
+    }
+
     void matchAndRedirection()
     {
         CharacterData data;

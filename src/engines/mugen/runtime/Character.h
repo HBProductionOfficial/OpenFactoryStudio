@@ -36,15 +36,37 @@ public:
     Character* enemy(const Character* of, int index = 0) const;
 
     int gameTime() const { return m_time; }
+
+    void setBounds(float left, float right)
+    {
+        m_left = left;
+        m_right = right;
+    }
+    void setScreen(float width, float edge)
+    {
+        m_screenWidth = width;
+        m_screenEdge = edge;
+    }
+    float cameraX() const { return m_cameraX; }
+    float screenWidth() const { return m_screenWidth; }
+    float screenEdge() const { return m_screenEdge; }
     int random(int max);
 
     // Every character's states, then the hits, then the reactions and animations.
     void tick();
 
 private:
+    void push();
+    void keepOnScreen();
+
     QList<Character*> m_characters;
     int m_time = 0;
     std::uint32_t m_seed;
+    float m_left = -1000;
+    float m_right = 1000;
+    float m_screenWidth = 320;
+    float m_screenEdge = 15;
+    float m_cameraX = 0;
 };
 
 class Character : public Context
@@ -66,6 +88,10 @@ public:
     const GetHitVars& getHitVars() const { return m_ghv; }
     int hitPauseTime() const { return m_hitPauseTime; }
     void setInGuardDist(bool in) { m_inGuardDist = in; }
+    float backWidth() const;
+    float frontWidth() const;
+    bool pushes() const { return m_push; }
+    void moveX(float dx) { m_pos.x += dx; }
 
     void changeState(int number, int anim = -1, int ctrl = -1);
     void changeAnim(int number);
@@ -111,6 +137,8 @@ private:
     void readHitDef(const Controller& c);
     bool canGuard(const HitDef& hit) const;
     void enterGetHitState();
+    // The engine turns idle characters to face an opponent who went behind.
+    void autoTurn();
 
     Value eval(const Param* param, int index = 0);
     int intParam(const Controller& c, const QString& name, int fallback, int index = 0);
@@ -162,6 +190,8 @@ private:
     int m_uniqHitCount = 0;
     bool m_inGuardDist = false;
     bool m_posFreeze = false;
+    bool m_push = true;
+    float m_width[2] = {-1, -1};
 
     QStringList m_messages;
     QStringList m_trace;

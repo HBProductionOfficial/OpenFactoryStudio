@@ -61,7 +61,6 @@ const QSet<QString>& pendingControllers()
         QStringLiteral("parentvaradd"),
         QStringLiteral("parentvarset"),
         QStringLiteral("pause"),
-        QStringLiteral("playerpush"),
         QStringLiteral("playsnd"),
         QStringLiteral("projectile"),
         QStringLiteral("removeexplod"),
@@ -80,7 +79,6 @@ const QSet<QString>& pendingControllers()
         QStringLiteral("targetvelset"),
         QStringLiteral("trans"),
         QStringLiteral("victoryquote"),
-        QStringLiteral("width"),
         QStringLiteral("appendtoclipboard"),
         QStringLiteral("displaytoclipboard"),
         QStringLiteral("remappal"),
@@ -134,6 +132,8 @@ void Match::tick()
     }
     for (Character* c : std::as_const(m_characters))
         c->runActions();
+    push();
+    keepOnScreen();
     for (Character* attacker : std::as_const(m_characters)) {
         for (Character* target : std::as_const(m_characters)) {
             if (attacker != target)
@@ -143,6 +143,59 @@ void Match::tick()
     for (Character* c : std::as_const(m_characters))
         c->finishTick();
     ++m_time;
+}
+
+void Match::push()
+{
+    for (int i = 0; i < m_characters.size(); ++i) {
+        for (int j = i + 1; j < m_characters.size(); ++j) {
+            Character* a = m_characters[i];
+            Character* b = m_characters[j];
+            if (!a->pushes() || !b->pushes())
+                continue;
+            const float aHeight = a->data().constant(QStringLiteral("size.height"), 60);
+            const float bHeight = b->data().constant(QStringLiteral("size.height"), 60);
+            if (a->pos().y() - aHeight >= b->pos().y() || b->pos().y() - bHeight >= a->pos().y())
+                continue;
+            auto span = [](const Character* c) {
+                const float x = float(c->pos().x());
+                return c->facing() > 0 ? std::pair(x - c->backWidth(), x + c->frontWidth())
+                                       : std::pair(x - c->frontWidth(), x + c->backWidth());
+            };
+            const auto [aLeft, aRight] = span(a);
+            const auto [bLeft, bRight] = span(b);
+            const float overlap = std::min(aRight, bRight) - std::max(aLeft, bLeft);
+            if (overlap <= 0)
+                continue;
+            const bool aOnLeft = a->pos().x() < b->pos().x() || (a->pos().x() == b->pos().x() && a->facing() > 0);
+            a->moveX(aOnLeft ? -overlap / 2 : overlap / 2);
+            b->moveX(aOnLeft ? overlap / 2 : -overlap / 2);
+        }
+    }
+}
+
+void Match::keepOnScreen()
+{
+    if (m_characters.isEmpty())
+        return;
+    float least = 0;
+    float most = 0;
+    for (int i = 0; i < m_characters.size(); ++i) {
+        Character* c = m_characters[i];
+        const float x = std::clamp(float(c->pos().x()), m_left, m_right);
+        c->moveX(x - float(c->pos().x()));
+        least = i == 0 ? x : std::min(least, x);
+        most = i == 0 ? x : std::max(most, x);
+    }
+    const float half = m_screenWidth / 2;
+    m_cameraX = std::clamp((least + most) / 2, m_left + half, m_right - half);
+    if (m_left + half > m_right - half)
+        m_cameraX = (m_left + m_right) / 2;
+    for (Character* c : std::as_const(m_characters)) {
+        const float x =
+            std::clamp(float(c->pos().x()), m_cameraX - half + m_screenEdge, m_cameraX + half - m_screenEdge);
+        c->moveX(x - float(c->pos().x()));
+    }
 }
 
 Character::Character(const CharacterData& data, Match* match)
@@ -196,6 +249,9 @@ void Character::changeAnim(int number)
 
 void Character::changeState(int number, int anim, int ctrl)
 {
+    // A character with control turns to its opponent when it changes state (standing or crouching).
+    if (m_minus <= 0 && m_ctrl && (m_stateType == QLatin1Char('S') || m_stateType == QLatin1Char('C')))
+        autoTurn();
     if (anim != -1)
         changeAnim(anim);
     if (ctrl >= 0)
@@ -328,8 +384,42 @@ void Character::tick()
     finishTick();
 }
 
+void Character::autoTurn()
+{
+    const Character* enemy = m_match ? m_match->enemy(this) : nullptr;
+    if (!enemy || (enemy->m_pos.x - m_pos.x) * float(m_facing) >= 0)
+        return;
+    if (m_stateType == QLatin1Char('S') && m_animNo != 5 && m_data.animation(5))
+        changeAnim(5);
+    else if (m_stateType == QLatin1Char('C') && m_animNo != 6 && m_data.animation(6))
+        changeAnim(6);
+    m_facing = -m_facing;
+}
+
+float Character::backWidth() const
+{
+    if (m_width[0] >= 0)
+        return m_width[0];
+    return m_data.constant(
+        m_stateType == QLatin1Char('A') ? QStringLiteral("size.air.back") : QStringLiteral("size.ground.back"), 15);
+}
+
+float Character::frontWidth() const
+{
+    if (m_width[1] >= 0)
+        return m_width[1];
+    return m_data.constant(
+        m_stateType == QLatin1Char('A') ? QStringLiteral("size.air.front") : QStringLiteral("size.ground.front"), 16);
+}
+
 void Character::runActions()
 {
+    // Idle players face their opponent (before the input, so back and forward follow).
+    if (m_hitPauseTime <= 0 && m_ctrl &&
+        (m_stateNo == 0 || m_stateNo == 11 || m_stateNo == 20 || (m_stateNo == 52 && m_anim.animTime() == 0)))
+        autoTurn();
+    m_push = true;
+    m_width[0] = m_width[1] = -1;
     m_commands.update(m_input, m_facing);
     const bool paused = m_hitPauseTime > 0;
     for (int special : {-3, -2, -1}) {
@@ -902,6 +992,20 @@ bool Character::execute(const Controller& c)
         m_posFreeze = intParam(c, QStringLiteral("value"), 1) != 0;
         return false;
     }
+    if (type == QLatin1String("playerpush")) {
+        m_push = intParam(c, QStringLiteral("value"), 1) != 0;
+        return false;
+    }
+    if (type == QLatin1String("width")) {
+        const Param* value = c.param(QStringLiteral("value"));
+        const Param* player = c.param(QStringLiteral("player"));
+        const Param* p = value ? value : player;
+        if (p && p->isExpression()) {
+            m_width[1] = eval(p, 0).toFloat();
+            m_width[0] = p->values.size() > 1 ? eval(p, 1).toFloat() : m_width[1];
+        }
+        return false;
+    }
     if (type == QLatin1String("movehitreset")) {
         m_moveContactTime = 0;
         m_moveGuarded = false;
@@ -976,7 +1080,27 @@ Value Character::trigger(const TriggerCall& call)
         return special(m_time % divisor == arg(1).toInt());
     }
     case Trigger::Pos:
-        return Value::real(call.keyword == QLatin1String("y") ? m_pos.y : m_pos.x);
+        return Value::real(call.keyword == QLatin1String("y") ? m_pos.y : m_pos.x - (m_match ? m_match->cameraX() : 0));
+    case Trigger::ScreenPos: {
+        const float left = m_match ? m_match->cameraX() - m_match->screenWidth() / 2 : -160;
+        return Value::real(call.keyword == QLatin1String("y") ? m_pos.y : m_pos.x - left);
+    }
+    case Trigger::BackEdgeDist:
+    case Trigger::FrontEdgeDist:
+    case Trigger::BackEdgeBodyDist:
+    case Trigger::FrontEdgeBodyDist: {
+        const float camera = m_match ? m_match->cameraX() : 0;
+        const float half = m_match ? m_match->screenWidth() / 2 : 160;
+        const float leftEdge = camera - half;
+        const float rightEdge = camera + half;
+        const bool back = call.trigger == Trigger::BackEdgeDist || call.trigger == Trigger::BackEdgeBodyDist;
+        const bool body = call.trigger == Trigger::BackEdgeBodyDist || call.trigger == Trigger::FrontEdgeBodyDist;
+        const bool towardsLeft = back == (m_facing > 0);
+        float distance = towardsLeft ? m_pos.x - leftEdge : rightEdge - m_pos.x;
+        if (body)
+            distance -= back ? backWidth() : frontWidth();
+        return Value::integer(int(std::floor(distance)));
+    }
     case Trigger::Vel:
         return Value::real(call.keyword == QLatin1String("y") ? m_vel.y : m_vel.x);
     case Trigger::Facing:
