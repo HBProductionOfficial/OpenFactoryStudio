@@ -92,9 +92,14 @@ public:
     float frontWidth() const;
     bool pushes() const { return m_push; }
     void moveX(float dx) { m_pos.x += dx; }
+    void releaseTargets();
+    void updateBindings();
+    void tickBinding();
 
     void changeState(int number, int anim = -1, int ctrl = -1);
-    void changeAnim(int number);
+    void changeAnim(int number, const CharacterData* owner = nullptr);
+    const CharacterData& stateOwner() const { return *m_stateData; }
+    const QList<Character*>& targets() const { return m_targets; }
 
     const CharacterData& data() const { return m_data; }
     int stateNo() const { return m_stateNo; }
@@ -129,7 +134,10 @@ public:
     Value assign(Trigger kind, std::int32_t index, const Value& value) override;
 
 private:
-    bool runState(int number, std::vector<int>& counters);
+    bool runState(const CharacterData& source, int number, std::vector<int>& counters);
+    // TargetState from another character waits for this character's next turn.
+    void queueState(int number, const CharacterData* owner);
+    QList<Character*> targetsWithId(int id) const;
     bool triggered(const Controller& controller);
     bool execute(const Controller& controller);
     void enterState();
@@ -146,6 +154,8 @@ private:
     bool has(const Controller& c, const QString& name) const { return c.param(name) != nullptr; }
 
     const CharacterData& m_data;
+    const CharacterData* m_stateData;
+    const CharacterData* m_animData;
     Match* m_match;
     int m_id;
 
@@ -157,7 +167,10 @@ private:
     QChar m_physics = QLatin1Char('S');
     bool m_ctrl = true;
     bool m_pending = false;
-    int m_minus = 0;
+    // Where the character is in its tick: -3, -2, -1 for the special states, 0 for the current state (a
+    // ChangeState then runs the new state at once), 1 after the actions, 2 while finishing, 3 between
+    // ticks (state changes wait for the next tick).
+    int m_minus = 3;
     int m_nesting = 0;
     std::vector<int> m_counters;
     QHash<int, std::vector<int>> m_specialCounters;
@@ -183,6 +196,13 @@ private:
     int m_hitPauseTime = 0;
     bool m_gotHit = false;
     int m_hitStateNo = -1;
+    const CharacterData* m_hitStateOwner = nullptr;
+    QList<Character*> m_targets;
+    QList<int> m_targetIds;
+    Character* m_bindTo = nullptr;
+    Vec2 m_bindPos;
+    int m_bindTime = 0;
+    int m_bindFacing = 1;
     int m_pendingP1State = -1;
     int m_moveContactTime = 0;
     bool m_moveGuarded = false;

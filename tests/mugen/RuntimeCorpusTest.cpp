@@ -68,6 +68,39 @@ private Q_SLOTS:
             close.tick();
         QVERIFY2(b.life() < lifeBefore, qPrintable(QString::number(b.life())));
         QVERIFY(b.getHitVars().hitCount >= 1);
+
+        Match grab(9);
+        Character c(data, &grab);
+        Character d(data, &grab);
+        c.setPos({-15, 0});
+        d.setPos({15, 0});
+        d.setFacing(-1);
+        c.start(800);
+        d.start(0);
+        bool held = false;
+        bool thrown = false;
+        int heldTicks = 0;
+        for (int t = 0; t < 120 && !thrown; ++t) {
+            grab.tick();
+            if (d.stateNo() == 820 && d.animNo() == 820) {
+                held = true;
+                ++heldTicks;
+                QVERIFY(d.getHitVars().fall);
+            }
+            thrown = d.stateNo() == 821;
+        }
+        QVERIFY(held);
+        QVERIFY2(heldTicks > 20, qPrintable(QString::number(heldTicks)));
+        QVERIFY(thrown);
+        QCOMPARE(c.stateNo(), 810);
+        QCOMPARE(d.life(), 1000 - 78);
+        for (int t = 0; t < 120 && d.stateNo() == 821; ++t)
+            grab.tick();
+        QVERIFY2(d.stateNo() >= 5000 || d.stateNo() == 52, qPrintable(QString::number(d.stateNo())));
+        for (int t = 0; t < 300; ++t)
+            grab.tick();
+        QCOMPARE(c.stateNo(), 0);
+        QCOMPARE(d.stateNo(), 0);
     }
 };
 

@@ -69,14 +69,6 @@ const QSet<QString>& pendingControllers()
         QStringLiteral("sndpan"),
         QStringLiteral("stopsnd"),
         QStringLiteral("superpause"),
-        QStringLiteral("targetbind"),
-        QStringLiteral("targetdrop"),
-        QStringLiteral("targetfacing"),
-        QStringLiteral("targetlifeadd"),
-        QStringLiteral("targetpoweradd"),
-        QStringLiteral("targetstate"),
-        QStringLiteral("targetveladd"),
-        QStringLiteral("targetvelset"),
         QStringLiteral("trans"),
         QStringLiteral("victoryquote"),
         QStringLiteral("appendtoclipboard"),
@@ -134,6 +126,8 @@ void Match::tick()
         c->runActions();
     push();
     keepOnScreen();
+    for (Character* c : std::as_const(m_characters))
+        c->updateBindings();
     for (Character* attacker : std::as_const(m_characters)) {
         for (Character* target : std::as_const(m_characters)) {
             if (attacker != target)
@@ -141,7 +135,11 @@ void Match::tick()
         }
     }
     for (Character* c : std::as_const(m_characters))
+        c->tickBinding();
+    for (Character* c : std::as_const(m_characters))
         c->finishTick();
+    for (Character* c : std::as_const(m_characters))
+        c->releaseTargets();
     ++m_time;
 }
 
@@ -200,6 +198,8 @@ void Match::keepOnScreen()
 
 Character::Character(const CharacterData& data, Match* match)
     : m_data(data)
+    , m_stateData(&data)
+    , m_animData(&data)
     , m_match(match)
     , m_id(s_nextId++)
 {
@@ -224,18 +224,20 @@ void Character::start(int state)
     m_nesting = 0;
     m_prevStateNo = m_stateNo = std::max(0, state);
     m_time = 0;
+    m_stateData = &m_data;
     const StateDef* def = m_data.state(m_stateNo);
     m_counters.assign(def ? def->controllers.size() : 0, 0);
     m_pending = true; // entered at the next tick
 }
 
-void Character::changeAnim(int number)
+void Character::changeAnim(int number, const CharacterData* owner)
 {
     if (number < 0) {
         m_messages << QStringLiteral("attempted change to negative anim %1").arg(number);
         number = 0;
     }
-    const AirAnimation* animation = m_data.animation(number);
+    const CharacterData* from = owner ? owner : &m_data;
+    const AirAnimation* animation = from->animation(number);
     if (!animation) {
         m_messages << QStringLiteral("attempted to change to invalid action %1").arg(number);
         return;
@@ -245,6 +247,30 @@ void Character::changeAnim(int number)
         times << frame.time;
     m_anim = AnimPlayer(times, animation->loopStartFrame());
     m_animNo = number;
+    m_animData = from;
+}
+
+void Character::queueState(int number, const CharacterData* owner)
+{
+    m_stateData = owner ? owner : &m_data;
+    m_prevStateNo = m_stateNo;
+    m_stateNo = std::max(0, number);
+    m_time = 0;
+    const StateDef* def = m_stateData->state(m_stateNo);
+    if (!def)
+        m_messages << QStringLiteral("changed to invalid state %1 (from state %2)").arg(number).arg(m_prevStateNo);
+    m_counters.assign(def ? def->controllers.size() : 0, 0);
+    m_pending = true;
+}
+
+QList<Character*> Character::targetsWithId(int id) const
+{
+    QList<Character*> list;
+    for (int i = 0; i < m_targets.size(); ++i) {
+        if (id < 0 || m_targetIds[i] == id)
+            list << m_targets[i];
+    }
+    return list;
 }
 
 void Character::changeState(int number, int anim, int ctrl)
@@ -268,7 +294,7 @@ void Character::changeState(int number, int anim, int ctrl)
         m_messages << QStringLiteral("attempted to change to negative state %1").arg(number);
     m_stateNo = std::max(0, number);
     m_time = 0;
-    const StateDef* def = m_data.state(m_stateNo);
+    const StateDef* def = m_stateData->state(m_stateNo);
     if (!def)
         m_messages << QStringLiteral("changed to invalid state %1 (from state %2)").arg(number).arg(m_prevStateNo);
     m_counters.assign(def ? def->controllers.size() : 0, 0);
@@ -278,7 +304,7 @@ void Character::changeState(int number, int anim, int ctrl)
         while (m_pending && m_nesting < MaxLoop) {
             enterState();
             ++m_nesting;
-            if (!runState(m_stateNo, m_counters))
+            if (!runState(*m_stateData, m_stateNo, m_counters))
                 break;
         }
         m_nesting = 0;
@@ -288,7 +314,7 @@ void Character::changeState(int number, int anim, int ctrl)
 void Character::enterState()
 {
     m_pending = false;
-    const StateDef* def = m_data.state(m_stateNo);
+    const StateDef* def = m_stateData->state(m_stateNo);
     if (!def)
         return;
     // Left out, type is S, move type I and physics N. U keeps them.
@@ -353,9 +379,9 @@ bool Character::triggered(const Controller& controller)
     return false;
 }
 
-bool Character::runState(int number, std::vector<int>& counters)
+bool Character::runState(const CharacterData& source, int number, std::vector<int>& counters)
 {
-    const StateDef* def = m_data.state(number);
+    const StateDef* def = source.state(number);
     if (!def)
         return false;
     if (counters.size() != def->controllers.size())
@@ -396,6 +422,20 @@ void Character::autoTurn()
     m_facing = -m_facing;
 }
 
+void Character::releaseTargets()
+{
+    for (int i = int(m_targets.size()) - 1; i >= 0; --i) {
+        if (m_targets[i]->m_moveType != QLatin1Char('H')) {
+            if (m_targets[i]->m_bindTo == this) {
+                m_targets[i]->m_bindTo = nullptr;
+                m_targets[i]->m_bindTime = 0;
+            }
+            m_targets.removeAt(i);
+            m_targetIds.removeAt(i);
+        }
+    }
+}
+
 float Character::backWidth() const
 {
     if (m_width[0] >= 0)
@@ -426,12 +466,12 @@ void Character::runActions()
         if (!m_data.state(special))
             continue;
         m_minus = special;
-        runState(special, m_specialCounters[special]);
+        runState(m_data, special, m_specialCounters[special]);
     }
     m_minus = 0;
-    if (m_pending && !paused)
+    if (m_pending)
         enterState();
-    runState(m_stateNo, m_counters);
+    runState(*m_stateData, m_stateNo, m_counters);
 
     // The engine guards for a player who holds back while an attack comes.
     const bool guardState = m_stateNo >= 120 && m_stateNo <= 155;
@@ -442,8 +482,12 @@ void Character::runActions()
 
     if (paused) {
         --m_hitPauseTime;
+        m_minus = 1;
         return;
     }
+    // The engine gets up a character who has lain long enough (after at least a tick in 5110).
+    if (m_stateNo == 5110 && m_time >= 1 && m_ghv.downRecoverTime <= 0 && m_life > 0 && m_stateData->state(5120))
+        changeState(5120);
     if (!m_posFreeze)
         updatePosition();
     m_posFreeze = false;
@@ -464,10 +508,14 @@ void Character::runActions()
     }
     if (m_ghv.hitShakeTime <= 0 && m_ghv.hitTime >= 0)
         --m_ghv.hitTime;
+    if (m_ghv.downRecoverTime > 0 && m_stateNo == 5110)
+        --m_ghv.downRecoverTime;
+    m_minus = 1;
 }
 
 void Character::finishTick()
 {
+    m_minus = 2;
     if (m_gotHit) {
         m_gotHit = false;
         enterGetHitState();
@@ -479,18 +527,56 @@ void Character::finishTick()
     }
     if (m_hitPauseTime <= 0)
         m_anim.step();
+    m_minus = 3;
+}
+
+void Character::updateBindings()
+{
+    // A target stays bound (GetHitVar(isbound)) until a tick passes without a TargetBind.
+    for (Character* t : std::as_const(m_targets)) {
+        if (t->m_bindTo != this)
+            continue;
+        if (t->m_bindTime <= 0) {
+            t->m_bindTo = nullptr;
+            continue;
+        }
+        t->m_vel.x = float(t->m_facing * m_facing) * m_vel.x;
+        t->m_vel.y = m_vel.y;
+        t->m_pos.x = m_pos.x + float(t->m_bindFacing) * t->m_bindPos.x;
+        t->m_pos.y = m_pos.y + t->m_bindPos.y;
+    }
+}
+
+void Character::tickBinding()
+{
+    if (m_bindTime <= 0 || !m_bindTo)
+        return;
+    if (m_bindTo->m_gotHit) {
+        m_bindTo = nullptr;
+        m_bindTime = 0;
+        m_minus = 2;
+        m_stateData = &m_data;
+        changeState(5050);
+        m_minus = 3;
+        return;
+    }
+    --m_bindTime;
 }
 
 void Character::enterGetHitState()
 {
     m_moveType = QLatin1Char('H');
+    m_hitPauseTime = 0;
     if (m_hitStateNo >= 0) {
         const int state = m_hitStateNo;
         m_hitStateNo = -1;
+        m_stateData = m_hitStateOwner ? m_hitStateOwner : &m_data;
+        m_hitStateOwner = nullptr;
         changeState(state, -1, 0);
         m_moveType = QLatin1Char('H');
         return;
     }
+    m_stateData = &m_data;
     if (m_ghv.guarded && m_life > 0) {
         changeState(m_stateType == QLatin1Char('S') ? 150 : m_stateType == QLatin1Char('C') ? 152 : 154, -1, 0);
         return;
@@ -510,7 +596,7 @@ void Character::enterGetHitState()
 QList<QRectF> Character::boxes(int type) const
 {
     QList<QRectF> rects;
-    const AirAnimation* animation = m_data.animation(m_animNo);
+    const AirAnimation* animation = m_animData->animation(m_animNo);
     if (!animation || m_anim.isEmpty())
         return rects;
     for (const AirBox& box : animation->boxes(m_anim.frame(), type)) {
@@ -624,6 +710,11 @@ bool Character::attack(Character& target)
         ghv.fallRecoverTime = hd.fallRecoverTime;
         ghv.fallDamage = hd.fallDamage;
         ghv.fallKill = hd.fallKill;
+        ghv.downRecover = hd.downRecover;
+        const int down = hd.downRecoverTime >= 0 ? hd.downRecoverTime
+                                                 : int(target.m_data.constant(QStringLiteral("data.liedown.time"), 60));
+        if (ghv.downRecoverTime > down || type != QLatin1Char('L'))
+            ghv.downRecoverTime = down;
         if (type == QLatin1Char('A')) {
             ghv.hitTime = hd.airHitTime;
             ghv.ctrlTime = hd.airHitTime;
@@ -663,7 +754,12 @@ bool Character::attack(Character& target)
         ghv.animType = hd.animType >= AnimType::Back && ghv.yvel == 0 ? AnimType::Hard : hd.animType;
     target.m_gotHit = true;
     target.m_hitStateNo = guarded ? -1 : hd.p2StateNo;
+    target.m_hitStateOwner = hd.p2GetP1State ? &m_data : &target.m_data;
     target.m_ctrl = false;
+    if (!guarded && !m_targets.contains(&target)) {
+        m_targets << &target;
+        m_targetIds << hd.id;
+    }
 
     const int pause = guarded ? hd.guardPauseTime[0] : hd.pauseTime[0];
     if (pause > 0)
@@ -673,8 +769,16 @@ bool Character::attack(Character& target)
     if (!guarded) {
         m_hitCount += hd.numHits;
         ++m_uniqHitCount;
-        if (hd.p1StateNo >= 0)
+        if (hd.p1StateNo >= 0) {
             m_pendingP1State = hd.p1StateNo;
+            m_ctrl = false;
+        }
+        if (hd.p2Facing > 0)
+            target.m_facing = -m_facing;
+        else if (hd.p2Facing < 0)
+            target.m_facing = m_facing;
+        if (hd.p1Facing < 0)
+            m_facing = -m_facing;
     }
     m_hitDef.active = false;
     return true;
@@ -760,6 +864,8 @@ void Character::readHitDef(const Controller& c)
     hd.fallYVelocity = floatParam(c, QStringLiteral("fall.yvelocity"), -4.5f);
     hd.fallRecover = intParam(c, QStringLiteral("fall.recover"), 1) != 0;
     hd.fallRecoverTime = intParam(c, QStringLiteral("fall.recovertime"), 4);
+    hd.downRecover = intParam(c, QStringLiteral("down.recover"), 1) != 0;
+    hd.downRecoverTime = intParam(c, QStringLiteral("down.recovertime"), -1);
     hd.fallDamage = intParam(c, QStringLiteral("fall.damage"), 0);
     hd.p1StateNo = intParam(c, QStringLiteral("p1stateno"), -1);
     hd.p2StateNo = intParam(c, QStringLiteral("p2stateno"), -1);
@@ -775,6 +881,9 @@ void Character::readHitDef(const Controller& c)
     hd.p2SprPriority = intParam(c, QStringLiteral("p2sprpriority"), 0);
     hd.id = intParam(c, QStringLiteral("id"), 0);
     hd.chainId = intParam(c, QStringLiteral("chainid"), -1);
+    hd.p2GetP1State = intParam(c, QStringLiteral("p2getp1state"), 1) != 0;
+    hd.p1Facing = intParam(c, QStringLiteral("p1facing"), 0);
+    hd.p2Facing = intParam(c, QStringLiteral("p2facing"), 0);
     hd.active = true;
     m_hitDef = hd;
 }
@@ -825,12 +934,15 @@ bool Character::execute(const Controller& c)
     if (type == QLatin1String("null"))
         return false;
     if (type == QLatin1String("changestate") || type == QLatin1String("selfstate")) {
+        if (type == QLatin1String("selfstate"))
+            m_stateData = &m_data;
         changeState(intParam(c, QStringLiteral("value"), m_stateNo), intParam(c, QStringLiteral("anim"), -1),
                     intParam(c, QStringLiteral("ctrl"), -1));
         return true;
     }
     if (type == QLatin1String("changeanim") || type == QLatin1String("changeanim2")) {
-        changeAnim(intParam(c, QStringLiteral("value"), m_animNo));
+        changeAnim(intParam(c, QStringLiteral("value"), m_animNo),
+                   type == QLatin1String("changeanim2") ? m_stateData : nullptr);
         if (has(c, QStringLiteral("elem")))
             m_anim.setElement(intParam(c, QStringLiteral("elem"), 1), intParam(c, QStringLiteral("elemtime"), 0));
         return false;
@@ -990,6 +1102,85 @@ bool Character::execute(const Controller& c)
     }
     if (type == QLatin1String("posfreeze")) {
         m_posFreeze = intParam(c, QStringLiteral("value"), 1) != 0;
+        return false;
+    }
+    if (type.startsWith(QLatin1String("target"))) {
+        const QList<Character*> targets = targetsWithId(intParam(c, QStringLiteral("id"), -1));
+        if (type == QLatin1String("targetbind")) {
+            const int time = intParam(c, QStringLiteral("time"), 1);
+            for (Character* t : targets) {
+                t->m_bindTo = time > 0 ? this : nullptr;
+                t->m_bindTime = std::max(0, time);
+                t->m_bindPos =
+                    Vec2{floatParam(c, QStringLiteral("pos"), 0, 0), floatParam(c, QStringLiteral("pos"), 0, 1)};
+                t->m_bindFacing = m_facing;
+                if (m_bindTo == t) {
+                    m_bindTo = nullptr;
+                    m_bindTime = 0;
+                }
+            }
+        } else if (type == QLatin1String("targetfacing")) {
+            const int value = intParam(c, QStringLiteral("value"), 0);
+            for (Character* t : targets)
+                t->m_facing = value >= 0 ? m_facing : -m_facing;
+        } else if (type == QLatin1String("targetlifeadd")) {
+            const int value = intParam(c, QStringLiteral("value"), 0);
+            const bool kill = intParam(c, QStringLiteral("kill"), 1) != 0;
+            const bool absolute = intParam(c, QStringLiteral("absolute"), 0) != 0;
+            for (Character* t : targets) {
+                if (value == 0)
+                    break;
+                double damage = -value;
+                if (!absolute)
+                    damage /= std::max(0.01, t->m_data.constant(QStringLiteral("data.defence"), 100) / 100.0);
+                if (damage > 0 && damage < 1)
+                    damage = 1;
+                damage = std::min(damage, double(t->m_life));
+                if (!kill && damage >= t->m_life && t->m_life > 0)
+                    damage = t->m_life - 1;
+                t->m_life = std::clamp(t->m_life - int(std::lround(damage)), 0,
+                                       int(t->m_data.constant(QStringLiteral("data.life"), 1000)));
+            }
+        } else if (type == QLatin1String("targetpoweradd")) {
+            const int value = intParam(c, QStringLiteral("value"), 0);
+            for (Character* t : targets)
+                t->m_power =
+                    std::clamp(t->m_power + value, 0, int(t->m_data.constant(QStringLiteral("data.power"), 3000)));
+        } else if (type == QLatin1String("targetstate")) {
+            const int state = intParam(c, QStringLiteral("value"), 0);
+            for (Character* t : targets) {
+                t->m_ctrl = false;
+                t->queueState(state, &m_data);
+            }
+        } else if (type == QLatin1String("targetvelset") || type == QLatin1String("targetveladd")) {
+            const bool add = type == QLatin1String("targetveladd");
+            for (Character* t : targets) {
+                if (has(c, QStringLiteral("x")))
+                    t->m_vel.x = (add ? t->m_vel.x : 0) + floatParam(c, QStringLiteral("x"), 0);
+                if (has(c, QStringLiteral("y")))
+                    t->m_vel.y = (add ? t->m_vel.y : 0) + floatParam(c, QStringLiteral("y"), 0);
+            }
+        } else if (type == QLatin1String("targetdrop")) {
+            const int keep = intParam(c, QStringLiteral("excludeid"), -1);
+            const bool keepOne = intParam(c, QStringLiteral("keepone"), 1) != 0;
+            bool kept = false;
+            for (int i = 0; i < m_targets.size();) {
+                if (keep >= 0 && m_targetIds[i] == keep && !(keepOne && kept)) {
+                    kept = true;
+                    ++i;
+                    continue;
+                }
+                if (m_targets[i]->m_bindTo == this) {
+                    m_targets[i]->m_bindTo = nullptr;
+                    m_targets[i]->m_bindTime = 0;
+                }
+                m_targets.removeAt(i);
+                m_targetIds.removeAt(i);
+            }
+        } else if (!pendingControllers().contains(type)) {
+            m_messages
+                << QStringLiteral("unknown controller type '%1' (%2, line %3)").arg(type, c.file).arg(c.line + 1);
+        }
         return false;
     }
     if (type == QLatin1String("playerpush")) {
@@ -1241,15 +1432,22 @@ Value Character::trigger(const TriggerCall& call)
             return Value::boolean(m_ghv.fallKill);
         if (key == QLatin1String("chainid") || key == QLatin1String("hitid"))
             return Value::integer(m_ghv.hitId);
+        if (key == QLatin1String("down.recover"))
+            return Value::boolean(m_ghv.downRecover);
+        if (key == QLatin1String("down.recovertime"))
+            return Value::integer(m_ghv.downRecoverTime);
+        if (key == QLatin1String("isbound"))
+            return Value::boolean(m_bindTo != nullptr);
         if (key == QLatin1String("xveladd") || key == QLatin1String("yveladd") || key == QLatin1String("xoff") ||
-            key == QLatin1String("yoff") || key == QLatin1String("isbound"))
+            key == QLatin1String("yoff"))
             return Value::integer(0);
         return Value::undefined();
     }
+    case Trigger::NumTarget:
+        return Value::integer(int(targetsWithId(call.args.empty() ? -1 : arg(0).toInt()).size()));
     case Trigger::IsHelper:
     case Trigger::NumHelper:
     case Trigger::NumExplod:
-    case Trigger::NumTarget:
     case Trigger::NumProj:
     case Trigger::NumProjID:
     case Trigger::NumPartner:
@@ -1313,10 +1511,13 @@ Context* Character::redirect(Redirect kind, const Value& argument)
             }
         }
         return nullptr;
+    case Redirect::Target: {
+        const QList<Character*> targets = targetsWithId(argument.isUndefined() ? -1 : argument.toInt());
+        return targets.isEmpty() ? nullptr : targets.first();
+    }
     case Redirect::Root:
     case Redirect::Parent:
     case Redirect::Helper:
-    case Redirect::Target:
     case Redirect::Partner:
         return nullptr;
     }

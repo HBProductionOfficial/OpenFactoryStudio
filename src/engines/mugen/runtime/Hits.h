@@ -78,6 +78,9 @@ struct HitDef
     int p2SprPriority = 0;
     int id = 0;
     int chainId = -1;
+    bool p2GetP1State = true;
+    bool downRecover = true;
+    int downRecoverTime = -1; // -1: the target's liedown.time
 };
 
 // What the last hit left on the character that took it (GetHitVar).
@@ -112,6 +115,8 @@ struct GetHitVars
     bool fallKill = true;
     int hitId = 0;
     bool kill = true;
+    bool downRecover = true;
+    int downRecoverTime = -1;
 };
 
 } // namespace OFS::Mugen::Runtime

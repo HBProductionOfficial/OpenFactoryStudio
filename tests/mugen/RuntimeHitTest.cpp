@@ -98,8 +98,6 @@ private Q_SLOTS:
         QCOMPARE(t, 3);
         QCOMPARE(f.b.life(), 950);
         QCOMPARE(f.b.stateNo(), 5000);
-        QCOMPARE(f.b.var(1), int(AnimType::Medium));
-        QCOMPARE(f.b.var(2), 8);
         QVERIFY(!f.b.ctrl());
         QCOMPARE(f.a.power(), 50);
         QCOMPARE(f.b.power(), 50);
@@ -107,7 +105,12 @@ private Q_SLOTS:
         QVERIFY(!f.a.hitDef().active);
 
         const int timeBefore = f.a.time();
-        for (int i = 0; i < 5; ++i)
+        QCOMPARE(f.b.var(1), 0);
+        f.match.tick();
+        QCOMPARE(f.b.var(1), int(AnimType::Medium));
+        QCOMPARE(f.b.var(2), 8);
+
+        for (int i = 0; i < 4; ++i)
             f.match.tick();
         QCOMPARE(f.a.time(), timeBefore);
         QCOMPARE(f.a.var(9), 0);
@@ -171,6 +174,109 @@ private Q_SLOTS:
         QVERIFY(f.untilHit() > 0);
         QCOMPARE(f.b.stateNo(), 150);
         QCOMPARE(f.b.moveType(), QLatin1Char('H'));
+    }
+
+    void throws()
+    {
+        CharacterData thrower;
+        thrower.setAnimations("[Begin Action 0]\nClsn2Default: 1\n Clsn2[0] = -10,-60, 10,0\n0,0, 0,0, -1\n\n"
+                              "[Begin Action 200]\nClsn2Default: 1\n Clsn2[0] = -10,-60, 10,0\n200,0, 0,0, 2\n"
+                              "Clsn1: 1\n Clsn1[0] = 0,-50, 40,-40\n200,1, 0,0, 3\n\n"
+                              "[Begin Action 820]\n820,0, 0,0, -1\n");
+        thrower.addStates("[Statedef 0]\ntype = S\nphysics = S\nanim = 0\nctrl = 1\n"
+                          "[State 0]\ntype = Null\ntrigger1 = 1\n"
+                          "[Statedef 200]\ntype = S\nmovetype = A\nphysics = S\nanim = 200\nctrl = 0\n"
+                          "[State 200]\ntype = HitDef\ntrigger1 = time = 0\nattr = S, NT\nhitflag = M-\n"
+                          "p1stateno = 810\np2stateno = 820\nid = 7\n"
+                          "[Statedef 810]\ntype = S\nmovetype = A\nphysics = N\nanim = 0\nvelset = 0,0\n"
+                          "[State 810, count]\ntype = VarSet\ntrigger1 = time = 1\nv = 1\nvalue = NumTarget(7)\n"
+                          "[State 810, life]\ntype = VarSet\ntrigger1 = time = 1\nv = 2\nvalue = target, life\n"
+                          "[State 810, bind]\ntype = TargetBind\ntrigger1 = time < 5\npos = 30, -10\n"
+                          "[State 810, face]\ntype = TargetFacing\ntrigger1 = time = 4\nvalue = 1\n"
+                          "[State 810, hurt]\ntype = TargetLifeAdd\ntrigger1 = time = 5\nvalue = -78\n"
+                          "[State 810, throw]\ntype = TargetState\ntrigger1 = time = 5\nvalue = 821\n"
+                          "[State 810, end]\ntype = ChangeState\ntrigger1 = time = 6\nvalue = 0\nctrl = 1\n"
+                          "[Statedef 820]\ntype = S\nmovetype = H\nphysics = N\nvelset = 0,0\n"
+                          "[State 820]\ntype = ChangeAnim2\ntrigger1 = time = 0\nvalue = 820\n"
+                          "[State 820, b]\ntype = VarSet\ntrigger1 = 1\nv = 6\nvalue = time\n"
+                          "[Statedef 821]\ntype = A\nmovetype = H\nphysics = N\n"
+                          "[State 821]\ntype = VarSet\ntrigger1 = time = 0\nv = 7\nvalue = 1\n"
+                          "[State 821, b]\ntype = SelfState\ntrigger1 = time = 2\nvalue = 5050\n");
+        CharacterData victim;
+        victim.setAnimations("[Begin Action 0]\nClsn2Default: 1\n Clsn2[0] = -10,-60, 10,0\n0,0, 0,0, -1\n\n"
+                             "[Begin Action 5050]\n5050,0, 0,0, -1\n");
+        victim.addStates("[Statedef 0]\ntype = S\nphysics = S\nanim = 0\nctrl = 1\n"
+                         "[State 0]\ntype = Null\ntrigger1 = 1\n"
+                         "[Statedef 5050]\ntype = A\nmovetype = H\nphysics = N\nanim = 5050\n"
+                         "[State 5050]\ntype = VarSet\ntrigger1 = time = 0\nv = 8\nvalue = 1\n");
+        Match match;
+        Character a(thrower, &match);
+        Character b(victim, &match);
+        a.setPos({-20, 0});
+        b.setPos({20, 0});
+        b.setFacing(-1);
+        a.start(200);
+        b.start(0);
+        int t = 0;
+        while (b.stateNo() != 820 && ++t < 10)
+            match.tick();
+        QCOMPARE(b.stateNo(), 820);
+        QCOMPARE(a.stateNo(), 810);
+        QCOMPARE(a.targets(), QList<Character*>{&b});
+        QVERIFY(!a.ctrl());
+
+        match.tick();
+        QCOMPARE(&b.stateOwner(), &thrower);
+        QCOMPARE(b.animNo(), 820);
+        QCOMPARE(b.pos().x(), a.pos().x() + 30);
+        QCOMPARE(b.pos().y(), -10.0);
+        match.tick();
+        QCOMPARE(a.var(1), 1);
+        QCOMPARE(a.var(2), 1000);
+        for (int i = 0; i < 3; ++i)
+            match.tick();
+        QCOMPARE(b.facing(), a.facing());
+        match.tick();
+        QCOMPARE(b.life(), 922);
+        QCOMPARE(b.stateNo(), 821);
+        QCOMPARE(b.var(7), 1);
+        for (int i = 0; i < 3 && b.stateNo() != 5050; ++i)
+            match.tick();
+        QCOMPARE(b.stateNo(), 5050);
+        QCOMPARE(&b.stateOwner(), &victim);
+        QCOMPARE(b.var(8), 1);
+        QCOMPARE(a.stateNo(), 0);
+    }
+
+    void lieDown()
+    {
+        CharacterData data;
+        data.setAnimations(kAir);
+        data.addStates(states(QStringLiteral("attr = S, NA\ndamage = 10\np2stateno = 5110\np2getp1state = 0")) +
+                       QStringLiteral("[Statedef 5110]\ntype = L\nmovetype = H\nphysics = N\n"
+                                      "[State 5110]\ntype = Null\ntrigger1 = 1\n"
+                                      "[Statedef 5120]\ntype = L\nmovetype = H\nphysics = N\n"
+                                      "[State 5120]\ntype = Null\ntrigger1 = 1\n"));
+        data.setConstant(QStringLiteral("data.liedown.time"), 10);
+        Match match;
+        Character a(data, &match);
+        Character b(data, &match);
+        a.setPos({-20, 0});
+        b.setPos({20, 0});
+        b.setFacing(-1);
+        a.start(200);
+        b.start(0);
+        while (b.stateNo() != 5110 && match.gameTime() < 10)
+            match.tick();
+        QCOMPARE(b.stateNo(), 5110);
+        QCOMPARE(b.getHitVars().downRecoverTime, 10);
+        int lying = 0;
+        while (b.stateNo() == 5110 && lying < 30) {
+            match.tick();
+            ++lying;
+        }
+        QCOMPARE(b.stateNo(), 5120);
+        QVERIFY2(lying >= 10 && lying <= 12, qPrintable(QString::number(lying)));
     }
 };
 
