@@ -140,6 +140,7 @@ Character::Character(const CharacterData& data, Match* match)
     , m_id(s_nextId++)
 {
     m_life = int(data.constant(QStringLiteral("data.life"), 1000));
+    m_commands = data.commands();
     if (match)
         match->add(this);
 }
@@ -296,6 +297,7 @@ bool Character::runState(int number, std::vector<int>& counters)
 
 void Character::tick()
 {
+    m_commands.update(m_input, m_facing);
     for (int special : {-3, -2, -1}) {
         if (!m_data.state(special))
             continue;
@@ -634,8 +636,9 @@ Value Character::trigger(const TriggerCall& call)
     case Trigger::LoseKO:
     case Trigger::LoseTime:
     case Trigger::DrawGame:
-    case Trigger::Command:
         return Value::boolean(false);
+    case Trigger::Command:
+        return special(m_commands.active(call.text));
     case Trigger::NumEnemy:
         return Value::integer(m_match && m_match->enemy(this) ? 1 : 0);
     case Trigger::P2BodyDist:

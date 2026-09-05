@@ -62,6 +62,8 @@ add_library(ofs_mugen_runtime STATIC
     runtime/AnimPlayer.cpp
     runtime/Character.h
     runtime/Character.cpp
+    runtime/Commands.h
+    runtime/Commands.cpp
 )
 add_library(OFS::mugen_runtime ALIAS ofs_mugen_runtime)
 ofs_target_defaults(ofs_mugen_runtime)

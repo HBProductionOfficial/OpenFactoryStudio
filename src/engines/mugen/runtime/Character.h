@@ -75,6 +75,7 @@ public:
     int id() const { return m_id; }
 
     void setPos(const QPointF& pos) { m_pos = Vec2{float(pos.x()), float(pos.y())}; }
+    void setInput(const InputState& input) { m_input = input; }
     void setFacing(int facing) { m_facing = facing < 0 ? -1 : 1; }
 
     const QStringList& messages() const { return m_messages; }
@@ -127,6 +128,9 @@ private:
     std::array<float, 40> m_fvars{};
     std::array<std::int32_t, 5> m_sysVars{};
     std::array<float, 5> m_sysFVars{};
+
+    CommandList m_commands;
+    InputState m_input;
 
     QStringList m_messages;
     QStringList m_trace;

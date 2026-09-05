@@ -257,6 +257,17 @@ void CharacterData::setConstant(const QString& name, float value)
     m_constants.insert(name.toLower(), value);
 }
 
+void CharacterData::setCommands(const QString& text, const QString& file)
+{
+    m_commands = CommandList();
+    QStringList errors;
+    m_commands.load(text, &errors);
+    for (const QString& error : std::as_const(errors)) {
+        const int colon = int(error.indexOf(QLatin1Char(':')));
+        m_issues << LoadIssue{file, error.left(colon).toInt() - 1, error.mid(colon + 2)};
+    }
+}
+
 void CharacterData::setAnimations(const QString& text)
 {
     m_animations = AirDocument::parse(text.split(QLatin1Char('\n')));

@@ -286,3 +286,7 @@ ofs_add_test(NAME mugen_runtime_character
 ofs_add_test(NAME mugen_runtime_states
     SOURCES mugen/RuntimeStateTest.cpp
     LIBS OFS::mugen_runtime)
+
+ofs_add_test(NAME mugen_runtime_commands
+    SOURCES mugen/RuntimeCommandTest.cpp
+    LIBS OFS::mugen_runtime)

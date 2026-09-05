@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/anims/AirDocument.h"
+#include "engines/mugen/runtime/Commands.h"
 #include "engines/mugen/runtime/Expr.h"
 
 #include <QHash>
@@ -76,6 +77,9 @@ public:
     bool hasConstant(const QString& name) const;
     void setConstant(const QString& name, float value);
 
+    void setCommands(const QString& text, const QString& file = QString());
+    const CommandList& commands() const { return m_commands; }
+
     void setAnimations(const QString& text);
     const AirAnimation* animation(int number) const;
 
@@ -89,6 +93,7 @@ private:
 
     QHash<QString, float> m_constants;
     AirDocument m_animations;
+    CommandList m_commands;
     QMap<int, StateDef> m_states;
     QList<LoadIssue> m_issues;
 };
