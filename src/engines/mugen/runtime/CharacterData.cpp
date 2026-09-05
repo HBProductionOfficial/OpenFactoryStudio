@@ -1,7 +1,11 @@
 #include "engines/mugen/runtime/CharacterData.h"
 
+#include "core/project/ProjectFile.h"
 #include "engines/mugen/runtime/IniText.h"
 
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QRegularExpression>
 
 namespace OFS::Mugen::Runtime {
@@ -104,6 +108,94 @@ CharacterData::CharacterData()
 {
     for (const auto& [name, value] : defaults())
         m_constants.insert(QString::fromLatin1(name), value);
+}
+
+namespace {
+
+QString readText(const QString& path, bool* ok = nullptr)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        if (ok)
+            *ok = false;
+        return {};
+    }
+    if (ok)
+        *ok = true;
+    QString encoding;
+    QByteArray bom;
+    return CodeFile::decode(file.readAll(), &encoding, &bom).replace(QLatin1String("\r\n"), QLatin1String("\n"));
+}
+
+} // namespace
+
+bool CharacterData::load(const QString& defPath, const QString& engineDir, QString* error)
+{
+    bool ok = false;
+    const QString defText = readText(defPath, &ok);
+    if (!ok) {
+        if (error)
+            *error = QStringLiteral("cannot read %1").arg(QDir::toNativeSeparators(defPath));
+        return false;
+    }
+    const IniText def = IniText::parse(defText);
+    const QString folder = QFileInfo(defPath).absolutePath();
+    auto resolve = [&](const QString& name) -> QString {
+        const QString cleaned = QDir::fromNativeSeparators(unquote(name).trimmed());
+        if (cleaned.isEmpty())
+            return {};
+        QStringList candidates{QDir(folder).filePath(cleaned)};
+        if (!engineDir.isEmpty())
+            candidates << QDir(engineDir).filePath(cleaned)
+                       << QDir(engineDir).filePath(QStringLiteral("data/") + cleaned);
+        for (const QString& candidate : candidates) {
+            if (QFileInfo(candidate).isFile())
+                return QDir::cleanPath(candidate);
+        }
+        m_issues << LoadIssue{defPath, 0, QStringLiteral("cannot find %1").arg(cleaned)};
+        return {};
+    };
+    if (const IniSection* info = def.section(QStringLiteral("Info"))) {
+        m_name = unquote(info->value(QStringLiteral("name")));
+        m_displayName = unquote(info->value(QStringLiteral("displayname"), info->value(QStringLiteral("name"))));
+        const int width = info->value(QStringLiteral("localcoord")).split(QLatin1Char(',')).value(0).trimmed().toInt();
+        if (width > 0)
+            m_localCoordWidth = width;
+    }
+    const IniSection* files = def.section(QStringLiteral("Files"));
+    if (!files) {
+        if (error)
+            *error = QStringLiteral("%1 has no [Files] section").arg(QDir::toNativeSeparators(defPath));
+        return false;
+    }
+    if (const QString cns = resolve(files->value(QStringLiteral("cns"))); !cns.isEmpty())
+        addConstants(readText(cns), cns);
+    // st, then st0 to st9 in order. The first definition of a state wins.
+    static const QRegularExpression stKey(QStringLiteral("^st(\\d*)$"), QRegularExpression::CaseInsensitiveOption);
+    QList<QPair<int, QString>> stFiles;
+    for (const IniEntry& entry : files->entries) {
+        const QRegularExpressionMatch m = stKey.match(entry.key);
+        if (m.hasMatch())
+            stFiles << qMakePair(m.captured(1).isEmpty() ? -1 : m.captured(1).toInt(), entry.value);
+    }
+    std::stable_sort(stFiles.begin(), stFiles.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+    for (const auto& [index, name] : std::as_const(stFiles)) {
+        Q_UNUSED(index)
+        if (const QString path = resolve(name); !path.isEmpty())
+            addStates(readText(path), path, false);
+    }
+    if (const QString cmd = resolve(files->value(QStringLiteral("cmd"))); !cmd.isEmpty()) {
+        const QString text = readText(cmd);
+        setCommands(text, cmd);
+        addStates(text, cmd, false);
+    }
+    if (const QString common = resolve(files->value(QStringLiteral("stcommon"))); !common.isEmpty())
+        addStates(readText(common), common, false);
+    if (const QString anim = resolve(files->value(QStringLiteral("anim"))); !anim.isEmpty())
+        setAnimations(readText(anim));
+    m_spriteFile = resolve(files->value(QStringLiteral("sprite")));
+    m_soundFile = files->has(QStringLiteral("sound")) ? resolve(files->value(QStringLiteral("sound"))) : QString();
+    return true;
 }
 
 void CharacterData::addSection(const IniSection& section, const QString& prefix)

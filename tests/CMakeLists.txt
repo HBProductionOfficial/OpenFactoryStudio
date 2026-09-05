@@ -294,3 +294,7 @@ ofs_add_test(NAME mugen_runtime_commands
 ofs_add_test(NAME mugen_runtime_hits
     SOURCES mugen/RuntimeHitTest.cpp
     LIBS OFS::mugen_runtime)
+
+ofs_add_test(NAME mugen_runtime_corpus LABELS corpus TIMEOUT 600
+    SOURCES mugen/RuntimeCorpusTest.cpp
+    LIBS OFS::mugen_runtime)

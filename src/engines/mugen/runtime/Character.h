@@ -137,7 +137,7 @@ private:
     Vec2 m_pos;
     Vec2 m_vel;
     int m_facing = 1;
-    int m_animNo = 0;
+    int m_animNo = -1;
     AnimPlayer m_anim;
     int m_life = 1000;
     int m_power = 0;

@@ -1001,6 +1001,12 @@ Value Character::trigger(const TriggerCall& call)
             return Value::integer(int(value));
         return Value::real(value);
     }
+    case Trigger::Const240p:
+        return Value::real(float(m_data.localCoordWidth()) / 320 * arg(0).toFloat());
+    case Trigger::Const480p:
+        return Value::real(float(m_data.localCoordWidth()) / 640 * arg(0).toFloat());
+    case Trigger::Const720p:
+        return Value::real(float(m_data.localCoordWidth()) / 1280 * arg(0).toFloat());
     case Trigger::Life:
         return Value::integer(m_life);
     case Trigger::LifeMax:

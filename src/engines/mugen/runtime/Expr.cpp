@@ -541,6 +541,9 @@ const QHash<QString, TriggerInfo>& triggerTable()
         add("canrecover", Trigger::CanRecover, Shape::None);
         add("command", Trigger::Command, Shape::String);
         add("const", Trigger::Const, Shape::Keyword);
+        add("const240p", Trigger::Const240p, Shape::Arg);
+        add("const480p", Trigger::Const480p, Shape::Arg);
+        add("const720p", Trigger::Const720p, Shape::Arg);
         add("ctrl", Trigger::Ctrl, Shape::None);
         add("drawgame", Trigger::DrawGame, Shape::None);
         add("facing", Trigger::Facing, Shape::None);
@@ -624,6 +627,7 @@ const QHash<QString, TriggerInfo>& triggerTable()
         add("teamside", Trigger::TeamSide, Shape::None);
         add("tickspersecond", Trigger::TicksPerSecond, Shape::None);
         add("time", Trigger::Time, Shape::None);
+        add("statetime", Trigger::Time, Shape::None); // the engine's other name for Time
         add("timemod", Trigger::TimeMod, Shape::TimeMod);
         add("uniqhitcount", Trigger::UniqHitCount, Shape::None);
         add("var", Trigger::Var, Shape::Arg);

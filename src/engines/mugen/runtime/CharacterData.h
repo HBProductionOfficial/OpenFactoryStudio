@@ -67,6 +67,15 @@ class CharacterData
 public:
     CharacterData();
 
+    // States come from st, st0 to st9, the command file, then the common states. The first definition
+    // of a state wins.
+    bool load(const QString& defPath, const QString& engineDir = QString(), QString* error = nullptr);
+    QString name() const { return m_name; }
+    QString displayName() const { return m_displayName; }
+    int localCoordWidth() const { return m_localCoordWidth; }
+    QString spriteFile() const { return m_spriteFile; }
+    QString soundFile() const { return m_soundFile; }
+
     // Constants are named as Const() reads them: "data.life", "size.head.pos.x", "velocity.jump.neu.y"
     // (also "velocity.jump.y").
     void addConstants(const QString& text, const QString& file = QString());
@@ -91,6 +100,11 @@ private:
     void addSection(const IniSection& section, const QString& prefix);
     Param compileParam(const QString& text, int line, const QString& file, bool report);
 
+    QString m_name;
+    QString m_displayName;
+    int m_localCoordWidth = 320;
+    QString m_spriteFile;
+    QString m_soundFile;
     QHash<QString, float> m_constants;
     AirDocument m_animations;
     CommandList m_commands;
