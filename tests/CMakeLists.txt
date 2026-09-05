@@ -278,3 +278,7 @@ ofs_add_test(NAME mugen_html_export GUI
     SOURCES mugen/HtmlExportTest.cpp
     LIBS OFS::mugen)
 add_dependencies(test_mugen_html_export ofs_data)
+
+ofs_add_test(NAME mugen_runtime_character
+    SOURCES mugen/RuntimeCharacterTest.cpp
+    LIBS OFS::mugen_runtime)
