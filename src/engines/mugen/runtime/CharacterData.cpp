@@ -257,6 +257,17 @@ void CharacterData::setConstant(const QString& name, float value)
     m_constants.insert(name.toLower(), value);
 }
 
+void CharacterData::setAnimations(const QString& text)
+{
+    m_animations = AirDocument::parse(text.split(QLatin1Char('\n')));
+}
+
+const AirAnimation* CharacterData::animation(int number) const
+{
+    const int index = m_animations.indexOf(number);
+    return index >= 0 ? &m_animations.animations()[index] : nullptr;
+}
+
 const StateDef* CharacterData::state(int number) const
 {
     const auto it = m_states.constFind(number);

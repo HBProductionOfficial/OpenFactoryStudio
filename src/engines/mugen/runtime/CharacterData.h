@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/anims/AirDocument.h"
 #include "engines/mugen/runtime/Expr.h"
 
 #include <QHash>
@@ -75,6 +76,9 @@ public:
     bool hasConstant(const QString& name) const;
     void setConstant(const QString& name, float value);
 
+    void setAnimations(const QString& text);
+    const AirAnimation* animation(int number) const;
+
     const QMap<int, StateDef>& states() const { return m_states; }
     const StateDef* state(int number) const;
     const QList<LoadIssue>& issues() const { return m_issues; }
@@ -84,6 +88,7 @@ private:
     Param compileParam(const QString& text, int line, const QString& file, bool report);
 
     QHash<QString, float> m_constants;
+    AirDocument m_animations;
     QMap<int, StateDef> m_states;
     QList<LoadIssue> m_issues;
 };

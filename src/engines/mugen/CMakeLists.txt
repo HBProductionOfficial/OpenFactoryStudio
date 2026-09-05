@@ -58,10 +58,14 @@ add_library(ofs_mugen_runtime STATIC
     runtime/IniText.cpp
     runtime/CharacterData.h
     runtime/CharacterData.cpp
+    runtime/AnimPlayer.h
+    runtime/AnimPlayer.cpp
+    runtime/Character.h
+    runtime/Character.cpp
 )
 add_library(OFS::mugen_runtime ALIAS ofs_mugen_runtime)
 ofs_target_defaults(ofs_mugen_runtime)
-target_link_libraries(ofs_mugen_runtime PUBLIC Qt6::Core)
+target_link_libraries(ofs_mugen_runtime PUBLIC Qt6::Core OFS::core)
 
 ofs_add_engine_plugin(mugen
     SOURCES
