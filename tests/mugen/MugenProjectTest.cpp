@@ -269,7 +269,13 @@ private Q_SLOTS:
         QVERIFY(!engine.newProject("select", folder.path(), &error));
         QVERIFY(!error.isEmpty());
         QCOMPARE(engine.scriptName(), QStringLiteral("MUGEN"));
-        QCOMPARE(engine.scriptEnums().value("ProjectType").value("Character").toString(), QStringLiteral("char"));
+        const QVariantMap types = engine.scriptEnums().value("ProjectType");
+        QCOMPARE(types.value("Character").toInt(), 0);
+        QCOMPARE(types.value("Storyboard").toInt(), 2);
+        QCOMPARE(types.value("Fight").toInt(), 6);
+        QCOMPARE(engine.scriptProjectTypeId(4), QStringLiteral("font"));
+        QCOMPARE(engine.scriptProjectType(QStringLiteral("select")), 5);
+        QCOMPARE(engine.scriptProjectTypeId(7), QString());
     }
 
     void openedAsCopy()

@@ -99,31 +99,31 @@ private Q_SLOTS:
     {
         QTemporaryDir dir;
         const QString script = dir.filePath("t.lua");
-        writeFile(script,
-                  "assert(ScriptPath ~= nil and ScriptPath:sub(-1) ~= '/')\n"
-                  "assert(OFS == FF)\n"
-                  "local w = FF.wizard()\n"
-                  "local p = FF.wizardPage()\n"
-                  "local grid = FF.gridLayout(p)\n"
-                  "local name = FF.lineEdit(p)\n"
-                  "name.text = 'abc'\n"
-                  "local kind = FF.comboBox(p)\n"
-                  "kind:addItem('one'); kind:addItem('two'); kind.currentIndex = 1\n"
-                  "local spin = FF.spinBox(p)\n"
-                  "spin.maximum = 50; spin.value = 70\n"
-                  "local check = FF.checkBox('Check', p)\n"
-                  "check.checked = true\n"
-                  "grid:addWidget(FF.label('Name', p), 0, 0)\n"
-                  "grid:addWidget(name, 0, 1)\n"
-                  "grid:addWidget(kind, 1, 0, 1, 2)\n"
-                  "w:addPage(p)\n"
-                  "assert(name.text == 'abc' and kind.currentText == 'two' and kind.count == 2)\n"
-                  "assert(spin.value == 50 and check.checked and w.enabled)\n"
-                  "if w:exec() == 0 then return nil end\n"
-                  "local project = FF.emptyProject('MUGEN', MUGEN.ProjectType.Stage)\n"
-                  "assert(project.type == 'stage' and project.engine == 'mugen' and project.name == 'Stage name')\n"
-                  "local unused = FF.emptyProject('mugen', MUGEN.ProjectType.Character)\n"
-                  "return project\n");
+        writeFile(script, "assert(ScriptPath ~= nil and ScriptPath:sub(-1) ~= '/')\n"
+                          "assert(OFS == FF)\n"
+                          "local w = FF.wizard()\n"
+                          "local p = FF.wizardPage()\n"
+                          "local grid = FF.gridLayout(p)\n"
+                          "local name = FF.lineEdit(p)\n"
+                          "name.text = 'abc'\n"
+                          "local kind = FF.comboBox(p)\n"
+                          "kind:addItem('one'); kind:addItem('two'); kind.currentIndex = 1\n"
+                          "local spin = FF.spinBox(p)\n"
+                          "spin.maximum = 50; spin.value = 70\n"
+                          "local check = FF.checkBox('Check', p)\n"
+                          "check.checked = true\n"
+                          "grid:addWidget(FF.label('Name', p), 0, 0)\n"
+                          "grid:addWidget(name, 0, 1)\n"
+                          "grid:addWidget(kind, 1, 0, 1, 2)\n"
+                          "w:addPage(p)\n"
+                          "assert(name.text == 'abc' and kind.currentText == 'two' and kind.count == 2)\n"
+                          "assert(spin.value == 50 and check.checked and w.enabled)\n"
+                          "if w:exec() == 0 then return nil end\n"
+                          "local project = FF.emptyProject('MUGEN', MUGEN.ProjectType.Stage)\n"
+                          "assert(project.type == MUGEN.ProjectType.Stage and project.engine.name == 'mugen')\n"
+                          "assert(project.name == 'Stage name' and project.version ~= nil)\n"
+                          "local unused = FF.emptyProject('mugen', MUGEN.ProjectType.Character)\n"
+                          "return project\n");
         answerWizard(QString(), true);
         QString error;
         std::unique_ptr<Project> project(Script::runProjectTemplate(script, m_environment, &error));
@@ -152,7 +152,7 @@ private Q_SLOTS:
         QVERIFY(error.contains("did not return a project"));
         writeFile(script, "return FF.emptyProject('nothing', 'char')\n");
         QVERIFY(!Script::runProjectTemplate(script, m_environment, &error));
-        QVERIFY(error.contains("unknown engine"));
+        QVERIFY(error.isEmpty());
         writeFile(script, "return FF.emptyProject('mugen', 'select')\n");
         QVERIFY(!Script::runProjectTemplate(script, m_environment, &error));
         QVERIFY(!error.isEmpty());

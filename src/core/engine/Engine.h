@@ -108,6 +108,10 @@ public:
     // enum name -> (value name -> value), e.g. ProjectType -> Character -> "char".
     virtual QString scriptName() const;
     virtual QMap<QString, QVariantMap> scriptEnums() const;
+    virtual QString scriptProjectTypeId(int value) const;
+    virtual int scriptProjectType(const QString& typeId) const;
+    // Engine:singleFileFilters(): file patterns for each FF.FileType.
+    virtual QMap<int, QString> scriptFileFilters() const { return {}; }
 
     virtual const SyntaxDatabase* syntax() const { return nullptr; }
     virtual QString syntaxFileType(const Project& project, const QString& editorId) const;

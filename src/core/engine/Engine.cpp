@@ -54,6 +54,22 @@ QString Engine::scriptName() const
     return name().toUpper();
 }
 
+QString Engine::scriptProjectTypeId(int value) const
+{
+    const QList<ProjectTypeInfo> types = projectTypes();
+    return value >= 0 && value < types.size() ? types[value].id : QString();
+}
+
+int Engine::scriptProjectType(const QString& typeId) const
+{
+    const QList<ProjectTypeInfo> types = projectTypes();
+    for (int i = 0; i < types.size(); ++i) {
+        if (types[i].id == typeId)
+            return i;
+    }
+    return -1;
+}
+
 QMap<QString, QVariantMap> Engine::scriptEnums() const
 {
     QVariantMap types;

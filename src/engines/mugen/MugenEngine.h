@@ -33,6 +33,9 @@ public:
     Project* openSingleFile(const QString& filePath, QString* error) override;
     QString singleFileFilter() const override;
     QMap<QString, QVariantMap> scriptEnums() const override;
+    QString scriptProjectTypeId(int value) const override;
+    int scriptProjectType(const QString& typeId) const override;
+    QMap<int, QString> scriptFileFilters() const override;
     const SyntaxDatabase* syntax() const override;
     const CompletionModels* completion() const override;
     QStringList codeTemplateDirs(const QString& editorId) const override;

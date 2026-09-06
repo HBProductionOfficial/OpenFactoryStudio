@@ -117,6 +117,10 @@ add_library(ofscore SHARED
     widgets/GraphicsView.cpp
     tools/Calculator.h
     tools/Calculator.cpp
+    script/LuaApi.h
+    script/LuaApi.cpp
+    script/LuaFileApi.cpp
+    script/LuaProjectApi.cpp
     script/LuaScript.h
     script/LuaScript.cpp
     script/ScriptHost.h

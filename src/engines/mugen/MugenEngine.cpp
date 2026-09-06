@@ -168,20 +168,49 @@ QString MugenEngine::singleFileFilter() const
     return QStringLiteral("%1 (*.def *.sff *.snd *.air *.cns *.st *.cmd *.*)").arg(displayName());
 }
 
+namespace {
+
+// MUGEN.ProjectType, numbered as scripts know it.
+const QStringList& scriptTypeIds()
+{
+    static const QStringList ids = {QStringLiteral("char"),  QStringLiteral("stage"), QStringLiteral("storyboard"),
+                                    QStringLiteral("motif"), QStringLiteral("font"),  QStringLiteral("select"),
+                                    QStringLiteral("fight")};
+    return ids;
+}
+
+} // namespace
+
 QMap<QString, QVariantMap> MugenEngine::scriptEnums() const
 {
     return {
         {QStringLiteral("ProjectType"),
          {
-             {QStringLiteral("Character"), QStringLiteral("char")},
-             {QStringLiteral("Stage"), QStringLiteral("stage")},
-             {QStringLiteral("Font"), QStringLiteral("font")},
-             {QStringLiteral("Storyboard"), QStringLiteral("storyboard")},
-             {QStringLiteral("Motif"), QStringLiteral("motif")},
-             {QStringLiteral("FightFX"), QStringLiteral("fight")},
-             {QStringLiteral("Select"), QStringLiteral("select")},
+             {QStringLiteral("Character"), 0},
+             {QStringLiteral("Stage"), 1},
+             {QStringLiteral("Storyboard"), 2},
+             {QStringLiteral("Motif"), 3},
+             {QStringLiteral("Font"), 4},
+             {QStringLiteral("Select"), 5},
+             {QStringLiteral("Fight"), 6},
          }},
     };
+}
+
+QString MugenEngine::scriptProjectTypeId(int value) const
+{
+    return scriptTypeIds().value(value);
+}
+
+int MugenEngine::scriptProjectType(const QString& typeId) const
+{
+    return int(scriptTypeIds().indexOf(typeId));
+}
+
+QMap<int, QString> MugenEngine::scriptFileFilters() const
+{
+    return {{0, QStringLiteral("*.def")}, {1, QStringLiteral("*.sff")},          {2, QStringLiteral("*.snd")},
+            {3, QStringLiteral("*.air")}, {4, QStringLiteral("*.cns *.st *.*")}, {6, QStringLiteral("*.cmd *.*")}};
 }
 
 const SyntaxDatabase* MugenEngine::syntax() const
