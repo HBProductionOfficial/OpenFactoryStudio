@@ -25,10 +25,9 @@ const QSet<QString>& Detail::pendingControllers()
 {
     static const QSet<QString> names = {
         QStringLiteral("bindtoparent"), QStringLiteral("bindtoroot"),   QStringLiteral("bindtotarget"),
-        QStringLiteral("destroyself"),  QStringLiteral("explod"),       QStringLiteral("explodbindtime"),
-        QStringLiteral("helper"),       QStringLiteral("hitoverride"),  QStringLiteral("modifyexplod"),
+        QStringLiteral("destroyself"),  QStringLiteral("helper"),       QStringLiteral("hitoverride"),
         QStringLiteral("parentvaradd"), QStringLiteral("parentvarset"), QStringLiteral("projectile"),
-        QStringLiteral("removeexplod"), QStringLiteral("reversaldef"),
+        QStringLiteral("reversaldef"),
     };
     return names;
 }
@@ -79,10 +78,7 @@ void Character::changeAnim(int number, const CharacterData* owner)
         m_messages << QStringLiteral("attempted to change to invalid action %1").arg(number);
         return;
     }
-    QList<int> times;
-    for (const AirFrame& frame : animation->frames)
-        times << frame.time;
-    m_anim = AnimPlayer(times, animation->loopStartFrame());
+    m_anim = animPlayerFor(*animation);
     m_animNo = number;
     m_animData = from;
 }
@@ -368,6 +364,7 @@ void Character::runActions()
         (m_stateNo == 0 || m_stateNo == 11 || m_stateNo == 20 || (m_stateNo == 52 && m_anim.animTime() == 0)))
         autoTurn();
     m_commands.update(m_input, m_facing);
+    m_wasHit = false;
     const Match* match = m_match;
     m_frozen =
         match && (match->superPauseTime() > 0 ? m_superMoveTime == 0 : match->pauseTime() > 0 && m_pauseMoveTime == 0);
@@ -440,6 +437,7 @@ void Character::finishTick()
     if (m_gotHit) {
         m_gotHit = false;
         enterGetHitState();
+        m_wasHit = !inGuardState();
     }
     if (m_pendingP1State >= 0) {
         const int state = m_pendingP1State;

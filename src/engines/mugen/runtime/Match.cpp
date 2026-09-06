@@ -106,6 +106,8 @@ void Match::tick()
         c->finishTick();
     for (Character* c : std::as_const(m_characters))
         c->releaseTargets();
+    for (Character* c : std::as_const(m_characters))
+        c->updateExplods();
     if (m_envShake.time > 0)
         --m_envShake.time;
     if (m_envColor.time > 0)

@@ -3,6 +3,7 @@
 #include "engines/mugen/runtime/AnimPlayer.h"
 #include "engines/mugen/runtime/CharacterData.h"
 #include "engines/mugen/runtime/Effects.h"
+#include "engines/mugen/runtime/Explod.h"
 #include "engines/mugen/runtime/Expr.h"
 #include "engines/mugen/runtime/Hits.h"
 
@@ -65,6 +66,9 @@ public:
     bool pauseBackground() const { return m_superTime > 0 ? m_superPauseBg : m_pauseBg; }
     void requestPause(bool super, int playerId, int time, bool pauseBg, bool darken = false);
 
+    void setFightFx(const CharacterData* data) { m_fightFx = data; }
+    const CharacterData* fightFx() const { return m_fightFx; }
+
     // Every character's states, then the hits, then the reactions and animations.
     void tick();
 
@@ -95,6 +99,7 @@ private:
     bool m_superDarken = true;
     bool m_superPauseBg = true;
     bool m_pauseBg = true;
+    const CharacterData* m_fightFx = nullptr;
 };
 
 class Character : public Context
@@ -139,6 +144,9 @@ public:
     float defenceMul() const { return m_defenceMul; }
     bool frozen() const { return m_frozen; }
     float superDefenceMul() const { return m_superDefenceMul; }
+    const QList<Explod>& explods() const { return m_explods; }
+    int numExplods(int id = -1) const;
+    void updateExplods();
 
     const CharacterData& data() const { return m_data; }
     int stateNo() const { return m_stateNo; }
@@ -178,6 +186,9 @@ private:
     bool runState(const CharacterData& source, int number, std::vector<int>& counters);
     bool executeEffect(const Controller& c);
     bool hittableBy(const HitDef& hit) const;
+    bool executeExplod(const Controller& c);
+    void readExplod(const Controller& c, Explod& e, bool create);
+    void placeExplod(Explod& e);
     // TargetState from another character waits for this character's next turn.
     void queueState(int number, const CharacterData* owner);
     QList<Character*> targetsWithId(int id) const;
@@ -280,6 +291,8 @@ private:
     int m_unhittableTime = 0;
     float m_superDefenceMul = 1;
     float m_superDefenceMulNext = 1;
+    QList<Explod> m_explods;
+    bool m_wasHit = false;
 
     QStringList m_messages;
     QStringList m_trace;

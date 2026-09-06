@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engines/mugen/runtime/AnimPlayer.h"
 #include "engines/mugen/runtime/CharacterData.h"
 
 #include <QSet>
@@ -15,5 +16,6 @@ constexpr int Never = INT32_MAX; // the counter of a "persistent = 0" controller
 
 QChar letterOf(const Param* param, QChar fallback);
 const QSet<QString>& pendingControllers();
+AnimPlayer animPlayerFor(const AirAnimation& animation);
 
 } // namespace OFS::Mugen::Runtime::Detail

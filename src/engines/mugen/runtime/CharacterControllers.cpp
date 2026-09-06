@@ -303,7 +303,7 @@ bool Character::execute(const Controller& c)
         m_life = std::clamp(life, 0, max);
         return false;
     }
-    if (executeEffect(c))
+    if (executeEffect(c) || executeExplod(c))
         return false;
     if (!pendingControllers().contains(type)) {
         const QString message =

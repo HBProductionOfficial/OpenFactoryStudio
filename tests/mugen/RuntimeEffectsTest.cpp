@@ -376,6 +376,77 @@ private Q_SLOTS:
         QCOMPARE(a.time(), 4);
         QCOMPARE(match.pauseTime(), 7);
     }
+
+    void explods()
+    {
+        CharacterData data;
+        data.setAnimations("[Begin Action 0]\n0,0, 0,0, -1\n\n"
+                           "[Begin Action 500]\n500,0, 0,0, 2\n500,1, 0,0, 2\n\n"
+                           "[Begin Action 501]\n501,0, 0,0, -1\n");
+        data.addStates("[Statedef 0]\nanim = 0\n"
+                       "[State 0, a]\ntype = Explod\ntrigger1 = time = 0\nanim = 500\nid = 7\npos = 30, -20\n"
+                       "vel = 2, 0\n"
+                       "[State 0, b]\ntype = Explod\ntrigger1 = time = 0\nanim = 501\nid = 8\npos = 10, 0\n"
+                       "bindtime = -1\nremovetime = -1\n"
+                       "[State 0, c]\ntype = Explod\ntrigger1 = time = 0\nanim = 501\nid = 9\npostype = left\n"
+                       "pos = 5, 6\nremovetime = 3\n"
+                       "[State 0, n]\ntype = VarSet\ntrigger1 = 1\nv = 0\nvalue = NumExplod\n"
+                       "[State 0, n7]\ntype = VarSet\ntrigger1 = 1\nv = 1\nvalue = NumExplod(8)\n"
+                       "[State 0, m]\ntype = ModifyExplod\ntrigger1 = time = 1\nid = 8\nscale = 2, 2\n"
+                       "[State 0, r]\ntype = RemoveExplod\ntrigger1 = time = 6\nid = 8\n"
+                       "[State 0, v]\ntype = VelSet\ntrigger1 = 1\nx = 1\n");
+        Match match;
+        Character c(data, &match);
+        c.setPos({0, 0});
+        c.start(0);
+        match.tick();
+        QCOMPARE(c.numExplods(), 3);
+        QCOMPARE(c.var(0), 3);
+        QCOMPARE(c.var(1), 1);
+        const Explod& moving = c.explods().at(0);
+        QCOMPARE(moving.id, 7);
+        QCOMPARE(moving.drawPos().x, 30.f);
+        QCOMPARE(moving.drawPos().y, -20.f);
+        const Explod& screen = c.explods().at(2);
+        QVERIFY(screen.screen);
+        QCOMPARE(screen.drawPos().x, 5.f);
+        match.tick();
+        QCOMPARE(c.explods().at(0).drawPos().x, 32.f);
+        QCOMPARE(c.explods().at(1).scale.x, 2.f);
+        QCOMPARE(c.explods().at(1).drawPos().x, float(c.pos().x()) + 10);
+        match.tick();
+        QCOMPARE(c.numExplods(9), 1);
+        match.tick();
+        QCOMPARE(c.numExplods(9), 0);
+        QCOMPARE(c.numExplods(7), 1);
+        match.tick();
+        QCOMPARE(c.numExplods(7), 0);
+        QCOMPARE(c.numExplods(8), 1);
+        for (int i = 0; i < 2; ++i)
+            match.tick();
+        QCOMPARE(c.numExplods(), 0);
+        QVERIFY(c.messages().isEmpty());
+
+        CharacterData fightFx;
+        fightFx.setAnimations("[Begin Action 30]\n30,0, 0,0, 3\n");
+        CharacterData user;
+        user.addStates("[Statedef 0]\n[State 0]\ntype = Explod\ntrigger1 = time = 0\nanim = F30\n"
+                       "postype = p2\npos = 0, -50\n");
+        Match fx;
+        fx.setFightFx(&fightFx);
+        Character a(user, &fx);
+        Character b(user, &fx);
+        a.setPos({-40, 0});
+        b.setPos({40, 0});
+        b.setFacing(-1);
+        a.start(0);
+        b.start(0);
+        fx.tick();
+        QCOMPARE(a.numExplods(), 1);
+        QVERIFY(a.explods().at(0).common);
+        QCOMPARE(a.explods().at(0).drawPos().x, 40.f);
+        QCOMPARE(a.explods().at(0).drawFacing(), -1);
+    }
 };
 
 QTEST_GUILESS_MAIN(RuntimeEffectsTest)

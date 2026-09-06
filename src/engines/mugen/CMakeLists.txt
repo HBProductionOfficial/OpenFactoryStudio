@@ -65,12 +65,14 @@ add_library(ofs_mugen_runtime STATIC
     runtime/CharacterControllers.cpp
     runtime/CharacterDetail.h
     runtime/CharacterEffects.cpp
+    runtime/CharacterExplods.cpp
     runtime/CharacterHits.cpp
     runtime/CharacterTriggers.cpp
     runtime/Match.cpp
     runtime/Commands.h
     runtime/Commands.cpp
     runtime/Effects.h
+    runtime/Explod.h
     runtime/Hits.h
 )
 add_library(OFS::mugen_runtime ALIAS ofs_mugen_runtime)

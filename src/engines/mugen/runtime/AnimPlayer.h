@@ -26,6 +26,7 @@ public:
     int animElemNo(int offset) const;
     // -1 when it ends on an endless frame.
     int totalTime() const { return m_totalTime; }
+    bool ended() const { return m_ended; }
 
 private:
     void seek(int frame);
@@ -39,6 +40,7 @@ private:
     int m_frame = 0;
     int m_frameTime = 0;
     int m_time = 0;
+    bool m_ended = false;
 };
 
 } // namespace OFS::Mugen::Runtime

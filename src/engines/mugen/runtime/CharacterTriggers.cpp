@@ -240,9 +240,10 @@ Value Character::trigger(const TriggerCall& call)
     }
     case Trigger::NumTarget:
         return Value::integer(int(targetsWithId(call.args.empty() ? -1 : arg(0).toInt()).size()));
+    case Trigger::NumExplod:
+        return Value::integer(numExplods(call.args.empty() ? -1 : arg(0).toInt()));
     case Trigger::IsHelper:
     case Trigger::NumHelper:
-    case Trigger::NumExplod:
     case Trigger::NumProj:
     case Trigger::NumProjID:
     case Trigger::NumPartner:

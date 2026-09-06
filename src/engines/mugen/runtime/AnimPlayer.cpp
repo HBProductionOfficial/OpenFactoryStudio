@@ -40,6 +40,7 @@ void AnimPlayer::reset()
     m_frame = 0;
     m_frameTime = 0;
     m_time = 0;
+    m_ended = false;
     updateFrame();
 }
 
@@ -54,6 +55,7 @@ void AnimPlayer::setElement(int element, int elementTime)
     if (elementTime < 0 || (length != -1 && elementTime >= length))
         elementTime = 0;
     m_frameTime = elementTime;
+    m_ended = false;
     m_time = 0;
     m_time = -animElemTime(m_frame + 1) + m_frameTime;
 }
@@ -182,6 +184,8 @@ void AnimPlayer::step()
     if (m_totalTime != -1 && m_time >= m_totalTime)
         m_time = m_totalTime - m_loopTime;
     ++m_time;
+    if (m_totalTime != -1 && m_time >= m_totalTime)
+        m_ended = true;
 }
 
 } // namespace OFS::Mugen::Runtime
