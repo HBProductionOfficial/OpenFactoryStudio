@@ -40,23 +40,7 @@ void Character::enterGetHitState()
 
 QList<QRectF> Character::boxes(int type) const
 {
-    QList<QRectF> rects;
-    const AirAnimation* animation = m_animData->animation(m_animNo);
-    if (!animation || m_anim.isEmpty())
-        return rects;
-    for (const AirBox& box : animation->boxes(m_anim.frame(), type)) {
-        float left = float(std::min(box.left, box.right));
-        float right = float(std::max(box.left, box.right));
-        if (m_facing < 0) {
-            const float l = -right;
-            right = -left;
-            left = l;
-        }
-        const float top = float(std::min(box.top, box.bottom));
-        const float bottom = float(std::max(box.top, box.bottom));
-        rects << QRectF(m_pos.x + left, m_pos.y + top, right - left, bottom - top);
-    }
-    return rects;
+    return clsnBoxes(m_animData->animation(m_animNo), m_anim, type, m_pos, m_facing);
 }
 
 bool Character::canGuard(const HitDef& hit) const
@@ -80,11 +64,9 @@ bool Character::canGuard(const HitDef& hit) const
            (m_stateType == QLatin1Char('A') && flags.contains(QLatin1Char('A')));
 }
 
-bool Character::attack(Character& target)
+bool Character::hitAllowed(const HitDef& hd, const Character& target) const
 {
-    if (!m_hitDef.active || &target == this)
-        return false;
-    const QString flags = m_hitDef.hitFlag.toUpper();
+    const QString flags = hd.hitFlag.toUpper();
     const QChar type = target.m_stateType;
     const bool falling = type == QLatin1Char('A') && target.m_ghv.fall && target.m_moveType == QLatin1Char('H');
     bool allowed = false;
@@ -98,22 +80,48 @@ bool Character::attack(Character& target)
         allowed = flags.contains(QLatin1Char('D'));
     if (flags.contains(QLatin1Char('+')) && target.m_moveType != QLatin1Char('H'))
         allowed = false;
-    if (!target.hittableBy(m_hitDef) || target.m_unhittableTime > 0 || m_frozen)
+    if (!target.hittableBy(hd) || target.m_unhittableTime > 0)
         allowed = false;
     if (flags.contains(QLatin1Char('-')) && target.m_moveType == QLatin1Char('H'))
         allowed = false;
-    if (!allowed)
-        return false;
-    bool contact = false;
-    const QList<QRectF> body = target.boxes(2);
-    for (const QRectF& hit : boxes(1)) {
-        for (const QRectF& part : body)
-            contact = contact || hit.intersects(part);
-    }
-    if (!contact)
-        return false;
+    return allowed;
+}
 
+bool Character::attack(Character& target)
+{
+    if (!m_hitDef.active || &target == this || m_frozen || !hitAllowed(m_hitDef, target))
+        return false;
+    if (!boxesMeet(boxes(1), target.boxes(2)))
+        return false;
     const HitDef& hd = m_hitDef;
+    const bool guarded = deliverHit(target, hd, m_facing);
+
+    const int pause = guarded ? hd.guardPauseTime[0] : hd.pauseTime[0];
+    if (pause > 0)
+        m_hitPauseTime = pause;
+    m_moveContactTime = 1;
+    m_moveGuarded = guarded;
+    if (!guarded) {
+        m_hitCount += hd.numHits;
+        ++m_uniqHitCount;
+        if (hd.p1StateNo >= 0) {
+            m_pendingP1State = hd.p1StateNo;
+            m_ctrl = false;
+        }
+        if (hd.p2Facing > 0)
+            target.m_facing = -m_facing;
+        else if (hd.p2Facing < 0)
+            target.m_facing = m_facing;
+        if (hd.p1Facing < 0)
+            m_facing = -m_facing;
+    }
+    m_hitDef.active = false;
+    return true;
+}
+
+bool Character::deliverHit(Character& target, const HitDef& hd, int facing)
+{
+    const QChar type = target.m_stateType;
     const bool guarded = target.canGuard(hd) && !m_asserted.contains(QStringLiteral("unguardable"));
     const float attackMul = m_data.constant(QStringLiteral("data.attack"), 100) / 100.0f * m_attackMul;
     const float defence = target.m_data.constant(QStringLiteral("data.defence"), 100) / 100.0f * target.m_defenceMul *
@@ -132,7 +140,7 @@ bool Character::attack(Character& target)
 
     GetHitVars& ghv = target.m_ghv;
     const bool combo = target.m_moveType == QLatin1Char('H') && !ghv.guarded;
-    const float side = float(-m_facing); // velocities are given towards the attacker's front
+    const float side = float(-facing); // velocities are given towards the attacker's front
     ghv.damage = damage;
     ghv.kill = kill;
     ghv.groundType = hd.groundType;
@@ -219,31 +227,15 @@ bool Character::attack(Character& target)
         m_targets << &target;
         m_targetIds << hd.id;
     }
-
-    const int pause = guarded ? hd.guardPauseTime[0] : hd.pauseTime[0];
-    if (pause > 0)
-        m_hitPauseTime = pause;
-    m_moveContactTime = 1;
-    m_moveGuarded = guarded;
-    if (!guarded) {
-        m_hitCount += hd.numHits;
-        ++m_uniqHitCount;
-        if (hd.p1StateNo >= 0) {
-            m_pendingP1State = hd.p1StateNo;
-            m_ctrl = false;
-        }
-        if (hd.p2Facing > 0)
-            target.m_facing = -m_facing;
-        else if (hd.p2Facing < 0)
-            target.m_facing = m_facing;
-        if (hd.p1Facing < 0)
-            m_facing = -m_facing;
-    }
-    m_hitDef.active = false;
-    return true;
+    return guarded;
 }
 
 void Character::readHitDef(const Controller& c)
+{
+    m_hitDef = hitDefFrom(c);
+}
+
+HitDef Character::hitDefFrom(const Controller& c)
 {
     HitDef hd;
     if (const Param* attr = c.param(QStringLiteral("attr"))) {
@@ -349,7 +341,7 @@ void Character::readHitDef(const Controller& c)
     hd.p1Facing = intParam(c, QStringLiteral("p1facing"), 0);
     hd.p2Facing = intParam(c, QStringLiteral("p2facing"), 0);
     hd.active = true;
-    m_hitDef = hd;
+    return hd;
 }
 
 } // namespace OFS::Mugen::Runtime

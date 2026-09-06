@@ -313,7 +313,7 @@ bool Character::execute(const Controller& c)
         m_destroyed = true;
         return true;
     }
-    if (executeEffect(c) || executeExplod(c) || executeHelper(c))
+    if (executeEffect(c) || executeExplod(c) || executeHelper(c) || executeProjectile(c))
         return false;
     if (!pendingControllers().contains(type)) {
         const QString message =

@@ -242,6 +242,34 @@ Value Character::trigger(const TriggerCall& call)
         return Value::integer(int(targetsWithId(call.args.empty() ? -1 : arg(0).toInt()).size()));
     case Trigger::NumExplod:
         return Value::integer(numExplods(call.args.empty() ? -1 : arg(0).toInt()));
+    case Trigger::NumProj:
+        return Value::integer((m_root ? m_root : this)->numProjectiles());
+    case Trigger::NumProjID:
+        return Value::integer((m_root ? m_root : this)->numProjectiles(std::max(0, arg(0).toInt())));
+    case Trigger::ProjContact:
+    case Trigger::ProjHit:
+    case Trigger::ProjGuarded: {
+        // ProjHit[ID] = 1: contact on the last tick. "= 1, op t" compares the ticks since.
+        const ProjContactKind kind = call.trigger == Trigger::ProjHit       ? ProjContactKind::Hit
+                                     : call.trigger == Trigger::ProjGuarded ? ProjContactKind::Guarded
+                                                                            : ProjContactKind::Contact;
+        const int time = projContactTime(kind, call.keyword.isEmpty() ? 0 : call.keyword.toInt());
+        bool result =
+            call.hasSecond ? time >= 0 && Ops::compare(Value::integer(time), arg(1), call.second).toBool() : time == 0;
+        if (arg(0).toInt() == 0)
+            result = !result;
+        return special(result);
+    }
+    case Trigger::ProjContactTime:
+    case Trigger::ProjHitTime:
+    case Trigger::ProjGuardedTime:
+    case Trigger::ProjCancelTime: {
+        const ProjContactKind kind = call.trigger == Trigger::ProjHitTime       ? ProjContactKind::Hit
+                                     : call.trigger == Trigger::ProjGuardedTime ? ProjContactKind::Guarded
+                                     : call.trigger == Trigger::ProjCancelTime  ? ProjContactKind::Cancel
+                                                                                : ProjContactKind::Contact;
+        return Value::integer(projContactTime(kind, call.args.empty() ? 0 : arg(0).toInt()));
+    }
     case Trigger::IsHelper:
         return Value::boolean(m_isHelper && (call.args.empty() || m_helperId == arg(0).toInt()));
     case Trigger::NumHelper: {
@@ -265,8 +293,6 @@ Value Character::trigger(const TriggerCall& call)
             return Value::real(to->m_pos.y - m_pos.y);
         return Value::real((to->m_pos.x - m_pos.x) * float(m_facing));
     }
-    case Trigger::NumProj:
-    case Trigger::NumProjID:
     case Trigger::NumPartner:
     case Trigger::MatchOver:
     case Trigger::MoveReversed:

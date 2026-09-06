@@ -200,16 +200,32 @@ void Match::tick()
         c->updateBindings();
     for (Character* c : std::as_const(m_characters))
         c->updateHelperBinding();
+    for (Character* c : std::as_const(m_characters))
+        c->updateProjectiles();
+    for (int i = 0; i < m_characters.size(); ++i) {
+        for (int j = i + 1; j < m_characters.size(); ++j) {
+            if (m_characters[i]->m_team != m_characters[j]->m_team)
+                m_characters[i]->cancelProjectiles(*m_characters[j]);
+        }
+    }
     for (Character* attacker : std::as_const(m_characters)) {
         for (Character* target : std::as_const(m_characters)) {
             if (attacker->m_team != target->m_team && !attacker->m_destroyed && !target->m_destroyed)
                 attacker->attack(*target);
         }
     }
+    for (Character* attacker : std::as_const(m_characters)) {
+        for (Character* target : std::as_const(m_characters)) {
+            if (attacker->m_team != target->m_team && !target->m_destroyed)
+                attacker->projectilesAttack(*target);
+        }
+    }
     for (Character* c : std::as_const(m_characters))
         c->tickBinding();
     for (Character* c : std::as_const(m_characters))
         c->finishTick();
+    for (Character* c : std::as_const(m_characters))
+        c->tickProjectiles();
     for (Character* c : std::as_const(m_characters))
         c->releaseTargets();
     for (Character* c : std::as_const(m_characters))

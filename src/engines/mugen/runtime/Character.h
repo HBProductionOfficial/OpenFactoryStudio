@@ -6,6 +6,7 @@
 #include "engines/mugen/runtime/Explod.h"
 #include "engines/mugen/runtime/Expr.h"
 #include "engines/mugen/runtime/Hits.h"
+#include "engines/mugen/runtime/Projectile.h"
 
 #include <QHash>
 #include <QList>
@@ -23,6 +24,14 @@
 namespace OFS::Mugen::Runtime {
 
 class Character;
+
+enum class ProjContactKind
+{
+    Contact,
+    Hit,
+    Guarded,
+    Cancel,
+};
 
 class Match
 {
@@ -51,6 +60,8 @@ public:
         m_screenEdge = edge;
     }
     float cameraX() const { return m_cameraX; }
+    float stageLeft() const { return m_left; }
+    float stageRight() const { return m_right; }
     float screenWidth() const { return m_screenWidth; }
     float screenEdge() const { return m_screenEdge; }
     int random(int max);
@@ -157,6 +168,13 @@ public:
     const QList<Explod>& explods() const { return m_explods; }
     int numExplods(int id = -1) const;
     void updateExplods();
+    const QList<Projectile>& projectiles() const { return m_projectiles; }
+    int numProjectiles(int id = -1) const;
+    void updateProjectiles();
+    void cancelProjectiles(Character& other);
+    void projectilesAttack(Character& target);
+    void tickProjectiles();
+    QList<QRectF> projectileBoxes(const Projectile& p, int type) const;
 
     const CharacterData& data() const { return m_data; }
     int stateNo() const { return m_stateNo; }
@@ -221,6 +239,13 @@ private:
     void enterState();
     void updatePosition();
     void readHitDef(const Controller& c);
+    HitDef hitDefFrom(const Controller& c);
+    bool hitAllowed(const HitDef& hd, const Character& target) const;
+    bool deliverHit(Character& target, const HitDef& hd, int facing);
+    bool executeProjectile(const Controller& c);
+    const CharacterData* projectileAnimData(const Projectile::Anim& anim) const;
+    bool showProjectileAnim(Projectile& p, const Projectile::Anim& anim);
+    int projContactTime(ProjContactKind kind, int id) const;
     bool canGuard(const HitDef& hit) const;
     void enterGetHitState();
     // The engine turns idle characters to face an opponent who went behind.
@@ -319,6 +344,10 @@ private:
     float m_superDefenceMulNext = 1;
     QList<Explod> m_explods;
     bool m_wasHit = false;
+    QList<Projectile> m_projectiles;
+    ProjContactKind m_projContact = ProjContactKind::Hit;
+    int m_projContactTime = -1;
+    int m_projContactId = 0;
 
     bool m_isHelper = false;
     bool m_helperPlayerType = false;

@@ -25,7 +25,6 @@ const QSet<QString>& Detail::pendingControllers()
 {
     static const QSet<QString> names = {
         QStringLiteral("hitoverride"),
-        QStringLiteral("projectile"),
         QStringLiteral("reversaldef"),
     };
     return names;
@@ -418,6 +417,8 @@ void Character::runActions()
     ++m_time;
     if (m_moveContactTime > 0)
         ++m_moveContactTime;
+    if (m_projContactTime >= 0)
+        ++m_projContactTime;
     if (m_moveType == QLatin1Char('H')) {
         if (m_ghv.hitShakeTime > 0)
             --m_ghv.hitShakeTime;
