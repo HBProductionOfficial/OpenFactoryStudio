@@ -320,6 +320,62 @@ bool Character::executeEffect(const Controller& c)
         m_victoryQuote = intParam(c, QStringLiteral("value"), -1);
         return true;
     }
+    if (type == QLatin1String("pause") || type == QLatin1String("superpause")) {
+        if (!m_match)
+            return true;
+        const bool super = type == QLatin1String("superpause");
+        const int time = intParam(c, QStringLiteral("time"), super ? 30 : 0);
+        int moveTime = std::max(0, intParam(c, QStringLiteral("movetime"), 0));
+        const bool running = super ? m_match->superPauseTime() > 0 : m_match->pauseTime() > 0;
+        if (moveTime > time)
+            moveTime = 0;
+        else if (running && moveTime > 0)
+            --moveTime;
+        (super ? m_superMoveTime : m_pauseMoveTime) = moveTime;
+        const bool pauseBg = intParam(c, QStringLiteral("pausebg"), 1) != 0;
+        if (!super) {
+            m_match->requestPause(false, m_id, time, pauseBg);
+            return true;
+        }
+        m_match->requestPause(true, m_id, time, pauseBg, intParam(c, QStringLiteral("darken"), 1) != 0);
+        m_power = std::clamp(m_power + intParam(c, QStringLiteral("poweradd"), 0), 0,
+                             int(m_data.constant(QStringLiteral("data.power"), 3000)));
+        // Out of reach for the pause. It starts next tick, so one tick more.
+        if (intParam(c, QStringLiteral("unhittable"), 1) != 0)
+            m_unhittableTime = time + (time > 0 ? 1 : 0);
+        float defMul = floatParam(c, QStringLiteral("p2defmul"), 0);
+        if (defMul <= 0)
+            defMul = m_data.constant(QStringLiteral("super.targetdefencemul"), 1.5f);
+        if (defMul != 1) {
+            for (Character* other : m_match->characters()) {
+                if (other != this)
+                    other->m_superDefenceMulNext *= defMul;
+            }
+        }
+        // The charging animation (fightfx 30 unless S) and a sound (fightfx's unless S).
+        const Param* anim = c.param(QStringLiteral("anim"));
+        const int animNo = intParam(c, QStringLiteral("anim"), 30);
+        if (animNo >= 0) {
+            SpawnEvent event;
+            event.kind = SpawnEvent::Kind::GameAnim;
+            event.playerId = m_id;
+            event.anim = animNo;
+            event.common = !(anim && anim->prefix == QLatin1Char('S'));
+            event.pos = Vec2{m_pos.x + floatParam(c, QStringLiteral("pos"), 0, 0) * float(m_facing),
+                             m_pos.y + floatParam(c, QStringLiteral("pos"), 0, 1)};
+            m_match->addSpawn(event);
+        }
+        if (const Param* sound = c.param(QStringLiteral("sound"));
+            sound && intParam(c, QStringLiteral("sound"), -1, 0) >= 0) {
+            SoundEvent event;
+            event.playerId = m_id;
+            event.common = sound->prefix != QLatin1Char('S');
+            event.group = intParam(c, QStringLiteral("sound"), 0, 0);
+            event.index = intParam(c, QStringLiteral("sound"), 0, 1);
+            m_match->addSound(event);
+        }
+        return true;
+    }
     if (type == QLatin1String("forcefeedback"))
         return true;
     return false;

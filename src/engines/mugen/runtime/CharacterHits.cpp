@@ -98,7 +98,7 @@ bool Character::attack(Character& target)
         allowed = flags.contains(QLatin1Char('D'));
     if (flags.contains(QLatin1Char('+')) && target.m_moveType != QLatin1Char('H'))
         allowed = false;
-    if (!target.hittableBy(m_hitDef))
+    if (!target.hittableBy(m_hitDef) || target.m_unhittableTime > 0 || m_frozen)
         allowed = false;
     if (flags.contains(QLatin1Char('-')) && target.m_moveType == QLatin1Char('H'))
         allowed = false;
@@ -116,7 +116,8 @@ bool Character::attack(Character& target)
     const HitDef& hd = m_hitDef;
     const bool guarded = target.canGuard(hd) && !m_asserted.contains(QStringLiteral("unguardable"));
     const float attackMul = m_data.constant(QStringLiteral("data.attack"), 100) / 100.0f * m_attackMul;
-    const float defence = target.m_data.constant(QStringLiteral("data.defence"), 100) / 100.0f * target.m_defenceMul;
+    const float defence = target.m_data.constant(QStringLiteral("data.defence"), 100) / 100.0f * target.m_defenceMul *
+                          target.m_superDefenceMul;
     int damage = int(std::lround((guarded ? hd.guardDamage : hd.hitDamage) * attackMul / std::max(0.01f, defence)));
     const bool kill = guarded ? hd.guardKill : hd.kill;
     if (!kill && damage >= target.m_life)

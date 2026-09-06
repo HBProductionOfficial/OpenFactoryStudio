@@ -312,6 +312,70 @@ private Q_SLOTS:
         QCOMPARE(c.victoryQuote(), 3);
         QVERIFY(c.messages().isEmpty());
     }
+
+    void superPause()
+    {
+        CharacterData pauser;
+        pauser.addStates("[Statedef 300]\ntype = S\nmovetype = A\n"
+                         "[State 300]\ntype = SuperPause\ntrigger1 = time = 0\ntime = 10\npoweradd = 500\n"
+                         "p2defmul = 2\nsound = S5, 1\n");
+        CharacterData counter;
+        counter.addStates("[Statedef 5000]\ntype = S\nmovetype = H\n"
+                          "[State 5000]\ntype = VarAdd\ntrigger1 = 1\nv = 0\nvalue = 1\n");
+        Match match;
+        Character a(pauser, &match);
+        Character b(counter, &match);
+        a.setPos({-50, 0});
+        b.setPos({50, 0});
+        a.start(300);
+        b.start(5000);
+        match.tick();
+        QCOMPARE(b.var(0), 1);
+        QCOMPARE(a.power(), 500);
+        QCOMPARE(match.superPauseTime(), 0);
+        QCOMPARE(match.spawns().size(), 1);
+        QCOMPARE(match.spawns().at(0).anim, 30);
+        QVERIFY(match.spawns().at(0).common);
+        QCOMPARE(match.sounds().size(), 1);
+        QVERIFY(!match.sounds().at(0).common);
+        QCOMPARE(b.superDefenceMul(), 2.f);
+        match.tick();
+        QCOMPARE(match.superPauseTime(), 10);
+        QVERIFY(a.frozen());
+        QVERIFY(b.frozen());
+        for (int i = 0; i < 9; ++i)
+            match.tick();
+        QCOMPARE(b.var(0), 1);
+        QCOMPARE(a.time(), 1);
+        match.tick();
+        QVERIFY(!b.frozen());
+        QCOMPARE(b.var(0), 2);
+    }
+
+    void pauseMoveTime()
+    {
+        CharacterData pauser;
+        pauser.addStates("[Statedef 300]\n"
+                         "[State 300]\ntype = Pause\ntrigger1 = time = 0\ntime = 10\nmovetime = 3\n");
+        CharacterData idle;
+        idle.addStates("[Statedef 0]\n[State 0]\ntype = Null\ntrigger1 = 1\n");
+        Match match;
+        Character a(pauser, &match);
+        Character b(idle, &match);
+        a.start(300);
+        b.start(0);
+        match.tick();
+        for (int i = 0; i < 3; ++i) {
+            match.tick();
+            QVERIFY(!a.frozen());
+            QVERIFY(b.frozen());
+        }
+        QCOMPARE(a.time(), 4);
+        match.tick();
+        QVERIFY(a.frozen());
+        QCOMPARE(a.time(), 4);
+        QCOMPARE(match.pauseTime(), 7);
+    }
 };
 
 QTEST_GUILESS_MAIN(RuntimeEffectsTest)

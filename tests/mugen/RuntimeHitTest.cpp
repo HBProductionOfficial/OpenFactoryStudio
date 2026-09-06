@@ -101,7 +101,7 @@ private Q_SLOTS:
         QVERIFY(!f.b.ctrl());
         QCOMPARE(f.a.power(), 50);
         QCOMPARE(f.b.power(), 50);
-        QCOMPARE(f.a.hitPauseTime(), 5);
+        QCOMPARE(f.a.hitPauseTime(), 4); // the hit's tick counts
         QVERIFY(!f.a.hitDef().active);
 
         const int timeBefore = f.a.time();
@@ -110,14 +110,15 @@ private Q_SLOTS:
         QCOMPARE(f.b.var(1), int(AnimType::Medium));
         QCOMPARE(f.b.var(2), 8);
 
-        for (int i = 0; i < 4; ++i)
+        for (int i = 0; i < 3; ++i)
             f.match.tick();
         QCOMPARE(f.a.time(), timeBefore);
+        QCOMPARE(f.a.hitPauseTime(), 0);
         QCOMPARE(f.a.var(9), 0);
         f.match.tick();
         QVERIFY(f.a.var(9) > 0);
 
-        for (int i = 0; i < 4; ++i)
+        for (int i = 0; i < 5; ++i)
             f.match.tick();
         QCOMPARE(f.b.stateNo(), 5001);
         QCOMPARE(f.b.var(4), -4);

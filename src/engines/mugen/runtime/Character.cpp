@@ -27,9 +27,8 @@ const QSet<QString>& Detail::pendingControllers()
         QStringLiteral("bindtoparent"), QStringLiteral("bindtoroot"),   QStringLiteral("bindtotarget"),
         QStringLiteral("destroyself"),  QStringLiteral("explod"),       QStringLiteral("explodbindtime"),
         QStringLiteral("helper"),       QStringLiteral("hitoverride"),  QStringLiteral("modifyexplod"),
-        QStringLiteral("parentvaradd"), QStringLiteral("parentvarset"), QStringLiteral("pause"),
-        QStringLiteral("projectile"),   QStringLiteral("removeexplod"), QStringLiteral("reversaldef"),
-        QStringLiteral("superpause"),
+        QStringLiteral("parentvaradd"), QStringLiteral("parentvarset"), QStringLiteral("projectile"),
+        QStringLiteral("removeexplod"), QStringLiteral("reversaldef"),
     };
     return names;
 }
@@ -299,6 +298,12 @@ void Character::prepare()
         m_width[0] = m_width[1] = -1;
         m_screenBound = true;
         m_moveCamera[0] = m_moveCamera[1] = true;
+        if (m_match && m_match->superPauseTime() > 0) {
+            if (m_superMoveTime > 0)
+                --m_superMoveTime;
+        } else if (m_match && m_match->pauseTime() > 0 && m_pauseMoveTime > 0) {
+            --m_pauseMoveTime;
+        }
         for (HitBySlot& slot : m_hitBy) {
             if (slot.time > 0 && --slot.time == 0)
                 slot = HitBySlot();
@@ -363,6 +368,15 @@ void Character::runActions()
         (m_stateNo == 0 || m_stateNo == 11 || m_stateNo == 20 || (m_stateNo == 52 && m_anim.animTime() == 0)))
         autoTurn();
     m_commands.update(m_input, m_facing);
+    const Match* match = m_match;
+    m_frozen =
+        match && (match->superPauseTime() > 0 ? m_superMoveTime == 0 : match->pauseTime() > 0 && m_pauseMoveTime == 0);
+    if (m_unhittableTime > 0)
+        --m_unhittableTime;
+    if (m_frozen) {
+        m_minus = 1;
+        return;
+    }
     prepare();
     const bool paused = m_hitPauseTime > 0;
     for (int special : {-3, -2, -1}) {
@@ -386,7 +400,6 @@ void Character::runActions()
         changeState(120);
 
     if (paused) {
-        --m_hitPauseTime;
         m_minus = 1;
         return;
     }
@@ -410,6 +423,7 @@ void Character::runActions()
         m_ghv.hitShakeTime = 0;
         m_ghv.fall = false;
         m_ghv.fallCount = 0;
+        m_superDefenceMul = 1;
     }
     if (m_ghv.hitShakeTime <= 0 && m_ghv.hitTime >= 0)
         --m_ghv.hitTime;
@@ -421,6 +435,8 @@ void Character::runActions()
 void Character::finishTick()
 {
     m_minus = 2;
+    if (!m_frozen && m_hitPauseTime <= 0)
+        m_anim.step();
     if (m_gotHit) {
         m_gotHit = false;
         enterGetHitState();
@@ -430,8 +446,13 @@ void Character::finishTick()
         m_pendingP1State = -1;
         changeState(state);
     }
-    if (m_hitPauseTime <= 0)
-        m_anim.step();
+    if (!m_frozen && m_hitPauseTime > 0)
+        --m_hitPauseTime;
+    if (m_superDefenceMulNext != 1) {
+        if (m_moveType == QLatin1Char('H'))
+            m_superDefenceMul *= m_superDefenceMulNext;
+        m_superDefenceMulNext = 1;
+    }
     m_draw.palFx.tick();
     if (m_draw.afterImage.time > 0)
         --m_draw.afterImage.time;

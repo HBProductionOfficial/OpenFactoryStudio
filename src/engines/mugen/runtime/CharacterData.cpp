@@ -36,6 +36,7 @@ const QList<QPair<const char*, float>>& defaults()
         {"size.air.front", 12},
         {"size.height", 60},
         {"size.attack.dist", 160},
+        {"super.targetdefencemul", 1.5f},
         {"size.proj.attack.dist", 90},
         {"size.proj.doscale", 0},
         {"size.head.pos.x", -5},

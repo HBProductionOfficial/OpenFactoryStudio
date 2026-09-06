@@ -43,10 +43,39 @@ bool Match::isAsserted(const QString& flag) const
                        [&flag](const Character* c) { return c->isAsserted(flag); });
 }
 
+void Match::requestPause(bool super, int playerId, int time, bool pauseBg, bool darken)
+{
+    // A longer pause replaces one waiting to start, and a player may replace its own.
+    int& pending = super ? m_superPending : m_pausePending;
+    int& player = super ? m_superPlayer : m_pausePlayer;
+    if (pending < 0 || time > pending || player == playerId) {
+        pending = std::max(0, time);
+        player = playerId;
+    }
+    if (super) {
+        m_superPauseBg = pauseBg;
+        m_superDarken = darken;
+    } else {
+        m_pauseBg = pauseBg;
+    }
+}
+
 void Match::tick()
 {
     m_sounds.clear();
     m_spawns.clear();
+    if (m_superTime > 0)
+        --m_superTime;
+    else if (m_pauseTime > 0)
+        --m_pauseTime;
+    if (m_superPending >= 0) {
+        m_superTime = m_superPending;
+        m_superPending = -1;
+    }
+    if (m_pausePending >= 0) {
+        m_pauseTime = m_pausePending;
+        m_pausePending = -1;
+    }
     for (Character* c : std::as_const(m_characters)) {
         bool near = false;
         for (const Character* other : std::as_const(m_characters)) {

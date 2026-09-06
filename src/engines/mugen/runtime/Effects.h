@@ -113,7 +113,8 @@ struct SpawnEvent
     Kind kind = Kind::Dust;
     int playerId = 0;
     int anim = 0;
-    Vec2 pos; // on the stage, in game units
+    bool common = true;
+    Vec2 pos;           // on the stage, in game units
     bool under = false;
 };
 

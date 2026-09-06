@@ -58,6 +58,13 @@ public:
     PalFx& allPalFx() { return m_allPalFx; }
     PalFx& bgPalFx() { return m_bgPalFx; }
 
+    // A new pause starts on the next tick.
+    int superPauseTime() const { return m_superTime; }
+    int pauseTime() const { return m_pauseTime; }
+    bool superDarken() const { return m_superDarken; }
+    bool pauseBackground() const { return m_superTime > 0 ? m_superPauseBg : m_pauseBg; }
+    void requestPause(bool super, int playerId, int time, bool pauseBg, bool darken = false);
+
     // Every character's states, then the hits, then the reactions and animations.
     void tick();
 
@@ -79,6 +86,15 @@ private:
     EnvColor m_envColor;
     PalFx m_allPalFx;
     PalFx m_bgPalFx;
+    int m_superTime = 0;
+    int m_pauseTime = 0;
+    int m_superPending = -1;
+    int m_pausePending = -1;
+    int m_superPlayer = 0;
+    int m_pausePlayer = 0;
+    bool m_superDarken = true;
+    bool m_superPauseBg = true;
+    bool m_pauseBg = true;
 };
 
 class Character : public Context
@@ -121,6 +137,8 @@ public:
     int victoryQuote() const { return m_victoryQuote; }
     float attackMul() const { return m_attackMul; }
     float defenceMul() const { return m_defenceMul; }
+    bool frozen() const { return m_frozen; }
+    float superDefenceMul() const { return m_superDefenceMul; }
 
     const CharacterData& data() const { return m_data; }
     int stateNo() const { return m_stateNo; }
@@ -256,6 +274,12 @@ private:
     DrawState m_draw;
     QString m_clipboard;
     int m_victoryQuote = -1;
+    bool m_frozen = false;
+    int m_superMoveTime = 0;
+    int m_pauseMoveTime = 0;
+    int m_unhittableTime = 0;
+    float m_superDefenceMul = 1;
+    float m_superDefenceMulNext = 1;
 
     QStringList m_messages;
     QStringList m_trace;
