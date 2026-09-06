@@ -62,6 +62,11 @@ add_library(ofs_mugen_runtime STATIC
     runtime/AnimPlayer.cpp
     runtime/Character.h
     runtime/Character.cpp
+    runtime/CharacterControllers.cpp
+    runtime/CharacterDetail.h
+    runtime/CharacterHits.cpp
+    runtime/CharacterTriggers.cpp
+    runtime/Match.cpp
     runtime/Commands.h
     runtime/Commands.cpp
     runtime/Hits.h
