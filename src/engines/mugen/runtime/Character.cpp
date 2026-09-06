@@ -24,54 +24,12 @@ QChar Detail::letterOf(const Param* param, QChar fallback)
 const QSet<QString>& Detail::pendingControllers()
 {
     static const QSet<QString> names = {
-        QStringLiteral("afterimage"),
-        QStringLiteral("afterimagetime"),
-        QStringLiteral("allpalfx"),
-        QStringLiteral("angleadd"),
-        QStringLiteral("angledraw"),
-        QStringLiteral("anglemul"),
-        QStringLiteral("angleset"),
-        QStringLiteral("assertspecial"),
-        QStringLiteral("attackdist"),
-        QStringLiteral("attackmulset"),
-        QStringLiteral("bgpalfx"),
-        QStringLiteral("bindtoparent"),
-        QStringLiteral("bindtoroot"),
-        QStringLiteral("bindtotarget"),
-        QStringLiteral("clearclipboard"),
-        QStringLiteral("defencemulset"),
-        QStringLiteral("destroyself"),
-        QStringLiteral("envcolor"),
-        QStringLiteral("envshake"),
-        QStringLiteral("explod"),
-        QStringLiteral("explodbindtime"),
-        QStringLiteral("fallenvshake"),
-        QStringLiteral("forcefeedback"),
-        QStringLiteral("gamemakeanim"),
-        QStringLiteral("helper"),
-        QStringLiteral("hitby"),
-        QStringLiteral("hitoverride"),
-        QStringLiteral("makedust"),
-        QStringLiteral("modifyexplod"),
-        QStringLiteral("nothitby"),
-        QStringLiteral("offset"),
-        QStringLiteral("palfx"),
-        QStringLiteral("parentvaradd"),
-        QStringLiteral("parentvarset"),
-        QStringLiteral("pause"),
-        QStringLiteral("playsnd"),
-        QStringLiteral("projectile"),
-        QStringLiteral("removeexplod"),
-        QStringLiteral("reversaldef"),
-        QStringLiteral("screenbound"),
-        QStringLiteral("sndpan"),
-        QStringLiteral("stopsnd"),
+        QStringLiteral("bindtoparent"), QStringLiteral("bindtoroot"),   QStringLiteral("bindtotarget"),
+        QStringLiteral("destroyself"),  QStringLiteral("explod"),       QStringLiteral("explodbindtime"),
+        QStringLiteral("helper"),       QStringLiteral("hitoverride"),  QStringLiteral("modifyexplod"),
+        QStringLiteral("parentvaradd"), QStringLiteral("parentvarset"), QStringLiteral("pause"),
+        QStringLiteral("projectile"),   QStringLiteral("removeexplod"), QStringLiteral("reversaldef"),
         QStringLiteral("superpause"),
-        QStringLiteral("trans"),
-        QStringLiteral("victoryquote"),
-        QStringLiteral("appendtoclipboard"),
-        QStringLiteral("displaytoclipboard"),
-        QStringLiteral("remappal"),
     };
     return names;
 }
@@ -290,8 +248,74 @@ void Character::tick()
     finishTick();
 }
 
+bool Character::inGuardState() const
+{
+    return m_stateNo == 120 || (m_stateNo >= 130 && m_stateNo <= 132) || m_stateNo == 140 ||
+           (m_stateNo >= 150 && m_stateNo <= 155);
+}
+
+void Character::prepare()
+{
+    const InputBuffer& in = m_commands.buffer();
+    const bool standing = m_stateType == QLatin1Char('S');
+    if (m_ctrl) {
+        if (m_guarding && m_inGuardDist && !inGuardState() && m_stateType != QLatin1Char('L') && in.back() > 0 &&
+            m_data.state(120)) {
+            changeState(120);
+        } else if (standing && in.up() > 0) {
+            if (m_stateNo != 40)
+                changeState(40);
+        } else if (m_stateType == QLatin1Char('A') && in.up() == 1 &&
+                   m_pos.y <= -m_data.constant(QStringLiteral("movement.airjump.height"), 35) &&
+                   m_airJumps < int(m_data.constant(QStringLiteral("movement.airjump.num"), 0))) {
+            if (m_stateNo != 45 || m_time > 0) {
+                ++m_airJumps;
+                changeState(45);
+            }
+        } else if (standing && in.down() > 0) {
+            if (m_stateNo != 10) {
+                if (m_stateNo != 100)
+                    m_vel.x = 0;
+                changeState(10);
+            }
+        } else if (m_stateType == QLatin1Char('C') && in.down() <= 0) {
+            if (m_stateNo != 12)
+                changeState(12);
+        } else if (standing && !m_asserted.contains(QStringLiteral("nowalk")) &&
+                   ((in.forward() > 0) !=
+                    ((!m_inGuardDist || m_asserted.contains(QStringLiteral("nostandguard"))) && in.back() > 0))) {
+            if (m_stateNo != 20)
+                changeState(20);
+        }
+    }
+    // Walking stops when neither or both ways are held, with control or not.
+    if (m_stateNo == 20 && (in.back() > 0) == (in.forward() > 0))
+        changeState(0);
+    if (m_stateType != QLatin1Char('A'))
+        m_airJumps = 0;
+
+    if (m_hitPauseTime <= 0) {
+        m_push = true;
+        m_width[0] = m_width[1] = -1;
+        m_screenBound = true;
+        m_moveCamera[0] = m_moveCamera[1] = true;
+        for (HitBySlot& slot : m_hitBy) {
+            if (slot.time > 0 && --slot.time == 0)
+                slot = HitBySlot();
+        }
+    }
+    m_asserted.clear();
+    m_draw.offset = Vec2();
+    m_draw.trans = QStringLiteral("default");
+    m_draw.alpha = {256, 0};
+    m_draw.angleDraw = false;
+    m_draw.angleScale = Vec2{1, 1};
+}
+
 void Character::autoTurn()
 {
+    if (m_asserted.contains(QStringLiteral("noautoturn")))
+        return;
     const Character* enemy = m_match ? m_match->enemy(this) : nullptr;
     if (!enemy || (enemy->m_pos.x - m_pos.x) * float(m_facing) >= 0)
         return;
@@ -338,9 +362,8 @@ void Character::runActions()
     if (m_hitPauseTime <= 0 && m_ctrl &&
         (m_stateNo == 0 || m_stateNo == 11 || m_stateNo == 20 || (m_stateNo == 52 && m_anim.animTime() == 0)))
         autoTurn();
-    m_push = true;
-    m_width[0] = m_width[1] = -1;
     m_commands.update(m_input, m_facing);
+    prepare();
     const bool paused = m_hitPauseTime > 0;
     for (int special : {-3, -2, -1}) {
         if (!m_data.state(special))
@@ -353,11 +376,13 @@ void Character::runActions()
         enterState();
     runState(*m_stateData, m_stateNo, m_counters);
 
+    const bool back = m_commands.buffer().back() > 0;
+    m_guarding = ((((m_ctrl || m_stateNo == 52) && m_moveType == QLatin1Char('I')) || inGuardState()) && back &&
+                  ((m_stateType == QLatin1Char('S') && !m_asserted.contains(QStringLiteral("nostandguard"))) ||
+                   (m_stateType == QLatin1Char('C') && !m_asserted.contains(QStringLiteral("nocrouchguard"))) ||
+                   (m_stateType == QLatin1Char('A') && !m_asserted.contains(QStringLiteral("noairguard")))));
     // The engine guards for a player who holds back while an attack comes.
-    const bool guardState = m_stateNo >= 120 && m_stateNo <= 155;
-    if (!paused && m_ctrl && m_moveType == QLatin1Char('I') && !guardState && m_inGuardDist &&
-        m_commands.holdingBack() && m_data.state(120) &&
-        (m_stateType == QLatin1Char('S') || m_stateType == QLatin1Char('C') || m_stateType == QLatin1Char('A')))
+    if (m_ctrl && m_inGuardDist && m_guarding && !inGuardState() && m_data.state(120))
         changeState(120);
 
     if (paused) {
@@ -407,6 +432,9 @@ void Character::finishTick()
     }
     if (m_hitPauseTime <= 0)
         m_anim.step();
+    m_draw.palFx.tick();
+    if (m_draw.afterImage.time > 0)
+        --m_draw.afterImage.time;
     m_minus = 3;
 }
 

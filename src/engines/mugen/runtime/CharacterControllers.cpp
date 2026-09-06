@@ -204,9 +204,12 @@ bool Character::execute(const Controller& c)
                 }
             }
         } else if (type == QLatin1String("targetfacing")) {
+            // 1: the way this character faces, -1: the other way, 0: unchanged.
             const int value = intParam(c, QStringLiteral("value"), 0);
-            for (Character* t : targets)
-                t->m_facing = value >= 0 ? m_facing : -m_facing;
+            for (Character* t : targets) {
+                if (value != 0)
+                    t->m_facing = value > 0 ? m_facing : -m_facing;
+            }
         } else if (type == QLatin1String("targetlifeadd")) {
             // Damage as a hit deals it: this character's attack and the target's defence apply unless absolute.
             const int value = intParam(c, QStringLiteral("value"), 0);
@@ -300,6 +303,8 @@ bool Character::execute(const Controller& c)
         m_life = std::clamp(life, 0, max);
         return false;
     }
+    if (executeEffect(c))
+        return false;
     if (!pendingControllers().contains(type)) {
         const QString message =
             QStringLiteral("unknown controller type '%1' (%2, line %3)").arg(type, c.file).arg(c.line + 1);

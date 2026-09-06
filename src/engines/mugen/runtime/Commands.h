@@ -77,6 +77,11 @@ public:
     int state(const StepKey& key) const;
     int charge(const StepKey& key) const;
     bool holdingBack() const { return m_now[B] > 0; }
+    // > 0 held, <= 0 released.
+    int up() const { return m_now[U]; }
+    int down() const { return m_now[D]; }
+    int back() const { return m_now[B]; }
+    int forward() const { return m_now[F]; }
 
 private:
     enum Raw
@@ -136,6 +141,7 @@ public:
     void update(const InputState& input, int facing);
     bool active(const QString& name) const;
     bool holdingBack() const { return m_input.holdingBack(); }
+    const InputBuffer& buffer() const { return m_input; }
     void clear();
 
 private:

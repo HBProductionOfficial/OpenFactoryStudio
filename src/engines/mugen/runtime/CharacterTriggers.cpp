@@ -169,6 +169,14 @@ Value Character::trigger(const TriggerCall& call)
     }
     case Trigger::GetHitVar: {
         const QString& key = call.keyword;
+        if (key == QLatin1String("fall.envshake.time"))
+            return Value::integer(m_ghv.fallEnvShakeTime);
+        if (key == QLatin1String("fall.envshake.freq"))
+            return Value::real(m_ghv.fallEnvShakeFreq);
+        if (key == QLatin1String("fall.envshake.ampl"))
+            return Value::integer(m_ghv.fallEnvShakeAmpl);
+        if (key == QLatin1String("fall.envshake.phase"))
+            return Value::real(m_ghv.fallEnvShakePhase);
         if (key == QLatin1String("xvel"))
             return Value::real(m_ghv.xvel * float(m_facing));
         if (key == QLatin1String("yvel"))

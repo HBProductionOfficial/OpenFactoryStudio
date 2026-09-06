@@ -37,14 +37,24 @@ int Match::random(int max)
     return max > 0 ? int(m_seed % std::uint32_t(max)) : 0;
 }
 
+bool Match::isAsserted(const QString& flag) const
+{
+    return std::any_of(m_characters.cbegin(), m_characters.cend(),
+                       [&flag](const Character* c) { return c->isAsserted(flag); });
+}
+
 void Match::tick()
 {
+    m_sounds.clear();
+    m_spawns.clear();
     for (Character* c : std::as_const(m_characters)) {
         bool near = false;
         for (const Character* other : std::as_const(m_characters)) {
             if (other == c || other->moveType() != QLatin1Char('A'))
                 continue;
-            const float reach = other->data().constant(QStringLiteral("size.attack.dist"), 160);
+            const int guardDist = other->hitDef().active ? other->hitDef().guardDist : -1;
+            const float reach =
+                guardDist >= 0 ? float(guardDist) : other->data().constant(QStringLiteral("size.attack.dist"), 160);
             near = near || std::abs(other->pos().x() - c->pos().x()) <= reach;
         }
         c->setInGuardDist(near);
@@ -67,6 +77,12 @@ void Match::tick()
         c->finishTick();
     for (Character* c : std::as_const(m_characters))
         c->releaseTargets();
+    if (m_envShake.time > 0)
+        --m_envShake.time;
+    if (m_envColor.time > 0)
+        --m_envColor.time;
+    m_allPalFx.tick();
+    m_bgPalFx.tick();
     ++m_time;
 }
 
@@ -106,18 +122,27 @@ void Match::keepOnScreen()
     // The camera centres on the players it follows, and none bound to the screen may pass its margin.
     float least = 0;
     float most = 0;
-    for (int i = 0; i < m_characters.size(); ++i) {
-        Character* c = m_characters[i];
-        const float x = std::clamp(float(c->pos().x()), m_left, m_right);
-        c->moveX(x - float(c->pos().x()));
-        least = i == 0 ? x : std::min(least, x);
-        most = i == 0 ? x : std::max(most, x);
+    bool followed = false;
+    for (Character* c : std::as_const(m_characters)) {
+        float x = float(c->pos().x());
+        if (c->screenBound()) {
+            x = std::clamp(x, m_left, m_right);
+            c->moveX(x - float(c->pos().x()));
+        }
+        if (!c->movesCamera())
+            continue;
+        least = followed ? std::min(least, x) : x;
+        most = followed ? std::max(most, x) : x;
+        followed = true;
     }
     const float half = m_screenWidth / 2;
-    m_cameraX = std::clamp((least + most) / 2, m_left + half, m_right - half);
+    if (followed)
+        m_cameraX = std::clamp((least + most) / 2, m_left + half, m_right - half);
     if (m_left + half > m_right - half)
         m_cameraX = (m_left + m_right) / 2;
     for (Character* c : std::as_const(m_characters)) {
+        if (!c->screenBound())
+            continue;
         const float x =
             std::clamp(float(c->pos().x()), m_cameraX - half + m_screenEdge, m_cameraX + half - m_screenEdge);
         c->moveX(x - float(c->pos().x()));

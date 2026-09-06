@@ -2,6 +2,7 @@
 
 #include "engines/mugen/runtime/AnimPlayer.h"
 #include "engines/mugen/runtime/CharacterData.h"
+#include "engines/mugen/runtime/Effects.h"
 #include "engines/mugen/runtime/Expr.h"
 #include "engines/mugen/runtime/Hits.h"
 
@@ -9,6 +10,7 @@
 #include <QList>
 #include <QPointF>
 #include <QRectF>
+#include <QSet>
 #include <QString>
 #include <QStringList>
 
@@ -19,12 +21,6 @@
 namespace OFS::Mugen::Runtime {
 
 class Character;
-
-struct Vec2
-{
-    float x = 0;
-    float y = 0;
-};
 
 class Match
 {
@@ -52,6 +48,16 @@ public:
     float screenEdge() const { return m_screenEdge; }
     int random(int max);
 
+    bool isAsserted(const QString& flag) const;
+    const QList<SoundEvent>& sounds() const { return m_sounds; }
+    const QList<SpawnEvent>& spawns() const { return m_spawns; }
+    void addSound(const SoundEvent& event) { m_sounds << event; }
+    void addSpawn(const SpawnEvent& event) { m_spawns << event; }
+    EnvShake& envShake() { return m_envShake; }
+    EnvColor& envColor() { return m_envColor; }
+    PalFx& allPalFx() { return m_allPalFx; }
+    PalFx& bgPalFx() { return m_bgPalFx; }
+
     // Every character's states, then the hits, then the reactions and animations.
     void tick();
 
@@ -67,6 +73,12 @@ private:
     float m_screenWidth = 320;
     float m_screenEdge = 15;
     float m_cameraX = 0;
+    QList<SoundEvent> m_sounds;
+    QList<SpawnEvent> m_spawns;
+    EnvShake m_envShake;
+    EnvColor m_envColor;
+    PalFx m_allPalFx;
+    PalFx m_bgPalFx;
 };
 
 class Character : public Context
@@ -101,6 +113,15 @@ public:
     const CharacterData& stateOwner() const { return *m_stateData; }
     const QList<Character*>& targets() const { return m_targets; }
 
+    const DrawState& draw() const { return m_draw; }
+    bool isAsserted(const QString& flag) const { return m_asserted.contains(flag); }
+    bool screenBound() const { return m_screenBound; }
+    bool movesCamera() const { return m_moveCamera[0]; }
+    const QString& clipboard() const { return m_clipboard; }
+    int victoryQuote() const { return m_victoryQuote; }
+    float attackMul() const { return m_attackMul; }
+    float defenceMul() const { return m_defenceMul; }
+
     const CharacterData& data() const { return m_data; }
     int stateNo() const { return m_stateNo; }
     int prevStateNo() const { return m_prevStateNo; }
@@ -134,7 +155,11 @@ public:
     Value assign(Trigger kind, std::int32_t index, const Value& value) override;
 
 private:
+    void prepare();
+    bool inGuardState() const;
     bool runState(const CharacterData& source, int number, std::vector<int>& counters);
+    bool executeEffect(const Controller& c);
+    bool hittableBy(const HitDef& hit) const;
     // TargetState from another character waits for this character's next turn.
     void queueState(int number, const CharacterData* owner);
     QList<Character*> targetsWithId(int id) const;
@@ -212,6 +237,25 @@ private:
     bool m_posFreeze = false;
     bool m_push = true;
     float m_width[2] = {-1, -1};
+    bool m_guarding = false;
+    int m_airJumps = 0;
+
+    struct HitBySlot
+    {
+        bool notHitBy = false;
+        QString states;
+        QSet<QString> classes;
+        int time = 0;
+    };
+    std::array<HitBySlot, 2> m_hitBy;
+    float m_attackMul = 1;
+    float m_defenceMul = 1;
+    QSet<QString> m_asserted;
+    bool m_screenBound = true;
+    bool m_moveCamera[2] = {true, true};
+    DrawState m_draw;
+    QString m_clipboard;
+    int m_victoryQuote = -1;
 
     QStringList m_messages;
     QStringList m_trace;

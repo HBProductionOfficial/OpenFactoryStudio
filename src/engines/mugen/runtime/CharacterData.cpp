@@ -242,8 +242,15 @@ Param CharacterData::compileParam(const QString& text, int line, const QString& 
     Param param;
     param.text = text;
     param.line = line;
+    // "F5, 0": a sound, animation or spark from the common files.
+    static const QRegularExpression prefixed(QStringLiteral("^\\s*([FfSs])(?=\\s*\\d)"));
+    QString values = text;
+    if (const QRegularExpressionMatch m = prefixed.match(text); m.hasMatch()) {
+        param.prefix = m.captured(1).at(0).toUpper();
+        values = text.mid(m.capturedEnd());
+    }
     QString error;
-    param.values = Expr::compileList(text, &error);
+    param.values = Expr::compileList(values, &error);
     if (!error.isEmpty()) {
         param.values.clear();
         if (report)
@@ -273,7 +280,7 @@ void CharacterData::addStates(const QString& text, const QString& file, bool rep
                 const QString key = entry.key.toLower();
                 const bool letters =
                     key == QLatin1String("type") || key == QLatin1String("movetype") || key == QLatin1String("physics");
-                def.params.insert(key, letters ? Param{entry.value, {}, entry.line}
+                def.params.insert(key, letters ? Param{entry.value, {}, entry.line, QChar()}
                                                : compileParam(entry.value, entry.line, file, true));
             }
             loaded.insert(def.number, def);

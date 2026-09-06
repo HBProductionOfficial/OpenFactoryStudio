@@ -81,6 +81,11 @@ struct HitDef
     bool p2GetP1State = true;
     bool downRecover = true;
     int downRecoverTime = -1; // -1: the target's liedown.time
+    int guardDist = -1;       // -1: the attacker's size.attack.dist
+    int fallEnvShakeTime = 0;
+    float fallEnvShakeFreq = 60;
+    int fallEnvShakeAmpl = -4;
+    float fallEnvShakePhase = 0;
 };
 
 // What the last hit left on the character that took it (GetHitVar).
@@ -117,6 +122,10 @@ struct GetHitVars
     bool kill = true;
     bool downRecover = true;
     int downRecoverTime = -1;
+    int fallEnvShakeTime = 0;
+    float fallEnvShakeFreq = 60;
+    int fallEnvShakeAmpl = -4;
+    float fallEnvShakePhase = 0;
 };
 
 } // namespace OFS::Mugen::Runtime

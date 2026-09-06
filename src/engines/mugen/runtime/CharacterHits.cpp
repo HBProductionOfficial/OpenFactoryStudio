@@ -61,8 +61,12 @@ QList<QRectF> Character::boxes(int type) const
 
 bool Character::canGuard(const HitDef& hit) const
 {
-    const bool guardState = m_stateNo >= 120 && m_stateNo <= 155;
+    const bool guardState = inGuardState();
     if (!m_commands.holdingBack())
+        return false;
+    if ((m_stateType == QLatin1Char('S') && m_asserted.contains(QStringLiteral("nostandguard"))) ||
+        (m_stateType == QLatin1Char('C') && m_asserted.contains(QStringLiteral("nocrouchguard"))) ||
+        (m_stateType == QLatin1Char('A') && m_asserted.contains(QStringLiteral("noairguard"))))
         return false;
     if (!(((m_ctrl || m_stateNo == 52) && m_moveType == QLatin1Char('I')) || guardState))
         return false;
@@ -94,6 +98,8 @@ bool Character::attack(Character& target)
         allowed = flags.contains(QLatin1Char('D'));
     if (flags.contains(QLatin1Char('+')) && target.m_moveType != QLatin1Char('H'))
         allowed = false;
+    if (!target.hittableBy(m_hitDef))
+        allowed = false;
     if (flags.contains(QLatin1Char('-')) && target.m_moveType == QLatin1Char('H'))
         allowed = false;
     if (!allowed)
@@ -108,9 +114,9 @@ bool Character::attack(Character& target)
         return false;
 
     const HitDef& hd = m_hitDef;
-    const bool guarded = target.canGuard(hd);
-    const float attackMul = m_data.constant(QStringLiteral("data.attack"), 100) / 100.0f;
-    const float defence = target.m_data.constant(QStringLiteral("data.defence"), 100) / 100.0f;
+    const bool guarded = target.canGuard(hd) && !m_asserted.contains(QStringLiteral("unguardable"));
+    const float attackMul = m_data.constant(QStringLiteral("data.attack"), 100) / 100.0f * m_attackMul;
+    const float defence = target.m_data.constant(QStringLiteral("data.defence"), 100) / 100.0f * target.m_defenceMul;
     int damage = int(std::lround((guarded ? hd.guardDamage : hd.hitDamage) * attackMul / std::max(0.01f, defence)));
     const bool kill = guarded ? hd.guardKill : hd.kill;
     if (!kill && damage >= target.m_life)
@@ -156,6 +162,10 @@ bool Character::attack(Character& target)
         ghv.fallRecoverTime = hd.fallRecoverTime;
         ghv.fallDamage = hd.fallDamage;
         ghv.fallKill = hd.fallKill;
+        ghv.fallEnvShakeTime = hd.fallEnvShakeTime;
+        ghv.fallEnvShakeFreq = hd.fallEnvShakeFreq;
+        ghv.fallEnvShakeAmpl = hd.fallEnvShakeAmpl;
+        ghv.fallEnvShakePhase = hd.fallEnvShakePhase;
         ghv.downRecover = hd.downRecover;
         const int down = hd.downRecoverTime >= 0 ? hd.downRecoverTime
                                                  : int(target.m_data.constant(QStringLiteral("data.liedown.time"), 60));
@@ -326,6 +336,11 @@ void Character::readHitDef(const Controller& c)
     hd.p1SprPriority = intParam(c, QStringLiteral("p1sprpriority"), 1);
     hd.p2SprPriority = intParam(c, QStringLiteral("p2sprpriority"), 0);
     hd.id = intParam(c, QStringLiteral("id"), 0);
+    hd.guardDist = intParam(c, QStringLiteral("guard.dist"), -1);
+    hd.fallEnvShakeTime = intParam(c, QStringLiteral("fall.envshake.time"), 0);
+    hd.fallEnvShakeFreq = floatParam(c, QStringLiteral("fall.envshake.freq"), 60);
+    hd.fallEnvShakeAmpl = intParam(c, QStringLiteral("fall.envshake.ampl"), -4);
+    hd.fallEnvShakePhase = floatParam(c, QStringLiteral("fall.envshake.phase"), hd.fallEnvShakeFreq >= 90 ? 90 : 0);
     hd.chainId = intParam(c, QStringLiteral("chainid"), -1);
     hd.p2GetP1State = intParam(c, QStringLiteral("p2getp1state"), 1) != 0;
     hd.p1Facing = intParam(c, QStringLiteral("p1facing"), 0);
