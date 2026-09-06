@@ -17,6 +17,7 @@
 
 #include <array>
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 namespace OFS::Mugen::Runtime {
@@ -27,10 +28,15 @@ class Match
 {
 public:
     explicit Match(std::uint32_t seed = 1);
+    ~Match();
 
     void add(Character* character);
     const QList<Character*>& characters() const { return m_characters; }
     Character* enemy(const Character* of, int index = 0) const;
+    Character* enemyNear(const Character* of, int index = 0) const;
+    int numEnemies(const Character* of) const;
+    Character* playerById(int id) const;
+    Character* spawnHelper(Character& parent);
 
     int gameTime() const { return m_time; }
 
@@ -75,6 +81,7 @@ public:
 private:
     void push();
     void keepOnScreen();
+    void removeDestroyed();
 
     QList<Character*> m_characters;
     int m_time = 0;
@@ -100,10 +107,13 @@ private:
     bool m_superPauseBg = true;
     bool m_pauseBg = true;
     const CharacterData* m_fightFx = nullptr;
+    std::vector<std::unique_ptr<Character>> m_helpers;
 };
 
 class Character : public Context
 {
+    friend class Match;
+
 public:
     explicit Character(const CharacterData& data, Match* match = nullptr);
 
@@ -162,10 +172,20 @@ public:
     int animNo() const { return m_animNo; }
     const AnimPlayer& anim() const { return m_anim; }
     int life() const { return m_life; }
-    int power() const { return m_power; }
+    // Helpers share their root's power.
+    int power() const { return powerOwner()->m_power; }
     int var(int index) const;
     float fvar(int index) const;
     int id() const { return m_id; }
+
+    bool isHelper() const { return m_isHelper; }
+    int helperId() const { return m_helperId; }
+    Character* parent() const { return m_parent; }
+    Character* root() const { return m_root; }
+    bool destroyed() const { return m_destroyed; }
+    int team() const { return m_team; }
+    bool isPlayerType() const { return !m_isHelper || m_helperPlayerType; }
+    float constant(const QString& name, float fallback) const;
 
     void setPos(const QPointF& pos) { m_pos = Vec2{float(pos.x()), float(pos.y())}; }
     void setInput(const InputState& input) { m_input = input; }
@@ -186,6 +206,10 @@ private:
     bool runState(const CharacterData& source, int number, std::vector<int>& counters);
     bool executeEffect(const Controller& c);
     bool hittableBy(const HitDef& hit) const;
+    bool executeHelper(const Controller& c);
+    Character* powerOwner() { return m_root ? m_root : this; }
+    const Character* powerOwner() const { return m_root ? m_root : this; }
+    void updateHelperBinding();
     bool executeExplod(const Controller& c);
     void readExplod(const Controller& c, Explod& e, bool create);
     void placeExplod(Explod& e);
@@ -254,6 +278,8 @@ private:
     QList<Character*> m_targets;
     QList<int> m_targetIds;
     Character* m_bindTo = nullptr;
+    bool m_bindIsTarget = false;
+    int m_bindTurn = 0;
     Vec2 m_bindPos;
     int m_bindTime = 0;
     int m_bindFacing = 1;
@@ -293,6 +319,16 @@ private:
     float m_superDefenceMulNext = 1;
     QList<Explod> m_explods;
     bool m_wasHit = false;
+
+    bool m_isHelper = false;
+    bool m_helperPlayerType = false;
+    bool m_keyCtrl = true;
+    int m_helperId = 0;
+    Character* m_parent = nullptr;
+    Character* m_root = nullptr;
+    int m_team = 0;
+    bool m_destroyed = false;
+    QHash<QString, float> m_constants;
 
     QStringList m_messages;
     QStringList m_trace;

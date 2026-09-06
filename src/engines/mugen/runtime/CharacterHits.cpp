@@ -124,9 +124,11 @@ bool Character::attack(Character& target)
         damage = std::max(0, target.m_life - 1);
     target.m_life = std::max(0, target.m_life - damage);
     const int maxPower = int(m_data.constant(QStringLiteral("data.power"), 3000));
-    m_power = std::clamp(m_power + (guarded ? hd.guardGetPower : hd.hitGetPower), 0, maxPower);
+    powerOwner()->m_power =
+        std::clamp(powerOwner()->m_power + (guarded ? hd.guardGetPower : hd.hitGetPower), 0, maxPower);
     const int targetMaxPower = int(target.m_data.constant(QStringLiteral("data.power"), 3000));
-    target.m_power = std::clamp(target.m_power + (guarded ? hd.guardGivePower : hd.hitGivePower), 0, targetMaxPower);
+    target.powerOwner()->m_power =
+        std::clamp(target.powerOwner()->m_power + (guarded ? hd.guardGivePower : hd.hitGivePower), 0, targetMaxPower);
 
     GetHitVars& ghv = target.m_ghv;
     const bool combo = target.m_moveType == QLatin1Char('H') && !ghv.guarded;

@@ -113,15 +113,17 @@ void Character::placeExplod(Explod& e)
 bool Character::executeExplod(const Controller& c)
 {
     const QString& type = c.type;
+    // Only the character's own explods. A helper that went away left its explods to its root.
     auto withId = [this, &c](auto apply) {
         const int id = intParam(c, QStringLiteral("id"), -1);
         for (Explod& e : m_explods) {
-            if (id < 0 || e.id == id)
+            if (e.ownerId == m_id && (id < 0 || e.id == id))
                 apply(e);
         }
     };
     if (type == QLatin1String("explod")) {
         Explod e;
+        e.ownerId = m_id;
         const Param* anim = c.param(QStringLiteral("anim"));
         e.common = anim && anim->prefix == QLatin1Char('F');
         e.ownPal = e.common;
@@ -145,7 +147,8 @@ bool Character::executeExplod(const Controller& c)
     }
     if (type == QLatin1String("removeexplod")) {
         const int id = intParam(c, QStringLiteral("id"), -1);
-        m_explods.removeIf([id](const Explod& e) { return id < 0 || e.id == id; });
+        const int owner = m_id;
+        m_explods.removeIf([id, owner](const Explod& e) { return e.ownerId == owner && (id < 0 || e.id == id); });
         return true;
     }
     if (type == QLatin1String("explodbindtime")) {
@@ -190,8 +193,9 @@ void Character::updateExplods()
 
 int Character::numExplods(int id) const
 {
-    return int(
-        std::count_if(m_explods.cbegin(), m_explods.cend(), [id](const Explod& e) { return id < 0 || e.id == id; }));
+    const int owner = m_id;
+    return int(std::count_if(m_explods.cbegin(), m_explods.cend(),
+                             [id, owner](const Explod& e) { return e.ownerId == owner && (id < 0 || e.id == id); }));
 }
 
 } // namespace OFS::Mugen::Runtime

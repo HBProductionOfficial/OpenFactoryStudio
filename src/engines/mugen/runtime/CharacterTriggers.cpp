@@ -114,7 +114,7 @@ Value Character::trigger(const TriggerCall& call)
     case Trigger::LifeMax:
         return Value::integer(int(m_data.constant(QStringLiteral("data.life"), 1000)));
     case Trigger::Power:
-        return Value::integer(m_power);
+        return Value::integer(powerOwner()->m_power);
     case Trigger::PowerMax:
         return Value::integer(int(m_data.constant(QStringLiteral("data.power"), 3000)));
     case Trigger::Alive:
@@ -243,7 +243,28 @@ Value Character::trigger(const TriggerCall& call)
     case Trigger::NumExplod:
         return Value::integer(numExplods(call.args.empty() ? -1 : arg(0).toInt()));
     case Trigger::IsHelper:
-    case Trigger::NumHelper:
+        return Value::boolean(m_isHelper && (call.args.empty() || m_helperId == arg(0).toInt()));
+    case Trigger::NumHelper: {
+        const Character* player = m_root ? m_root : this;
+        int count = 0;
+        if (m_match) {
+            for (const Character* c : m_match->characters()) {
+                if (c->m_isHelper && !c->m_destroyed && c->m_root == player &&
+                    (call.args.empty() || c->m_helperId == arg(0).toInt()))
+                    ++count;
+            }
+        }
+        return Value::integer(count);
+    }
+    case Trigger::ParentDist:
+    case Trigger::RootDist: {
+        const Character* to = call.trigger == Trigger::ParentDist ? m_parent : m_root;
+        if (!to)
+            return Value::undefined();
+        if (call.keyword == QLatin1String("y"))
+            return Value::real(to->m_pos.y - m_pos.y);
+        return Value::real((to->m_pos.x - m_pos.x) * float(m_facing));
+    }
     case Trigger::NumProj:
     case Trigger::NumProjID:
     case Trigger::NumPartner:
@@ -259,10 +280,13 @@ Value Character::trigger(const TriggerCall& call)
     case Trigger::LoseTime:
     case Trigger::DrawGame:
         return Value::boolean(false);
-    case Trigger::Command:
-        return special(m_commands.active(call.text));
+    case Trigger::Command: {
+        // A helper reads its player's commands with keyctrl only.
+        const Character* reader = m_root ? m_root : this;
+        return special(m_keyCtrl && reader->m_commands.active(call.text));
+    }
     case Trigger::NumEnemy:
-        return Value::integer(m_match && m_match->enemy(this) ? 1 : 0);
+        return Value::integer(m_match ? m_match->numEnemies(this) : 0);
     case Trigger::P2BodyDist:
     case Trigger::P2Dist: {
         const Character* enemy = m_match ? m_match->enemy(this) : nullptr;
@@ -270,7 +294,13 @@ Value Character::trigger(const TriggerCall& call)
             return Value::undefined();
         if (call.keyword == QLatin1String("y"))
             return Value::real(enemy->m_pos.y - m_pos.y);
-        return Value::real((enemy->m_pos.x - m_pos.x) * float(m_facing));
+        float distance = (enemy->m_pos.x - m_pos.x) * float(m_facing);
+        // Between the fronts of the bodies (the opponent's back when it looks away).
+        if (call.trigger == Trigger::P2BodyDist) {
+            const bool facesMe = (m_pos.x - enemy->m_pos.x) * float(enemy->m_facing) >= 0;
+            distance -= frontWidth() + (facesMe ? enemy->frontWidth() : enemy->backWidth());
+        }
+        return Value::real(distance);
     }
     case Trigger::P2Life: {
         const Character* enemy = m_match ? m_match->enemy(this) : nullptr;
@@ -297,8 +327,9 @@ Context* Character::redirect(Redirect kind, const Value& argument)
 {
     switch (kind) {
     case Redirect::Enemy:
-    case Redirect::EnemyNear:
         return m_match ? m_match->enemy(this, argument.isUndefined() ? 0 : argument.toInt()) : nullptr;
+    case Redirect::EnemyNear:
+        return m_match ? m_match->enemyNear(this, argument.isUndefined() ? 0 : argument.toInt()) : nullptr;
     case Redirect::PlayerID:
         if (m_match) {
             for (Character* c : m_match->characters()) {
@@ -312,8 +343,20 @@ Context* Character::redirect(Redirect kind, const Value& argument)
         return targets.isEmpty() ? nullptr : targets.first();
     }
     case Redirect::Root:
+        return m_root;
     case Redirect::Parent:
-    case Redirect::Helper:
+        return m_parent;
+    case Redirect::Helper: {
+        const Character* player = m_root ? m_root : this;
+        if (m_match) {
+            for (Character* c : m_match->characters()) {
+                if (c->m_isHelper && !c->m_destroyed && c->m_root == player &&
+                    (argument.isUndefined() || c->m_helperId == argument.toInt()))
+                    return c;
+            }
+        }
+        return nullptr;
+    }
     case Redirect::Partner:
         return nullptr;
     }

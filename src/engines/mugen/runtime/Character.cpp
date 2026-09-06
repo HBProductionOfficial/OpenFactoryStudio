@@ -24,9 +24,8 @@ QChar Detail::letterOf(const Param* param, QChar fallback)
 const QSet<QString>& Detail::pendingControllers()
 {
     static const QSet<QString> names = {
-        QStringLiteral("bindtoparent"), QStringLiteral("bindtoroot"),   QStringLiteral("bindtotarget"),
-        QStringLiteral("destroyself"),  QStringLiteral("helper"),       QStringLiteral("hitoverride"),
-        QStringLiteral("parentvaradd"), QStringLiteral("parentvarset"), QStringLiteral("projectile"),
+        QStringLiteral("hitoverride"),
+        QStringLiteral("projectile"),
         QStringLiteral("reversaldef"),
     };
     return names;
@@ -53,6 +52,12 @@ int Character::var(int index) const
 float Character::fvar(int index) const
 {
     return index >= 0 && index < int(m_fvars.size()) ? m_fvars[std::size_t(index)] : 0;
+}
+
+float Character::constant(const QString& name, float fallback) const
+{
+    const auto it = m_constants.constFind(name);
+    return it != m_constants.cend() ? *it : m_data.constant(name, fallback);
 }
 
 void Character::start(int state)
@@ -170,8 +175,8 @@ void Character::enterState()
     if (const Param* ctrl = def->param(QStringLiteral("ctrl")); ctrl && ctrl->isExpression())
         m_ctrl = eval(ctrl).toBool();
     if (const Param* power = def->param(QStringLiteral("poweradd")); power && power->isExpression())
-        m_power =
-            std::clamp(m_power + eval(power).toInt(), 0, int(m_data.constant(QStringLiteral("data.power"), 3000)));
+        powerOwner()->m_power = std::clamp(powerOwner()->m_power + eval(power).toInt(), 0,
+                                           int(m_data.constant(QStringLiteral("data.power"), 3000)));
     if (const Param* priority = def->param(QStringLiteral("sprpriority")); priority && priority->isExpression())
         m_sprPriority = eval(priority).toInt();
     auto keep = [this, def](const char* name) {
@@ -253,7 +258,7 @@ void Character::prepare()
 {
     const InputBuffer& in = m_commands.buffer();
     const bool standing = m_stateType == QLatin1Char('S');
-    if (m_ctrl) {
+    if (m_ctrl && !m_isHelper) {
         if (m_guarding && m_inGuardDist && !inGuardState() && m_stateType != QLatin1Char('L') && in.back() > 0 &&
             m_data.state(120)) {
             changeState(120);
@@ -284,16 +289,16 @@ void Character::prepare()
         }
     }
     // Walking stops when neither or both ways are held, with control or not.
-    if (m_stateNo == 20 && (in.back() > 0) == (in.forward() > 0))
+    if (!m_isHelper && m_stateNo == 20 && (in.back() > 0) == (in.forward() > 0))
         changeState(0);
     if (m_stateType != QLatin1Char('A'))
         m_airJumps = 0;
 
     if (m_hitPauseTime <= 0) {
-        m_push = true;
+        m_push = isPlayerType();
         m_width[0] = m_width[1] = -1;
-        m_screenBound = true;
-        m_moveCamera[0] = m_moveCamera[1] = true;
+        m_screenBound = isPlayerType();
+        m_moveCamera[0] = m_moveCamera[1] = isPlayerType();
         if (m_match && m_match->superPauseTime() > 0) {
             if (m_superMoveTime > 0)
                 --m_superMoveTime;
@@ -345,7 +350,7 @@ float Character::backWidth() const
 {
     if (m_width[0] >= 0)
         return m_width[0];
-    return m_data.constant(
+    return constant(
         m_stateType == QLatin1Char('A') ? QStringLiteral("size.air.back") : QStringLiteral("size.ground.back"), 15);
 }
 
@@ -353,17 +358,18 @@ float Character::frontWidth() const
 {
     if (m_width[1] >= 0)
         return m_width[1];
-    return m_data.constant(
+    return constant(
         m_stateType == QLatin1Char('A') ? QStringLiteral("size.air.front") : QStringLiteral("size.ground.front"), 16);
 }
 
 void Character::runActions()
 {
     // Idle players face their opponent (before the input, so back and forward follow).
-    if (m_hitPauseTime <= 0 && m_ctrl &&
+    if (!m_isHelper && m_hitPauseTime <= 0 && m_ctrl &&
         (m_stateNo == 0 || m_stateNo == 11 || m_stateNo == 20 || (m_stateNo == 52 && m_anim.animTime() == 0)))
         autoTurn();
-    m_commands.update(m_input, m_facing);
+    if (!m_isHelper)
+        m_commands.update(m_input, m_facing);
     m_wasHit = false;
     const Match* match = m_match;
     m_frozen =
@@ -376,8 +382,9 @@ void Character::runActions()
     }
     prepare();
     const bool paused = m_hitPauseTime > 0;
+    // Helpers run -3 and -2 as "player" helpers only, and -1 with keyctrl.
     for (int special : {-3, -2, -1}) {
-        if (!m_data.state(special))
+        if (!m_data.state(special) || (special == -1 ? !m_keyCtrl : !isPlayerType()))
             continue;
         m_minus = special;
         runState(m_data, special, m_specialCounters[special]);
@@ -461,7 +468,7 @@ void Character::updateBindings()
 {
     // A target stays bound (GetHitVar(isbound)) until a tick passes without a TargetBind.
     for (Character* t : std::as_const(m_targets)) {
-        if (t->m_bindTo != this)
+        if (t->m_bindTo != this || !t->m_bindIsTarget)
             continue;
         if (t->m_bindTime <= 0) {
             t->m_bindTo = nullptr;
@@ -474,10 +481,26 @@ void Character::updateBindings()
     }
 }
 
+void Character::updateHelperBinding()
+{
+    if (m_bindIsTarget || !m_bindTo || m_bindTime == 0)
+        return;
+    const int f = m_bindTo->m_facing;
+    m_pos.x = m_bindTo->m_pos.x + float(f) * m_bindPos.x;
+    m_pos.y = m_bindTo->m_pos.y + m_bindPos.y;
+    if (m_bindTurn != 0)
+        m_facing = m_bindTurn > 0 ? f : -f;
+}
+
 void Character::tickBinding()
 {
     if (m_bindTime <= 0 || !m_bindTo)
         return;
+    if (!m_bindIsTarget) {
+        if (!m_frozen && --m_bindTime == 0)
+            m_bindTo = nullptr;
+        return;
+    }
     if (m_bindTo->m_gotHit) {
         m_bindTo = nullptr;
         m_bindTime = 0;

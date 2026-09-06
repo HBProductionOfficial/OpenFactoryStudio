@@ -66,6 +66,7 @@ add_library(ofs_mugen_runtime STATIC
     runtime/CharacterDetail.h
     runtime/CharacterEffects.cpp
     runtime/CharacterExplods.cpp
+    runtime/CharacterHelpers.cpp
     runtime/CharacterHits.cpp
     runtime/CharacterTriggers.cpp
     runtime/Match.cpp

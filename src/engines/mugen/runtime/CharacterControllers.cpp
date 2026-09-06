@@ -75,7 +75,8 @@ bool Character::execute(const Controller& c)
     if (type == QLatin1String("poweradd") || type == QLatin1String("powerset")) {
         const int value = intParam(c, QStringLiteral("value"), 0);
         const int max = int(m_data.constant(QStringLiteral("data.power"), 3000));
-        m_power = std::clamp(type == QLatin1String("poweradd") ? m_power + value : value, 0, max);
+        int& power = powerOwner()->m_power;
+        power = std::clamp(type == QLatin1String("poweradd") ? power + value : value, 0, max);
         return false;
     }
     if (type == QLatin1String("lifeset")) {
@@ -91,19 +92,21 @@ bool Character::execute(const Controller& c)
         m_vel.y += m_data.constant(QStringLiteral("movement.yaccel"), 0.44f);
         return false;
     }
-    if (type == QLatin1String("varset") || type == QLatin1String("varadd")) {
-        const bool add = type == QLatin1String("varadd");
-        auto apply = [this, add](Trigger kind, int index, const Value& value) {
-            Value current = Value::integer(0);
+    if (type == QLatin1String("varset") || type == QLatin1String("varadd") || type == QLatin1String("parentvarset") ||
+        type == QLatin1String("parentvaradd")) {
+        const bool add = type.endsWith(QLatin1String("add"));
+        Character* to = type.startsWith(QLatin1String("parent")) ? m_parent : this;
+        if (!to)
+            return false;
+        auto apply = [to, add](Trigger kind, int index, const Value& value) {
             if (add) {
                 TriggerCall call;
                 call.trigger = kind;
                 const Value i = Value::integer(index);
                 call.args = std::span<const Value>(&i, 1);
-                current = trigger(call);
-                assign(kind, index, Ops::add(current, value));
+                to->assign(kind, index, Ops::add(to->trigger(call), value));
             } else {
-                assign(kind, index, value);
+                to->assign(kind, index, value);
             }
         };
         // "v = n" / "fv = n" with "value", or "var(n) = value"...
@@ -194,6 +197,7 @@ bool Character::execute(const Controller& c)
             const int time = intParam(c, QStringLiteral("time"), 1);
             for (Character* t : targets) {
                 t->m_bindTo = time > 0 ? this : nullptr;
+                t->m_bindIsTarget = true;
                 t->m_bindTime = std::max(0, time);
                 t->m_bindPos =
                     Vec2{floatParam(c, QStringLiteral("pos"), 0, 0), floatParam(c, QStringLiteral("pos"), 0, 1)};
@@ -232,8 +236,8 @@ bool Character::execute(const Controller& c)
         } else if (type == QLatin1String("targetpoweradd")) {
             const int value = intParam(c, QStringLiteral("value"), 0);
             for (Character* t : targets)
-                t->m_power =
-                    std::clamp(t->m_power + value, 0, int(t->m_data.constant(QStringLiteral("data.power"), 3000)));
+                t->powerOwner()->m_power = std::clamp(t->powerOwner()->m_power + value, 0,
+                                                      int(t->m_data.constant(QStringLiteral("data.power"), 3000)));
         } else if (type == QLatin1String("targetstate")) {
             const int state = intParam(c, QStringLiteral("value"), 0);
             for (Character* t : targets) {
@@ -303,7 +307,13 @@ bool Character::execute(const Controller& c)
         m_life = std::clamp(life, 0, max);
         return false;
     }
-    if (executeEffect(c) || executeExplod(c))
+    if (type == QLatin1String("destroyself")) {
+        if (!m_isHelper)
+            return false;
+        m_destroyed = true;
+        return true;
+    }
+    if (executeEffect(c) || executeExplod(c) || executeHelper(c))
         return false;
     if (!pendingControllers().contains(type)) {
         const QString message =

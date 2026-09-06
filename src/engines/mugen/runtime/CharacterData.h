@@ -23,6 +23,7 @@ struct Param
     std::vector<Expr> values;
     int line = 0;
     QChar prefix; // 'F' (the engine's common files) or 'S' (the character's own) before the first value
+    QString tail;
 
     bool isExpression() const { return !values.empty(); }
 };

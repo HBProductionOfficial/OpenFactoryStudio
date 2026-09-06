@@ -252,6 +252,19 @@ Param CharacterData::compileParam(const QString& text, int line, const QString& 
     }
     QString error;
     param.values = Expr::compileList(values, &error);
+    // "x, y, head": the values, then a word.
+    static const QRegularExpression tailed(QStringLiteral("^(.*),\\s*([A-Za-z]+)\\s*$"));
+    if (!error.isEmpty()) {
+        if (const QRegularExpressionMatch m = tailed.match(values); m.hasMatch()) {
+            QString tailError;
+            std::vector<Expr> head = Expr::compileList(m.captured(1), &tailError);
+            if (tailError.isEmpty()) {
+                param.values = std::move(head);
+                param.tail = m.captured(2).toLower();
+                error.clear();
+            }
+        }
+    }
     if (!error.isEmpty()) {
         param.values.clear();
         if (report)
@@ -281,7 +294,7 @@ void CharacterData::addStates(const QString& text, const QString& file, bool rep
                 const QString key = entry.key.toLower();
                 const bool letters =
                     key == QLatin1String("type") || key == QLatin1String("movetype") || key == QLatin1String("physics");
-                def.params.insert(key, letters ? Param{entry.value, {}, entry.line, QChar()}
+                def.params.insert(key, letters ? Param{entry.value, {}, entry.line, QChar(), QString()}
                                                : compileParam(entry.value, entry.line, file, true));
             }
             loaded.insert(def.number, def);

@@ -25,6 +25,7 @@ struct Explod
     };
 
     int id = -1;
+    int ownerId = 0;
     int animNo = 0;
     bool common = false;
     const CharacterData* animData = nullptr; // whose animations (nullptr: fightfx)
