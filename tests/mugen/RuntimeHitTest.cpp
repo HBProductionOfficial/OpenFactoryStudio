@@ -373,6 +373,39 @@ private Q_SLOTS:
         QVERIFY(contact > 0);
         QCOMPARE(fight(QStringLiteral("attr = S, NT\ndamage = 50\np2stateno = 150"), &contact), std::pair(0, 1000));
     }
+
+    void hitEffects()
+    {
+        Fight f(QStringLiteral("attr = S, NA\ndamage = 10\nhitsound = 5, 1\nguardsound = S6, 0\nsparkxy = -5, -30\n"
+                               "envshake.time = 7\npalfx.time = 9\npalfx.add = 50, 0, 0\np1sprpriority = 3"));
+        for (int t = 0; t < 3; ++t)
+            f.match.tick();
+        QCOMPARE(f.b.moveType(), QLatin1Char('H'));
+        QCOMPARE(f.match.spawns().size(), 1);
+        const SpawnEvent spark = f.match.spawns().at(0);
+        QCOMPARE(spark.anim, 2);
+        QVERIFY(spark.common);
+        QCOMPARE(spark.pos.x, 20.f - 16.f + 5.f); // B's front, then sparkxy towards A
+        QCOMPARE(spark.pos.y, -30.f);
+        QCOMPARE(f.match.sounds().size(), 1);
+        QVERIFY(f.match.sounds().at(0).common);
+        QCOMPARE(f.match.sounds().at(0).group, 5);
+        QCOMPARE(f.match.envShake().time, 6);
+        QCOMPARE(f.b.draw().palFx.add[0], 50);
+        QCOMPARE(f.a.sprPriority(), 3);
+        QCOMPARE(f.b.sprPriority(), 0);
+
+        Fight g(QStringLiteral("attr = S, NA\ndamage = 10\nhitsound = 5, 1\nguardsound = S6, 0\nguardflag = MA"));
+        InputState back;
+        back.right = true;
+        g.b.setInput(back);
+        for (int t = 0; t < 3; ++t)
+            g.match.tick();
+        QVERIFY(g.b.getHitVars().guarded);
+        QCOMPARE(g.match.spawns().at(0).anim, 40);
+        QVERIFY(!g.match.sounds().at(0).common);
+        QCOMPARE(g.match.sounds().at(0).group, 6);
+    }
 };
 
 QTEST_MAIN(RuntimeHitTest)

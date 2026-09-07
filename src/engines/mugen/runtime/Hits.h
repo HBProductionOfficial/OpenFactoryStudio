@@ -3,6 +3,7 @@
 #include <QString>
 #include <QStringList>
 
+#include <array>
 #include <cmath>
 
 namespace OFS::Mugen::Runtime {
@@ -95,6 +96,28 @@ struct HitDef
     bool downRecover = true;
     int downRecoverTime = -1; // -1: the target's liedown.time
     int guardDist = -1;       // -1: the attacker's size.attack.dist
+    // sparkNo: fightfx unless own, -1 none, -2 the character's default.
+    int sparkNo = -2;
+    bool sparkOwn = false;
+    int guardSparkNo = -2;
+    bool guardSparkOwn = false;
+    float sparkX = 0;
+    float sparkY = 0;
+    int hitSound[2] = {-1, 0};
+    bool hitSoundOwn = false;
+    int guardSound[2] = {-1, 0};
+    bool guardSoundOwn = false;
+    int envShakeTime = 0;
+    float envShakeFreq = 60;
+    int envShakeAmpl = -4;
+    float envShakePhase = 0;
+    int palFxTime = 0;
+    std::array<int, 3> palFxAdd{0, 0, 0};
+    std::array<int, 3> palFxMul{256, 256, 256};
+    std::array<int, 3> palFxSinAdd{0, 0, 0};
+    int palFxSinPeriod = 0;
+    float palFxColor = 256;
+    bool palFxInvertAll = false;
     int fallEnvShakeTime = 0;
     float fallEnvShakeFreq = 60;
     int fallEnvShakeAmpl = -4;

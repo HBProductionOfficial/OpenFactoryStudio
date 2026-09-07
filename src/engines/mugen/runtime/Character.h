@@ -260,6 +260,7 @@ public:
             m_vars[std::size_t(index)] = value;
     }
     int id() const { return m_id; }
+    int sprPriority() const { return m_sprPriority; }
 
     bool isHelper() const { return m_isHelper; }
     int helperId() const { return m_helperId; }
@@ -307,6 +308,7 @@ private:
     HitDef hitDefFrom(const Controller& c);
     bool hitAllowed(const HitDef& hd, const Character& target) const;
     bool deliverHit(Character& target, const HitDef& hd, int facing, int overrideSlot = -1);
+    void showHit(Character& target, const HitDef& hd, int facing, bool guarded);
     bool executeProjectile(const Controller& c);
     const CharacterData* projectileAnimData(const Projectile::Anim& anim) const;
     bool showProjectileAnim(Projectile& p, const Projectile::Anim& anim);

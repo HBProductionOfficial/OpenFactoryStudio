@@ -225,6 +225,58 @@ bool Character::attack(Character& target)
     return true;
 }
 
+void Character::showHit(Character& target, const HitDef& hd, int facing, bool guarded)
+{
+    if (!m_match)
+        return;
+    int spark = guarded ? hd.guardSparkNo : hd.sparkNo;
+    const bool ownSpark = guarded ? hd.guardSparkOwn : hd.sparkOwn;
+    if (spark == -2)
+        spark = int(m_data.constant(guarded ? QStringLiteral("data.guard.sparkno") : QStringLiteral("data.sparkno"),
+                                    guarded ? 40 : 2));
+    if (spark >= 0) {
+        SpawnEvent event;
+        event.kind = SpawnEvent::Kind::GameAnim;
+        event.playerId = m_id;
+        event.anim = spark;
+        event.common = !ownSpark;
+        event.pos = Vec2{target.m_pos.x + target.frontWidth() * float(target.m_facing) - hd.sparkX * float(facing),
+                         m_pos.y + hd.sparkY};
+        m_match->addSpawn(event);
+    }
+    const int* sound = guarded ? hd.guardSound : hd.hitSound;
+    if (sound[0] >= 0) {
+        SoundEvent event;
+        event.playerId = m_id;
+        event.common = !(guarded ? hd.guardSoundOwn : hd.hitSoundOwn);
+        event.group = sound[0];
+        event.index = sound[1];
+        m_match->addSound(event);
+    }
+    if (guarded)
+        return;
+    if (hd.envShakeTime > 0) {
+        EnvShake& shake = m_match->envShake();
+        shake.time = hd.envShakeTime;
+        shake.freq = hd.envShakeFreq;
+        shake.ampl = hd.envShakeAmpl;
+        shake.phase = hd.envShakePhase;
+    }
+    if (hd.palFxTime != 0) {
+        PalFx& fx = target.m_draw.palFx;
+        fx = PalFx();
+        fx.time = hd.palFxTime;
+        fx.add = hd.palFxAdd;
+        fx.mul = hd.palFxMul;
+        fx.sinAdd = hd.palFxSinAdd;
+        fx.sinPeriod = hd.palFxSinPeriod;
+        fx.color = hd.palFxColor;
+        fx.invertAll = hd.palFxInvertAll;
+    }
+    m_sprPriority = hd.p1SprPriority;
+    target.m_sprPriority = hd.p2SprPriority;
+}
+
 bool Character::deliverHit(Character& target, const HitDef& hd, int facing, int overrideSlot)
 {
     const Character::HitOverrideSlot* override =
@@ -339,6 +391,7 @@ bool Character::deliverHit(Character& target, const HitDef& hd, int facing, int 
         target.m_hitStateOwner = &target.m_data;
         return false;
     }
+    showHit(target, hd, facing, guarded);
     if (!guarded && !m_targets.contains(&target)) {
         m_targets << &target;
         m_targetIds << hd.id;
@@ -448,6 +501,35 @@ HitDef Character::hitDefFrom(const Controller& c)
     hd.p2SprPriority = intParam(c, QStringLiteral("p2sprpriority"), 0);
     hd.id = intParam(c, QStringLiteral("id"), 0);
     hd.guardDist = intParam(c, QStringLiteral("guard.dist"), -1);
+    auto own = [&c](const char* name) {
+        const Param* p = c.param(QLatin1String(name));
+        return p && p->prefix == QLatin1Char('S');
+    };
+    hd.sparkNo = intParam(c, QStringLiteral("sparkno"), -2);
+    hd.sparkOwn = own("sparkno");
+    hd.guardSparkNo = intParam(c, QStringLiteral("guard.sparkno"), -2);
+    hd.guardSparkOwn = own("guard.sparkno");
+    hd.sparkX = floatParam(c, QStringLiteral("sparkxy"), 0, 0);
+    hd.sparkY = floatParam(c, QStringLiteral("sparkxy"), 0, 1);
+    hd.hitSound[0] = intParam(c, QStringLiteral("hitsound"), -1, 0);
+    hd.hitSound[1] = intParam(c, QStringLiteral("hitsound"), 0, 1);
+    hd.hitSoundOwn = own("hitsound");
+    hd.guardSound[0] = intParam(c, QStringLiteral("guardsound"), -1, 0);
+    hd.guardSound[1] = intParam(c, QStringLiteral("guardsound"), 0, 1);
+    hd.guardSoundOwn = own("guardsound");
+    hd.envShakeTime = intParam(c, QStringLiteral("envshake.time"), 0);
+    hd.envShakeFreq = floatParam(c, QStringLiteral("envshake.freq"), 60);
+    hd.envShakeAmpl = intParam(c, QStringLiteral("envshake.ampl"), -4);
+    hd.envShakePhase = floatParam(c, QStringLiteral("envshake.phase"), hd.envShakeFreq >= 90 ? 90 : 0);
+    hd.palFxTime = intParam(c, QStringLiteral("palfx.time"), 0);
+    for (int i = 0; i < 3; ++i) {
+        hd.palFxAdd[std::size_t(i)] = intParam(c, QStringLiteral("palfx.add"), 0, i);
+        hd.palFxMul[std::size_t(i)] = intParam(c, QStringLiteral("palfx.mul"), 256, i);
+        hd.palFxSinAdd[std::size_t(i)] = intParam(c, QStringLiteral("palfx.sinadd"), 0, i);
+    }
+    hd.palFxSinPeriod = intParam(c, QStringLiteral("palfx.sinadd"), 0, 3);
+    hd.palFxColor = floatParam(c, QStringLiteral("palfx.color"), 256);
+    hd.palFxInvertAll = intParam(c, QStringLiteral("palfx.invertall"), 0) != 0;
     hd.fallEnvShakeTime = intParam(c, QStringLiteral("fall.envshake.time"), 0);
     hd.fallEnvShakeFreq = floatParam(c, QStringLiteral("fall.envshake.freq"), 60);
     hd.fallEnvShakeAmpl = intParam(c, QStringLiteral("fall.envshake.ampl"), -4);
