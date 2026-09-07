@@ -189,7 +189,11 @@ public:
     void runActions();
     void finishTick();
 
+    bool wouldHit(const Character& target) const;
+    bool lands(const Character& target) const;
+    bool reverses(const Character& attacker) const;
     bool attack(Character& target);
+    void reverse(Character& attacker);
     // 1: attack (Clsn1), 2: body (Clsn2), in screen coordinates.
     QList<QRectF> boxes(int type) const;
     const HitDef& hitDef() const { return m_hitDef; }
@@ -302,7 +306,7 @@ private:
     void readHitDef(const Controller& c);
     HitDef hitDefFrom(const Controller& c);
     bool hitAllowed(const HitDef& hd, const Character& target) const;
-    bool deliverHit(Character& target, const HitDef& hd, int facing);
+    bool deliverHit(Character& target, const HitDef& hd, int facing, int overrideSlot = -1);
     bool executeProjectile(const Controller& c);
     const CharacterData* projectileAnimData(const Projectile::Anim& anim) const;
     bool showProjectileAnim(Projectile& p, const Projectile::Anim& anim);
@@ -372,6 +376,7 @@ private:
     int m_pendingP1State = -1;
     int m_moveContactTime = 0;
     bool m_moveGuarded = false;
+    int m_moveReversedTime = 0;
     int m_hitCount = 0;
     int m_uniqHitCount = 0;
     bool m_inGuardDist = false;
@@ -389,6 +394,16 @@ private:
         int time = 0;
     };
     std::array<HitBySlot, 2> m_hitBy;
+    struct HitOverrideSlot
+    {
+        QString states;
+        QSet<QString> classes;
+        int stateNo = -1;
+        int time = 0;
+        bool forceAir = false;
+    };
+    std::array<HitOverrideSlot, 8> m_overrides;
+    int overrideFor(const HitDef& hit, QChar attackerState) const;
     float m_attackMul = 1;
     float m_defenceMul = 1;
     QSet<QString> m_asserted;

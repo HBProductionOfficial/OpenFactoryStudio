@@ -117,6 +117,26 @@ bool Character::executeEffect(const Controller& c)
         }
         return true;
     }
+    if (type == QLatin1String("hitoverride")) {
+        const int slot = std::clamp(intParam(c, QStringLiteral("slot"), 0), 0, 7);
+        HitOverrideSlot& s = m_overrides[std::size_t(slot)];
+        QStringList parts = text(QStringLiteral("attr")).split(QLatin1Char(','));
+        s.states = parts.takeFirst().trimmed().toUpper();
+        s.classes = attackClasses(parts);
+        s.stateNo = intParam(c, QStringLiteral("stateno"), -1);
+        s.time = intParam(c, QStringLiteral("time"), 1);
+        s.forceAir = intParam(c, QStringLiteral("forceair"), 0) != 0;
+        return true;
+    }
+    if (type == QLatin1String("reversaldef")) {
+        HitDef rd = hitDefFrom(c);
+        QStringList parts = text(QStringLiteral("reversal.attr")).split(QLatin1Char(','));
+        rd.reversal = true;
+        rd.reversalStates = parts.takeFirst().trimmed().toUpper();
+        rd.reversalClasses = QStringList(parts);
+        m_hitDef = rd;
+        return true;
+    }
     if (type == QLatin1String("attackmulset")) {
         m_attackMul = floatParam(c, QStringLiteral("value"), 1);
         return true;

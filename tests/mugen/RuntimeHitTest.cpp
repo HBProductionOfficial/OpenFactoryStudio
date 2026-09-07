@@ -279,6 +279,100 @@ private Q_SLOTS:
         QCOMPARE(b.stateNo(), 5120);
         QVERIFY2(lying >= 10 && lying <= 12, qPrintable(QString::number(lying)));
     }
+
+    void priority()
+    {
+        auto duel = [](const QString& first, const QString& second) {
+            CharacterData a;
+            CharacterData b;
+            a.setAnimations(kAir);
+            b.setAnimations(kAir);
+            a.addStates(states(QStringLiteral("attr = S, NA\ndamage = 50\n") + first));
+            b.addStates(states(QStringLiteral("attr = S, NA\ndamage = 50\n") + second));
+            Match match;
+            Character p1(a, &match);
+            Character p2(b, &match);
+            p1.setPos({-20, 0});
+            p2.setPos({20, 0});
+            p2.setFacing(-1);
+            p1.start(200);
+            p2.start(200);
+            for (int t = 0; t < 4; ++t)
+                match.tick();
+            return std::pair(p1.life(), p2.life());
+        };
+        QCOMPARE(duel(QString(), QString()), std::pair(950, 950));
+        QCOMPARE(duel("priority = 5", QString()), std::pair(1000, 950));
+        QCOMPARE(duel("priority = 4, Miss", QString()), std::pair(950, 1000));
+        QCOMPARE(duel("priority = 4, Miss", "priority = 4, Miss"), std::pair(1000, 1000));
+        QCOMPARE(duel("priority = 4, Dodge", QString()), std::pair(1000, 1000));
+    }
+
+    void reversal()
+    {
+        CharacterData reverser;
+        reverser.setAnimations(kAir);
+        reverser.addStates(
+            states(QStringLiteral("attr = S, NA\ndamage = 50")) +
+            QStringLiteral("[Statedef 300]\ntype = S\nmovetype = A\nphysics = S\nanim = 200\n"
+                           "[State 300]\ntype = ReversalDef\ntrigger1 = time = 0\n"
+                           "reversal.attr = SCA, AA\npausetime = 4, 6\np1stateno = 310\np2stateno = 320\n"
+                           "[Statedef 310]\ntype = S\n[State 310]\ntype = Null\ntrigger1 = 1\n"
+                           "[Statedef 320]\ntype = S\nmovetype = H\nmovehitpersist = 1\n"
+                           "[State 320]\ntype = VarSet\ntrigger1 = 1\nv = 5\nvalue = MoveReversed\n"));
+        CharacterData attacker;
+        attacker.setAnimations(kAir);
+        attacker.addStates(states(QStringLiteral("attr = S, NA\ndamage = 50")));
+        Match match;
+        Character a(reverser, &match);
+        Character b(attacker, &match);
+        a.setPos({-20, 0});
+        b.setPos({20, 0});
+        b.setFacing(-1);
+        a.start(300);
+        b.start(200);
+        for (int t = 0; t < 4; ++t)
+            match.tick();
+        QCOMPARE(a.stateNo(), 310);
+        QCOMPARE(b.stateNo(), 320);
+        QCOMPARE(&b.stateOwner(), &reverser);
+        QCOMPARE(a.life(), 1000);
+        QCOMPARE(b.life(), 1000);
+        QCOMPARE(a.targets(), QList<Character*>{&b});
+        QVERIFY(b.var(5) > 0);
+    }
+
+    void hitOverride()
+    {
+        const QString defender = QStringLiteral(
+            "[Statedef 0]\ntype = S\nphysics = S\nanim = 0\nctrl = 1\n"
+            "[State 0]\ntype = HitOverride\ntrigger1 = time = 0\nattr = SCA, AA, AT\nstateno = 400\ntime = -1\n"
+            "[Statedef 400]\ntype = S\nmovetype = H\n[State 400]\ntype = Null\ntrigger1 = 1\n");
+        auto fight = [&defender](const QString& hitdef, int* aContact) {
+            CharacterData a;
+            CharacterData b;
+            a.setAnimations(kAir);
+            b.setAnimations(kAir);
+            a.addStates(states(hitdef));
+            b.addStates(defender);
+            Match match;
+            Character p1(a, &match);
+            Character p2(b, &match);
+            p1.setPos({-20, 0});
+            p2.setPos({20, 0});
+            p2.setFacing(-1);
+            p1.start(200);
+            p2.start(0);
+            for (int t = 0; t < 5; ++t)
+                match.tick();
+            *aContact = p1.var(9);
+            return std::pair(p2.stateNo(), p2.life());
+        };
+        int contact = 0;
+        QCOMPARE(fight(QStringLiteral("attr = S, NA\ndamage = 50"), &contact), std::pair(400, 1000));
+        QVERIFY(contact > 0);
+        QCOMPARE(fight(QStringLiteral("attr = S, NT\ndamage = 50\np2stateno = 150"), &contact), std::pair(0, 1000));
+    }
 };
 
 QTEST_MAIN(RuntimeHitTest)

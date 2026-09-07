@@ -23,10 +23,7 @@ QChar Detail::letterOf(const Param* param, QChar fallback)
 
 const QSet<QString>& Detail::pendingControllers()
 {
-    static const QSet<QString> names = {
-        QStringLiteral("hitoverride"),
-        QStringLiteral("reversaldef"),
-    };
+    static const QSet<QString> names = {};
     return names;
 }
 
@@ -218,6 +215,7 @@ void Character::enterState()
     if (!keep("movehitpersist")) {
         m_moveContactTime = 0;
         m_moveGuarded = false;
+        m_moveReversedTime = 0;
     }
     if (!keep("hitcountpersist")) {
         m_hitCount = 0;
@@ -338,6 +336,10 @@ void Character::prepare()
         for (HitBySlot& slot : m_hitBy) {
             if (slot.time > 0 && --slot.time == 0)
                 slot = HitBySlot();
+        }
+        for (HitOverrideSlot& slot : m_overrides) {
+            if (slot.time > 0 && --slot.time == 0)
+                slot = HitOverrideSlot();
         }
     }
     m_asserted.clear();
@@ -465,6 +467,8 @@ void Character::runActions()
     ++m_time;
     if (m_moveContactTime > 0)
         ++m_moveContactTime;
+    if (m_moveReversedTime > 0)
+        ++m_moveReversedTime;
     if (m_projContactTime >= 0)
         ++m_projContactTime;
     if (m_moveType == QLatin1Char('H')) {

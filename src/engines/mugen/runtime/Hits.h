@@ -25,9 +25,22 @@ enum class HitType
     Trip = 3,
 };
 
+enum class PriorityType
+{
+    Hit,   // both land when the priorities are equal
+    Miss,  // loses to Hit at equal priority, neither lands against Miss
+    Dodge, // neither lands at equal priority
+};
+
+// A ReversalDef is a HitDef too: it turns back the attacks of its attributes that its Clsn1 meets.
 struct HitDef
 {
     bool active = false;
+    bool reversal = false;
+    QString reversalStates;
+    QStringList reversalClasses;
+    int priority = 4;
+    PriorityType priorityType = PriorityType::Hit;
     QString attrStates = QStringLiteral("S");
     QStringList attrClasses;
     QString hitFlag = QStringLiteral("MAF");

@@ -87,14 +87,120 @@ bool Character::hitAllowed(const HitDef& hd, const Character& target) const
     return allowed;
 }
 
+namespace {
+
+bool attributesMatch(const QString& states, const QStringList& classes, QChar state, const QStringList& attackClasses)
+{
+    if (!states.contains(state))
+        return false;
+    for (const QString& k : attackClasses) {
+        for (const QString& c : classes) {
+            const QString wanted = c.trimmed().toUpper();
+            const QString attack = k.trimmed().toUpper();
+            if (wanted == attack || (wanted.size() == 2 && wanted.at(0) == QLatin1Char('A') && attack.size() == 2 &&
+                                     attack.at(1) == wanted.at(1)))
+                return true;
+        }
+    }
+    return false;
+}
+
+} // namespace
+
+bool Character::wouldHit(const Character& target) const
+{
+    return m_hitDef.active && !m_hitDef.reversal && &target != this && !m_frozen && hitAllowed(m_hitDef, target) &&
+           boxesMeet(boxes(1), target.boxes(2));
+}
+
+bool Character::lands(const Character& target) const
+{
+    // Against an attack of the target's that reaches back this tick, the higher priority lands. At equal
+    // priority Hit trades with Hit and beats Miss, and Dodge or Miss against Miss lets neither land.
+    if (!target.wouldHit(*this))
+        return true;
+    const HitDef& mine = m_hitDef;
+    const HitDef& theirs = target.m_hitDef;
+    if (theirs.priority != mine.priority)
+        return theirs.priority < mine.priority;
+    if (theirs.priorityType == PriorityType::Dodge || mine.priorityType == PriorityType::Dodge)
+        return false;
+    if (mine.priorityType == PriorityType::Miss)
+        return false;
+    return true;
+}
+
+bool Character::reverses(const Character& attacker) const
+{
+    const HitDef& rd = m_hitDef;
+    const HitDef& hd = attacker.m_hitDef;
+    if (!rd.active || !rd.reversal || m_frozen || !hd.active || hd.reversal || attacker.m_frozen)
+        return false;
+    if (!attributesMatch(rd.reversalStates, rd.reversalClasses, hd.attrStates.isEmpty() ? QChar() : hd.attrStates.at(0),
+                         hd.attrClasses))
+        return false;
+    return boxesMeet(boxes(1), attacker.boxes(1));
+}
+
+void Character::reverse(Character& attacker)
+{
+    const HitDef rd = m_hitDef;
+    if (rd.pauseTime[0] > 0)
+        m_hitPauseTime = rd.pauseTime[0];
+    m_moveContactTime = 1;
+    m_moveGuarded = false;
+    m_hitDef.active = false;
+    if (!m_targets.contains(&attacker)) {
+        m_targets << &attacker;
+        m_targetIds << rd.id;
+    }
+    if (rd.p1StateNo >= 0) {
+        m_pendingP1State = rd.p1StateNo;
+        m_ctrl = false;
+    }
+    attacker.m_hitDef.active = false;
+    attacker.m_moveReversedTime = 1;
+    attacker.m_ctrl = false;
+    attacker.m_ghv.hitShakeTime = std::max(0, rd.pauseTime[1]);
+    if (rd.p2StateNo >= 0) {
+        attacker.m_gotHit = true;
+        attacker.m_hitStateNo = rd.p2StateNo;
+        attacker.m_hitStateOwner = rd.p2GetP1State ? &m_data : &attacker.m_data;
+    }
+}
+
+int Character::overrideFor(const HitDef& hit, QChar attackerState) const
+{
+    for (int i = 0; i < int(m_overrides.size()); ++i) {
+        const HitOverrideSlot& slot = m_overrides[std::size_t(i)];
+        if (slot.time == 0 || slot.stateNo < 0)
+            continue;
+        if (attributesMatch(slot.states, QStringList(slot.classes.cbegin(), slot.classes.cend()), attackerState,
+                            hit.attrClasses))
+            return i;
+    }
+    return -1;
+}
+
 bool Character::attack(Character& target)
 {
-    if (!m_hitDef.active || &target == this || m_frozen || !hitAllowed(m_hitDef, target))
-        return false;
-    if (!boxesMeet(boxes(1), target.boxes(2)))
+    if (!m_hitDef.active)
         return false;
     const HitDef& hd = m_hitDef;
-    const bool guarded = deliverHit(target, hd, m_facing);
+    // The target's HitOverride takes the attack, but throws (p1stateno, p2stateno) miss it.
+    const int slot = target.overrideFor(hd, m_stateType);
+    if (slot >= 0 && (hd.p1StateNo >= 0 || hd.p2StateNo >= 0))
+        return false;
+    const bool guarded = deliverHit(target, hd, m_facing, slot);
+    if (slot >= 0) {
+        if (hd.pauseTime[0] > 0)
+            m_hitPauseTime = hd.pauseTime[0];
+        m_moveContactTime = 1;
+        m_moveGuarded = false;
+        m_hitCount += hd.numHits;
+        m_hitDef.active = false;
+        return true;
+    }
 
     const int pause = guarded ? hd.guardPauseTime[0] : hd.pauseTime[0];
     if (pause > 0)
@@ -119,10 +225,14 @@ bool Character::attack(Character& target)
     return true;
 }
 
-bool Character::deliverHit(Character& target, const HitDef& hd, int facing)
+bool Character::deliverHit(Character& target, const HitDef& hd, int facing, int overrideSlot)
 {
+    const Character::HitOverrideSlot* override =
+        overrideSlot >= 0 ? &target.m_overrides[std::size_t(overrideSlot)] : nullptr;
+    if (override && override->forceAir)
+        target.m_stateType = QLatin1Char('A');
     const QChar type = target.m_stateType;
-    const bool guarded = target.canGuard(hd) && !m_asserted.contains(QStringLiteral("unguardable"));
+    const bool guarded = !override && target.canGuard(hd) && !m_asserted.contains(QStringLiteral("unguardable"));
     const float attackMul = m_data.constant(QStringLiteral("data.attack"), 100) / 100.0f * m_attackMul;
     const float defence = target.m_data.constant(QStringLiteral("data.defence"), 100) / 100.0f * target.m_defenceMul *
                           target.m_superDefenceMul;
@@ -130,7 +240,8 @@ bool Character::deliverHit(Character& target, const HitDef& hd, int facing)
     const bool kill = guarded ? hd.guardKill : hd.kill;
     if (!kill && damage >= target.m_life)
         damage = std::max(0, target.m_life - 1);
-    target.m_life = std::max(0, target.m_life - damage);
+    if (!override)
+        target.m_life = std::max(0, target.m_life - damage);
     const int maxPower = int(m_data.constant(QStringLiteral("data.power"), 3000));
     powerOwner()->m_power =
         std::clamp(powerOwner()->m_power + (guarded ? hd.guardGetPower : hd.hitGetPower), 0, maxPower);
@@ -223,6 +334,11 @@ bool Character::deliverHit(Character& target, const HitDef& hd, int facing)
     target.m_hitStateNo = guarded ? -1 : hd.p2StateNo;
     target.m_hitStateOwner = hd.p2GetP1State ? &m_data : &target.m_data;
     target.m_ctrl = false;
+    if (override) {
+        target.m_hitStateNo = override->stateNo;
+        target.m_hitStateOwner = &target.m_data;
+        return false;
+    }
     if (!guarded && !m_targets.contains(&target)) {
         m_targets << &target;
         m_targetIds << hd.id;
@@ -337,6 +453,13 @@ HitDef Character::hitDefFrom(const Controller& c)
     hd.fallEnvShakeAmpl = intParam(c, QStringLiteral("fall.envshake.ampl"), -4);
     hd.fallEnvShakePhase = floatParam(c, QStringLiteral("fall.envshake.phase"), hd.fallEnvShakeFreq >= 90 ? 90 : 0);
     hd.chainId = intParam(c, QStringLiteral("chainid"), -1);
+    hd.priority = intParam(c, QStringLiteral("priority"), 4, 0);
+    if (const Param* priority = c.param(QStringLiteral("priority"))) {
+        const QString kind = priority->tail;
+        hd.priorityType = kind == QLatin1String("miss")    ? PriorityType::Miss
+                          : kind == QLatin1String("dodge") ? PriorityType::Dodge
+                                                           : PriorityType::Hit;
+    }
     hd.p2GetP1State = intParam(c, QStringLiteral("p2getp1state"), 1) != 0;
     hd.p1Facing = intParam(c, QStringLiteral("p1facing"), 0);
     hd.p2Facing = intParam(c, QStringLiteral("p2facing"), 0);

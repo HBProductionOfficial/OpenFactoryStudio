@@ -330,8 +330,9 @@ Value Character::trigger(const TriggerCall& call)
             return Value::boolean(winner == 2);
         }
     }
-    case Trigger::NumPartner:
     case Trigger::MoveReversed:
+        return Value::integer(m_moveReversedTime);
+    case Trigger::NumPartner:
     case Trigger::AILevel:
         return Value::boolean(false);
     case Trigger::Command: {

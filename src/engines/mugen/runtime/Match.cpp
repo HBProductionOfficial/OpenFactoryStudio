@@ -364,12 +364,31 @@ void Match::tick()
         }
     }
     if (hitsAllowed()) {
-        for (Character* attacker : std::as_const(m_characters)) {
-            for (Character* target : std::as_const(m_characters)) {
-                if (attacker->m_team != target->m_team && !attacker->m_destroyed && !target->m_destroyed)
-                    attacker->attack(*target);
+        // Decide everything first, then carry it out: reversals, then the attacks that land.
+        QList<std::pair<Character*, Character*>> reversals;
+        QList<std::pair<Character*, Character*>> hits;
+        auto opposed = [](const Character* a, const Character* b) {
+            return a->m_team != b->m_team && !a->m_destroyed && !b->m_destroyed;
+        };
+        for (Character* a : std::as_const(m_characters)) {
+            for (Character* b : std::as_const(m_characters)) {
+                if (opposed(a, b) && a->reverses(*b))
+                    reversals << std::pair(a, b);
             }
         }
+        auto reversed = [&reversals](const Character* c) {
+            return std::any_of(reversals.cbegin(), reversals.cend(), [c](const auto& r) { return r.second == c; });
+        };
+        for (Character* a : std::as_const(m_characters)) {
+            for (Character* b : std::as_const(m_characters)) {
+                if (opposed(a, b) && !reversed(a) && a->wouldHit(*b) && a->lands(*b))
+                    hits << std::pair(a, b);
+            }
+        }
+        for (const auto& [reverser, attacker] : std::as_const(reversals))
+            reverser->reverse(*attacker);
+        for (const auto& [attacker, target] : std::as_const(hits))
+            attacker->attack(*target);
         for (Character* attacker : std::as_const(m_characters)) {
             for (Character* target : std::as_const(m_characters)) {
                 if (attacker->m_team != target->m_team && !target->m_destroyed)
