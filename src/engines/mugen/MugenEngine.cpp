@@ -45,7 +45,7 @@ QString MugenEngine::name() const
 
 QString MugenEngine::displayName() const
 {
-    return QStringLiteral("M.U.G.E.N");
+    return QStringLiteral("MUGENext");
 }
 
 QList<EngineVersion> MugenEngine::versions() const
@@ -318,8 +318,8 @@ void MugenEngine::runTool(const QString& actionId, const ToolContext& context)
         return;
     }
     if (actionId == QLatin1String("st_throw")) {
-        ThrowCreatorDialog dialog(context.project, context.projects, dataDir() + QStringLiteral("/scripts/throw.lua"),
-                                  context.parent);
+        ThrowCreatorDialog dialog(context.project, context.projects,
+                                  dataDir() + QStringLiteral("/scripts/common/Throw.lua"), context.parent);
         dialog.setInsertHandler(context.insertText);
         dialog.setIcons(context.icon);
         dialog.exec();

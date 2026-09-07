@@ -155,8 +155,8 @@ private Q_SLOTS:
         QStringList tabs;
         for (int i = 0; i < dialog.tabs()->count(); ++i)
             tabs << dialog.tabs()->tabText(i);
-        QCOMPARE(tabs, (QStringList{"General", "Interface", "Messages", "Colors", "Graphics", "Code", "M.U.G.E.N"}));
-        QCOMPARE(comboItems(dialog.engineSelector()), QStringList{"M.U.G.E.N"});
+        QCOMPARE(tabs, (QStringList{"General", "Interface", "Messages", "Colors", "Graphics", "Code", "MUGENext"}));
+        QCOMPARE(comboItems(dialog.engineSelector()), QStringList{"MUGENext"});
 
         QStringList buttons;
         for (const char* name : {"defaultsBut", "openBut", "saveBut", "applyBut", "closeBut"})

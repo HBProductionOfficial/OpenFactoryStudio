@@ -44,7 +44,7 @@ QString sourceFile(const QString& path)
 
 QString throwScript()
 {
-    return sourceFile(QStringLiteral("../data/engines/mugen/scripts/throw.lua"));
+    return sourceFile(QStringLiteral("../data/engines/mugen/scripts/common/Throw.lua"));
 }
 
 QString readText(const QString& path)

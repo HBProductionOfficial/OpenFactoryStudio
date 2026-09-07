@@ -170,7 +170,7 @@ private Q_SLOTS:
         QCOMPARE(tabs->tabText(0), QStringLiteral("Basic"));
         auto* list = qobject_cast<QListWidget*>(tabs->widget(0));
         QVERIFY(list);
-        QCOMPARE(list->item(0)->text(), QStringLiteral("Empty (M.U.G.E.N)"));
+        QCOMPARE(list->item(0)->text(), QStringLiteral("Empty (MUGENext)"));
         QVERIFY(dialog.selectedTemplate().script.isEmpty());
         list->setCurrentRow(0);
         QCOMPARE(dialog.selectedTemplate().name, QStringLiteral("Empty"));

@@ -2,6 +2,7 @@
 
 #include "core/engine/Engine.h"
 #include "core/preset/PresetModel.h"
+#include "core/script/ScriptHost.h"
 #include "shell/dialogs/MultiLineFindDialog.h"
 
 #include <QDateTime>
@@ -124,6 +125,10 @@ private:
 public:
     void runInEngine();
     bool isEngineRunning() const { return m_engineProcess != nullptr; }
+
+    Script::Environment scriptEnvironment();
+    void showScriptEditor();
+    void runToolScript(const QString& path);
 
 private:
     void finishEngineRun(QProcess* process);

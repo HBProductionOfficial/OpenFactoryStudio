@@ -36,6 +36,8 @@ add_library(ofscore SHARED
     code/TextSearch.cpp
     code/CodeHighlighter.h
     code/CodeHighlighter.cpp
+    code/LuaHighlighter.h
+    code/LuaHighlighter.cpp
     code/CodeLine.h
     code/CodeLine.cpp
     actions/ActionCatalog.h
@@ -121,6 +123,10 @@ add_library(ofscore SHARED
     script/LuaApi.cpp
     script/LuaFileApi.cpp
     script/LuaProjectApi.cpp
+    script/ScriptFolders.h
+    script/ScriptFolders.cpp
+    script/ScriptTranslation.h
+    script/ScriptTranslation.cpp
     script/LuaScript.h
     script/LuaScript.cpp
     script/ScriptHost.h

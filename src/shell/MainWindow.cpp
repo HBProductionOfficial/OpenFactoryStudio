@@ -20,6 +20,7 @@
 #include "core/project/ProjectFile.h"
 #include "core/project/ProjectWatcher.h"
 #include "core/project/ZipArchive.h"
+#include "core/script/ScriptFolders.h"
 #include "core/script/ScriptHost.h"
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
@@ -58,6 +59,7 @@
 #include "shell/dialogs/OptionsDialog.h"
 #include "shell/dialogs/ProjectDialogs.h"
 #include "shell/dialogs/RunChooserDialog.h"
+#include "shell/dialogs/ScriptEditorDialog.h"
 #include "shell/dialogs/SnippetEditorDialog.h"
 #include "shell/dialogs/SnippetFieldsDialog.h"
 #include "shell/dialogs/StateControllerDialog.h"
@@ -200,6 +202,18 @@ void MainWindow::buildMenus()
     });
     m_menus->setDynamic(QStringLiteral("encodings"), [this](QMenu* menu, QAction* before, QList<QAction*>& created) {
         populateEncodings(menu, before, created);
+    });
+    m_menus->setDynamic(QStringLiteral("tool_scripts"), [this](QMenu* menu, QAction* before, QList<QAction*>& created) {
+        QStringList engines;
+        for (const Engine* engine : m_context.engines().engines())
+            engines << engine->name();
+        for (const Script::ToolScript& tool : Script::toolScripts(Paths::dataDir(), engines)) {
+            auto* item = new QAction(tool.caption, menu);
+            const QString path = tool.path;
+            connect(item, &QAction::triggered, this, [this, path] { runToolScript(path); });
+            menu->insertAction(before, item);
+            created << item;
+        }
     });
     m_menus->setDynamic(QStringLiteral("engine_tools"), [this](QMenu* menu, QAction* before, QList<QAction*>& created) {
         ProjectView* view = currentProjectView();
@@ -453,6 +467,7 @@ void MainWindow::connectActions()
                                      page ? page->currentPalette() : -1, this);
         editor.exec();
     });
+    on("tools_script_editor", [this] { showScriptEditor(); });
     on("help_about", [this] { AboutDialog::showAbout(this); });
     on("file_run", [this] { runInEngine(); });
     on("view_calculator", [this] { CalculatorDialog::showCalculator(this); });
@@ -1887,6 +1902,46 @@ void MainWindow::backupOnLoad(Project* project)
     QString error;
     if (Backup::create(*project, QDateTime::currentDateTime(), true, &error).isEmpty())
         qWarning("backup on load failed: %s", qPrintable(error));
+}
+
+Script::Environment MainWindow::scriptEnvironment()
+{
+    Script::Environment environment;
+    environment.engines = &m_context.engines();
+    environment.parent = this;
+    QString folder = m_context.config().value(QStringLiteral("project_path"));
+    if (folder.isEmpty() || !QFileInfo(folder).isDir())
+        folder = QDir::homePath();
+    environment.projectFolder = QDir::fromNativeSeparators(folder);
+    environment.openProject = [this](Project* project) {
+        addProjectView(project, project->isMemoryOnly() ? QStringLiteral("definitions") : QString());
+        if (!project->isMemoryOnly())
+            m_context.history().add(project->name(), project->filePath());
+    };
+    environment.projects = [this] {
+        QList<Project*> projects;
+        for (ProjectView* view : projectViews())
+            projects << view->project();
+        return projects;
+    };
+    environment.currentProject = [this]() -> Project* {
+        ProjectView* view = currentProjectView();
+        return view ? view->project() : nullptr;
+    };
+    return environment;
+}
+
+void MainWindow::showScriptEditor()
+{
+    ScriptEditorDialog editor(m_context, scriptEnvironment(), Paths::dataDir(), this);
+    editor.exec();
+}
+
+void MainWindow::runToolScript(const QString& path)
+{
+    const Script::RunResult result = Script::runScriptFile(path, scriptEnvironment());
+    if (!result.ok && !result.stopped)
+        QMessageBox::critical(this, tr("Script error!"), result.error);
 }
 
 void MainWindow::newProject()

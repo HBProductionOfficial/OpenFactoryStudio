@@ -37,6 +37,7 @@
 #include "shell/SpritesEditor.h"
 #include "shell/StatusBar.h"
 #include "shell/dialogs/PaletteDialogs.h"
+#include "shell/dialogs/ScriptEditorDialog.h"
 #include "shell/dialogs/SnippetEditorDialog.h"
 #include "shell/dialogs/StateControllerDialog.h"
 
@@ -3610,7 +3611,7 @@ private Q_SLOTS:
         });
         m_context->actions().action("file_open_single")->trigger();
         FileDialogs::setOpenPromptOverride({});
-        QCOMPARE(filter, QStringLiteral("Open file|M.U.G.E.N (*.def *.sff *.snd *.air *.cns *.st *.cmd *.*)"));
+        QCOMPARE(filter, QStringLiteral("Open file|MUGENext (*.def *.sff *.snd *.air *.cns *.st *.cmd *.*)"));
         ProjectView* animations = window.currentProjectView();
         QVERIFY(animations && animations->project()->isSingleFile());
         QCOMPARE(animations->editorIds(), (QStringList{"animations", "emulator"}));
@@ -3654,7 +3655,7 @@ private Q_SLOTS:
         });
         actions.action("file_saveas")->trigger();
         FileDialogs::setSavePromptOverride({});
-        QCOMPARE(asked, QStringLiteral("Save project as...|hero.def|M.U.G.E.N project (*.def)"));
+        QCOMPARE(asked, QStringLiteral("Save project as...|hero.def|MUGENext project (*.def)"));
         ProjectView* view = window.currentProjectView();
         QVERIFY(view);
         QCOMPARE(view->project()->filePath(), target.filePath("copy/hero2.def"));
@@ -4123,6 +4124,36 @@ private Q_SLOTS:
         QVERIFY(page.contains("<title>Test Fighter</title>"));
         QVERIFY(page.contains("me@example.com"));
         QVERIFY(page.contains("<img src=\"images/x.png\" alt=\"x\"/>"));
+    }
+
+    void scriptsFromTheWindow()
+    {
+        MainWindow window(*m_context);
+        window.show();
+        QMenu* tools = menu(window, "menu_tools");
+        Q_EMIT tools->aboutToShow();
+        QAction* quick = nullptr;
+        for (QAction* a : tools->actions()) {
+            if (a->text() == QStringLiteral("Quick action script"))
+                quick = a;
+        }
+        QVERIFY(quick);
+        quick->trigger();
+
+        QVERIFY(window.openProject(m_dir.filePath("fighter.def")));
+        whenModal<QDialog>([](QDialog* dialog) {
+            QCOMPARE(dialog->objectName(), QStringLiteral("ScriptEd"));
+            auto* editor = qobject_cast<ScriptEditorDialog*>(dialog);
+            QVERIFY(editor);
+            editor->editor()->setPlainText("debugOutput(FF.projectCount() .. FF.currentProject().name)\n"
+                                           "FF.emptyProject('mugen', MUGEN.ProjectType.Font)\n");
+            editor->run();
+            QCOMPARE(editor->output()->toPlainText(), QStringLiteral("1Test Fighter"));
+            editor->reject();
+        });
+        m_context->actions().action("tools_script_editor")->trigger();
+        QCOMPARE(window.projectViews().size(), qsizetype(2));
+        QCOMPARE(window.currentProjectView()->project()->typeId(), QStringLiteral("font"));
     }
 
 private:

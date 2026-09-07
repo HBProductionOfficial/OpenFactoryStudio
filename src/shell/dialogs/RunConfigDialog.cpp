@@ -116,9 +116,9 @@ void RunConfigDialog::updateOk()
 void RunConfigDialog::browseExecutable()
 {
 #if defined(Q_OS_WIN)
-    const QString filter = tr("M.U.G.E.N (*mugen.exe)");
+    const QString filter = tr("MUGENext (*mugen.exe)");
 #else
-    const QString filter = tr("M.U.G.E.N (mugen*)");
+    const QString filter = tr("MUGENext (mugen*)");
 #endif
     const QString file =
         QFileDialog::getOpenFileName(this, tr("Executable"), QFileInfo(m_executable->text()).absolutePath(), filter);

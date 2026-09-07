@@ -131,7 +131,7 @@ MugenOptionsPage::MugenOptionsPage(Config& config, QWidget* parent)
 
 QString MugenOptionsPage::title() const
 {
-    return QStringLiteral("M.U.G.E.N");
+    return QStringLiteral("MUGENext");
 }
 
 QStringList MugenOptionsPage::controlNames()

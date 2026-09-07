@@ -2,12 +2,14 @@
 
 #include "core/project/Project.h"
 #include "core/script/LuaApi.h"
+#include "core/script/ScriptTranslation.h"
 
 #include <QCoreApplication>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
+#include <QTranslator>
 
 namespace OFS::Script {
 
@@ -74,6 +76,27 @@ bool protectedCall(lua_State* L, QString* error)
     return false;
 }
 
+class RunTranslation
+{
+public:
+    explicit RunTranslation(const QString& scriptPath)
+    {
+        if (!scriptPath.isEmpty() && QCoreApplication::instance() && loadScriptTranslation(m_translator, scriptPath))
+            m_installed = QCoreApplication::installTranslator(&m_translator);
+    }
+    ~RunTranslation()
+    {
+        if (m_installed)
+            QCoreApplication::removeTranslator(&m_translator);
+    }
+    RunTranslation(const RunTranslation&) = delete;
+    RunTranslation& operator=(const RunTranslation&) = delete;
+
+private:
+    QTranslator m_translator;
+    bool m_installed = false;
+};
+
 void prepare(sol::state& lua, Session& session)
 {
     lua.open_libraries(sol::lib::base, sol::lib::string, sol::lib::table, sol::lib::math, sol::lib::utf8);
@@ -117,6 +140,7 @@ RunResult runScript(const QString& code, const QString& source, const Environmen
         session.scriptPath = QFileInfo(source).absolutePath();
         session.context = QFileInfo(source).completeBaseName();
     }
+    RunTranslation translation(source);
     sol::state lua;
     prepare(lua, session);
     lua_State* L = lua.lua_state();
@@ -185,6 +209,7 @@ Project* runProjectTemplate(const QString& path, const Environment& environment,
     session.scriptPath = QFileInfo(path).absolutePath();
     session.context = QFileInfo(path).completeBaseName();
 
+    RunTranslation translation(path);
     sol::state lua;
     prepare(lua, session);
 

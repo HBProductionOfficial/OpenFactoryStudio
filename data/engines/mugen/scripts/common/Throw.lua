@@ -1,16 +1,7 @@
--- States > Throw creator: the states of a throw, made from the settings of the dialog.
---
--- throw(t) receives:
---   t.stateno     StateDef of the throw attempt. The throw itself uses stateno + 10, the
---                 opponent stateno + 20 while held and stateno + 21 once thrown.
---   t.startAnim   animation of the attempt
---   t.throwAnim   animation of the throw
---   t.thrownAnim  animation of the opponent while held
---   t.xVel        velocity of the opponent when thrown
---   t.yVel
---   t.binds       one entry per element of the throw, up to the element the throw stops on:
---                 x, y (where the opponent is held) and priority (sprite priority, 0 for none)
--- and returns the text inserted at the cursor.
+-- States > Throw creator. throw(t) returns the states of a throw as text.
+-- t.stateno is the attempt. The throw uses stateno + 10, the opponent stateno + 20 while held and
+-- stateno + 21 once thrown. t.xVel and t.yVel are the opponent's velocity when thrown. t.binds has
+-- one {x, y, priority} per element up to the one the throw stops on (priority 0 = none).
 
 local function decimal(value)
     if value == 0 then
@@ -28,7 +19,7 @@ function throw(t)
         end
     end
 
-    -- The attempt: a throw HitDef that sends both players to their states when it connects.
+    -- The attempt: a throw HitDef that sends both players to their states when it hits.
     add("[Statedef " .. n .. "]",
         "type = S",
         "movetype= A",
@@ -59,7 +50,7 @@ function throw(t)
         "ctrl = 1",
         "")
 
-    -- The throw: the opponent is held at each element's position, then hurt and thrown.
+    -- The throw: holds the opponent at each element's position, then hurts and throws it.
     local throwState = n + 10
     add("[Statedef " .. throwState .. "]",
         "type = S",
@@ -114,7 +105,7 @@ function throw(t)
         "value = " .. t.thrownAnim,
         "")
 
-    -- The opponent, thrown: falls until it recovers or hits the ground.
+    -- The opponent, thrown. It falls until it recovers or hits the ground.
     local thrown = n + 21
     add("[Statedef " .. thrown .. "]",
         "type = A",

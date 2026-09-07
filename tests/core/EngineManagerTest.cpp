@@ -21,7 +21,7 @@ private Q_SLOTS:
 
         Engine* mugen = manager.engine(QStringLiteral("mugen"));
         QVERIFY(mugen);
-        QCOMPARE(mugen->displayName(), QStringLiteral("M.U.G.E.N"));
+        QCOMPARE(mugen->displayName(), QStringLiteral("MUGENext"));
         QVERIFY(mugen->dataDir().endsWith(QStringLiteral("/data/engines/mugen")));
 
         QStringList versionIds;
