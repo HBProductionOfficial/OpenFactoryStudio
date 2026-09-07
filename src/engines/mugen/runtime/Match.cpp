@@ -162,6 +162,160 @@ void Match::requestPause(bool super, int playerId, int time, bool pauseBg, bool 
     }
 }
 
+void Match::startMatch(const RoundSettings& settings)
+{
+    m_settings = settings;
+    m_roundActive = true;
+    m_roundNo = 0;
+    m_wins[0] = m_wins[1] = 0;
+    m_matchOver = false;
+    startRound();
+}
+
+void Match::resetPositions()
+{
+    for (Character* c : std::as_const(m_characters)) {
+        if (c->m_isHelper)
+            continue;
+        c->m_pos = Vec2{c->m_team == 0 ? m_settings.p1x : m_settings.p2x, 0};
+        c->m_vel = Vec2();
+        c->m_facing = c->m_team == 0 ? 1 : -1;
+    }
+}
+
+void Match::startRound()
+{
+    ++m_roundNo;
+    m_intro = m_settings.startWait + m_settings.ctrlTime + 1;
+    m_timer = m_settings.time < 0 ? -1 : m_settings.time * m_settings.framesPerCount;
+    m_winPoseTime = m_settings.overWinTime;
+    m_end = RoundEnd::None;
+    m_winner = -1;
+    m_perfect = false;
+    for (Character* c : std::as_const(m_characters)) {
+        if (c->m_isHelper)
+            c->m_destroyed = true;
+    }
+    removeDestroyed();
+    for (Character* c : std::as_const(m_characters)) {
+        c->resetForRound(Vec2{c->m_team == 0 ? m_settings.p1x : m_settings.p2x, 0}, c->m_team == 0 ? 1 : -1,
+                         m_roundNo == 1);
+    }
+}
+
+int Match::roundState() const
+{
+    if (!m_roundActive)
+        return 2;
+    if (m_intro > m_settings.ctrlTime + 1)
+        return 0;
+    if (m_intro > 0)
+        return 1;
+    if (m_intro == 0 || m_end == RoundEnd::None)
+        return 2;
+    if (m_intro < -m_settings.overWaitTime)
+        return 4;
+    return 3;
+}
+
+bool Match::hitsAllowed() const
+{
+    return !m_roundActive || m_end == RoundEnd::None || m_intro >= -m_settings.overHitTime;
+}
+
+bool Match::decideRound()
+{
+    // Once fighting, a side with nobody standing loses (both: a draw), or the side with less life at time over.
+    if (m_intro > 0 || m_end != RoundEnd::None)
+        return false;
+    bool down[2] = {true, true};
+    double life[2] = {0, 0};
+    bool full[2] = {true, true};
+    for (const Character* c : std::as_const(m_characters)) {
+        if (c->m_isHelper || c->m_team < 0 || c->m_team > 1)
+            continue;
+        const int max = int(c->m_data.constant(QStringLiteral("data.life"), 1000));
+        if (c->alive())
+            down[c->m_team] = false;
+        life[c->m_team] += max > 0 ? double(std::max(0, c->m_life)) / max : 0;
+        full[c->m_team] = full[c->m_team] && c->m_life >= max;
+    }
+    if (down[0] || down[1]) {
+        m_end = down[0] && down[1] ? RoundEnd::DoubleKO : RoundEnd::KO;
+        m_winner = down[0] && down[1] ? 2 : down[0] ? 1 : 0;
+    } else if (m_timer == 0) {
+        m_end = RoundEnd::TimeOver;
+        m_winner = life[0] == life[1] ? 2 : life[0] > life[1] ? 0 : 1;
+    } else {
+        return false;
+    }
+    m_perfect = (m_winner == 0 || m_winner == 1) && full[m_winner];
+    return true;
+}
+
+void Match::stepRound()
+{
+    if (!m_roundActive || m_matchOver)
+        return;
+    const RoundSettings& s = m_settings;
+    if (m_intro > s.ctrlTime) {
+        // Before and during the intros. An intro holds the round while it is asserted.
+        --m_intro;
+        if (isAsserted(QStringLiteral("intro")) && m_intro <= s.ctrlTime)
+            m_intro = s.ctrlTime + 1;
+    } else if (m_intro > 0) {
+        if (m_intro == s.ctrlTime)
+            resetPositions();
+        if (--m_intro == 0) {
+            for (Character* c : std::as_const(m_characters)) {
+                if (c->m_isHelper || !c->alive())
+                    continue;
+                c->m_ctrl = true;
+                if (c->m_stateNo != 0) {
+                    c->m_stateData = &c->m_data;
+                    c->m_minus = 3;
+                    c->changeState(0, -1, 1);
+                }
+            }
+        }
+    }
+    if (m_intro == 0 && !isAsserted(QStringLiteral("timerfreeze")) && m_superTime <= 0 && m_pauseTime <= 0 &&
+        m_timer > 0)
+        --m_timer;
+    if (m_end == RoundEnd::None && !decideRound()) {
+        if (m_intro < 0)
+            m_intro = 0;
+        return;
+    }
+    --m_intro;
+    if (m_intro == -s.overHitTime && (m_winner == 0 || m_winner == 1))
+        ++m_wins[m_winner];
+    const int poses = -s.overWaitTime;
+    if (m_intro == poses - 1) {
+        for (Character* c : std::as_const(m_characters))
+            c->m_ctrl = false;
+    }
+    if (m_intro < poses)
+        --m_winPoseTime;
+    if (m_winPoseTime <= 0) {
+        for (Character* c : std::as_const(m_characters)) {
+            if (c->m_isHelper || c->m_posed || !c->alive() || c->m_hitPauseTime > 0)
+                continue;
+            c->m_posed = true;
+            const int state = m_winner == c->m_team ? 180 : (m_winner == 0 || m_winner == 1) ? 170 : 175;
+            c->m_stateData = &c->m_data;
+            c->m_minus = 3;
+            c->changeState(state, -1, -1);
+        }
+    }
+    if (m_intro <= poses - s.overTime && !isAsserted(QStringLiteral("roundnotover"))) {
+        if (m_wins[0] >= s.wins || m_wins[1] >= s.wins)
+            m_matchOver = true;
+        else
+            startRound();
+    }
+}
+
 void Match::tick()
 {
     m_sounds.clear();
@@ -178,6 +332,7 @@ void Match::tick()
         m_pauseTime = m_pausePending;
         m_pausePending = -1;
     }
+    stepRound();
     for (Character* c : std::as_const(m_characters)) {
         bool near = false;
         for (const Character* other : std::as_const(m_characters)) {
@@ -208,16 +363,18 @@ void Match::tick()
                 m_characters[i]->cancelProjectiles(*m_characters[j]);
         }
     }
-    for (Character* attacker : std::as_const(m_characters)) {
-        for (Character* target : std::as_const(m_characters)) {
-            if (attacker->m_team != target->m_team && !attacker->m_destroyed && !target->m_destroyed)
-                attacker->attack(*target);
+    if (hitsAllowed()) {
+        for (Character* attacker : std::as_const(m_characters)) {
+            for (Character* target : std::as_const(m_characters)) {
+                if (attacker->m_team != target->m_team && !attacker->m_destroyed && !target->m_destroyed)
+                    attacker->attack(*target);
+            }
         }
-    }
-    for (Character* attacker : std::as_const(m_characters)) {
-        for (Character* target : std::as_const(m_characters)) {
-            if (attacker->m_team != target->m_team && !target->m_destroyed)
-                attacker->projectilesAttack(*target);
+        for (Character* attacker : std::as_const(m_characters)) {
+            for (Character* target : std::as_const(m_characters)) {
+                if (attacker->m_team != target->m_team && !target->m_destroyed)
+                    attacker->projectilesAttack(*target);
+            }
         }
     }
     for (Character* c : std::as_const(m_characters))

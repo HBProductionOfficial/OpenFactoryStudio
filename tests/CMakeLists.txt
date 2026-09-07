@@ -320,6 +320,10 @@ ofs_add_test(NAME mugen_runtime_projectiles
     SOURCES mugen/RuntimeProjectileTest.cpp
     LIBS OFS::mugen_runtime)
 
+ofs_add_test(NAME mugen_runtime_rounds
+    SOURCES mugen/RuntimeRoundTest.cpp
+    LIBS OFS::mugen_runtime)
+
 ofs_add_test(NAME mugen_runtime_corpus LABELS corpus TIMEOUT 600
     SOURCES mugen/RuntimeCorpusTest.cpp
     LIBS OFS::mugen_runtime)

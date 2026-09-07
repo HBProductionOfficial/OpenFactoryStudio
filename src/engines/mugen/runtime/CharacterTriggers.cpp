@@ -118,7 +118,7 @@ Value Character::trigger(const TriggerCall& call)
     case Trigger::PowerMax:
         return Value::integer(int(m_data.constant(QStringLiteral("data.power"), 3000)));
     case Trigger::Alive:
-        return Value::boolean(m_life > 0);
+        return Value::boolean(!m_ko);
     case Trigger::GameTime:
         return Value::integer(m_match ? m_match->gameTime() : 0);
     case Trigger::Random:
@@ -126,11 +126,15 @@ Value Character::trigger(const TriggerCall& call)
     case Trigger::ID:
         return Value::integer(m_id);
     case Trigger::RoundState:
-        return Value::integer(2);
+        return Value::integer(m_match ? m_match->roundState() : 2);
     case Trigger::RoundNo:
+        return Value::integer(m_match ? m_match->roundNo() : 1);
+    case Trigger::RoundsExisted:
+        return Value::integer(m_match ? m_match->roundsExisted() : 0);
+    case Trigger::TeamSide:
+        return Value::integer(m_team + 1);
     case Trigger::MatchNo:
     case Trigger::PalNo:
-    case Trigger::TeamSide:
         return Value::integer(1);
     case Trigger::TicksPerSecond:
         return Value::integer(60);
@@ -293,10 +297,8 @@ Value Character::trigger(const TriggerCall& call)
             return Value::real(to->m_pos.y - m_pos.y);
         return Value::real((to->m_pos.x - m_pos.x) * float(m_facing));
     }
-    case Trigger::NumPartner:
     case Trigger::MatchOver:
-    case Trigger::MoveReversed:
-    case Trigger::AILevel:
+        return Value::boolean(m_match && m_match->matchOver());
     case Trigger::Win:
     case Trigger::WinKO:
     case Trigger::WinTime:
@@ -304,7 +306,33 @@ Value Character::trigger(const TriggerCall& call)
     case Trigger::Lose:
     case Trigger::LoseKO:
     case Trigger::LoseTime:
-    case Trigger::DrawGame:
+    case Trigger::DrawGame: {
+        const int winner = m_match ? m_match->roundWinner() : -1;
+        const RoundEnd end = m_match ? m_match->roundEnd() : RoundEnd::None;
+        const bool win = winner == m_team;
+        const bool lose = (winner == 0 || winner == 1) && winner != m_team;
+        switch (call.trigger) {
+        case Trigger::Win:
+            return Value::boolean(win);
+        case Trigger::WinKO:
+            return Value::boolean(win && end == RoundEnd::KO);
+        case Trigger::WinTime:
+            return Value::boolean(win && end == RoundEnd::TimeOver);
+        case Trigger::WinPerfect:
+            return Value::boolean(win && m_match->perfect());
+        case Trigger::Lose:
+            return Value::boolean(lose);
+        case Trigger::LoseKO:
+            return Value::boolean(lose && end == RoundEnd::KO);
+        case Trigger::LoseTime:
+            return Value::boolean(lose && end == RoundEnd::TimeOver);
+        default:
+            return Value::boolean(winner == 2);
+        }
+    }
+    case Trigger::NumPartner:
+    case Trigger::MoveReversed:
+    case Trigger::AILevel:
         return Value::boolean(false);
     case Trigger::Command: {
         // A helper reads its player's commands with keyctrl only.

@@ -59,6 +59,37 @@ float Character::constant(const QString& name, float fallback) const
     return it != m_constants.cend() ? *it : m_data.constant(name, fallback);
 }
 
+void Character::resetForRound(Vec2 pos, int facing, bool firstRound)
+{
+    m_pos = pos;
+    m_vel = Vec2();
+    m_facing = facing;
+    m_life = int(m_data.constant(QStringLiteral("data.life"), 1000));
+    m_ko = false;
+    m_posed = false;
+    m_ctrl = false;
+    m_hitPauseTime = 0;
+    m_ghv = GetHitVars();
+    m_hitDef = HitDef();
+    m_gotHit = false;
+    m_hitStateNo = -1;
+    m_pendingP1State = -1;
+    m_moveContactTime = 0;
+    m_targets.clear();
+    m_targetIds.clear();
+    m_bindTo = nullptr;
+    m_bindTime = 0;
+    m_explods.clear();
+    m_projectiles.clear();
+    m_projContactTime = -1;
+    m_draw = DrawState();
+    m_stateData = &m_data;
+    m_minus = 3;
+    if (firstRound && m_data.animation(0))
+        changeAnim(0);
+    changeState(5900, -1, 0);
+}
+
 void Character::start(int state)
 {
     m_nesting = 0;
@@ -402,12 +433,29 @@ void Character::runActions()
     if (m_ctrl && m_inGuardDist && m_guarding && !inGuardState() && m_data.state(120))
         changeState(120);
 
+    if (!paused && !m_ko && m_life <= 0 && !m_asserted.contains(QStringLiteral("noko")) &&
+        !(m_match && m_match->isAsserted(QStringLiteral("globalnoko")))) {
+        if (m_match && !m_match->isAsserted(QStringLiteral("nokosnd"))) {
+            SoundEvent scream;
+            scream.playerId = m_id;
+            scream.group = 11;
+            m_match->addSound(scream);
+        }
+        m_ko = true;
+        m_ctrl = false;
+        if (!m_pending && !m_isHelper && m_moveType != QLatin1Char('H')) {
+            m_ghv.fall = true;
+            m_stateData = &m_data;
+            changeState(5030, -1, 0);
+            m_time = 1;
+        }
+    }
     if (paused) {
         m_minus = 1;
         return;
     }
     // The engine gets up a character who has lain long enough (after at least a tick in 5110).
-    if (m_stateNo == 5110 && m_time >= 1 && m_ghv.downRecoverTime <= 0 && m_life > 0 && m_stateData->state(5120))
+    if (m_stateNo == 5110 && m_time >= 1 && m_ghv.downRecoverTime <= 0 && !m_ko && m_stateData->state(5120))
         changeState(5120);
     if (!m_posFreeze)
         updatePosition();

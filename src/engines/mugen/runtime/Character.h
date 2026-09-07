@@ -33,6 +33,30 @@ enum class ProjContactKind
     Cancel,
 };
 
+// fight.def's [Round] timings, in ticks.
+struct RoundSettings
+{
+    int wins = 2;
+    int time = 99; // in counts, -1: no limit
+    int framesPerCount = 60;
+    int startWait = 30;
+    int ctrlTime = 30;
+    int overHitTime = 10;
+    int overWaitTime = 45;
+    int overWinTime = 45;
+    int overTime = 210;
+    float p1x = -70;
+    float p2x = 70;
+};
+
+enum class RoundEnd
+{
+    None,
+    KO,
+    DoubleKO,
+    TimeOver,
+};
+
 class Match
 {
 public:
@@ -46,6 +70,20 @@ public:
     int numEnemies(const Character* of) const;
     Character* playerById(int id) const;
     Character* spawnHelper(Character& parent);
+
+    // Players go to state 5900, then their intros, the fight, the end and the poses.
+    void startMatch(const RoundSettings& settings = RoundSettings());
+    // 0 before the intros, 1 intros, 2 fighting, 3 ended, 4 poses.
+    int roundState() const;
+    int roundNo() const { return m_roundActive ? m_roundNo : 1; }
+    int roundsExisted() const { return m_roundActive ? m_roundNo - 1 : 0; }
+    int roundTime() const { return m_roundActive ? m_timer : -1; }
+    RoundEnd roundEnd() const { return m_end; }
+    int roundWinner() const { return m_winner; }
+    bool perfect() const { return m_perfect; }
+    int wins(int team) const { return team == 0 || team == 1 ? m_wins[team] : 0; }
+    bool matchOver() const { return m_matchOver; }
+    bool hitsAllowed() const;
 
     int gameTime() const { return m_time; }
 
@@ -93,6 +131,10 @@ private:
     void push();
     void keepOnScreen();
     void removeDestroyed();
+    void startRound();
+    void stepRound();
+    bool decideRound();
+    void resetPositions();
 
     QList<Character*> m_characters;
     int m_time = 0;
@@ -119,6 +161,18 @@ private:
     bool m_pauseBg = true;
     const CharacterData* m_fightFx = nullptr;
     std::vector<std::unique_ptr<Character>> m_helpers;
+
+    bool m_roundActive = false;
+    RoundSettings m_settings;
+    int m_roundNo = 0;
+    int m_intro = 0; // counts down to 0 (the fight), then below while the round ends
+    int m_timer = -1;
+    int m_winPoseTime = 0;
+    RoundEnd m_end = RoundEnd::None;
+    int m_winner = -1;
+    bool m_perfect = false;
+    int m_wins[2] = {0, 0};
+    bool m_matchOver = false;
 };
 
 class Character : public Context
@@ -164,6 +218,8 @@ public:
     float attackMul() const { return m_attackMul; }
     float defenceMul() const { return m_defenceMul; }
     bool frozen() const { return m_frozen; }
+    bool alive() const { return !m_ko; }
+    void resetForRound(Vec2 pos, int facing, bool firstRound);
     float superDefenceMul() const { return m_superDefenceMul; }
     const QList<Explod>& explods() const { return m_explods; }
     int numExplods(int id = -1) const;
@@ -194,6 +250,11 @@ public:
     int power() const { return powerOwner()->m_power; }
     int var(int index) const;
     float fvar(int index) const;
+    void setVar(int index, int value)
+    {
+        if (index >= 0 && index < int(m_vars.size()))
+            m_vars[std::size_t(index)] = value;
+    }
     int id() const { return m_id; }
 
     bool isHelper() const { return m_isHelper; }
@@ -337,6 +398,8 @@ private:
     QString m_clipboard;
     int m_victoryQuote = -1;
     bool m_frozen = false;
+    bool m_ko = false;
+    bool m_posed = false;
     int m_superMoveTime = 0;
     int m_pauseMoveTime = 0;
     int m_unhittableTime = 0;

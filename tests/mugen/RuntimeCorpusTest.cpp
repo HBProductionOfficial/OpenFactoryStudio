@@ -101,6 +101,36 @@ private Q_SLOTS:
             grab.tick();
         QCOMPARE(c.stateNo(), 0);
         QCOMPARE(d.stateNo(), 0);
+
+        Match versus(77);
+        Character e(data, &versus);
+        Character g(data, &versus);
+        RoundSettings settings;
+        settings.time = 3;
+        versus.startMatch(settings);
+        bool introduced = false;
+        while (versus.roundState() != 2 && versus.gameTime() < 2000) {
+            versus.tick();
+            introduced = introduced || e.stateNo() == 190 || e.stateNo() == 191;
+        }
+        QVERIFY(introduced);
+        QCOMPARE(versus.roundState(), 2);
+        QCOMPARE(e.stateNo(), 0);
+        QVERIFY(e.ctrl());
+        while (versus.roundEnd() == RoundEnd::None && versus.gameTime() < 3000)
+            versus.tick();
+        QCOMPARE(versus.roundEnd(), RoundEnd::TimeOver);
+        QCOMPARE(versus.roundWinner(), 2);
+        // KFM has no draw animation, so common1 sends 175 on to 170.
+        bool posed = false;
+        while (versus.roundNo() == 1 && versus.gameTime() < 4000) {
+            versus.tick();
+            posed = posed || e.stateNo() == 175 || (e.stateNo() == 170 && e.prevStateNo() == 175);
+        }
+        QVERIFY(posed);
+        QCOMPARE(versus.roundNo(), 2);
+        for (const QString& m : e.messages())
+            QVERIFY2(!m.startsWith("unknown controller type"), qPrintable(m));
     }
 };
 
