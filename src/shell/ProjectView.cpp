@@ -10,6 +10,7 @@
 #include "core/debug/Breakpoints.h"
 #include "core/editors/Organize.h"
 #include "core/engine/Engine.h"
+#include "core/engine/EngineWorkspace.h"
 #include "core/preset/ControlRegistry.h"
 #include "core/preset/PresetBuilder.h"
 #include "core/project/Project.h"
@@ -270,7 +271,19 @@ void ProjectView::createEditor(const EditorInfo& info)
             Q_EMIT currentFileChanged();
     });
     if (tabs->count() == 0) {
-        auto* empty = new QWidget(tabs);
+        QWidget* empty = nullptr;
+        if (info.workspace == WorkspaceType::Emulator) {
+            if (EngineWorkspace* workspace = engine()->createWorkspace(info.id, *m_project, m_context, tabs)) {
+                m_workspaces.insert(info.id, workspace);
+                connect(workspace, &EngineWorkspace::statusChanged, this, [this, workspace] {
+                    if (workspace == currentWorkspace())
+                        Q_EMIT currentFileChanged();
+                });
+                empty = workspace;
+            }
+        }
+        if (!empty)
+            empty = new QWidget(tabs);
         empty->setObjectName(QStringLiteral("workspace_") + info.id);
         tabs->addTab(empty, QString());
         tabs->tabBar()->hide();
@@ -530,6 +543,12 @@ CodePage* ProjectView::codePageOf(QWidget* tab)
     if (auto* animation = qobject_cast<AnimationPage*>(tab))
         return animation->codePage();
     return qobject_cast<CodePage*>(tab);
+}
+
+EngineWorkspace* ProjectView::currentWorkspace() const
+{
+    const EngineWorkspace* found = m_workspaces.value(m_currentEditor);
+    return const_cast<EngineWorkspace*>(found);
 }
 
 CodePage* ProjectView::currentCodePage() const
@@ -1188,6 +1207,10 @@ void ProjectView::applyPreset(const Preset::Model& model)
     }
     if (m_sounds)
         m_sounds->bindPanel(m_editorPanels.value(QStringLiteral("sounds"))->widget());
+    for (auto it = m_workspaces.cbegin(); it != m_workspaces.cend(); ++it) {
+        if (it.value() && m_editorPanels.contains(it.key()))
+            it.value()->bindPanel(m_editorPanels.value(it.key())->widget());
+    }
     if (m_backgrounds) {
         m_backgrounds->bindPanel(m_editorPanels.value(QStringLiteral("backgrounds"))->widget());
         if (QScrollArea* controllers = m_extraPanels.value(QStringLiteral("controllers")))

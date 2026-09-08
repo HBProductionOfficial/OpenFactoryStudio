@@ -170,6 +170,11 @@ ofs_add_test(NAME mugen_project_templates GUI
     LIBS OFS::shell OFS::mugen)
 add_dependencies(test_mugen_project_templates ofs_data)
 
+ofs_add_test(NAME mugen_emulator GUI
+    SOURCES mugen/EmulatorTest.cpp ${OFS_FORMATS_FIXTURES}
+    LIBS OFS::shell OFS::mugen)
+target_include_directories(test_mugen_emulator PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
 ofs_add_test(NAME mugen_script_api GUI
     SOURCES mugen/ScriptApiTest.cpp ${OFS_FORMATS_FIXTURES}
     LIBS OFS::shell OFS::mugen)

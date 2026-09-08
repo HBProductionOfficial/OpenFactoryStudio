@@ -110,7 +110,9 @@ public:
     void addSound(const SoundEvent& event) { m_sounds << event; }
     void addSpawn(const SpawnEvent& event) { m_spawns << event; }
     EnvShake& envShake() { return m_envShake; }
+    const EnvShake& envShake() const { return m_envShake; }
     EnvColor& envColor() { return m_envColor; }
+    const EnvColor& envColor() const { return m_envColor; }
     PalFx& allPalFx() { return m_allPalFx; }
     PalFx& bgPalFx() { return m_bgPalFx; }
 
@@ -211,6 +213,7 @@ public:
     void changeState(int number, int anim = -1, int ctrl = -1);
     void changeAnim(int number, const CharacterData* owner = nullptr);
     const CharacterData& stateOwner() const { return *m_stateData; }
+    const CharacterData& animationData() const { return *m_animData; }
     const QList<Character*>& targets() const { return m_targets; }
 
     const DrawState& draw() const { return m_draw; }

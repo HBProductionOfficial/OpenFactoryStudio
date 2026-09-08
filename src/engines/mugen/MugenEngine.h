@@ -36,6 +36,8 @@ public:
     QString scriptProjectTypeId(int value) const override;
     int scriptProjectType(const QString& typeId) const override;
     QMap<int, QString> scriptFileFilters() const override;
+    EngineWorkspace* createWorkspace(const QString& editorId, Project& project, AppContext& context,
+                                     QWidget* parent) override;
     const SyntaxDatabase* syntax() const override;
     const CompletionModels* completion() const override;
     QStringList codeTemplateDirs(const QString& editorId) const override;

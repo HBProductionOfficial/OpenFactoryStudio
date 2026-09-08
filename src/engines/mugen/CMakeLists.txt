@@ -44,10 +44,16 @@ add_library(ofs_mugen_lib STATIC
     MugenSyntax.cpp
     expr/Expression.h
     expr/Expression.cpp
+    emulator/EmulatorSession.h
+    emulator/EmulatorSession.cpp
+    emulator/EmulatorRenderer.h
+    emulator/EmulatorRenderer.cpp
+    emulator/EmulatorWidget.h
+    emulator/EmulatorWidget.cpp
 )
 add_library(OFS::mugen ALIAS ofs_mugen_lib)
 ofs_target_defaults(ofs_mugen_lib)
-target_link_libraries(ofs_mugen_lib PUBLIC OFS::core)
+target_link_libraries(ofs_mugen_lib PUBLIC OFS::core OFS::mugen_runtime)
 
 # The emulator runtime has no widgets, so it runs headless and in the tests.
 add_library(ofs_mugen_runtime STATIC

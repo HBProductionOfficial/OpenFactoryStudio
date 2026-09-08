@@ -1,4 +1,5 @@
 #include "engines/mugen/MugenEngine.h"
+#include "engines/mugen/emulator/EmulatorWidget.h"
 
 #include "core/anims/AirDocument.h"
 #include "core/app/AppContext.h"
@@ -205,6 +206,14 @@ QString MugenEngine::scriptProjectTypeId(int value) const
 int MugenEngine::scriptProjectType(const QString& typeId) const
 {
     return int(scriptTypeIds().indexOf(typeId));
+}
+
+EngineWorkspace* MugenEngine::createWorkspace(const QString& editorId, Project& project, AppContext& context,
+                                              QWidget* parent)
+{
+    if (editorId == QLatin1String("emulator"))
+        return new EmulatorWidget(project, context, parent);
+    return nullptr;
 }
 
 QMap<int, QString> MugenEngine::scriptFileFilters() const

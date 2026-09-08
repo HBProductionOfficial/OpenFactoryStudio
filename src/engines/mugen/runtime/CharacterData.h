@@ -9,6 +9,8 @@
 #include <QMap>
 #include <QString>
 
+#include <functional>
+#include <optional>
 #include <vector>
 
 namespace OFS::Mugen::Runtime {
@@ -72,6 +74,8 @@ public:
     // States come from st, st0 to st9, the command file, then the common states. The first definition
     // of a state wins.
     bool load(const QString& defPath, const QString& engineDir = QString(), QString* error = nullptr);
+    using TextSource = std::function<std::optional<QString>(const QString& path)>;
+    void setTextSource(TextSource source) { m_source = std::move(source); }
     QString name() const { return m_name; }
     QString displayName() const { return m_displayName; }
     int localCoordWidth() const { return m_localCoordWidth; }
@@ -112,6 +116,7 @@ private:
     CommandList m_commands;
     QMap<int, StateDef> m_states;
     QList<LoadIssue> m_issues;
+    TextSource m_source;
 };
 
 } // namespace OFS::Mugen::Runtime

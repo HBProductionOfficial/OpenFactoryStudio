@@ -22,6 +22,9 @@ class QWidget;
 namespace OFS {
 
 class AppContext;
+class EngineWorkspace;
+
+class AppContext;
 class CompletionModels;
 struct OutlineNode;
 class Project;
@@ -112,6 +115,16 @@ public:
     virtual int scriptProjectType(const QString& typeId) const;
     // Engine:singleFileFilters(): file patterns for each FF.FileType.
     virtual QMap<int, QString> scriptFileFilters() const { return {}; }
+
+    virtual EngineWorkspace* createWorkspace(const QString& editorId, Project& project, AppContext& context,
+                                             QWidget* parent)
+    {
+        Q_UNUSED(editorId)
+        Q_UNUSED(project)
+        Q_UNUSED(context)
+        Q_UNUSED(parent)
+        return nullptr;
+    }
 
     virtual const SyntaxDatabase* syntax() const { return nullptr; }
     virtual QString syntaxFileType(const Project& project, const QString& editorId) const;

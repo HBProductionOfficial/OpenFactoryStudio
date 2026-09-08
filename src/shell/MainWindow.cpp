@@ -15,6 +15,7 @@
 #include "core/debug/Breakpoints.h"
 #include "core/engine/Engine.h"
 #include "core/engine/EngineManager.h"
+#include "core/engine/EngineWorkspace.h"
 #include "core/engine/RunConfiguration.h"
 #include "core/preset/PresetBuilder.h"
 #include "core/preset/PresetEngine.h"
@@ -2409,6 +2410,12 @@ void MainWindow::refreshStatusBar()
     case WorkspaceType::Graphics:
     case WorkspaceType::Emulator: {
         QTabWidget* tabs = fileTabs;
+        if (EngineWorkspace* engineWorkspace = view->currentWorkspace()) {
+            const QStringList sections = engineWorkspace->statusSections();
+            for (int i = 0; i < sections.size(); ++i)
+                m_status->setSection(i, sections[i]);
+            break;
+        }
         if (animation) {
             const QPoint guides = animation->view()->guides();
             m_status->setSection(

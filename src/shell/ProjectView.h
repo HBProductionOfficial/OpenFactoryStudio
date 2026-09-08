@@ -22,6 +22,8 @@ class QVBoxLayout;
 
 namespace OFS {
 
+class EngineWorkspace;
+
 namespace Debug {
 class BreakpointList;
 }
@@ -71,6 +73,7 @@ public:
 
     CodeEditor* currentCodeEditor() const;
     CodePage* currentCodePage() const;
+    EngineWorkspace* currentWorkspace() const;
     QList<CodePage*> codePages() const;
     // `line` is 1-based, 0 keeps the cursor where it is.
     bool showFileLine(const QString& filePath, int line);
@@ -98,6 +101,7 @@ public:
     SoundsEditor* soundsEditor() const { return m_sounds; }
     // The code page of a file tab: the page itself, or the text mode of an animation page.
     static CodePage* codePageOf(QWidget* tab);
+    QHash<QString, QPointer<EngineWorkspace>> m_workspaces;
     void refreshBreakpointMarks(CodePage* page);
     void showFrameSprite();
     void reconfigureEditors();

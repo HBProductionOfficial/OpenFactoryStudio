@@ -132,8 +132,18 @@ QString readText(const QString& path, bool* ok = nullptr)
 
 bool CharacterData::load(const QString& defPath, const QString& engineDir, QString* error)
 {
+    auto read = [this](const QString& path, bool* found = nullptr) -> QString {
+        if (m_source) {
+            if (std::optional<QString> text = m_source(QDir::cleanPath(path))) {
+                if (found)
+                    *found = true;
+                return text->replace(QLatin1String("\r\n"), QLatin1String("\n"));
+            }
+        }
+        return readText(path, found);
+    };
     bool ok = false;
-    const QString defText = readText(defPath, &ok);
+    const QString defText = read(defPath, &ok);
     if (!ok) {
         if (error)
             *error = QStringLiteral("cannot read %1").arg(QDir::toNativeSeparators(defPath));
@@ -150,7 +160,7 @@ bool CharacterData::load(const QString& defPath, const QString& engineDir, QStri
             candidates << QDir(engineDir).filePath(cleaned)
                        << QDir(engineDir).filePath(QStringLiteral("data/") + cleaned);
         for (const QString& candidate : candidates) {
-            if (QFileInfo(candidate).isFile())
+            if (QFileInfo(candidate).isFile() || (m_source && m_source(QDir::cleanPath(candidate))))
                 return QDir::cleanPath(candidate);
         }
         m_issues << LoadIssue{defPath, 0, QStringLiteral("cannot find %1").arg(cleaned)};
@@ -170,7 +180,7 @@ bool CharacterData::load(const QString& defPath, const QString& engineDir, QStri
         return false;
     }
     if (const QString cns = resolve(files->value(QStringLiteral("cns"))); !cns.isEmpty())
-        addConstants(readText(cns), cns);
+        addConstants(read(cns), cns);
     // st, then st0 to st9 in order. The first definition of a state wins.
     static const QRegularExpression stKey(QStringLiteral("^st(\\d*)$"), QRegularExpression::CaseInsensitiveOption);
     QList<QPair<int, QString>> stFiles;
@@ -183,17 +193,17 @@ bool CharacterData::load(const QString& defPath, const QString& engineDir, QStri
     for (const auto& [index, name] : std::as_const(stFiles)) {
         Q_UNUSED(index)
         if (const QString path = resolve(name); !path.isEmpty())
-            addStates(readText(path), path, false);
+            addStates(read(path), path, false);
     }
     if (const QString cmd = resolve(files->value(QStringLiteral("cmd"))); !cmd.isEmpty()) {
-        const QString text = readText(cmd);
+        const QString text = read(cmd);
         setCommands(text, cmd);
         addStates(text, cmd, false);
     }
     if (const QString common = resolve(files->value(QStringLiteral("stcommon"))); !common.isEmpty())
-        addStates(readText(common), common, false);
+        addStates(read(common), common, false);
     if (const QString anim = resolve(files->value(QStringLiteral("anim"))); !anim.isEmpty())
-        setAnimations(readText(anim));
+        setAnimations(read(anim));
     m_spriteFile = resolve(files->value(QStringLiteral("sprite")));
     m_soundFile = files->has(QStringLiteral("sound")) ? resolve(files->value(QStringLiteral("sound"))) : QString();
     return true;
