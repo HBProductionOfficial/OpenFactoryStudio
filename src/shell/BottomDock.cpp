@@ -59,9 +59,10 @@ BottomDock::BottomDock(QWidget* parent)
     m_pages->addWidget(m_engineOutput);
     m_pages->addWidget(createTwoTreesPage(
         {tr("Level"), tr("Function"), tr("File"), tr("Line")},
-        {tr("Number"), tr("Function"), tr("File"), tr("Line"), tr("Address"), tr("Condition"), tr("Ignore")}));
-    m_pages->addWidget(
-        createTwoTreesPage({tr("Name"), tr("Value"), tr("Type")}, {tr("Name"), tr("Value"), tr("Type")}));
+        {tr("Number"), tr("Function"), tr("File"), tr("Line"), tr("Address"), tr("Condition"), tr("Ignore")},
+        {QStringLiteral("callStack"), QStringLiteral("breakpoints")}));
+    m_pages->addWidget(createTwoTreesPage({tr("Name"), tr("Value"), tr("Type")}, {tr("Name"), tr("Value"), tr("Type")},
+                                          {QStringLiteral("watch1"), QStringLiteral("watch2")}));
     m_pages->hide();
 
     auto* bar = new QHBoxLayout;
@@ -82,19 +83,25 @@ BottomDock::BottomDock(QWidget* parent)
     updateArrow();
 }
 
-QWidget* BottomDock::createTwoTreesPage(const QStringList& left, const QStringList& right)
+QWidget* BottomDock::createTwoTreesPage(const QStringList& left, const QStringList& right, const QStringList& names)
 {
     auto* page = new QWidget(this);
     auto* layout = new QHBoxLayout(page);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
+    int i = 0;
     for (const QStringList& headers : {left, right}) {
         auto* tree = new QTreeView(page);
+        tree->setObjectName(names.value(i++));
         auto* model = new QStandardItemModel(0, int(headers.size()), tree);
         model->setHorizontalHeaderLabels(headers);
         tree->setModel(model);
         tree->setRootIsDecorated(false);
+        tree->setEditTriggers(QAbstractItemView::NoEditTriggers);
+        tree->setSelectionBehavior(QAbstractItemView::SelectRows);
+        tree->setContextMenuPolicy(Qt::CustomContextMenu);
         layout->addWidget(tree);
+        m_trees << tree;
     }
     return page;
 }

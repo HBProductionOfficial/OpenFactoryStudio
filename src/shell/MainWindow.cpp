@@ -1,4 +1,6 @@
 #include "shell/MainWindow.h"
+#include "shell/DebuggerPanels.h"
+#include "shell/dialogs/BreakpointDialog.h"
 
 #include "core/Version.h"
 #include "core/actions/ActionRegistry.h"
@@ -10,6 +12,7 @@
 #include "core/code/CodeEditor.h"
 #include "core/code/Snippet.h"
 #include "core/code/TextSearch.h"
+#include "core/debug/Breakpoints.h"
 #include "core/engine/Engine.h"
 #include "core/engine/EngineManager.h"
 #include "core/engine/RunConfiguration.h"
@@ -283,6 +286,9 @@ void MainWindow::buildCentralArea()
 
     m_dock = new BottomDock(this);
     m_dock->hide();
+    m_breakpoints = new Debug::BreakpointList(this);
+    m_debugPanels = new DebuggerPanels(*m_dock, *m_breakpoints, m_context.actions(), m_context.theme().iconSet(), this);
+    connect(m_debugPanels, &DebuggerPanels::editRequested, this, &MainWindow::editBreakpoint);
     AdvancedSearchPanel::Context search;
     search.projects = [this] {
         QList<Project*> projects;
@@ -468,6 +474,22 @@ void MainWindow::connectActions()
         editor.exec();
     });
     on("tools_script_editor", [this] { showScriptEditor(); });
+    on("debug_breakpoint", [this] {
+        ProjectView* view = currentProjectView();
+        CodeEditor* editor = view ? view->currentCodeEditor() : nullptr;
+        CodePage* page = view ? view->currentCodePage() : nullptr;
+        if (editor && page)
+            m_breakpoints->toggle(page->property("filePath").toString(), editor->cursorLine());
+    });
+    on("breakpoint_add", [this] { editBreakpoint(0); });
+    on("breakpoint_edit", [this] {
+        if (const int number = m_debugPanels->selectedBreakpoint())
+            editBreakpoint(number);
+    });
+    on("breakpoint_enable", [this] { m_breakpoints->setEnabled(m_debugPanels->selectedBreakpoint(), true); });
+    on("breakpoint_disable", [this] { m_breakpoints->setEnabled(m_debugPanels->selectedBreakpoint(), false); });
+    on("breakpoint_remove", [this] { m_breakpoints->remove(m_debugPanels->selectedBreakpoint()); });
+    on("breakpoint_remove_all", [this] { m_breakpoints->removeAll(); });
     on("help_about", [this] { AboutDialog::showAbout(this); });
     on("file_run", [this] { runInEngine(); });
     on("view_calculator", [this] { CalculatorDialog::showCalculator(this); });
@@ -1931,6 +1953,20 @@ Script::Environment MainWindow::scriptEnvironment()
     return environment;
 }
 
+void MainWindow::editBreakpoint(int number)
+{
+    BreakpointDialog dialog(this);
+    const Debug::Breakpoint* existing = number ? m_breakpoints->find(number) : nullptr;
+    if (existing)
+        dialog.setBreakpoint(*existing, true);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+    if (existing)
+        m_breakpoints->update(dialog.breakpoint());
+    else
+        m_breakpoints->add(dialog.breakpoint());
+}
+
 void MainWindow::showScriptEditor()
 {
     ScriptEditorDialog editor(m_context, scriptEnvironment(), Paths::dataDir(), this);
@@ -1975,6 +2011,7 @@ void MainWindow::newProject()
 void MainWindow::addProjectView(Project* project, const QString& editorId)
 {
     auto* view = new ProjectView(project, m_context, m_stack);
+    view->setBreakpoints(m_breakpoints);
     view->applyPreset(m_preset);
     view->setLeftPanelVisible(m_context.config().boolValue(QStringLiteral("show_left_panel"), true));
     view->setRightPanelVisible(m_context.config().boolValue(QStringLiteral("show_right_panel"), true));

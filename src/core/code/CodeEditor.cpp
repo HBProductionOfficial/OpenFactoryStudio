@@ -44,6 +44,7 @@ private:
 namespace {
 
 constexpr int kFoldMarkerWidth = 14;
+constexpr int kBreakpointWidth = 14;
 
 bool isOpen(QChar c)
 {
@@ -329,9 +330,34 @@ void CodeEditor::resetZoom()
     updateGutterWidth();
 }
 
+void CodeEditor::setBreakpointMarks(const QHash<int, BreakpointMark>& marks)
+{
+    m_breakpointMarks = marks;
+    m_gutter->update();
+}
+
+void CodeEditor::setCurrentDebugLine(int line)
+{
+    m_debugLine = line;
+    m_gutter->update();
+    updateExtraSelections();
+}
+
+void CodeEditor::setBreakpointIcons(const QHash<BreakpointMark, QIcon>& icons, const QIcon& currentLine)
+{
+    m_breakpointIcons = icons;
+    m_currentLineIcon = currentLine;
+    m_gutter->update();
+}
+
+int CodeEditor::breakpointStripWidth() const
+{
+    return m_options.breakpoints ? kBreakpointWidth : 0;
+}
+
 int CodeEditor::gutterWidth() const
 {
-    int width = 4;
+    int width = 4 + breakpointStripWidth();
     if (m_options.lineNumbers) {
         const int digits = qMax(3, int(QString::number(qMax(1, blockCount())).size()));
         width += fontMetrics().horizontalAdvance(QLatin1Char('9')) * digits + 6;
@@ -584,14 +610,48 @@ void CodeEditor::paintGutter(QPaintEvent* event)
     int number = block.blockNumber();
     qreal top = blockBoundingGeometry(block).translated(contentOffset()).top();
     qreal bottom = top + blockBoundingRect(block).height();
-    const int numberWidth = gutterWidth() - (m_options.foldingMarkers ? kFoldMarkerWidth : 0) - 6;
+    const int numberLeft = breakpointStripWidth();
+    const int numberWidth = gutterWidth() - numberLeft - (m_options.foldingMarkers ? kFoldMarkerWidth : 0) - 6;
     const int lineHeight = fontMetrics().height();
 
     while (block.isValid() && top <= event->rect().bottom()) {
         if (block.isVisible() && bottom >= event->rect().top()) {
+            if (m_options.breakpoints) {
+                const int size = qMin(kBreakpointWidth - 2, lineHeight - 2);
+                const QRect box(1, int(top) + (lineHeight - size) / 2, size, size);
+                const auto mark = m_breakpointMarks.constFind(number);
+                if (mark != m_breakpointMarks.cend()) {
+                    const QIcon icon = m_breakpointIcons.value(*mark);
+                    if (!icon.isNull()) {
+                        icon.paint(&painter, box);
+                    } else {
+                        painter.save();
+                        painter.setRenderHint(QPainter::Antialiasing);
+                        painter.setPen(Qt::NoPen);
+                        painter.setBrush(*mark == BreakpointMark::Disabled ? QColor(140, 140, 140)
+                                                                           : QColor(200, 30, 30));
+                        painter.drawEllipse(box.adjusted(1, 1, -1, -1));
+                        painter.restore();
+                    }
+                }
+                if (number == m_debugLine) {
+                    if (!m_currentLineIcon.isNull()) {
+                        m_currentLineIcon.paint(&painter, box);
+                    } else {
+                        painter.save();
+                        painter.setRenderHint(QPainter::Antialiasing);
+                        painter.setPen(Qt::NoPen);
+                        painter.setBrush(QColor(240, 200, 0));
+                        const QPolygon arrow({box.topLeft() + QPoint(2, 1), box.bottomLeft() + QPoint(2, -1),
+                                              QPoint(box.right(), box.center().y())});
+                        painter.drawPolygon(arrow);
+                        painter.restore();
+                    }
+                }
+            }
             if (m_options.lineNumbers) {
                 painter.setPen(number == textCursor().blockNumber() ? foreground : foreground.darker(140));
-                painter.drawText(0, int(top), numberWidth, lineHeight, Qt::AlignRight | Qt::AlignVCenter,
+                painter.drawText(numberLeft, int(top), numberWidth, lineHeight, Qt::AlignRight | Qt::AlignVCenter,
                                  QString::number(number + 1));
             }
             if (m_options.foldingMarkers) {
@@ -618,6 +678,20 @@ void CodeEditor::paintGutter(QPaintEvent* event)
 
 void CodeEditor::gutterClicked(const QPoint& pos)
 {
+    if (m_options.breakpoints && pos.x() < kBreakpointWidth) {
+        QTextBlock block = firstVisibleBlock();
+        qreal top = blockBoundingGeometry(block).translated(contentOffset()).top();
+        while (block.isValid()) {
+            const qreal height = blockBoundingRect(block).height();
+            if (block.isVisible() && pos.y() >= top && pos.y() < top + height) {
+                Q_EMIT breakpointToggled(block.blockNumber());
+                return;
+            }
+            top += height;
+            block = block.next();
+        }
+        return;
+    }
     if (!m_options.foldingMarkers || pos.x() < gutterWidth() - kFoldMarkerWidth)
         return;
     QTextBlock block = firstVisibleBlock();

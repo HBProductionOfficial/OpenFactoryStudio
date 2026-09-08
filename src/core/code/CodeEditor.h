@@ -4,6 +4,8 @@
 #include "core/code/CodeHighlighter.h"
 #include "core/theme/ColorSet.h"
 
+#include <QHash>
+#include <QIcon>
 #include <QList>
 #include <QPlainTextEdit>
 #include <QPointer>
@@ -35,6 +37,7 @@ public:
         bool highlightLine = true;
         bool parenMatching = true;
         bool highlightBlocks = false;
+        bool breakpoints = false;
     };
     void setOptions(const Options& options);
     const Options& options() const { return m_options; }
@@ -54,6 +57,20 @@ public:
     };
     void setMarkers(const QList<Marker>& markers);
 
+    enum class BreakpointMark
+    {
+        Pending, // not bound to a running session
+        Active,
+        Disabled,
+        Ignored, // its ignore count is not used up
+    };
+    void setBreakpointMarks(const QHash<int, BreakpointMark>& marks);
+    const QHash<int, BreakpointMark>& breakpointMarks() const { return m_breakpointMarks; }
+    void setCurrentDebugLine(int line);
+    int currentDebugLine() const { return m_debugLine; }
+    void setBreakpointIcons(const QHash<BreakpointMark, QIcon>& icons, const QIcon& currentLine);
+    int breakpointStripWidth() const;
+
     // Both 1-based.
     int cursorLine() const;
     int cursorColumn() const;
@@ -69,6 +86,7 @@ public:
 
 Q_SIGNALS:
     void documentationRequested(const QString& kind, const QString& name, const QPoint& globalPos);
+    void breakpointToggled(int line);
 
 public:
     void revealPosition(int position);
@@ -114,6 +132,10 @@ private:
     QPointer<QMenu> m_codeMenu;
     Options m_options;
     ColorSet m_colors;
+    QHash<int, BreakpointMark> m_breakpointMarks;
+    QHash<BreakpointMark, QIcon> m_breakpointIcons;
+    QIcon m_currentLineIcon;
+    int m_debugLine = -1;
     QList<Marker> m_markers;
     int m_baseFontSize = 10;
     int m_zoom = 0;

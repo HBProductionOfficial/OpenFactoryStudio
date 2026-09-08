@@ -175,6 +175,10 @@ ofs_add_test(NAME mugen_script_api GUI
     LIBS OFS::shell OFS::mugen)
 target_include_directories(test_mugen_script_api PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
+ofs_add_test(NAME core_breakpoints
+    SOURCES core/BreakpointsTest.cpp
+    LIBS OFS::core)
+
 ofs_add_test(NAME core_script_folders
     SOURCES core/ScriptFoldersTest.cpp
     LIBS OFS::core)
@@ -193,6 +197,10 @@ ofs_add_test(NAME gui_mainwindow GUI LABELS gui
 
 ofs_add_test(NAME gui_options GUI LABELS gui
     SOURCES gui/OptionsDialogTest.cpp
+    LIBS OFS::shell)
+
+ofs_add_test(NAME gui_breakpoint_dialog GUI LABELS gui
+    SOURCES gui/BreakpointDialogTest.cpp
     LIBS OFS::shell)
 
 ofs_add_test(NAME gui_script_editor GUI LABELS gui

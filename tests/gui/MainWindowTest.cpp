@@ -27,6 +27,7 @@
 #include "shell/BackgroundsPage.h"
 #include "shell/CodePage.h"
 #include "shell/ControllerTemplatesWidget.h"
+#include "shell/DebuggerPanels.h"
 #include "shell/FileDialogs.h"
 #include "shell/ImageEditor.h"
 #include "shell/OrganizerBinding.h"
@@ -4154,6 +4155,59 @@ private Q_SLOTS:
         m_context->actions().action("tools_script_editor")->trigger();
         QCOMPARE(window.projectViews().size(), qsizetype(2));
         QCOMPARE(window.currentProjectView()->project()->typeId(), QStringLiteral("font"));
+    }
+
+    void breakpoints()
+    {
+        MainWindow window(*m_context);
+        window.show();
+        ActionRegistry& actions = m_context->actions();
+        QVERIFY(actions.action("breakpoint_add")->isEnabled());
+        QVERIFY(!actions.action("debug_start_engine")->isEnabled());
+        QVERIFY(!actions.action("debug_breakpoint")->isEnabled());
+
+        QVERIFY(window.openProject(m_dir.filePath("fighter.def")));
+        QVERIFY(actions.action("debug_start_emul")->isEnabled());
+        QVERIFY(!actions.action("debug_continue")->isEnabled());
+        window.switchEditor("states");
+        ProjectView* view = window.currentProjectView();
+        CodeEditor* editor = view->currentCodeEditor();
+        QVERIFY(editor);
+        QVERIFY(editor->options().breakpoints);
+        const QString file = view->currentCodePage()->property("filePath").toString();
+
+        editor->goToLine(2);
+        actions.action("debug_breakpoint")->trigger();
+        auto* panels = window.findChild<DebuggerPanels*>();
+        QVERIFY(panels);
+        QCOMPARE(panels->breakpointRows(),
+                 QStringList{QStringLiteral("1|---|%1|2|0|---|0").arg(QDir::toNativeSeparators(file))});
+        QVERIFY(editor->breakpointMarks().contains(1));
+        QVERIFY(!editor->document()->isModified());
+        Q_EMIT editor->breakpointToggled(0);
+        QCOMPARE(panels->breakpointRows().size(), 2);
+
+        whenModal<QDialog>([](QDialog* dialog) {
+            QCOMPARE(dialog->objectName(), QStringLiteral("BreakpointDlg"));
+            dialog->findChild<QComboBox*>("brkType")->setCurrentIndex(1);
+            dialog->findChild<QLineEdit*>("brkFunction")->setText("200");
+            dialog->findChild<QDialogButtonBox*>("buttonBox")->button(QDialogButtonBox::Ok)->click();
+        });
+        actions.action("breakpoint_add")->trigger();
+        QCOMPARE(panels->breakpointRows().value(2), QStringLiteral("3|200|---|0|0|---|0"));
+
+        QTreeView* list = window.findChild<QTreeView*>("breakpoints");
+        list->setCurrentIndex(list->model()->index(0, 0));
+        QVERIFY(actions.action("breakpoint_disable")->isEnabled());
+        actions.action("breakpoint_disable")->trigger();
+        QCOMPARE(editor->breakpointMarks().value(1), CodeEditor::BreakpointMark::Disabled);
+        QVERIFY(actions.action("breakpoint_enable")->isEnabled());
+        actions.action("breakpoint_remove_all")->trigger();
+        QVERIFY(panels->breakpointRows().isEmpty());
+        QVERIFY(editor->breakpointMarks().isEmpty());
+        actions.action("debug_breakpoint")->trigger();
+        QVERIFY(panels->breakpointRows().value(0).startsWith("1|"));
+        actions.action("breakpoint_remove_all")->trigger();
     }
 
 private:

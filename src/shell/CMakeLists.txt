@@ -63,6 +63,10 @@ add_library(ofsshell STATIC
     dialogs/MugenOptionsPage.cpp
     dialogs/OptionsDialog.h
     dialogs/OptionsDialog.cpp
+    dialogs/BreakpointDialog.h
+    dialogs/BreakpointDialog.cpp
+    DebuggerPanels.h
+    DebuggerPanels.cpp
     dialogs/ScriptEditorDialog.h
     dialogs/ScriptEditorDialog.cpp
     dialogs/ProjectDialogs.h

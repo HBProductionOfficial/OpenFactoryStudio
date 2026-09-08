@@ -28,6 +28,10 @@ namespace OFS {
 
 class AppContext;
 class BottomDock;
+class DebuggerPanels;
+namespace Debug {
+class BreakpointList;
+}
 class CodeEditor;
 class MenuBuilder;
 class ProjectFile;
@@ -127,6 +131,8 @@ public:
     bool isEngineRunning() const { return m_engineProcess != nullptr; }
 
     Script::Environment scriptEnvironment();
+    // Number 0 makes a new breakpoint.
+    void editBreakpoint(int number);
     void showScriptEditor();
     void runToolScript(const QString& path);
 
@@ -145,6 +151,8 @@ private:
     QStackedWidget* m_stack = nullptr;
     WelcomePage* m_welcome = nullptr;
     BottomDock* m_dock = nullptr;
+    Debug::BreakpointList* m_breakpoints = nullptr;
+    DebuggerPanels* m_debugPanels = nullptr;
     StatusBar* m_status = nullptr;
     QActionGroup* m_editorGroup = nullptr;
     QDockWidget* m_actionListDock = nullptr;

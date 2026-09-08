@@ -7,6 +7,7 @@ class QTabBar;
 class QTableView;
 class QTextEdit;
 class QToolButton;
+class QTreeView;
 
 namespace OFS {
 
@@ -39,6 +40,9 @@ public:
     QTextEdit* engineOutput() const { return m_engineOutput; }
     QTableView* issuesView() const { return m_issues; }
     AdvancedSearchPanel* advancedSearch() const { return m_advancedSearch; }
+    QTreeView* callStackView() const { return m_trees.value(0); }
+    QTreeView* breakpointsView() const { return m_trees.value(1); }
+    QTreeView* watchView(int list) const { return m_trees.value(2 + list); }
 
     void setArrowIcons(const QIcon& up, const QIcon& down);
 
@@ -46,7 +50,7 @@ Q_SIGNALS:
     void expandedChanged(bool expanded);
 
 private:
-    QWidget* createTwoTreesPage(const QStringList& left, const QStringList& right);
+    QWidget* createTwoTreesPage(const QStringList& left, const QStringList& right, const QStringList& names);
     void onTabClicked(int index);
     void updateArrow();
 
@@ -56,6 +60,7 @@ private:
     QTableView* m_issues;
     QTextEdit* m_engineOutput;
     AdvancedSearchPanel* m_advancedSearch;
+    QList<QTreeView*> m_trees;
     bool m_expanded = false;
     QIcon m_up;
     QIcon m_down;

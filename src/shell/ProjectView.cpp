@@ -7,6 +7,7 @@
 #include "core/code/CodeEditor.h"
 #include "core/code/CodeOutline.h"
 #include "core/code/Snippet.h"
+#include "core/debug/Breakpoints.h"
 #include "core/editors/Organize.h"
 #include "core/engine/Engine.h"
 #include "core/preset/ControlRegistry.h"
@@ -340,6 +341,11 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
             page->setSidePanel(templates);
         }
         configureCodeEditor(editor, info.id);
+        connect(editor, &CodeEditor::breakpointToggled, this, [this, page](int line) {
+            if (m_breakpoints)
+                m_breakpoints->toggle(page->property("filePath").toString(), line + 1);
+        });
+        refreshBreakpointMarks(page);
         connect(editor, &CodeEditor::cursorPositionChanged, this, [this, editor, page] {
             if (editor != currentCodeEditor())
                 return;
@@ -463,7 +469,15 @@ void ProjectView::configureCodeEditor(CodeEditor* editor, const QString& editorI
     options.highlightLine = config.boolValue(QStringLiteral("code_highlight_line"), true);
     options.parenMatching = config.boolValue(QStringLiteral("code_paren_matching"), true);
     options.highlightBlocks = config.boolValue(QStringLiteral("code_highlight_blocks"), false);
+    options.breakpoints = true;
     editor->setOptions(options);
+    const IconSet& icons = m_context.theme().iconSet();
+    editor->setBreakpointIcons(
+        {{CodeEditor::BreakpointMark::Pending, icons.icon(QStringLiteral("breakpoint_pending"))},
+         {CodeEditor::BreakpointMark::Active, icons.icon(QStringLiteral("breakpoint_active"))},
+         {CodeEditor::BreakpointMark::Disabled, icons.icon(QStringLiteral("breakpoint_disabled"))},
+         {CodeEditor::BreakpointMark::Ignored, icons.icon(QStringLiteral("breakpoint_ignored"))}},
+        icons.icon(QStringLiteral("debug_curr_line")));
     editor->setSyntax(engine()->syntax(), engine()->syntaxFileType(*m_project, editorId));
     editor->setColorSet(m_context.theme().colorSet());
     editor->setCompletionProvider(std::make_unique<SyntaxCompletionProvider>(
@@ -970,8 +984,34 @@ void ProjectView::addFileTab(const EditorInfo& info, const QString& filePath)
     }
 }
 
+void ProjectView::setBreakpoints(Debug::BreakpointList* breakpoints)
+{
+    m_breakpoints = breakpoints;
+    if (!breakpoints)
+        return;
+    connect(breakpoints, &Debug::BreakpointList::changed, this, [this] {
+        for (CodePage* page : codePages())
+            refreshBreakpointMarks(page);
+    });
+    for (CodePage* page : codePages())
+        refreshBreakpointMarks(page);
+}
+
+void ProjectView::refreshBreakpointMarks(CodePage* page)
+{
+    QHash<int, CodeEditor::BreakpointMark> marks;
+    if (m_breakpoints) {
+        for (const Debug::Breakpoint& b : m_breakpoints->inFile(page->property("filePath").toString()))
+            marks.insert(b.line - 1,
+                         b.enabled ? CodeEditor::BreakpointMark::Pending : CodeEditor::BreakpointMark::Disabled);
+    }
+    page->editor()->setBreakpointMarks(marks);
+}
+
 void ProjectView::fileRenamed(QWidget* page, const QString& oldPath, const QString& newPath)
 {
+    if (m_breakpoints)
+        m_breakpoints->renameFile(oldPath, newPath);
     page->setProperty("filePath", newPath);
     if (QTabWidget* tabs = m_fileTabs.value(page->property("editorId").toString())) {
         const int index = tabs->indexOf(page);

@@ -22,6 +22,10 @@ class QVBoxLayout;
 
 namespace OFS {
 
+namespace Debug {
+class BreakpointList;
+}
+
 class AppContext;
 class BottomDock;
 class CodeEditor;
@@ -60,6 +64,7 @@ public:
     void setOrganizerVisible(bool visible);
 
     void adoptBottomDock(BottomDock* dock);
+    void setBreakpoints(Debug::BreakpointList* breakpoints);
     void adoptQuickFind(QWidget* bar);
 
     static QString extraPanelTitle(const QString& name);
@@ -93,6 +98,7 @@ public:
     SoundsEditor* soundsEditor() const { return m_sounds; }
     // The code page of a file tab: the page itself, or the text mode of an animation page.
     static CodePage* codePageOf(QWidget* tab);
+    void refreshBreakpointMarks(CodePage* page);
     void showFrameSprite();
     void reconfigureEditors();
 
@@ -130,6 +136,7 @@ private:
 
     Project* m_project;
     AppContext& m_context;
+    QPointer<Debug::BreakpointList> m_breakpoints;
     QString m_currentEditor;
     bool m_rightPanelVisible = true;
     bool m_organizerVisible = false;
