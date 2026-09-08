@@ -109,6 +109,10 @@ ofs_add_test(NAME core_audio
     SOURCES core/AudioPlayerTest.cpp
     LIBS OFS::core)
 
+ofs_add_test(NAME core_audio_mixer
+    SOURCES core/AudioMixerTest.cpp
+    LIBS OFS::core)
+
 ofs_add_test(NAME core_engines
     SOURCES core/EngineManagerTest.cpp
     LIBS OFS::core)

@@ -159,6 +159,12 @@ bool EmulatorWidget::start()
     if (!m_session.start(m_project, options, &m_error))
         return false;
     m_renderer.clearCache();
+    if (!m_mixer) {
+        m_mixer = std::make_unique<AudioMixer>(qEnvironmentVariable("OFS_AUDIO_BACKEND") == QLatin1String("null")
+                                                   ? AudioEngine::Backend::Null
+                                                   : AudioEngine::Backend::System);
+    }
+    m_mixer->stopAll();
     m_frame = m_renderer.render(m_session, m_debugInfo && m_debugInfo->isChecked());
     m_ticksRun = 0;
     m_clock.start();
@@ -174,6 +180,8 @@ bool EmulatorWidget::start()
 void EmulatorWidget::stop()
 {
     m_timer.stop();
+    if (m_mixer)
+        m_mixer->stopAll();
     if (m_start)
         m_start->setToolTip(tr("Start emulator"));
     Q_EMIT statusChanged();
@@ -185,7 +193,7 @@ void EmulatorWidget::advance()
     const qint64 due = m_clock.elapsed() * TicksPerSecond / 1000;
     int ran = 0;
     while (m_ticksRun < due && ran < 4) {
-        m_session.tick(inputOf(1), inputOf(2));
+        tick();
         ++m_ticksRun;
         ++ran;
     }
@@ -196,11 +204,18 @@ void EmulatorWidget::advance()
     }
 }
 
+void EmulatorWidget::tick()
+{
+    m_session.tick(inputOf(1), inputOf(2));
+    if (m_mixer)
+        m_session.playSounds(*m_mixer);
+}
+
 void EmulatorWidget::step()
 {
     if (!m_session.isStarted())
         return;
-    m_session.tick(inputOf(1), inputOf(2));
+    tick();
     m_frame = m_renderer.render(m_session, m_debugInfo && m_debugInfo->isChecked());
 }
 

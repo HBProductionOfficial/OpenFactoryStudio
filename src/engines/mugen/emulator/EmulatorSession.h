@@ -1,17 +1,21 @@
 #pragma once
 
 #include "core/anims/AirDocument.h"
+#include "core/audio/AudioMixer.h"
 #include "core/bg/BgDocument.h"
 #include "core/bg/BgSimulator.h"
+#include "core/sounds/SoundDocument.h"
 #include "core/sprites/SpriteDocument.h"
 #include "engines/mugen/runtime/Character.h"
 #include "engines/mugen/runtime/CharacterData.h"
 
 #include <QList>
+#include <QMap>
 #include <QString>
 
 #include <memory>
 #include <optional>
+#include <tuple>
 #include <vector>
 
 namespace OFS {
@@ -40,6 +44,8 @@ public:
         std::unique_ptr<Runtime::Character> character;
         const SpriteDocument* sprites = nullptr;
         std::shared_ptr<SpriteDocument> ownSprites;
+        const SoundDocument* sounds = nullptr;
+        std::shared_ptr<SoundDocument> ownSounds;
         QString name;
     };
 
@@ -83,6 +89,11 @@ public:
     const Runtime::CharacterData* fightFx() const { return m_fightFx.get(); }
     const SpriteDocument* fightFxSprites() const { return m_fightFxSprites.get(); }
     const SpriteDocument* spritesOf(const Runtime::Character& character) const;
+    std::shared_ptr<const AudioMixer::Sound> sound(int playerId, bool common, int group, int index);
+    const SoundDocument* commonSounds() const { return m_commonSounds.get(); }
+    void playSounds(AudioMixer& mixer);
+    // -1 left to 1 right. 0 without stereo.
+    float stereoPan(int playerId, float pan, bool absolute) const;
 
     static QString engineFolderOf(const QString& projectFile);
     // stages/stage0.def, else the first stage of the engine folder.
@@ -91,6 +102,7 @@ public:
 private:
     bool loadStage(const QString& path, const QString& engineDir, QString* error);
     void loadFightFx(const QString& engineDir);
+    void loadCommonSounds(const QString& engineDir);
     Runtime::RoundSettings roundSettings(const Options& options) const;
 
     bool m_started = false;
@@ -101,6 +113,10 @@ private:
     std::shared_ptr<Runtime::CharacterData> m_fightFx;
     std::shared_ptr<SpriteDocument> m_fightFxSprites;
     QList<Effect> m_effects;
+    std::shared_ptr<SoundDocument> m_commonSounds;
+    QMap<std::tuple<const SoundDocument*, int, int>, std::shared_ptr<const AudioMixer::Sound>> m_soundCache;
+    bool m_stereo = true;
+    float m_panningWidth = 240;
 };
 
 } // namespace OFS::Mugen

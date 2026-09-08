@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/audio/AudioMixer.h"
 #include "core/engine/EngineWorkspace.h"
 #include "engines/mugen/emulator/EmulatorRenderer.h"
 #include "engines/mugen/emulator/EmulatorSession.h"
@@ -9,6 +10,8 @@
 #include <QPointer>
 #include <QSet>
 #include <QTimer>
+
+#include <memory>
 
 class QAbstractButton;
 class QCheckBox;
@@ -44,6 +47,8 @@ public:
     void step();
     const EmulatorSession& session() const { return m_session; }
     const QImage& frame() const { return m_frame; }
+    // Made when a match starts (null before, silent without a sound card).
+    AudioMixer* mixer() const { return m_mixer.get(); }
     QString engineDir() const;
     void setEngineDir(const QString& dir);
 
@@ -56,6 +61,7 @@ protected:
 
 private:
     void advance();
+    void tick();
     void updateTraining();
     Runtime::InputState inputOf(int player) const;
     QRect screenRect() const;
@@ -64,6 +70,7 @@ private:
     AppContext& m_context;
     EmulatorSession m_session;
     EmulatorRenderer m_renderer;
+    std::unique_ptr<AudioMixer> m_mixer;
     QImage m_frame;
     QTimer m_timer;
     QElapsedTimer m_clock;

@@ -2,9 +2,11 @@
 
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
+#include "core/sounds/SoundFile.h"
 #include "core/sprites/SpriteFile.h"
 #include "engines/mugen/runtime/IniText.h"
 #include "formats/sff/SffDocument.h"
+#include "formats/snd/SndDocument.h"
 
 #include <QDir>
 #include <QDirIterator>
@@ -41,6 +43,21 @@ std::shared_ptr<SpriteDocument> loadSprites(const QString& path)
     if (!sff)
         return nullptr;
     return std::make_shared<SpriteDocument>(SpriteDocument::fromSff(sff.value()));
+}
+
+std::shared_ptr<SoundDocument> loadSounds(const QString& path)
+{
+    if (path.isEmpty())
+        return nullptr;
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly))
+        return nullptr;
+    const QByteArray data = file.readAll();
+    auto snd = Formats::SndDocument::read(
+        Formats::ByteSpan(reinterpret_cast<const std::byte*>(data.constData()), std::size_t(data.size())));
+    if (!snd)
+        return nullptr;
+    return std::make_shared<SoundDocument>(SoundDocument::fromSnd(snd.value()));
 }
 
 QString resolve(const QString& name, const QString& base, const QString& engineDir)
@@ -135,6 +152,22 @@ void EmulatorSession::loadFightFx(const QString& engineDir)
     m_fightFxSprites = loadSprites(sff);
 }
 
+void EmulatorSession::loadCommonSounds(const QString& engineDir)
+{
+    // fight.def names the common sounds. MUGEN looks for them beside it, then in the engine folder.
+    const QString fightDef = QDir(engineDir).filePath(QStringLiteral("data/fight.def"));
+    const IniText fight = IniText::parse(readText(fightDef));
+    QString name = QStringLiteral("common.snd");
+    if (const IniSection* files = fight.section(QStringLiteral("Files"));
+        files && files->has(QStringLiteral("common.snd")))
+        name = files->value(QStringLiteral("common.snd"));
+    m_commonSounds = loadSounds(resolve(name, QFileInfo(fightDef).path(), engineDir));
+    const IniText config = IniText::parse(readText(QDir(engineDir).filePath(QStringLiteral("data/mugen.cfg"))));
+    const IniSection* sound = config.section(QStringLiteral("Sound"));
+    m_stereo = number(sound, "stereoeffects", 1) != 0;
+    m_panningWidth = std::max(1.0f, number(sound, "panningwidth", 240));
+}
+
 RoundSettings EmulatorSession::roundSettings(const Options& options) const
 {
     RoundSettings settings;
@@ -169,6 +202,7 @@ bool EmulatorSession::start(Project& project, const Options& options, QString* e
     m_options = options;
     m_players.clear();
     m_effects.clear();
+    m_soundCache.clear();
     const QString engineDir = options.engineDir;
     if (engineDir.isEmpty() || !QFileInfo(QDir(engineDir).filePath(QStringLiteral("data/common1.cns"))).isFile()) {
         if (error)
@@ -196,11 +230,17 @@ bool EmulatorSession::start(Project& project, const Options& options, QString* e
         p1.sprites = &sprites->document();
     else if ((p1.ownSprites = loadSprites(data->spriteFile())))
         p1.sprites = p1.ownSprites.get();
+    if (auto* sounds = qobject_cast<SoundFile*>(project.file(data->soundFile())))
+        p1.sounds = &sounds->document();
+    else if ((p1.ownSounds = loadSounds(data->soundFile())))
+        p1.sounds = p1.ownSounds.get();
 
     Player p2;
     p2.data = data;
     p2.sprites = p1.sprites;
     p2.ownSprites = p1.ownSprites;
+    p2.sounds = p1.sounds;
+    p2.ownSounds = p1.ownSounds;
     p2.name = p1.name;
     if (options.randomEnemy) {
         QStringList defs;
@@ -216,6 +256,8 @@ bool EmulatorSession::start(Project& project, const Options& options, QString* e
                 p2.data = other;
                 p2.ownSprites = loadSprites(other->spriteFile());
                 p2.sprites = p2.ownSprites.get();
+                p2.ownSounds = loadSounds(other->soundFile());
+                p2.sounds = p2.ownSounds.get();
                 p2.name = other->displayName();
             }
         }
@@ -228,6 +270,7 @@ bool EmulatorSession::start(Project& project, const Options& options, QString* e
         return false;
     }
     loadFightFx(engineDir);
+    loadCommonSounds(engineDir);
 
     m_match = std::make_unique<Match>(options.seed ? options.seed : 1);
     m_match->setBounds(m_stage.boundLeft - 160, m_stage.boundRight + 160);
@@ -250,6 +293,68 @@ const SpriteDocument* EmulatorSession::spritesOf(const Character& character) con
             return p.sprites;
     }
     return nullptr;
+}
+
+std::shared_ptr<const AudioMixer::Sound> EmulatorSession::sound(int playerId, bool common, int group, int index)
+{
+    const SoundDocument* doc = nullptr;
+    if (common) {
+        doc = m_commonSounds.get();
+    } else if (const Character* who = m_match ? m_match->playerById(playerId) : nullptr) {
+        const Character* player = who->root() ? who->root() : who;
+        for (const Player& p : m_players) {
+            if (p.character.get() == player)
+                doc = p.sounds;
+        }
+    }
+    if (!doc || group < 0)
+        return nullptr;
+    const auto key = std::make_tuple(doc, group, index);
+    if (auto cached = m_soundCache.constFind(key); cached != m_soundCache.constEnd())
+        return cached.value();
+    std::shared_ptr<const AudioMixer::Sound> prepared;
+    if (const int at = doc->find(group, index); at >= 0) {
+        if (auto decoded = SoundEdits::decode(doc->sounds()[at]))
+            prepared = AudioMixer::prepare(decoded.value().buffer);
+    }
+    m_soundCache.insert(key, prepared);
+    return prepared;
+}
+
+float EmulatorSession::stereoPan(int playerId, float pan, bool absolute) const
+{
+    if (!m_stereo)
+        return 0;
+    float x = pan;
+    if (!absolute) {
+        const Character* who = m_match ? m_match->playerById(playerId) : nullptr;
+        if (!who)
+            return 0;
+        x = float(who->pos().x()) + pan * float(who->facing()) - m_match->cameraX();
+    }
+    return std::clamp(x / (m_panningWidth / 2), -1.0f, 1.0f);
+}
+
+void EmulatorSession::playSounds(AudioMixer& mixer)
+{
+    if (!m_started)
+        return;
+    for (const SoundEvent& e : m_match->sounds()) {
+        const float pan = stereoPan(e.playerId, e.pan, e.absolutePan);
+        switch (e.kind) {
+        case SoundEvent::Kind::Play:
+            if (auto s = sound(e.playerId, e.common, e.group, e.index))
+                mixer.play(s, e.playerId, e.channel, std::max(0.0f, 1.0f + float(e.volume) * 0.25f / 128.0f), pan,
+                           e.loop, e.lowPriority, std::clamp(e.freqMul, 0.01f, 5.0f));
+            break;
+        case SoundEvent::Kind::Stop:
+            mixer.stop(e.playerId, e.channel);
+            break;
+        case SoundEvent::Kind::Pan:
+            mixer.setPan(e.playerId, e.channel, pan);
+            break;
+        }
+    }
 }
 
 void EmulatorSession::tick(const InputState& p1, const InputState& p2)

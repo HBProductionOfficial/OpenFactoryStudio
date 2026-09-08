@@ -14,6 +14,8 @@ add_library(ofscore SHARED
     app/Paths.cpp
     audio/AudioEngine.h
     audio/AudioEngine.cpp
+    audio/AudioMixer.h
+    audio/AudioMixer.cpp
     audio/SoundPlayer.h
     audio/SoundPlayer.cpp
     code/CodeBlockData.h
