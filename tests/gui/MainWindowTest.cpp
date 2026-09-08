@@ -140,12 +140,18 @@ QMenu* menu(QMainWindow& window, const QString& objectName)
 
 void answerDiscard(QMessageBox::StandardButton button)
 {
-    QTimer::singleShot(0, qApp, [button] {
+    auto* timer = new QTimer(qApp);
+    timer->setInterval(5);
+    QObject::connect(timer, &QTimer::timeout, qApp, [timer, button] {
         auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
-        QVERIFY(box);
+        if (!box || !box->isVisible())
+            return;
+        timer->stop();
+        timer->deleteLater();
         QCOMPARE(box->windowTitle(), boxTitle("Discard changes?"));
         box->button(button)->click();
     });
+    timer->start();
 }
 
 template <typename T>
