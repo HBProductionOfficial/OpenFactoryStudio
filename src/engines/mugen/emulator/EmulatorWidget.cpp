@@ -167,6 +167,7 @@ bool EmulatorWidget::start()
     m_mixer->stopAll();
     m_frame = m_renderer.render(m_session, m_debugInfo && m_debugInfo->isChecked());
     m_ticksRun = 0;
+    m_slowBudget = 0;
     m_clock.start();
     m_timer.start();
     setFocus();
@@ -192,13 +193,18 @@ void EmulatorWidget::advance()
     // 60 ticks a second of real time, catching up after a slow frame (a few at most).
     const qint64 due = m_clock.elapsed() * TicksPerSecond / 1000;
     int ran = 0;
+    bool ticked = false;
     while (m_ticksRun < due && ran < 4) {
-        tick();
+        m_slowBudget += m_session.fightScreen().gameSpeed(m_session.match());
+        for (; m_slowBudget >= 1; m_slowBudget -= 1) {
+            tick();
+            ticked = true;
+        }
         ++m_ticksRun;
         ++ran;
     }
     m_ticksRun = std::max(m_ticksRun, due - 4);
-    if (ran > 0) {
+    if (ticked) {
         m_frame = m_renderer.render(m_session, m_debugInfo && m_debugInfo->isChecked());
         update();
     }

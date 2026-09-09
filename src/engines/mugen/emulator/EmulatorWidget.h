@@ -75,6 +75,7 @@ private:
     QTimer m_timer;
     QElapsedTimer m_clock;
     qint64 m_ticksRun = 0;
+    float m_slowBudget = 0;
     QSet<int> m_keys;
     QPoint m_mouse;
     QString m_error;

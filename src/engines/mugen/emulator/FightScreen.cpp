@@ -322,6 +322,9 @@ bool FightScreen::load(const QString& engineDir)
     m_win2 = readElement(round, QStringLiteral("win2."));
     m_draw = readElement(round, QStringLiteral("draw."));
     m_overWaitTime = integer(round, QStringLiteral("over.waittime"), 45);
+    m_slowTime = std::max(0, integer(round, QStringLiteral("slow.time"), 60));
+    if (round && round->has(QStringLiteral("slow.speed")))
+        m_slowSpeed = std::clamp(float(numbers(round->value(QStringLiteral("slow.speed"))).value(0)), 0.01f, 1.0f);
     m_loaded = true;
     return true;
 }
@@ -347,6 +350,19 @@ bool FightScreen::over(const Element& e) const
     if (e.anim < 0)
         return e.sprGroup < 0; // a sprite stays; a text without a display time is not shown
     return e.player.ended() || (e.player.totalTime() < 0 && e.player.frame() == e.player.frameCount() - 1);
+}
+
+float FightScreen::gameSpeed(const Match& match) const
+{
+    const int ended = match.overClock();
+    if (!m_loaded || ended < 0 || ended >= m_slowTime || match.roundEnd() == RoundEnd::TimeOver)
+        return 1;
+    const int left = m_slowTime - ended;
+    const float fade = m_slowTime * 0.75f;
+    float speed = m_slowSpeed;
+    if (left < fade)
+        speed += (1 - speed) * (fade - left) / fade;
+    return speed;
 }
 
 void FightScreen::reset()

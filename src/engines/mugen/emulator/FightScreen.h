@@ -151,6 +151,9 @@ public:
     // round.time, then the engine's 60 ticks before the Fight call.
     int callTime() const;
 
+    // 1 is a tick every 60th of a second. Slower for slow.time ticks after a KO.
+    float gameSpeed(const Runtime::Match& match) const;
+
     void reset();
     void step(const Runtime::Match& match, const std::array<Side, 2>& sides);
     const QList<Sound>& sounds() const { return m_sounds; }
@@ -213,6 +216,8 @@ private:
     Element m_win2;
     Element m_draw;
     int m_overWaitTime = 45;
+    int m_slowTime = 60;
+    float m_slowSpeed = 0.25f;
 
     Element* m_roundShown = nullptr;
     int m_roundPhase = 0; // 0 waiting, 1 shown, 2 done

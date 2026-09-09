@@ -343,6 +343,12 @@ private Q_SLOTS:
         QVERIFY(ko);
         QCOMPARE(session.match().roundEnd(), Runtime::RoundEnd::KO);
         QCOMPARE(session.match().overClock(), 10);
+        QCOMPARE(screen.gameSpeed(session.match()), 0.25f);
+        while (session.match().overClock() < 59)
+            session.tick({}, {});
+        QVERIFY(screen.gameSpeed(session.match()) > 0.9f);
+        session.tick({}, {});
+        QCOMPARE(screen.gameSpeed(session.match()), 1.f);
 
         EmulatorRenderer renderer;
         const QImage frame = renderer.render(session);
