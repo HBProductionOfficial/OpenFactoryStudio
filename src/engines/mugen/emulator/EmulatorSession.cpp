@@ -284,12 +284,36 @@ bool EmulatorSession::start(Project& project, const Options& options, QString* e
     p1.character = std::make_unique<Character>(*p1.data, m_match.get());
     p2.character = std::make_unique<Character>(*p2.data, m_match.get());
     m_match->setNoKo(options.training);
+    m_match->setExplodRules(explodRules(options.explodMode, engineDir));
     m_players.push_back(std::move(p1));
     m_players.push_back(std::move(p2));
     setTrainingOptions(options.trainingOptions);
     m_match->startMatch(roundSettings(options));
     m_started = true;
     return true;
+}
+
+bool EmulatorSession::isMugen11Engine(const QString& engineDir)
+{
+    const IniText config = IniText::parse(readText(QDir(engineDir).filePath(QStringLiteral("data/mugen.cfg"))));
+    const IniSection* video = config.section(QStringLiteral("Video"));
+    return video && (video->has(QStringLiteral("stagefit")) || video->has(QStringLiteral("keepaspect")));
+}
+
+ExplodRules EmulatorSession::explodRules(int explodMode, const QString& engineDir)
+{
+    switch (explodMode) {
+    case 1:
+        return ExplodRules::Mugen10;
+    case 2:
+    case 3: // MUGENext extends 1.1
+        return ExplodRules::Mugen11;
+    case 4:
+        return ExplodRules::PlayerVersion;
+    default:
+        // A 1.1 engine follows each character's version. 1.0 knows only its own rules.
+        return isMugen11Engine(engineDir) ? ExplodRules::PlayerVersion : ExplodRules::Mugen10;
+    }
 }
 
 const SpriteDocument* EmulatorSession::spritesOf(const Character& character) const

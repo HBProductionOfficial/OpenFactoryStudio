@@ -58,6 +58,13 @@ enum class RoundEnd
     TimeOver,
 };
 
+enum class ExplodRules
+{
+    PlayerVersion,
+    Mugen10,
+    Mugen11,
+};
+
 enum class WinType
 {
     Normal,
@@ -126,6 +133,8 @@ public:
     int random(int max);
 
     bool isAsserted(const QString& flag) const;
+    void setExplodRules(ExplodRules rules) { m_explodRules = rules; }
+    ExplodRules explodRules() const { return m_explodRules; }
     void setNoKo(bool noKo) { m_noKo = noKo; }
     bool noKo() const { return m_noKo; }
     const Character* attackerNear(const Character* c) const;
@@ -190,6 +199,7 @@ private:
     std::vector<std::unique_ptr<Character>> m_helpers;
 
     bool m_noKo = false;
+    ExplodRules m_explodRules = ExplodRules::PlayerVersion;
     bool m_roundActive = false;
     RoundSettings m_settings;
     int m_roundNo = 0;
@@ -303,6 +313,7 @@ public:
     float constant(const QString& name, float fallback) const;
     void setLife(int life);
     void setPower(int power);
+    bool explodRules11() const;
     void setAiLevel(int level) { m_aiLevel = level; }
     int aiLevel() const { return (m_root ? m_root : this)->m_aiLevel; }
 

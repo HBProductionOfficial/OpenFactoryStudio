@@ -427,6 +427,47 @@ private Q_SLOTS:
         QCOMPARE(c.numExplods(), 0);
         QVERIFY(c.messages().isEmpty());
 
+        CharacterData v11;
+        v11.setMugenVersion("1.1");
+        QVERIFY(v11.isMugen11());
+        v11.setAnimations("[Begin Action 501]\n501,0, 0,0, -1\n");
+        v11.addStates("[Statedef 0]\n"
+                      "[State 0, a]\ntype = Explod\ntrigger1 = time = 0\nanim = 501\nid = 1\npos = 30, -20\n"
+                      "removetime = -1\n"
+                      "[State 0, b]\ntype = Explod\ntrigger1 = time = 0\nanim = 501\nid = 2\npos = 5, 6\n"
+                      "space = screen\nremovetime = -1\n"
+                      "[State 0, c]\ntype = Explod\ntrigger1 = time = 0\nanim = 501\nid = 3\npos = 10, 0\n"
+                      "bindid = -1\nbindtime = -1\nremovetime = -1\n"
+                      "[State 0, v]\ntype = VelSet\ntrigger1 = 1\nx = 1\n");
+        for (ExplodRules rules : {ExplodRules::PlayerVersion, ExplodRules::Mugen10}) {
+            Match versions;
+            versions.setExplodRules(rules);
+            Character d(v11, &versions);
+            d.setPos({50, 0});
+            d.setFacing(-1);
+            d.start(0);
+            versions.tick();
+            QCOMPARE(d.numExplods(), 3);
+            if (rules == ExplodRules::PlayerVersion) {
+                QVERIFY(d.explodRules11());
+                QCOMPARE(d.explods().at(0).drawPos().x, 30.f);
+                QVERIFY(!d.explods().at(0).screen);
+                QVERIFY(d.explods().at(1).screen);
+                QCOMPARE(d.explods().at(1).drawPos().x, 5.f);
+                versions.tick();
+                QCOMPARE(d.explods().at(2).drawPos().x, float(d.pos().x()) + 10);
+            } else {
+                QVERIFY(!d.explodRules11());
+                QCOMPARE(d.explods().at(0).drawPos().x, 20.f);
+                QVERIFY(!d.explods().at(1).screen);
+            }
+        }
+        for (const char* version : {"1.0", "04,14,2001", "2002.04.14", ""}) {
+            CharacterData old;
+            old.setMugenVersion(version);
+            QVERIFY(!old.isMugen11());
+        }
+
         CharacterData fightFx;
         fightFx.setAnimations("[Begin Action 30]\n30,0, 0,0, 3\n");
         CharacterData user;

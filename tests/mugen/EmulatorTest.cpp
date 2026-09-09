@@ -355,6 +355,30 @@ private Q_SLOTS:
         QVERIFY(litPixels(frame.copy(0, 0, 320, 40)) > 0);
     }
 
+    void explodModes()
+    {
+        EngineFolder engine;
+        const QString dir = engine.dir.path();
+        QVERIFY(!EmulatorSession::isMugen11Engine(dir));
+        QCOMPARE(EmulatorSession::explodRules(0, dir), Runtime::ExplodRules::Mugen10);
+        writeFile(engine.dir.filePath("data/mugen.cfg"), "[Options]\ntime = 5\n[Video]\nStageFit = 1\n");
+        QVERIFY(EmulatorSession::isMugen11Engine(dir));
+        QCOMPARE(EmulatorSession::explodRules(0, dir), Runtime::ExplodRules::PlayerVersion);
+        QCOMPARE(EmulatorSession::explodRules(1, dir), Runtime::ExplodRules::Mugen10);
+        QCOMPARE(EmulatorSession::explodRules(2, dir), Runtime::ExplodRules::Mugen11);
+        QCOMPARE(EmulatorSession::explodRules(3, dir), Runtime::ExplodRules::Mugen11);
+        QCOMPARE(EmulatorSession::explodRules(4, dir), Runtime::ExplodRules::PlayerVersion);
+        MugenEngine mugen;
+        std::unique_ptr<Project> project(mugen.openProject(engine.def, nullptr));
+        EmulatorSession session;
+        EmulatorSession::Options options;
+        options.engineDir = dir;
+        options.explodMode = 2;
+        QString error;
+        QVERIFY2(session.start(*project, options, &error), qPrintable(error));
+        QCOMPARE(session.match().explodRules(), Runtime::ExplodRules::Mugen11);
+    }
+
     void training()
     {
         EngineFolder engine;

@@ -78,6 +78,9 @@ public:
     void setTextSource(TextSource source) { m_source = std::move(source); }
     QString name() const { return m_name; }
     QString displayName() const { return m_displayName; }
+    QString mugenVersion() const { return m_mugenVersion; }
+    void setMugenVersion(const QString& version) { m_mugenVersion = version; }
+    bool isMugen11() const;
     int localCoordWidth() const { return m_localCoordWidth; }
     QString spriteFile() const { return m_spriteFile; }
     QString soundFile() const { return m_soundFile; }
@@ -108,6 +111,7 @@ private:
 
     QString m_name;
     QString m_displayName;
+    QString m_mugenVersion;
     int m_localCoordWidth = 320;
     QString m_spriteFile;
     QString m_soundFile;

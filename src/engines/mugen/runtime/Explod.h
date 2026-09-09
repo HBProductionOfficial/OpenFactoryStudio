@@ -22,6 +22,7 @@ struct Explod
         Back,
         Left,
         Right,
+        None, // pos is where it goes (1.1): on the stage, or on the screen
     };
 
     int id = -1;
@@ -33,7 +34,9 @@ struct Explod
 
     PosType posType = PosType::P1;
     bool screen = false;
-    Vec2 pos;            // a character's position or the screen's corner, in game units
+    bool screenSpace = false;
+    int bindId = -2; // 1.1 bindID: the player or helper it follows, -1 its owner, -2 none
+    Vec2 pos;                 // a character's position or the screen's corner, in game units
     Vec2 relative;
     Vec2 next;
     Vec2 vel;

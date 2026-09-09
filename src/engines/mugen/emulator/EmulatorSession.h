@@ -38,6 +38,8 @@ public:
         bool training = false;
         TrainingOptions trainingOptions;
         bool randomEnemy = false;
+        // Explod mode: the engine's default, M.U.G.E.N 1.0, M.U.G.E.N 1.1, MUGENext, the player's version.
+        int explodMode = 0;
         std::uint32_t seed = 1;
     };
 
@@ -107,6 +109,8 @@ public:
     static QString engineFolderOf(const QString& projectFile);
     // stages/stage0.def, else the first stage of the engine folder.
     static QString defaultStage(const QString& engineDir);
+    static bool isMugen11Engine(const QString& engineDir);
+    static Runtime::ExplodRules explodRules(int explodMode, const QString& engineDir);
 
 private:
     bool loadStage(const QString& path, const QString& engineDir, QString* error);

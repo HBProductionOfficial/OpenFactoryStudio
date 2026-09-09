@@ -90,6 +90,7 @@ void EmulatorWidget::bindPanel(QWidget* panel)
     m_rounds = panel->findChild<QSpinBox*>(QStringLiteral("emul_rounds"));
     m_time = panel->findChild<QSpinBox*>(QStringLiteral("emul_time"));
     m_debugInfo = panel->findChild<QCheckBox*>(QStringLiteral("emul_debug_info"));
+    m_explodMode = panel->findChild<QComboBox*>(QStringLiteral("emul_explod_mode"));
     m_training = panel->findChild<QGroupBox*>(QStringLiteral("emul_training"));
     m_dummyCtrl = panel->findChild<QComboBox*>(QStringLiteral("emul_dummy_ctrl"));
     m_dummyMode = panel->findChild<QComboBox*>(QStringLiteral("emul_dummy_mode"));
@@ -99,7 +100,7 @@ void EmulatorWidget::bindPanel(QWidget* panel)
     m_aiLevel = panel->findChild<QSpinBox*>(QStringLiteral("emul_ai_level"));
     fill(m_mode, {tr("Versus"), tr("Training")});
     fill(m_enemy, {tr("Self"), tr("Random")});
-    fill(panel->findChild<QComboBox*>(QStringLiteral("emul_explod_mode")),
+    fill(m_explodMode,
          {tr("Engine's default"), tr("M.U.G.E.N. 1.0"), tr("M.U.G.E.N. 1.1"), tr("MUGENext"), tr("Player's version")});
     fill(m_dummyCtrl, {tr("Cooperative"), tr("AI"), tr("Manual")});
     fill(m_dummyMode, {tr("Stand"), tr("Crouch"), tr("Jump"), tr("W Jump")});
@@ -184,6 +185,7 @@ bool EmulatorWidget::start()
     options.engineDir = m_engineDir;
     options.training = m_mode && m_mode->currentIndex() == 1;
     options.trainingOptions = trainingOptions();
+    options.explodMode = m_explodMode ? std::max(0, m_explodMode->currentIndex()) : 0;
     options.randomEnemy = m_enemy && m_enemy->currentIndex() == 1;
     options.rounds = m_rounds ? m_rounds->value() : 0;
     options.time = m_time ? m_time->value() : 0;

@@ -89,6 +89,7 @@ private:
     QPointer<QSpinBox> m_rounds;
     QPointer<QSpinBox> m_time;
     QPointer<QCheckBox> m_debugInfo;
+    QPointer<QComboBox> m_explodMode;
     QPointer<QGroupBox> m_training;
     QPointer<QComboBox> m_dummyCtrl;
     QPointer<QComboBox> m_dummyMode;

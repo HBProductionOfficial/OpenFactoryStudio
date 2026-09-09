@@ -56,6 +56,14 @@ float Character::constant(const QString& name, float fallback) const
     return it != m_constants.cend() ? *it : m_data.constant(name, fallback);
 }
 
+bool Character::explodRules11() const
+{
+    const ExplodRules rules = m_match ? m_match->explodRules() : ExplodRules::PlayerVersion;
+    if (rules != ExplodRules::PlayerVersion)
+        return rules == ExplodRules::Mugen11;
+    return m_data.isMugen11();
+}
+
 void Character::setLife(int life)
 {
     m_life = std::clamp(life, 0, int(m_data.constant(QStringLiteral("data.life"), 1000)));

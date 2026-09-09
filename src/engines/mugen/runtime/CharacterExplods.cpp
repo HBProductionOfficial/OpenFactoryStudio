@@ -49,17 +49,28 @@ void Character::readExplod(const Controller& c, Explod& e, bool create)
     e.alpha[0] = intParam(c, QStringLiteral("alpha"), e.alpha[0], 0);
     e.alpha[1] = intParam(c, QStringLiteral("alpha"), e.alpha[1], 1);
 
-    const bool moved = has(c, QStringLiteral("pos")) || has(c, QStringLiteral("postype"));
+    // MUGEN 1.1 places explods where pos says unless a postype is given, following bindID.
+    const bool rules11 = explodRules11();
+    const bool moved = has(c, QStringLiteral("pos")) || has(c, QStringLiteral("postype")) ||
+                       (rules11 && (has(c, QStringLiteral("space")) || has(c, QStringLiteral("bindid"))));
     if (!create && !moved)
         return;
+    if (create)
+        e.posType = rules11 ? Explod::PosType::None : Explod::PosType::P1;
     if (const Param* posType = c.param(QStringLiteral("postype"))) {
         const QString kind = posType->text.trimmed().toLower();
-        e.posType = kind == QLatin1String("p2")      ? Explod::PosType::P2
-                    : kind == QLatin1String("front") ? Explod::PosType::Front
-                    : kind == QLatin1String("back")  ? Explod::PosType::Back
-                    : kind == QLatin1String("left")  ? Explod::PosType::Left
-                    : kind == QLatin1String("right") ? Explod::PosType::Right
-                                                     : Explod::PosType::P1;
+        e.posType = kind == QLatin1String("p2")                ? Explod::PosType::P2
+                    : kind == QLatin1String("front")           ? Explod::PosType::Front
+                    : kind == QLatin1String("back")            ? Explod::PosType::Back
+                    : kind == QLatin1String("left")            ? Explod::PosType::Left
+                    : kind == QLatin1String("right")           ? Explod::PosType::Right
+                    : rules11 && kind == QLatin1String("none") ? Explod::PosType::None
+                                                               : Explod::PosType::P1;
+    }
+    if (rules11) {
+        if (const Param* space = c.param(QStringLiteral("space")))
+            e.screenSpace = space->text.trimmed().compare(QLatin1String("screen"), Qt::CaseInsensitive) == 0;
+        e.bindId = intParam(c, QStringLiteral("bindid"), e.bindId);
     }
     e.relative = pair(QStringLiteral("pos"), create ? Vec2() : e.relative);
     // random = rx, ry: anywhere from -r/2 to r/2 - 1.
@@ -106,6 +117,19 @@ void Character::placeExplod(Explod& e)
         e.screen = true;
         e.pos = Vec2{e.posType == Explod::PosType::Right ? (m_match ? m_match->screenWidth() : 320.f) : 0.f, 0};
         break;
+    case Explod::PosType::None: {
+        e.screen = e.screenSpace;
+        e.facing = 1;
+        e.pos = Vec2();
+        Character* at = nullptr;
+        if (!e.screen && e.bindId != -2)
+            at = e.bindId == -1 ? this : m_match ? m_match->playerById(e.bindId) : nullptr;
+        if (at) {
+            e.bindTo = at;
+            e.pos = at->m_pos;
+        }
+        break;
+    }
     }
     e.next = e.pos;
 }

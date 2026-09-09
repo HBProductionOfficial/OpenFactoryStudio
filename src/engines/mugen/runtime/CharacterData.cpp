@@ -130,6 +130,21 @@ QString readText(const QString& path, bool* ok = nullptr)
 
 } // namespace
 
+bool CharacterData::isMugen11() const
+{
+    // "1.0", "1.1b1"...: a major and minor version, or -1 for an old engine's date (year or month first).
+    const QStringList parts = m_mugenVersion.split(QLatin1Char('.'));
+    bool majorOk = false;
+    const int major = parts.value(0).trimmed().toInt(&majorOk);
+    int minor = 0;
+    for (const QChar ch : parts.value(1)) {
+        if (!ch.isDigit())
+            break;
+        minor = minor * 10 + ch.digitValue();
+    }
+    return majorOk && major >= 1 && major < 10 && (major > 1 || minor >= 1);
+}
+
 bool CharacterData::load(const QString& defPath, const QString& engineDir, QString* error)
 {
     auto read = [this](const QString& path, bool* found = nullptr) -> QString {
@@ -169,6 +184,7 @@ bool CharacterData::load(const QString& defPath, const QString& engineDir, QStri
     if (const IniSection* info = def.section(QStringLiteral("Info"))) {
         m_name = unquote(info->value(QStringLiteral("name")));
         m_displayName = unquote(info->value(QStringLiteral("displayname"), info->value(QStringLiteral("name"))));
+        m_mugenVersion = unquote(info->value(QStringLiteral("mugenversion"))).trimmed();
         const int width = info->value(QStringLiteral("localcoord")).split(QLatin1Char(',')).value(0).trimmed().toInt();
         if (width > 0)
             m_localCoordWidth = width;
