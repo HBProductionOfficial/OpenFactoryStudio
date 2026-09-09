@@ -135,6 +135,10 @@ private Q_SLOTS:
         QCOMPARE(a.var(4), 3); // WinKO and WinPerfect
         QCOMPARE(b.var(3), 0);
         QCOMPARE(match.wins(0), 1);
+        QCOMPARE(match.roundWins(0).size(), 1);
+        QCOMPARE(match.roundWins(0)[0].type, WinType::Suicide);
+        QVERIFY(match.roundWins(0)[0].perfect);
+        QVERIFY(match.roundWins(1).isEmpty());
 
         while (match.roundNo() == 1 && match.gameTime() < 500)
             match.tick();
@@ -149,6 +153,43 @@ private Q_SLOTS:
             match.tick();
         QVERIFY(match.matchOver());
         QCOMPARE(match.wins(0), 2);
+        QCOMPARE(match.roundWins(0).size(), 2);
+        match.startMatch(quick());
+        QVERIFY(match.roundWins(0).isEmpty());
+    }
+
+    void roundCall()
+    {
+        CharacterData data;
+        data.addStates(kStates);
+        Match match;
+        Character a(data, &match);
+        Character b(data, &match);
+        RoundSettings settings = quick();
+        settings.callTime = 20;
+        match.startMatch(settings);
+        QCOMPARE(match.introClock(), -1);
+        QCOMPARE(match.overClock(), -1);
+        int called = -1;
+        int fight = -1;
+        for (int t = 1; t <= 100 && fight < 0; ++t) {
+            match.tick();
+            if (called < 0 && match.introClock() == 0)
+                called = t;
+            if (match.roundState() == 2)
+                fight = t;
+            if (called > 0 && t < called + 20)
+                QCOMPARE(match.roundState(), 1);
+        }
+        QVERIFY(called > 0);
+        QCOMPARE(fight, called + 20 + 2); // ctrl.time 3, from the first tick of the Fight call
+        QCOMPARE(match.introClock(), fight - called);
+        b.setVar(1, 1);
+        while (match.roundEnd() == RoundEnd::None && match.gameTime() < 200)
+            match.tick();
+        QCOMPARE(match.overClock(), 0);
+        match.tick();
+        QCOMPARE(match.overClock(), 1);
     }
 };
 

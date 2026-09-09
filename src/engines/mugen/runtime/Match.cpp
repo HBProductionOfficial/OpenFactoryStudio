@@ -168,6 +168,8 @@ void Match::startMatch(const RoundSettings& settings)
     m_roundActive = true;
     m_roundNo = 0;
     m_wins[0] = m_wins[1] = 0;
+    m_roundWins[0].clear();
+    m_roundWins[1].clear();
     m_matchOver = false;
     startRound();
 }
@@ -187,6 +189,7 @@ void Match::startRound()
 {
     ++m_roundNo;
     m_intro = m_settings.startWait + m_settings.ctrlTime + 1;
+    m_introClock = -1;
     m_timer = m_settings.time < 0 ? -1 : m_settings.time * m_settings.framesPerCount;
     m_winPoseTime = m_settings.overWinTime;
     m_end = RoundEnd::None;
@@ -253,20 +256,48 @@ bool Match::decideRound()
     return true;
 }
 
+WinType Match::winType() const
+{
+    if (m_end == RoundEnd::TimeOver)
+        return WinType::Time;
+    const Character* loser = nullptr;
+    for (const Character* c : std::as_const(m_characters)) {
+        if (!c->m_isHelper && c->m_team == 1 - m_winner && !c->alive())
+            loser = c;
+    }
+    if (!loser)
+        return WinType::Normal;
+    const GetHitVars& ghv = loser->m_ghv;
+    if (ghv.attr.isEmpty())
+        return WinType::Suicide;
+    if (ghv.guarded)
+        return WinType::Cheese;
+    if (ghv.attr.size() > 1 && ghv.attr[1] == QLatin1Char('T'))
+        return WinType::Throw;
+    if (ghv.attr.startsWith(QLatin1Char('H')))
+        return WinType::Hyper;
+    if (ghv.attr.startsWith(QLatin1Char('S')))
+        return WinType::Special;
+    return WinType::Normal;
+}
+
 void Match::stepRound()
 {
     if (!m_roundActive || m_matchOver)
         return;
     const RoundSettings& s = m_settings;
+    if (m_introClock >= 0 || m_intro <= s.ctrlTime)
+        ++m_introClock;
     if (m_intro > s.ctrlTime) {
         // Before and during the intros. An intro holds the round while it is asserted.
         --m_intro;
         if (isAsserted(QStringLiteral("intro")) && m_intro <= s.ctrlTime)
             m_intro = s.ctrlTime + 1;
     } else if (m_intro > 0) {
-        if (m_intro == s.ctrlTime)
+        if (m_intro == s.ctrlTime && m_introClock == 0)
             resetPositions();
-        if (--m_intro == 0) {
+        const bool calling = m_intro == s.ctrlTime && m_introClock < s.callTime;
+        if (!calling && --m_intro == 0) {
             for (Character* c : std::as_const(m_characters)) {
                 if (c->m_isHelper || !c->alive())
                     continue;
@@ -288,8 +319,10 @@ void Match::stepRound()
         return;
     }
     --m_intro;
-    if (m_intro == -s.overHitTime && (m_winner == 0 || m_winner == 1))
+    if (m_intro == -s.overHitTime && (m_winner == 0 || m_winner == 1)) {
         ++m_wins[m_winner];
+        m_roundWins[m_winner] << RoundWin{winType(), m_perfect};
+    }
     const int poses = -s.overWaitTime;
     if (m_intro == poses - 1) {
         for (Character* c : std::as_const(m_characters))

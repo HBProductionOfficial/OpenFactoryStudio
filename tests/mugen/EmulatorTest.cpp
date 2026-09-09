@@ -6,6 +6,7 @@
 #include "engines/mugen/emulator/EmulatorSession.h"
 #include "engines/mugen/emulator/EmulatorWidget.h"
 #include "fixtures/FixtureFactory.h"
+#include "formats/codecs/Pcx.h"
 
 #include <QDir>
 #include <QFile>
@@ -119,12 +120,12 @@ private Q_SLOTS:
         QCOMPARE(session.match().roundState(), 0);
         QCOMPARE(session.stage().zoffset, 200.f);
 
-        for (int i = 0; i < 20; ++i)
+        for (int i = 0; i < 200 && session.match().roundState() < 2; ++i)
             session.tick({}, {});
         QCOMPARE(session.match().roundState(), 2);
         QCOMPARE(session.players()[0].character->pos().x(), -50.0);
         QCOMPARE(session.players()[1].character->pos().x(), 50.0);
-        QVERIFY(session.match().roundTime() > 270 && session.match().roundTime() < 300);
+        QCOMPARE(session.match().roundTime(), 299); // mugen.cfg's 5 counts, from the first tick of the fight
 
         EmulatorRenderer renderer;
         const QImage frame = renderer.render(session);
@@ -244,6 +245,110 @@ private Q_SLOTS:
         QCOMPARE(emulator.mixer()->voices(), 0);
     }
 
+    void fightScreen()
+    {
+        EngineFolder engine;
+        Formats::Test::FixtureFactory fixtures;
+        QVERIFY(fixtures.sff(Formats::SffVersion::V1, 4, 16)
+                    .save(engine.dir.filePath("data/fight.sff").toStdWString())
+                    .ok());
+        writeSounds(engine.dir.filePath("data/fight.snd"), {{0, 1, 0.25}, {1, 0, 0.5}});
+        Formats::Palette palette(256);
+        palette[1] = Formats::Rgba{255, 255, 255, 255};
+        Formats::FntDocument fnt;
+        fnt.pcx = *Formats::encodePcx(Formats::Image::indexed(30, 5, std::vector<std::uint8_t>(150, 1), palette));
+        fnt.text = "[Def]\nSize = 3,5\nSpacing = 1,0\nColors = 1\nOffset = 0,0\nType = Variable\n[Map]\n";
+        for (int digit = 0; digit < 10; ++digit)
+            fnt.text += std::to_string(digit) + " " + std::to_string(digit * 3) + " 3\n";
+        QVERIFY(fnt.save(engine.dir.filePath("data/digits.fnt").toStdWString()).ok());
+        writeFile(engine.dir.filePath("data/fight.def"),
+                  "[Files]\nsff = fight.sff\nsnd = fight.snd\nfont1 = digits.fnt\n"
+                  "[Lifebar]\np1.pos = 140,12\np1.front.spr = 0,0\np1.range.x = 0,-127\n"
+                  "p2.pos = 178,12\np2.front.spr = 0,1\np2.range.x = 0,127\n"
+                  "[Time]\npos = 160,23\ncounter.font = 1,0,0\n"
+                  "[Round]\nmatch.wins = 1\nstart.waittime = 3\nctrl.time = 3\n"
+                  "round.default.offset = 160,100\nround.default.font = 1,0,0\nround.default.text = Round %i\n"
+                  "round.default.displaytime = 20\nround1.snd = 0,1\n"
+                  "fight.offset = 160,110\nfight.anim = 80\nfight.snd = 1,0\n"
+                  "KO.offset = 160,70\nKO.font = 1,0\nKO.text = 0\nKO.displaytime = 30\n"
+                  "[Begin Action 80]\n0,2, 0,0, 5\n0,3, 0,0, 5\n");
+        writeFile(engine.dir.filePath("chars/test/test.cmd"),
+                  "[Statedef -1]\n"
+                  "[State -1]\ntype = VarSet\ntrigger1 = roundstate = 2 && pos x > 0 && life = 1000\nv = 0\n"
+                  "value = gametime\n"
+                  "[State -1]\ntype = LifeAdd\ntrigger1 = roundstate = 2 && pos x > 0 && life = 1000\nvalue = -500\n"
+                  "[State -1]\ntype = LifeAdd\ntrigger1 = pos x > 0 && life = 500 && gametime >= var(0) + 20\n"
+                  "value = -500\n");
+        MugenEngine mugen;
+        std::unique_ptr<Project> project(mugen.openProject(engine.def, nullptr));
+        QVERIFY(project);
+        EmulatorSession session;
+        EmulatorSession::Options options;
+        options.engineDir = engine.dir.path();
+        QString error;
+        QVERIFY2(session.start(*project, options, &error), qPrintable(error));
+        const FightScreen& screen = session.fightScreen();
+        QVERIFY(screen.isLoaded());
+        QCOMPARE(screen.callTime(), 60);
+        QVERIFY(screen.font(1));
+        QCOMPARE(screen.font(1)->textWidth("12"), 7);
+
+        auto findText = [](const QList<FightScreen::Item>& items, const QString& text) {
+            return std::find_if(items.cbegin(), items.cend(),
+                                [&](const FightScreen::Item& i) { return i.font && i.text == text; }) != items.cend();
+        };
+        auto findSprite = [](const QList<FightScreen::Item>& items, int group, int number) {
+            return std::find_if(items.cbegin(), items.cend(), [&](const FightScreen::Item& i) {
+                return i.sprites && i.group == group && i.number == number;
+            });
+        };
+        int roundShown = -1;
+        int fightShown = -1;
+        int fighting = -1;
+        QList<int> announced;
+        for (int tick = 0; tick < 200 && fighting < 0; ++tick) {
+            session.tick({}, {});
+            const QList<FightScreen::Item> items = screen.items(session.match(), session.sides());
+            if (roundShown < 0 && findText(items, "Round 1"))
+                roundShown = tick;
+            if (fightShown < 0 && findSprite(items, 0, 2) != items.cend())
+                fightShown = tick;
+            if (session.match().roundState() == 2)
+                fighting = tick;
+            for (const FightScreen::Sound& s : screen.sounds())
+                announced << s.group;
+            // Whole counts left: 4 once the fight starts.
+            QVERIFY(findText(items, fighting < 0 ? "5" : "4"));
+        }
+        QVERIFY(roundShown > 0);
+        QCOMPARE(fightShown, roundShown + 60);
+        QCOMPARE(fighting, fightShown + 2); // ctrl.time (3) from the call's first tick
+        QCOMPARE(announced, QList<int>({0, 1}));
+
+        for (int i = 0; i < 10; ++i)
+            session.tick({}, {});
+        QCOMPARE(session.players()[1].character->life(), 500);
+        QList<FightScreen::Item> items = screen.items(session.match(), session.sides());
+        auto front = findSprite(items, 0, 1);
+        QVERIFY(front != items.cend() && front->clip);
+        QCOMPARE(front->clip->left(), 178.0);
+        QCOMPARE(front->clip->width(), 64.0);
+        QVERIFY(findSprite(items, 0, 0)->clip->width() == 128.0);
+
+        bool ko = false;
+        for (int i = 0; i < 100 && !ko; ++i) {
+            session.tick({}, {});
+            ko = findText(screen.items(session.match(), session.sides()), "0");
+        }
+        QVERIFY(ko);
+        QCOMPARE(session.match().roundEnd(), Runtime::RoundEnd::KO);
+        QCOMPARE(session.match().overClock(), 10);
+
+        EmulatorRenderer renderer;
+        const QImage frame = renderer.render(session);
+        QVERIFY(litPixels(frame.copy(0, 0, 320, 40)) > 0);
+    }
+
     void kungFuMan()
     {
         // Set OFS_EMULATOR_FRAME to save the frame for a look.
@@ -268,14 +373,32 @@ private Q_SLOTS:
         QVERIFY(session.sound(0, true, 5, 0));
         EmulatorRenderer renderer;
         QImage frame;
-        for (int i = 0; i < 400 && session.match().roundState() < 2; ++i)
+        const QString out = qEnvironmentVariable("OFS_EMULATOR_FRAME");
+        QVERIFY(session.fightScreen().isLoaded());
+        bool roundCalled = false;
+        bool fightCalled = false;
+        for (int i = 0; i < 400 && session.match().roundState() < 2; ++i) {
             session.tick({}, {});
+            const QList<FightScreen::Item> items = session.fightScreen().items(session.match(), session.sides());
+            for (const FightScreen::Item& item : items) {
+                const bool round = item.font && item.text == QLatin1String("Round 1");
+                const bool fight = !item.font && item.group == 80;
+                if ((round && !roundCalled) || (fight && !fightCalled)) {
+                    if (!out.isEmpty())
+                        renderer.render(session).scaled(960, 720).save(
+                            QString(out).replace(".png", round ? "_round.png" : "_fight.png"));
+                }
+                roundCalled = roundCalled || round;
+                fightCalled = fightCalled || fight;
+            }
+        }
+        QVERIFY(roundCalled);
+        QVERIFY(fightCalled);
         QCOMPARE(session.match().roundState(), 2);
         for (int i = 0; i < 30; ++i)
             session.tick({}, {});
         frame = renderer.render(session, true);
         QVERIFY(litPixels(frame) > 320 * 240 / 2);
-        const QString out = qEnvironmentVariable("OFS_EMULATOR_FRAME");
         if (!out.isEmpty())
             frame.scaled(960, 720).save(out);
     }

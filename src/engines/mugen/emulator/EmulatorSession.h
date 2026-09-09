@@ -6,6 +6,7 @@
 #include "core/bg/BgSimulator.h"
 #include "core/sounds/SoundDocument.h"
 #include "core/sprites/SpriteDocument.h"
+#include "engines/mugen/emulator/FightScreen.h"
 #include "engines/mugen/runtime/Character.h"
 #include "engines/mugen/runtime/CharacterData.h"
 
@@ -91,6 +92,10 @@ public:
     const SpriteDocument* spritesOf(const Runtime::Character& character) const;
     std::shared_ptr<const AudioMixer::Sound> sound(int playerId, bool common, int group, int index);
     const SoundDocument* commonSounds() const { return m_commonSounds.get(); }
+    std::shared_ptr<const AudioMixer::Sound> soundFrom(const SoundDocument* doc, int group, int index);
+    const FightScreen& fightScreen() const { return m_fightScreen; }
+    std::array<FightScreen::Side, 2> sides() const;
+    static constexpr int ScreenSounds = -2;
     void playSounds(AudioMixer& mixer);
     // -1 left to 1 right. 0 without stereo.
     float stereoPan(int playerId, float pan, bool absolute) const;
@@ -114,6 +119,7 @@ private:
     std::shared_ptr<SpriteDocument> m_fightFxSprites;
     QList<Effect> m_effects;
     std::shared_ptr<SoundDocument> m_commonSounds;
+    FightScreen m_fightScreen;
     QMap<std::tuple<const SoundDocument*, int, int>, std::shared_ptr<const AudioMixer::Sound>> m_soundCache;
     bool m_stereo = true;
     float m_panningWidth = 240;

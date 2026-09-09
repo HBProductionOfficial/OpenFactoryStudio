@@ -46,6 +46,8 @@ add_library(ofs_mugen_lib STATIC
     expr/Expression.cpp
     emulator/EmulatorSession.h
     emulator/EmulatorSession.cpp
+    emulator/FightScreen.h
+    emulator/FightScreen.cpp
     emulator/EmulatorRenderer.h
     emulator/EmulatorRenderer.cpp
     emulator/EmulatorWidget.h

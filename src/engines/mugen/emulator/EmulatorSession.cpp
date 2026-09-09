@@ -191,6 +191,7 @@ RoundSettings EmulatorSession::roundSettings(const Options& options) const
         settings.time = options.time;
     if (options.training)
         settings.time = -1;
+    settings.callTime = m_fightScreen.callTime();
     settings.p1x = m_stage.p1x;
     settings.p2x = m_stage.p2x;
     return settings;
@@ -271,6 +272,8 @@ bool EmulatorSession::start(Project& project, const Options& options, QString* e
     }
     loadFightFx(engineDir);
     loadCommonSounds(engineDir);
+    m_fightScreen.load(engineDir);
+    m_fightScreen.reset();
 
     m_match = std::make_unique<Match>(options.seed ? options.seed : 1);
     m_match->setBounds(m_stage.boundLeft - 160, m_stage.boundRight + 160);
@@ -307,6 +310,11 @@ std::shared_ptr<const AudioMixer::Sound> EmulatorSession::sound(int playerId, bo
                 doc = p.sounds;
         }
     }
+    return soundFrom(doc, group, index);
+}
+
+std::shared_ptr<const AudioMixer::Sound> EmulatorSession::soundFrom(const SoundDocument* doc, int group, int index)
+{
     if (!doc || group < 0)
         return nullptr;
     const auto key = std::make_tuple(doc, group, index);
@@ -355,6 +363,21 @@ void EmulatorSession::playSounds(AudioMixer& mixer)
             break;
         }
     }
+    for (const FightScreen::Sound& s : m_fightScreen.sounds()) {
+        if (auto prepared = soundFrom(m_fightScreen.soundFile(), s.group, s.number))
+            mixer.play(prepared, ScreenSounds, -1);
+    }
+}
+
+std::array<FightScreen::Side, 2> EmulatorSession::sides() const
+{
+    std::array<FightScreen::Side, 2> out;
+    for (std::size_t i = 0; i < out.size() && i < m_players.size(); ++i) {
+        out[i].character = m_players[i].character.get();
+        out[i].sprites = m_players[i].sprites;
+        out[i].name = m_players[i].name;
+    }
+    return out;
 }
 
 void EmulatorSession::tick(const InputState& p1, const InputState& p2)
@@ -364,6 +387,7 @@ void EmulatorSession::tick(const InputState& p1, const InputState& p2)
     m_players[0].character->setInput(p1);
     m_players[1].character->setInput(p2);
     m_match->tick();
+    m_fightScreen.step(*m_match, sides());
     if (m_stage.simulator)
         m_stage.simulator->step();
     for (Effect& e : m_effects)

@@ -128,6 +128,7 @@ struct HitDef
 struct GetHitVars
 {
     bool guarded = false;
+    QString attr;
     HitType type = HitType::None;
     HitType groundType = HitType::None;
     HitType airType = HitType::None;

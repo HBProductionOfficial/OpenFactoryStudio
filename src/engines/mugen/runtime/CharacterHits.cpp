@@ -370,6 +370,7 @@ bool Character::deliverHit(Character& target, const HitDef& hd, int facing, int 
         if (ghv.hitTime > 0)
             ++ghv.hitTime;
         ghv.hitCount = combo ? ghv.hitCount + 1 : 1;
+        ghv.attr = hd.attrClasses.value(0).toUpper();
         if (ghv.fall)
             ++ghv.fallCount;
     }

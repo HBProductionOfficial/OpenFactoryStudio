@@ -45,6 +45,7 @@ struct RoundSettings
     int overWaitTime = 45;
     int overWinTime = 45;
     int overTime = 210;
+    int callTime = 0; // after the intros, the round is held while the fight screen calls it
     float p1x = -70;
     float p2x = 70;
 };
@@ -55,6 +56,23 @@ enum class RoundEnd
     KO,
     DoubleKO,
     TimeOver,
+};
+
+enum class WinType
+{
+    Normal,
+    Special,
+    Hyper,
+    Throw,
+    Cheese,
+    Time,
+    Suicide,
+};
+
+struct RoundWin
+{
+    WinType type = WinType::Normal;
+    bool perfect = false;
 };
 
 class Match
@@ -82,6 +100,9 @@ public:
     int roundWinner() const { return m_winner; }
     bool perfect() const { return m_perfect; }
     int wins(int team) const { return team == 0 || team == 1 ? m_wins[team] : 0; }
+    const QList<RoundWin>& roundWins(int team) const { return m_roundWins[team == 1 ? 1 : 0]; }
+    int introClock() const { return m_introClock; }
+    int overClock() const { return m_end == RoundEnd::None ? -1 : -m_intro - 1; }
     bool matchOver() const { return m_matchOver; }
     bool hitsAllowed() const;
 
@@ -136,6 +157,7 @@ private:
     void startRound();
     void stepRound();
     bool decideRound();
+    WinType winType() const;
     void resetPositions();
 
     QList<Character*> m_characters;
@@ -174,6 +196,8 @@ private:
     int m_winner = -1;
     bool m_perfect = false;
     int m_wins[2] = {0, 0};
+    QList<RoundWin> m_roundWins[2];
+    int m_introClock = -1;
     bool m_matchOver = false;
 };
 
