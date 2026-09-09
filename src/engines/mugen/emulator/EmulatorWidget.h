@@ -63,6 +63,7 @@ private:
     void advance();
     void tick();
     void updateTraining();
+    TrainingOptions trainingOptions() const;
     Runtime::InputState inputOf(int player) const;
     QRect screenRect() const;
 
@@ -89,6 +90,12 @@ private:
     QPointer<QSpinBox> m_time;
     QPointer<QCheckBox> m_debugInfo;
     QPointer<QGroupBox> m_training;
+    QPointer<QComboBox> m_dummyCtrl;
+    QPointer<QComboBox> m_dummyMode;
+    QPointer<QComboBox> m_guardMode;
+    QPointer<QComboBox> m_distance;
+    QPointer<QComboBox> m_buttonJam;
+    QPointer<QSpinBox> m_aiLevel;
 };
 
 } // namespace OFS::Mugen

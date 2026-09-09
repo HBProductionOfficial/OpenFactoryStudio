@@ -333,8 +333,9 @@ Value Character::trigger(const TriggerCall& call)
     case Trigger::MoveReversed:
         return Value::integer(m_moveReversedTime);
     case Trigger::NumPartner:
-    case Trigger::AILevel:
         return Value::boolean(false);
+    case Trigger::AILevel:
+        return Value::integer(aiLevel());
     case Trigger::Command: {
         // A helper reads its player's commands with keyctrl only.
         const Character* reader = m_root ? m_root : this;

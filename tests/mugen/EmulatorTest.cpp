@@ -355,6 +355,34 @@ private Q_SLOTS:
         QVERIFY(litPixels(frame.copy(0, 0, 320, 40)) > 0);
     }
 
+    void training()
+    {
+        EngineFolder engine;
+        MugenEngine mugen;
+        std::unique_ptr<Project> project(mugen.openProject(engine.def, nullptr));
+        QVERIFY(project);
+        EmulatorSession session;
+        EmulatorSession::Options options;
+        options.engineDir = engine.dir.path();
+        options.training = true;
+        options.trainingOptions.control = TrainingOptions::Control::AI;
+        options.trainingOptions.aiLevel = 6;
+        QString error;
+        QVERIFY2(session.start(*project, options, &error), qPrintable(error));
+        QVERIFY(session.match().noKo());
+        QCOMPARE(session.fightScreen().callTime(), 0);
+        QCOMPARE(session.players()[1].character->aiLevel(), 6);
+        QCOMPARE(session.players()[0].character->aiLevel(), 0);
+        for (int i = 0; i < 40 && session.match().roundState() < 2; ++i)
+            session.tick({}, {});
+        QCOMPARE(session.match().roundState(), 2);
+        QCOMPARE(session.match().roundTime(), -1);
+        TrainingOptions cooperative;
+        session.setTrainingOptions(cooperative);
+        QCOMPARE(session.players()[1].character->aiLevel(), 0);
+        QCOMPARE(session.training().options().control, TrainingOptions::Control::Cooperative);
+    }
+
     void kungFuMan()
     {
         // Set OFS_EMULATOR_FRAME to save the frame for a look.

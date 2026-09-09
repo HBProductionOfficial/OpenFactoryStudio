@@ -7,6 +7,7 @@
 #include "core/sounds/SoundDocument.h"
 #include "core/sprites/SpriteDocument.h"
 #include "engines/mugen/emulator/FightScreen.h"
+#include "engines/mugen/emulator/Training.h"
 #include "engines/mugen/runtime/Character.h"
 #include "engines/mugen/runtime/CharacterData.h"
 
@@ -32,9 +33,10 @@ public:
     struct Options
     {
         QString engineDir;
-        int rounds = 0;           // 0: the engine's fight.def
-        int time = 0;             // in counts (0: the engine's mugen.cfg, -1: none)
+        int rounds = 0; // 0: the engine's fight.def
+        int time = 0;   // in counts (0: the engine's mugen.cfg, -1: none)
         bool training = false;
+        TrainingOptions trainingOptions;
         bool randomEnemy = false;
         std::uint32_t seed = 1;
     };
@@ -81,6 +83,8 @@ public:
     bool isStarted() const { return m_started; }
 
     void tick(const Runtime::InputState& p1, const Runtime::InputState& p2);
+    void setTrainingOptions(const TrainingOptions& options);
+    const Training& training() const { return m_training; }
 
     Runtime::Match& match() { return *m_match; }
     const Runtime::Match& match() const { return *m_match; }
@@ -120,6 +124,7 @@ private:
     QList<Effect> m_effects;
     std::shared_ptr<SoundDocument> m_commonSounds;
     FightScreen m_fightScreen;
+    Training m_training;
     QMap<std::tuple<const SoundDocument*, int, int>, std::shared_ptr<const AudioMixer::Sound>> m_soundCache;
     bool m_stereo = true;
     float m_panningWidth = 240;

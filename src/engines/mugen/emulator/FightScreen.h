@@ -148,6 +148,7 @@ public:
 
     bool load(const QString& engineDir);
     bool isLoaded() const { return m_loaded; }
+    void setSkipCalls(bool skip) { m_skipCalls = skip; }
     // round.time, then the engine's 60 ticks before the Fight call.
     int callTime() const;
 
@@ -180,6 +181,7 @@ private:
     bool over(const Element& e) const;
 
     bool m_loaded = false;
+    bool m_skipCalls = false;
     std::shared_ptr<SpriteDocument> m_sprites;
     std::shared_ptr<SoundDocument> m_soundFile;
     AirDocument m_animations;

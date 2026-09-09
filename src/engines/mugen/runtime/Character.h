@@ -126,6 +126,9 @@ public:
     int random(int max);
 
     bool isAsserted(const QString& flag) const;
+    void setNoKo(bool noKo) { m_noKo = noKo; }
+    bool noKo() const { return m_noKo; }
+    const Character* attackerNear(const Character* c) const;
     const QList<SoundEvent>& sounds() const { return m_sounds; }
     const QList<SpawnEvent>& spawns() const { return m_spawns; }
     void addSound(const SoundEvent& event) { m_sounds << event; }
@@ -186,6 +189,7 @@ private:
     const CharacterData* m_fightFx = nullptr;
     std::vector<std::unique_ptr<Character>> m_helpers;
 
+    bool m_noKo = false;
     bool m_roundActive = false;
     RoundSettings m_settings;
     int m_roundNo = 0;
@@ -297,6 +301,10 @@ public:
     int team() const { return m_team; }
     bool isPlayerType() const { return !m_isHelper || m_helperPlayerType; }
     float constant(const QString& name, float fallback) const;
+    void setLife(int life);
+    void setPower(int power);
+    void setAiLevel(int level) { m_aiLevel = level; }
+    int aiLevel() const { return (m_root ? m_root : this)->m_aiLevel; }
 
     void setPos(const QPointF& pos) { m_pos = Vec2{float(pos.x()), float(pos.y())}; }
     void setInput(const InputState& input) { m_input = input; }
@@ -379,6 +387,7 @@ private:
     AnimPlayer m_anim;
     int m_life = 1000;
     int m_power = 0;
+    int m_aiLevel = 0;
     int m_sprPriority = 0;
     std::array<std::int32_t, 60> m_vars{};
     std::array<float, 40> m_fvars{};

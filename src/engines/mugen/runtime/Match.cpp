@@ -256,6 +256,20 @@ bool Match::decideRound()
     return true;
 }
 
+const Character* Match::attackerNear(const Character* c) const
+{
+    for (const Character* other : std::as_const(m_characters)) {
+        if (other->m_team == c->m_team || other->m_destroyed || other->moveType() != QLatin1Char('A'))
+            continue;
+        const int guardDist = other->hitDef().active ? other->hitDef().guardDist : -1;
+        const float reach =
+            guardDist >= 0 ? float(guardDist) : other->data().constant(QStringLiteral("size.attack.dist"), 160);
+        if (std::abs(other->pos().x() - c->pos().x()) <= reach)
+            return other;
+    }
+    return nullptr;
+}
+
 WinType Match::winType() const
 {
     if (m_end == RoundEnd::TimeOver)
@@ -366,18 +380,8 @@ void Match::tick()
         m_pausePending = -1;
     }
     stepRound();
-    for (Character* c : std::as_const(m_characters)) {
-        bool near = false;
-        for (const Character* other : std::as_const(m_characters)) {
-            if (other->m_team == c->m_team || other->moveType() != QLatin1Char('A'))
-                continue;
-            const int guardDist = other->hitDef().active ? other->hitDef().guardDist : -1;
-            const float reach =
-                guardDist >= 0 ? float(guardDist) : other->data().constant(QStringLiteral("size.attack.dist"), 160);
-            near = near || std::abs(other->pos().x() - c->pos().x()) <= reach;
-        }
-        c->setInGuardDist(near);
-    }
+    for (Character* c : std::as_const(m_characters))
+        c->setInGuardDist(attackerNear(c) != nullptr);
     for (int i = 0; i < m_characters.size(); ++i) {
         if (!m_characters[i]->m_destroyed)
             m_characters[i]->runActions();

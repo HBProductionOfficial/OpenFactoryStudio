@@ -273,7 +273,9 @@ bool EmulatorSession::start(Project& project, const Options& options, QString* e
     loadFightFx(engineDir);
     loadCommonSounds(engineDir);
     m_fightScreen.load(engineDir);
+    m_fightScreen.setSkipCalls(options.training);
     m_fightScreen.reset();
+    m_training.reset(options.seed);
 
     m_match = std::make_unique<Match>(options.seed ? options.seed : 1);
     m_match->setBounds(m_stage.boundLeft - 160, m_stage.boundRight + 160);
@@ -281,8 +283,10 @@ bool EmulatorSession::start(Project& project, const Options& options, QString* e
         m_match->setFightFx(m_fightFx.get());
     p1.character = std::make_unique<Character>(*p1.data, m_match.get());
     p2.character = std::make_unique<Character>(*p2.data, m_match.get());
+    m_match->setNoKo(options.training);
     m_players.push_back(std::move(p1));
     m_players.push_back(std::move(p2));
+    setTrainingOptions(options.trainingOptions);
     m_match->startMatch(roundSettings(options));
     m_started = true;
     return true;
@@ -369,6 +373,16 @@ void EmulatorSession::playSounds(AudioMixer& mixer)
     }
 }
 
+void EmulatorSession::setTrainingOptions(const TrainingOptions& options)
+{
+    m_options.trainingOptions = options;
+    m_training.setOptions(options);
+    if (m_players.size() > 1 && m_players[1].character) {
+        const bool ai = m_options.training && options.control == TrainingOptions::Control::AI;
+        m_players[1].character->setAiLevel(ai ? std::clamp(options.aiLevel, 1, 8) : 0);
+    }
+}
+
 std::array<FightScreen::Side, 2> EmulatorSession::sides() const
 {
     std::array<FightScreen::Side, 2> out;
@@ -385,8 +399,13 @@ void EmulatorSession::tick(const InputState& p1, const InputState& p2)
     if (!m_started)
         return;
     m_players[0].character->setInput(p1);
-    m_players[1].character->setInput(p2);
+    m_players[1].character->setInput(m_options.training ? m_training.dummyInput(*m_match, *m_players[1].character, p2)
+                                                        : p2);
     m_match->tick();
+    if (m_options.training) {
+        for (int side = 0; side < 2; ++side)
+            m_training.refill(*m_match, *m_players[std::size_t(side)].character, side);
+    }
     m_fightScreen.step(*m_match, sides());
     if (m_stage.simulator)
         m_stage.simulator->step();

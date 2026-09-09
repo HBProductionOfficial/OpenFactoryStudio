@@ -56,6 +56,16 @@ float Character::constant(const QString& name, float fallback) const
     return it != m_constants.cend() ? *it : m_data.constant(name, fallback);
 }
 
+void Character::setLife(int life)
+{
+    m_life = std::clamp(life, 0, int(m_data.constant(QStringLiteral("data.life"), 1000)));
+}
+
+void Character::setPower(int power)
+{
+    powerOwner()->m_power = std::clamp(power, 0, int(m_data.constant(QStringLiteral("data.power"), 3000)));
+}
+
 void Character::resetForRound(Vec2 pos, int facing, bool firstRound)
 {
     m_pos = pos;
@@ -436,7 +446,7 @@ void Character::runActions()
         changeState(120);
 
     if (!paused && !m_ko && m_life <= 0 && !m_asserted.contains(QStringLiteral("noko")) &&
-        !(m_match && m_match->isAsserted(QStringLiteral("globalnoko")))) {
+        !(m_match && (m_match->noKo() || m_match->isAsserted(QStringLiteral("globalnoko"))))) {
         if (m_match && !m_match->isAsserted(QStringLiteral("nokosnd"))) {
             SoundEvent scream;
             scream.playerId = m_id;

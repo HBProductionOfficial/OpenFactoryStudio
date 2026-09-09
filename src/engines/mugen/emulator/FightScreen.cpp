@@ -113,7 +113,7 @@ const FightScreen::Font* FightScreen::font(int number) const
 
 int FightScreen::callTime() const
 {
-    return m_loaded ? m_roundTime + CallFightTime : 0;
+    return m_loaded && !m_skipCalls ? m_roundTime + CallFightTime : 0;
 }
 
 FightScreen::Element FightScreen::readElement(const IniSection* section, const QString& prefix) const
@@ -476,6 +476,8 @@ void FightScreen::step(const Match& match, const std::array<Side, 2>& sides)
         m_roundPhase = m_fightPhase = m_koPhase = m_winPhase = 0;
         return;
     }
+    if (m_skipCalls)
+        m_roundPhase = m_fightPhase = 2;
     if (m_roundPhase < 2) {
         const int round = match.roundNo();
         Element& shown = round >= 1 && round <= m_rounds.size() ? m_rounds[round - 1] : m_roundDefault;

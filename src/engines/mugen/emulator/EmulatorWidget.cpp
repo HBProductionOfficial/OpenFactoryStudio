@@ -91,18 +91,34 @@ void EmulatorWidget::bindPanel(QWidget* panel)
     m_time = panel->findChild<QSpinBox*>(QStringLiteral("emul_time"));
     m_debugInfo = panel->findChild<QCheckBox*>(QStringLiteral("emul_debug_info"));
     m_training = panel->findChild<QGroupBox*>(QStringLiteral("emul_training"));
+    m_dummyCtrl = panel->findChild<QComboBox*>(QStringLiteral("emul_dummy_ctrl"));
+    m_dummyMode = panel->findChild<QComboBox*>(QStringLiteral("emul_dummy_mode"));
+    m_guardMode = panel->findChild<QComboBox*>(QStringLiteral("emul_guard_mode"));
+    m_distance = panel->findChild<QComboBox*>(QStringLiteral("emul_distance"));
+    m_buttonJam = panel->findChild<QComboBox*>(QStringLiteral("emul_button_jam"));
+    m_aiLevel = panel->findChild<QSpinBox*>(QStringLiteral("emul_ai_level"));
     fill(m_mode, {tr("Versus"), tr("Training")});
     fill(m_enemy, {tr("Self"), tr("Random")});
     fill(panel->findChild<QComboBox*>(QStringLiteral("emul_explod_mode")),
          {tr("Engine's default"), tr("M.U.G.E.N. 1.0"), tr("M.U.G.E.N. 1.1"), tr("MUGENext"), tr("Player's version")});
-    fill(panel->findChild<QComboBox*>(QStringLiteral("emul_dummy_ctrl")), {tr("Cooperative"), tr("AI"), tr("Manual")});
-    fill(panel->findChild<QComboBox*>(QStringLiteral("emul_dummy_mode")),
-         {tr("Stand"), tr("Crouch"), tr("Jump"), tr("W Jump")});
-    fill(panel->findChild<QComboBox*>(QStringLiteral("emul_guard_mode")), {tr("None"), tr("Auto")});
-    fill(panel->findChild<QComboBox*>(QStringLiteral("emul_distance")),
-         {tr("Any"), tr("Close"), tr("Medium"), tr("Far")});
-    fill(panel->findChild<QComboBox*>(QStringLiteral("emul_button_jam")),
-         {tr("None"), tr("A"), tr("B"), tr("C"), tr("X"), tr("Y"), tr("Z"), tr("Start")});
+    fill(m_dummyCtrl, {tr("Cooperative"), tr("AI"), tr("Manual")});
+    fill(m_dummyMode, {tr("Stand"), tr("Crouch"), tr("Jump"), tr("W Jump")});
+    fill(m_guardMode, {tr("None"), tr("Auto")});
+    fill(m_distance, {tr("Any"), tr("Close"), tr("Medium"), tr("Far")});
+    fill(m_buttonJam, {tr("None"), tr("A"), tr("B"), tr("C"), tr("X"), tr("Y"), tr("Z"), tr("Start")});
+    if (m_aiLevel && m_aiLevel->value() == 0)
+        m_aiLevel->setValue(4);
+    auto applyTraining = [this] {
+        if (m_session.isStarted())
+            m_session.setTrainingOptions(trainingOptions());
+    };
+    for (QComboBox* combo :
+         {m_dummyCtrl.data(), m_dummyMode.data(), m_guardMode.data(), m_distance.data(), m_buttonJam.data()}) {
+        if (combo)
+            connect(combo, &QComboBox::currentIndexChanged, this, applyTraining);
+    }
+    if (m_aiLevel)
+        connect(m_aiLevel, &QSpinBox::valueChanged, this, applyTraining);
     fill(panel->findChild<QComboBox*>(QStringLiteral("emul_screen")),
          {tr("Menu"), tr("Versus"), tr("Continue"), tr("Victory"), tr("Win"), tr("Survival Results")});
     if (auto* edit = qobject_cast<QLineEdit*>(m_engine.data())) {
@@ -121,6 +137,21 @@ void EmulatorWidget::bindPanel(QWidget* panel)
     if (m_mode)
         connect(m_mode, &QComboBox::currentIndexChanged, this, &EmulatorWidget::updateTraining);
     updateTraining();
+}
+
+TrainingOptions EmulatorWidget::trainingOptions() const
+{
+    TrainingOptions o;
+    auto index = [](const QPointer<QComboBox>& combo) {
+        return combo ? std::max(0, combo->currentIndex()) : 0;
+    };
+    o.control = TrainingOptions::Control(std::min(index(m_dummyCtrl), 2));
+    o.mode = TrainingOptions::Mode(std::min(index(m_dummyMode), 3));
+    o.guard = TrainingOptions::Guard(std::min(index(m_guardMode), 1));
+    o.distance = TrainingOptions::Distance(std::min(index(m_distance), 3));
+    o.buttonJam = std::min(index(m_buttonJam), 7);
+    o.aiLevel = m_aiLevel ? std::clamp(m_aiLevel->value(), 1, 8) : 4;
+    return o;
 }
 
 void EmulatorWidget::updateTraining()
@@ -152,6 +183,7 @@ bool EmulatorWidget::start()
     EmulatorSession::Options options;
     options.engineDir = m_engineDir;
     options.training = m_mode && m_mode->currentIndex() == 1;
+    options.trainingOptions = trainingOptions();
     options.randomEnemy = m_enemy && m_enemy->currentIndex() == 1;
     options.rounds = m_rounds ? m_rounds->value() : 0;
     options.time = m_time ? m_time->value() : 0;
