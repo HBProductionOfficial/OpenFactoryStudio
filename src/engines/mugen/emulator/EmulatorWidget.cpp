@@ -190,8 +190,8 @@ bool EmulatorWidget::start()
         return true;
     }
     m_error.clear();
-    if (m_project.typeId() != QLatin1String("char")) {
-        m_error = tr("The emulator runs character projects.");
+    if (!EmulatorSession::canPlay(m_project.typeId())) {
+        m_error = tr("The emulator runs character, stage and fight screen projects.");
         return false;
     }
     EmulatorSession::Options options;

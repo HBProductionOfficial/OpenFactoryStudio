@@ -15,6 +15,7 @@
 #include <QString>
 
 #include <array>
+#include <functional>
 #include <memory>
 #include <optional>
 
@@ -146,7 +147,8 @@ public:
     FightScreen();
     ~FightScreen();
 
-    bool load(const QString& engineDir);
+    bool load(const QString& engineDir, const QString& fightDef = QString(),
+              const std::function<QString(const QString&)>& text = {});
     bool isLoaded() const { return m_loaded; }
     void setSkipCalls(bool skip) { m_skipCalls = skip; }
     // round.time, then the engine's 60 ticks before the Fight call.

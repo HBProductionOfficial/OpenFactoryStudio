@@ -45,7 +45,7 @@ private Q_SLOTS:
         CodeFile* states = project->codeFile(dir.filePath("w.cns"), "states", &error);
         QVERIFY(commands && states);
         QSignalSpy changed(&watcher, &ProjectWatcher::fileChanged);
-        QTest::qWait(300);
+        QTest::qWait(1000); // the system's watching starts a moment after a file is added (later under load)
 
         writeFile(dir.filePath("w.cmd"), "; changed elsewhere\n");
         QTRY_COMPARE(changed.count(), 1);
@@ -68,7 +68,7 @@ private Q_SLOTS:
         QTest::qWait(400);
         QCOMPARE(changed.count(), 3);
         watcher.setEnabled(true);
-        QTest::qWait(400);
+        QTest::qWait(1000);
         QCOMPARE(changed.count(), 3);
         writeFile(dir.filePath("w.cmd"), "; on again\n");
         QTRY_COMPARE(changed.count(), 4);

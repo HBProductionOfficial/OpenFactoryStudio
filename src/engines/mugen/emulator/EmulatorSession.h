@@ -73,7 +73,7 @@ public:
         QString path;
         BgDocument bg;
         std::unique_ptr<BgSimulator> simulator;
-        std::shared_ptr<SpriteDocument> sprites;
+        std::shared_ptr<const SpriteDocument> sprites;
         AirDocument animations;
         float zoffset = 200;
         float boundLeft = -150;
@@ -114,6 +114,9 @@ public:
     static QString engineFolderOf(const QString& projectFile);
     // stages/stage0.def, else the first stage of the engine folder.
     static QString defaultStage(const QString& engineDir);
+    // chars/kfm, else the first one.
+    static QString defaultCharacter(const QString& engineDir);
+    static bool canPlay(const QString& projectType);
     static bool isMugen11Engine(const QString& engineDir);
     static Runtime::ExplodRules explodRules(int explodMode, const QString& engineDir);
 
@@ -124,9 +127,12 @@ private:
     void loadFightFx(const QString& engineDir);
     void loadCommonSounds(const QString& engineDir);
     Runtime::RoundSettings roundSettings(const Options& options) const;
+    QString textOf(const QString& path) const;
 
     bool m_started = false;
     Options m_options;
+    Project* m_project = nullptr;
+    QString m_fightDef;
     std::unique_ptr<Runtime::Match> m_match;
     std::vector<Player> m_players;
     Stage m_stage;

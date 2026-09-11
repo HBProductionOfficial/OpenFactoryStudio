@@ -179,10 +179,11 @@ FightScreen::Bar FightScreen::readBar(const IniSection* section, const QString& 
     return bar;
 }
 
-bool FightScreen::load(const QString& engineDir)
+bool FightScreen::load(const QString& engineDir, const QString& fightDef,
+                       const std::function<QString(const QString&)>& source)
 {
     *this = FightScreen();
-    const QString def = QDir(engineDir).filePath(QStringLiteral("data/fight.def"));
+    const QString def = fightDef.isEmpty() ? QDir(engineDir).filePath(QStringLiteral("data/fight.def")) : fightDef;
     if (!QFileInfo(def).isFile())
         return false;
     const QString dataDir = QFileInfo(def).path();
@@ -198,7 +199,7 @@ bool FightScreen::load(const QString& engineDir)
         return QString();
     };
 
-    const QString text = readText(def);
+    const QString text = source ? source(def) : readText(def);
     const IniText ini = IniText::parse(text);
     m_animations = AirDocument::parse(text);
     if (const IniSection* files = ini.section(QStringLiteral("Files"))) {

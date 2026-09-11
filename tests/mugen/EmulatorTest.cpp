@@ -731,6 +731,56 @@ private Q_SLOTS:
         QVERIFY(!watch);
     }
 
+    void otherProjects()
+    {
+        EngineFolder engine;
+        writeFile(engine.dir.filePath("data/fight.def"),
+                  "[Lifebar]\np1.pos = 140,12\n[Round]\nmatch.wins = 1\nstart.waittime = 3\nctrl.time = 3\n");
+        QCOMPARE(QFileInfo(EmulatorSession::defaultCharacter(engine.dir.path())).fileName(),
+                 QStringLiteral("test.def"));
+        QVERIFY(EmulatorSession::canPlay("stage"));
+        QVERIFY(!EmulatorSession::canPlay("storyboard"));
+        MugenEngine mugen;
+        QString error;
+
+        const QString stageDef = QDir::cleanPath(engine.dir.filePath("stages/stage0.def"));
+        std::unique_ptr<Project> stage(mugen.openProject(stageDef, &error));
+        QVERIFY2(stage, qPrintable(error));
+        QCOMPARE(stage->typeId(), QStringLiteral("stage"));
+        CodeFile* stageText = stage->codeFile(stageDef, "definitions");
+        QVERIFY(stageText);
+        QTextCursor cursor(stageText->document());
+        cursor.select(QTextCursor::Document);
+        cursor.insertText("[StageInfo]\nzoffset = 180\n[Camera]\nboundleft = -100\nboundright = 100\n"
+                          "[PlayerInfo]\np1startx = -30\np2startx = 30\n[BGdef]\nspr = stage0.sff\n");
+        EmulatorSession session;
+        EmulatorSession::Options options;
+        options.engineDir = engine.dir.path();
+        QVERIFY2(session.start(*stage, options, &error), qPrintable(error));
+        QCOMPARE(session.players()[0].name, QStringLiteral("Tester"));
+        QCOMPARE(session.stage().zoffset, 180.f);
+        QCOMPARE(session.stage().path, stageDef);
+
+        const QString fightDef = QDir::cleanPath(engine.dir.filePath("data/fight.def"));
+        std::unique_ptr<Project> fight(mugen.openProject(fightDef, &error));
+        QVERIFY2(fight, qPrintable(error));
+        QCOMPARE(fight->typeId(), QStringLiteral("fight"));
+        CodeFile* fightText = fight->codeFile(fightDef, "definitions");
+        QVERIFY(fightText);
+        QTextCursor fightCursor(fightText->document());
+        fightCursor.select(QTextCursor::Document);
+        fightCursor.insertText("[Lifebar]\np1.pos = 140,12\n[Round]\nmatch.wins = 1\nstart.waittime = 3\n"
+                               "ctrl.time = 3\nround.time = 10\n");
+        EmulatorSession fighting;
+        QVERIFY2(fighting.start(*fight, options, &error), qPrintable(error));
+        QCOMPARE(fighting.fightScreen().callTime(), 70);
+
+        AppContext context;
+        EmulatorWidget emulator(*stage, context);
+        QVERIFY2(emulator.start(), qPrintable(emulator.lastError()));
+        emulator.stop();
+    }
+
     void kungFuMan()
     {
         // Set OFS_EMULATOR_FRAME to save the frame for a look.

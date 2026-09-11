@@ -109,9 +109,38 @@ QString EmulatorSession::defaultStage(const QString& engineDir)
     return stages.isEmpty() ? QString() : stages.first().absoluteFilePath();
 }
 
+QString EmulatorSession::defaultCharacter(const QString& engineDir)
+{
+    const QString preferred = QDir(engineDir).filePath(QStringLiteral("chars/kfm/kfm.def"));
+    if (QFileInfo(preferred).isFile())
+        return preferred;
+    QStringList defs;
+    QDirIterator it(QDir(engineDir).filePath(QStringLiteral("chars")), {QStringLiteral("*.def")}, QDir::Files,
+                    QDirIterator::Subdirectories);
+    while (it.hasNext())
+        defs << it.next();
+    std::sort(defs.begin(), defs.end());
+    return defs.value(0);
+}
+
+bool EmulatorSession::canPlay(const QString& projectType)
+{
+    return projectType == QLatin1String("char") || projectType == QLatin1String("stage") ||
+           projectType == QLatin1String("fight");
+}
+
+QString EmulatorSession::textOf(const QString& path) const
+{
+    if (m_project) {
+        if (auto* code = qobject_cast<CodeFile*>(m_project->file(path)))
+            return code->document()->toPlainText();
+    }
+    return readText(path);
+}
+
 bool EmulatorSession::loadStage(const QString& path, const QString& engineDir, QString* error)
 {
-    const QString text = readText(path);
+    const QString text = textOf(path);
     if (text.isEmpty()) {
         if (error)
             *error = QStringLiteral("cannot read the stage %1").arg(QDir::toNativeSeparators(path));
@@ -132,7 +161,10 @@ bool EmulatorSession::loadStage(const QString& path, const QString& engineDir, Q
     const IniSection* bgdef = ini.section(QStringLiteral("BGdef"));
     if (bgdef) {
         const QString sff = resolve(bgdef->value(QStringLiteral("spr")), folder, engineDir);
-        if (!sff.isEmpty())
+        if (auto* file = m_project ? qobject_cast<SpriteFile*>(m_project->file(sff)) : nullptr)
+            m_stage.sprites =
+                std::shared_ptr<const SpriteDocument>(std::shared_ptr<const SpriteDocument>(), &file->document());
+        else if (!sff.isEmpty())
             m_stage.sprites = loadSprites(sff);
     }
     const int group = m_stage.bg.indexOf(QStringLiteral("BG"));
@@ -173,7 +205,7 @@ RoundSettings EmulatorSession::roundSettings(const Options& options) const
 {
     RoundSettings settings;
     const QString dir = options.engineDir;
-    const IniText fight = IniText::parse(readText(QDir(dir).filePath(QStringLiteral("data/fight.def"))));
+    const IniText fight = IniText::parse(textOf(m_fightDef));
     const IniText config = IniText::parse(readText(QDir(dir).filePath(QStringLiteral("data/mugen.cfg"))));
     const IniSection* round = fight.section(QStringLiteral("Round"));
     settings.wins = int(number(round, "match.wins", 2));
@@ -205,12 +237,22 @@ bool EmulatorSession::start(Project& project, const Options& options, QString* e
     m_players.clear();
     m_effects.clear();
     m_soundCache.clear();
+    m_project = &project;
     const QString engineDir = options.engineDir;
     if (engineDir.isEmpty() || !QFileInfo(QDir(engineDir).filePath(QStringLiteral("data/common1.cns"))).isFile()) {
         if (error)
             *error = QStringLiteral("Choose the engine directory: a M.U.G.E.N folder (with data/common1.cns).");
         return false;
     }
+    const QString type = project.typeId();
+    const QString character = type == QLatin1String("char") ? project.filePath() : defaultCharacter(engineDir);
+    if (character.isEmpty()) {
+        if (error)
+            *error = QStringLiteral("The engine directory has no character to play.");
+        return false;
+    }
+    m_fightDef = type == QLatin1String("fight") ? project.filePath()
+                                                : QDir(engineDir).filePath(QStringLiteral("data/fight.def"));
 
     auto data = std::make_shared<CharacterData>();
     Project* source = &project;
@@ -220,7 +262,7 @@ bool EmulatorSession::start(Project& project, const Options& options, QString* e
         return std::nullopt;
     });
     QString loadError;
-    if (!data->load(project.filePath(), engineDir, &loadError)) {
+    if (!data->load(character, engineDir, &loadError)) {
         if (error)
             *error = loadError;
         return false;
@@ -269,7 +311,7 @@ bool EmulatorSession::start(Project& project, const Options& options, QString* e
         }
     }
 
-    const QString stage = defaultStage(engineDir);
+    const QString stage = type == QLatin1String("stage") ? project.filePath() : defaultStage(engineDir);
     if (stage.isEmpty() || !loadStage(stage, engineDir, error)) {
         if (error && error->isEmpty())
             *error = QStringLiteral("The engine directory has no stage.");
@@ -277,7 +319,7 @@ bool EmulatorSession::start(Project& project, const Options& options, QString* e
     }
     loadFightFx(engineDir);
     loadCommonSounds(engineDir);
-    m_fightScreen.load(engineDir);
+    m_fightScreen.load(engineDir, m_fightDef, [this](const QString& path) { return textOf(path); });
     m_fightScreen.setSkipCalls(options.training);
     m_fightScreen.reset();
     m_training.reset(options.seed);
