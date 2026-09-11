@@ -147,7 +147,9 @@ public:
     EnvColor& envColor() { return m_envColor; }
     const EnvColor& envColor() const { return m_envColor; }
     PalFx& allPalFx() { return m_allPalFx; }
+    const PalFx& allPalFx() const { return m_allPalFx; }
     PalFx& bgPalFx() { return m_bgPalFx; }
+    const PalFx& bgPalFx() const { return m_bgPalFx; }
 
     // A new pause starts on the next tick.
     int superPauseTime() const { return m_superTime; }
@@ -255,6 +257,7 @@ public:
     const QList<Character*>& targets() const { return m_targets; }
 
     const DrawState& draw() const { return m_draw; }
+    const QList<AfterImageFrame>& afterImages() const { return m_afterImages; }
     bool isAsserted(const QString& flag) const { return m_asserted.contains(flag); }
     bool screenBound() const { return m_screenBound; }
     bool movesCamera() const { return m_moveCamera[0]; }
@@ -470,6 +473,8 @@ private:
     float m_superDefenceMul = 1;
     float m_superDefenceMulNext = 1;
     QList<Explod> m_explods;
+    QList<AfterImageFrame> m_afterImages;
+    int m_afterImageTicks = 0;
     bool m_wasHit = false;
     QList<Projectile> m_projectiles;
     ProjContactKind m_projContact = ProjContactKind::Hit;

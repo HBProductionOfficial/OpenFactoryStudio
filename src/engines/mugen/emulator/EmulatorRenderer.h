@@ -20,6 +20,7 @@ namespace OFS::Mugen {
 
 class EmulatorSession;
 
+// Draws the Emulator's match like the engine shows it on its 320x240 screen.
 class EmulatorRenderer
 {
 public:
@@ -38,11 +39,22 @@ private:
         QImage image;
         QPoint axis;
     };
-    const Sprite* sprite(const SpriteDocument* sprites, int group, int number);
-    void drawHud(QPainter& p, const QList<FightScreen::Item>& items);
+    struct SpriteKey
+    {
+        int group = 0;
+        int number = 0;
+        const Formats::Palette* palette = nullptr;
+        bool operator==(const SpriteKey&) const = default;
+        friend size_t qHash(const SpriteKey& k, size_t seed = 0)
+        {
+            return qHashMulti(seed, k.group, k.number, k.palette);
+        }
+    };
+    const Sprite* sprite(const SpriteDocument* sprites, int group, int number,
+                         const Formats::Palette* palette = nullptr);
     const QImage& fontImage(const FightScreen::Font& font, int bank);
 
-    QHash<const SpriteDocument*, QHash<qint64, Sprite>> m_cache;
+    QHash<const SpriteDocument*, QHash<SpriteKey, Sprite>> m_cache;
     QHash<QPair<const FightScreen::Font*, int>, QImage> m_fonts;
     std::unique_ptr<BgRenderer> m_stage;
     const void* m_stageKey = nullptr;

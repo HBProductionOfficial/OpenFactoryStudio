@@ -390,7 +390,7 @@ private Q_SLOTS:
         QCOMPARE(f.match.sounds().size(), 1);
         QVERIFY(f.match.sounds().at(0).common);
         QCOMPARE(f.match.sounds().at(0).group, 5);
-        QCOMPARE(f.match.envShake().time, 6);
+        QCOMPARE(f.match.envShake().time, 7);
         QCOMPARE(f.b.draw().palFx.add[0], 50);
         QCOMPARE(f.a.sprPriority(), 3);
         QCOMPARE(f.b.sprPriority(), 0);

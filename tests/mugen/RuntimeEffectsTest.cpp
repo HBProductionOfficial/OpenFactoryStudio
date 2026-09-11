@@ -263,8 +263,9 @@ private Q_SLOTS:
         QCOMPARE(c.draw().offset.x, 0.f);
         QVERIFY(!c.draw().angleDraw);
         QCOMPARE(c.draw().angle, 45.f);
-        QVERIFY(!c.draw().palFx.active());
+        QVERIFY(c.draw().palFx.active());
         match.tick();
+        QVERIFY(!c.draw().palFx.active());
         QCOMPARE(c.draw().trans, QStringLiteral("add1"));
         QCOMPARE(c.draw().alpha[1], 128);
     }
@@ -303,7 +304,7 @@ private Q_SLOTS:
         c.setPos({100, 0});
         c.start(0);
         match.tick();
-        QCOMPARE(match.envShake().time, 4);
+        QCOMPARE(match.envShake().time, 5);
         QCOMPARE(match.envShake().phase, 90.f);
         QCOMPARE(match.envColor().color[1], 0);
         QCOMPARE(match.spawns().size(), 2);

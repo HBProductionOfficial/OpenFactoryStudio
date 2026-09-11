@@ -222,6 +222,11 @@ bool CharacterData::load(const QString& defPath, const QString& engineDir, QStri
         setAnimations(read(anim));
     m_spriteFile = resolve(files->value(QStringLiteral("sprite")));
     m_soundFile = files->has(QStringLiteral("sound")) ? resolve(files->value(QStringLiteral("sound"))) : QString();
+    m_paletteFiles.clear();
+    for (int i = 1; i <= 12; ++i) {
+        const QString key = QStringLiteral("pal%1").arg(i);
+        m_paletteFiles << (files->has(key) ? resolve(files->value(key)) : QString());
+    }
     return true;
 }
 

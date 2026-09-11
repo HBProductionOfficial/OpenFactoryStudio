@@ -367,6 +367,15 @@ void Match::tick()
 {
     m_sounds.clear();
     m_spawns.clear();
+    // Screen and palette effects count their time in frames shown, so last tick's run down now.
+    if (m_envShake.time > 0)
+        --m_envShake.time;
+    if (m_envColor.time > 0)
+        --m_envColor.time;
+    m_allPalFx.tick();
+    m_bgPalFx.tick();
+    for (Character* c : std::as_const(m_characters))
+        c->m_draw.palFx.tick();
     if (m_superTime > 0)
         --m_superTime;
     else if (m_pauseTime > 0)
@@ -444,12 +453,6 @@ void Match::tick()
     for (Character* c : std::as_const(m_characters))
         c->updateExplods();
     removeDestroyed();
-    if (m_envShake.time > 0)
-        --m_envShake.time;
-    if (m_envColor.time > 0)
-        --m_envColor.time;
-    m_allPalFx.tick();
-    m_bgPalFx.tick();
     ++m_time;
 }
 

@@ -5,6 +5,7 @@
 #include "core/sounds/SoundFile.h"
 #include "core/sprites/SpriteFile.h"
 #include "engines/mugen/runtime/IniText.h"
+#include "formats/palette/PaletteFormats.h"
 #include "formats/sff/SffDocument.h"
 #include "formats/snd/SndDocument.h"
 
@@ -239,7 +240,10 @@ bool EmulatorSession::start(Project& project, const Options& options, QString* e
     Player p2;
     p2.data = data;
     p2.sprites = p1.sprites;
+    loadPalettes(p1);
     p2.ownSprites = p1.ownSprites;
+    p2.acts = p1.acts;
+    p2.shared = p1.shared;
     p2.sounds = p1.sounds;
     p2.ownSounds = p1.ownSounds;
     p2.name = p1.name;
@@ -259,6 +263,7 @@ bool EmulatorSession::start(Project& project, const Options& options, QString* e
                 p2.sprites = p2.ownSprites.get();
                 p2.ownSounds = loadSounds(other->soundFile());
                 p2.sounds = p2.ownSounds.get();
+                loadPalettes(p2);
                 p2.name = other->displayName();
             }
         }
@@ -316,14 +321,74 @@ ExplodRules EmulatorSession::explodRules(int explodMode, const QString& engineDi
     }
 }
 
-const SpriteDocument* EmulatorSession::spritesOf(const Character& character) const
+const EmulatorSession::Player* EmulatorSession::playerOf(const Character& character) const
 {
     const Character* player = character.root() ? character.root() : &character;
     for (const Player& p : m_players) {
         if (p.character.get() == player)
-            return p.sprites;
+            return &p;
     }
     return nullptr;
+}
+
+const SpriteDocument* EmulatorSession::spritesOf(const Character& character) const
+{
+    const Player* p = playerOf(character);
+    return p ? p->sprites : nullptr;
+}
+
+void EmulatorSession::loadPalettes(Player& player)
+{
+    // MUGEN draws the sprites of an SFF v1 character that share its palette with the chosen palette file
+    // (pal1 here). The others keep their own.
+    player.acts = {};
+    player.shared.clear();
+    if (!player.sprites || player.sprites->version() != Formats::SffVersion::V1 || !player.data)
+        return;
+    const QStringList& files = player.data->paletteFiles();
+    for (int i = 0; i < files.size() && i < 12; ++i) {
+        QFile file(files[i]);
+        if (files[i].isEmpty() || !file.open(QIODevice::ReadOnly))
+            continue;
+        const QByteArray data = file.readAll();
+        auto act = Formats::readAct(
+            Formats::ByteSpan(reinterpret_cast<const std::byte*>(data.constData()), std::size_t(data.size())),
+            Formats::ActOrder::Reversed);
+        if (act)
+            player.acts[std::size_t(i)] = std::make_shared<const Formats::Palette>(std::move(act.value()));
+    }
+    for (const SpriteEntry& entry : player.sprites->sprites()) {
+        if (entry.header.samePalette && entry.palette)
+            player.shared.insert(entry.palette.get());
+    }
+}
+
+const Formats::Palette* EmulatorSession::paletteOf(const Character& character, int group, int number) const
+{
+    const Player* p = playerOf(character);
+    const SpriteDocument* sprites = p ? p->sprites : nullptr;
+    const int index = sprites ? sprites->findSprite(group, number) : -1;
+    if (index < 0)
+        return nullptr;
+    const SpriteEntry& entry = sprites->sprites()[index];
+    const bool v1 = sprites->version() == Formats::SffVersion::V1;
+    const bool act = v1 && p->acts[0] && p->shared.contains(entry.palette.get());
+    QPair<int, int> id;
+    if (act)
+        id = {1, 1};
+    else if (entry.palette)
+        id = {entry.palette->palette.group, entry.palette->palette.number};
+    else
+        return nullptr;
+    const QPair<int, int> shown = character.draw().remap.value(id, id);
+    if (shown == id && !act)
+        return nullptr;
+    if (v1 && shown.first == 1 && shown.second >= 1 && shown.second <= 12 && p->acts[std::size_t(shown.second - 1)])
+        return p->acts[std::size_t(shown.second - 1)].get();
+    const int palette = sprites->findPalette(shown.first, shown.second);
+    if (palette >= 0)
+        return &sprites->palettes()[palette]->palette.colors;
+    return act ? p->acts[0].get() : nullptr;
 }
 
 std::shared_ptr<const AudioMixer::Sound> EmulatorSession::sound(int playerId, bool common, int group, int index)

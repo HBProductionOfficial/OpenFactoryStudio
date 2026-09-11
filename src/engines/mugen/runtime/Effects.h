@@ -8,6 +8,8 @@
 
 namespace OFS::Mugen::Runtime {
 
+class CharacterData;
+
 // Positions and velocities in single precision, as the engine keeps them.
 struct Vec2
 {
@@ -51,6 +53,18 @@ struct AfterImage
     std::array<int, 3> palPostBright{0, 0, 0};
     std::array<int, 3> palAdd{10, 10, 25};
     std::array<float, 3> palMul{0.65f, 0.65f, 0.75f};
+};
+
+struct AfterImageFrame
+{
+    Vec2 pos;
+    const CharacterData* animData = nullptr;
+    int animNo = 0;
+    int frame = 0;
+    int facing = 1;
+    bool angleDraw = false;
+    float angle = 0;
+    Vec2 angleScale{1, 1};
 };
 
 struct DrawState

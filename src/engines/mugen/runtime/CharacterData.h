@@ -84,6 +84,7 @@ public:
     int localCoordWidth() const { return m_localCoordWidth; }
     QString spriteFile() const { return m_spriteFile; }
     QString soundFile() const { return m_soundFile; }
+    const QStringList& paletteFiles() const { return m_paletteFiles; }
 
     // Constants are named as Const() reads them: "data.life", "size.head.pos.x", "velocity.jump.neu.y"
     // (also "velocity.jump.y").
@@ -115,6 +116,7 @@ private:
     int m_localCoordWidth = 320;
     QString m_spriteFile;
     QString m_soundFile;
+    QStringList m_paletteFiles;
     QHash<QString, float> m_constants;
     AirDocument m_animations;
     CommandList m_commands;

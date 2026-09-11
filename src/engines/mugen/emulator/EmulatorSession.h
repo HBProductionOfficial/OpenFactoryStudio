@@ -13,6 +13,7 @@
 
 #include <QList>
 #include <QMap>
+#include <QSet>
 #include <QString>
 
 #include <memory>
@@ -51,6 +52,9 @@ public:
         std::shared_ptr<SpriteDocument> ownSprites;
         const SoundDocument* sounds = nullptr;
         std::shared_ptr<SoundDocument> ownSounds;
+        // SFF v1: the pal1 to pal12 palettes, and the sprite palettes they replace.
+        std::array<std::shared_ptr<const Formats::Palette>, 12> acts;
+        QSet<const SpritePalette*> shared;
         QString name;
     };
 
@@ -96,6 +100,7 @@ public:
     const Runtime::CharacterData* fightFx() const { return m_fightFx.get(); }
     const SpriteDocument* fightFxSprites() const { return m_fightFxSprites.get(); }
     const SpriteDocument* spritesOf(const Runtime::Character& character) const;
+    const Formats::Palette* paletteOf(const Runtime::Character& character, int group, int number) const;
     std::shared_ptr<const AudioMixer::Sound> sound(int playerId, bool common, int group, int index);
     const SoundDocument* commonSounds() const { return m_commonSounds.get(); }
     std::shared_ptr<const AudioMixer::Sound> soundFrom(const SoundDocument* doc, int group, int index);
@@ -114,6 +119,8 @@ public:
 
 private:
     bool loadStage(const QString& path, const QString& engineDir, QString* error);
+    static void loadPalettes(Player& player);
+    const Player* playerOf(const Runtime::Character& character) const;
     void loadFightFx(const QString& engineDir);
     void loadCommonSounds(const QString& engineDir);
     Runtime::RoundSettings roundSettings(const Options& options) const;

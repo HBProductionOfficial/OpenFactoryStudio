@@ -1,12 +1,14 @@
 #include "core/app/AppContext.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
+#include "core/sprites/SpriteEdits.h"
 #include "engines/mugen/MugenEngine.h"
 #include "engines/mugen/emulator/EmulatorRenderer.h"
 #include "engines/mugen/emulator/EmulatorSession.h"
 #include "engines/mugen/emulator/EmulatorWidget.h"
 #include "fixtures/FixtureFactory.h"
 #include "formats/codecs/Pcx.h"
+#include "formats/palette/PaletteFormats.h"
 
 #include <QDir>
 #include <QFile>
@@ -405,6 +407,107 @@ private Q_SLOTS:
         session.setTrainingOptions(cooperative);
         QCOMPARE(session.players()[1].character->aiLevel(), 0);
         QCOMPARE(session.training().options().control, TrainingOptions::Control::Cooperative);
+    }
+
+    void renderEffects()
+    {
+        // Var(10) picks the effect the -1 states apply, over a grey EnvColor screen.
+        EngineFolder engine;
+        Formats::Test::FixtureFactory fixtures;
+        SpriteDocument sprites = SpriteDocument::fromSff(fixtures.sff(Formats::SffVersion::V2, 1, 8));
+        Formats::Palette own(256);
+        own[1] = Formats::Rgba{100, 50, 200, 255};
+        Formats::Palette other(256);
+        other[1] = Formats::Rgba{10, 200, 10, 255};
+        sprites.palettes() = {SpriteDocument::makePalette(1, 1, own), SpriteDocument::makePalette(1, 2, other)};
+        SpriteEdits::setImage(sprites, 0, Formats::Image::indexed(10, 10, std::vector<std::uint8_t>(100, 1), own));
+        sprites.sprites()[0].palette = sprites.palettes()[0];
+        SpriteEdits::setIdentifiers(sprites, 0, 0, 0);
+        SpriteEdits::setAxis(sprites, 0, 5, 10);
+        QVERIFY(sprites.toSff().save(engine.dir.filePath("chars/test/test.sff").toStdWString()).ok());
+        writeFile(engine.dir.filePath("chars/test/test.cmd"),
+                  "[Statedef -1]\n"
+                  "[State -1]\ntype = EnvColor\ntrigger1 = 1\nvalue = 200,200,200\ntime = 1\nunder = 1\n"
+                  "[State -1]\ntype = PalFX\ntrigger1 = var(10) = 1\nadd = 50,0,0\nmul = 256,128,256\ntime = 1\n"
+                  "[State -1]\ntype = Trans\ntrigger1 = var(10) = 2\ntrans = sub\n"
+                  "[State -1]\ntype = Trans\ntrigger1 = var(10) = 3\ntrans = add1\n"
+                  "[State -1]\ntype = RemapPal\ntrigger1 = var(10) = 4\nsource = 1,1\ndest = 1,2\n"
+                  "[State -1]\ntype = RemapPal\ntrigger1 = var(10) != 4\nsource = 1,1\ndest = 1,1\n"
+                  "[State -1]\ntype = AfterImage\ntrigger1 = var(10) = 5 && var(11) = 0\ntime = -1\n"
+                  "timegap = 1\nframegap = 2\nlength = 10\n"
+                  "[State -1]\ntype = VarSet\ntrigger1 = var(10) = 5\nv = 11\nvalue = 1\n"
+                  "[State -1]\ntype = PosAdd\ntrigger1 = var(10) = 5 && roundstate = 2\nx = 3\n");
+        MugenEngine mugen;
+        std::unique_ptr<Project> project(mugen.openProject(engine.def, nullptr));
+        QVERIFY(project);
+        EmulatorSession session;
+        EmulatorSession::Options options;
+        options.engineDir = engine.dir.path();
+        options.training = true;
+        QString error;
+        QVERIFY2(session.start(*project, options, &error), qPrintable(error));
+        for (int i = 0; i < 40 && session.match().roundState() < 2; ++i)
+            session.tick({}, {});
+        Runtime::Character& p1 = *session.players()[0].character;
+        EmulatorRenderer renderer;
+        auto sample = [&](int effect) {
+            p1.setVar(10, effect);
+            session.tick({}, {});
+            session.tick({}, {});
+            const QImage frame = renderer.render(session);
+            const QPointF at(p1.pos().x() - session.match().cameraX() + 160, p1.pos().y() + 200 - 5);
+            return frame.pixel(at.toPoint());
+        };
+        auto rgb = [](QRgb c) {
+            return QList<int>{qRed(c), qGreen(c), qBlue(c)};
+        };
+        QCOMPARE(rgb(sample(0)), QList<int>({100, 50, 200}));
+        // PalFX: (colour + add) * mul / 256.
+        QCOMPARE(rgb(sample(1)), QList<int>({150, 25, 200}));
+        // Subtraction from the grey, and A1: added to the grey darkened by half.
+        QCOMPARE(rgb(sample(2)), QList<int>({100, 150, 0}));
+        QCOMPARE(rgb(sample(3)), QList<int>({200, 150, 255}));
+        QCOMPARE(rgb(sample(4)), QList<int>({10, 200, 10}));
+        QCOMPARE(rgb(sample(0)), QList<int>({100, 50, 200}));
+        for (int i = 0; i < 6; ++i)
+            sample(5);
+        QVERIFY(p1.afterImages().size() >= 6);
+        const QImage frame = renderer.render(session);
+        const int x = int(p1.pos().x() - session.match().cameraX() + 160);
+        const QRgb trail = frame.pixel(x - 12, 195);
+        QVERIFY(trail != qRgb(200, 200, 200));
+        QVERIFY(qBlue(trail) < 200 && qRed(trail) < 100);
+        QCOMPARE(rgb(frame.pixel(x, 195)), QList<int>({100, 50, 200}));
+    }
+
+    void actPalettes()
+    {
+        EngineFolder engine;
+        Formats::Test::FixtureFactory fixtures;
+        Formats::SffDocument sff = fixtures.sff(Formats::SffVersion::V1, 2, 24);
+        sff.sprites[1].samePalette = true;
+        sff.sprites[1].paletteIndex = sff.sprites[0].paletteIndex;
+        QVERIFY(sff.save(engine.dir.filePath("chars/test/test.sff").toStdWString()).ok());
+        Formats::Palette act(256);
+        act[1] = Formats::Rgba{1, 2, 3, 255};
+        const Formats::Bytes bytes = Formats::writeAct(act, Formats::ActOrder::Reversed);
+        writeFile(engine.dir.filePath("chars/test/test.act"),
+                  QByteArray(reinterpret_cast<const char*>(bytes.data()), qsizetype(bytes.size())));
+        writeFile(engine.def, "[Info]\nname = \"Tester\"\n[Files]\nsprite = test.sff\nanim = test.air\ncns = test.cns\n"
+                              "st = test.cns\ncmd = test.cmd\nstcommon = common1.cns\npal1 = test.act\n");
+        MugenEngine mugen;
+        std::unique_ptr<Project> project(mugen.openProject(engine.def, nullptr));
+        EmulatorSession session;
+        EmulatorSession::Options options;
+        options.engineDir = engine.dir.path();
+        QString error;
+        QVERIFY2(session.start(*project, options, &error), qPrintable(error));
+        const EmulatorSession::Player& player = session.players()[0];
+        QVERIFY(player.acts[0]);
+        const auto& entries = player.sprites->sprites();
+        const Formats::Palette* palette = session.paletteOf(*player.character, entries[1].group(), entries[1].number());
+        QVERIFY(palette);
+        QCOMPARE(int((*palette)[1].b), 3);
     }
 
     void kungFuMan()

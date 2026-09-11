@@ -529,9 +529,28 @@ void Character::finishTick()
             m_superDefenceMul *= m_superDefenceMulNext;
         m_superDefenceMulNext = 1;
     }
-    m_draw.palFx.tick();
-    if (m_draw.afterImage.time > 0)
-        --m_draw.afterImage.time;
+    AfterImage& ai = m_draw.afterImage;
+    if (ai.time != 0) {
+        if (m_afterImageTicks++ % std::max(1, ai.timeGap) == 0) {
+            AfterImageFrame f;
+            f.pos = Vec2{m_pos.x + m_draw.offset.x, m_pos.y + m_draw.offset.y};
+            f.animData = m_animData;
+            f.animNo = m_animNo;
+            f.frame = m_anim.frame();
+            f.facing = m_facing;
+            f.angleDraw = m_draw.angleDraw;
+            f.angle = m_draw.angle;
+            f.angleScale = m_draw.angleScale;
+            m_afterImages.prepend(f);
+            while (m_afterImages.size() > std::clamp(ai.length, 1, 60))
+                m_afterImages.removeLast();
+        }
+        if (ai.time > 0)
+            --ai.time;
+    } else if (!m_afterImages.isEmpty()) {
+        m_afterImages.clear();
+        m_afterImageTicks = 0;
+    }
     m_minus = 3;
 }
 
