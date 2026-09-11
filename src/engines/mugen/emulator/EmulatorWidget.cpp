@@ -190,8 +190,30 @@ bool EmulatorWidget::start()
         return true;
     }
     m_error.clear();
+    if (!m_mixer) {
+        m_mixer = std::make_unique<AudioMixer>(qEnvironmentVariable("OFS_AUDIO_BACKEND") == QLatin1String("null")
+                                                   ? AudioEngine::Backend::Null
+                                                   : AudioEngine::Backend::System);
+    }
+    if (m_project.typeId() == QLatin1String("storyboard")) {
+        if (!m_storyboard.start(m_project, m_project.filePath(), m_engineDir, &m_error))
+            return false;
+        m_storyMode = true;
+        m_mixer->stopAll();
+        m_frame = m_storyboard.render();
+        m_stopRequested = m_restartRequested = false;
+        startTimer();
+        setFocus();
+        if (m_start)
+            m_start->setToolTip(tr("Stop emulator"));
+        update();
+        setDebugState(Debug::SessionState::Running);
+        Q_EMIT statusChanged();
+        return true;
+    }
+    m_storyMode = false;
     if (!EmulatorSession::canPlay(m_project.typeId())) {
-        m_error = tr("The emulator runs character, stage and fight screen projects.");
+        m_error = tr("The emulator runs character, stage, fight screen and storyboard projects.");
         return false;
     }
     EmulatorSession::Options options;
@@ -206,11 +228,6 @@ bool EmulatorWidget::start()
     if (!m_session->start(m_project, options, &m_error))
         return false;
     m_renderer.clearCache();
-    if (!m_mixer) {
-        m_mixer = std::make_unique<AudioMixer>(qEnvironmentVariable("OFS_AUDIO_BACKEND") == QLatin1String("null")
-                                                   ? AudioEngine::Backend::Null
-                                                   : AudioEngine::Backend::System);
-    }
     m_mixer->stopAll();
     m_frame = m_renderer.render(*m_session, renderOptions());
     m_debugger.setBreakpoints(m_breakpoints);
@@ -350,6 +367,22 @@ void EmulatorWidget::setBreakpoints(Debug::BreakpointList* breakpoints)
 
 QList<Debug::Variable> EmulatorWidget::debugVariables() const
 {
+    if (m_storyMode) {
+        Debug::Variable story{QStringLiteral("story"), tr("Storyboard"), QString(), QString(), {}};
+        const auto& scenes = m_storyboard.scenes();
+        const int index = m_storyboard.sceneIndex();
+        story.children << Debug::Variable{QStringLiteral("story.scene"),
+                                          QStringLiteral("scene"),
+                                          index < scenes.size() ? scenes[index].name : QString(),
+                                          QStringLiteral("string"),
+                                          {}};
+        story.children << Debug::Variable{QStringLiteral("story.time"),
+                                          QStringLiteral("time"),
+                                          QString::number(m_storyboard.sceneTime()),
+                                          QStringLiteral("int"),
+                                          {}};
+        return {story};
+    }
     return EmulatorDebugger::variables(*m_session);
 }
 
@@ -369,6 +402,18 @@ void EmulatorWidget::advance()
     const qint64 due = m_clock.elapsed() * TicksPerSecond / 1000;
     int ran = 0;
     bool ticked = false;
+    if (m_storyMode) {
+        while (m_ticksRun < due && ran < 4 && m_debugState == Debug::SessionState::Running) {
+            storyTick();
+            ticked = true;
+            ++m_ticksRun;
+            ++ran;
+        }
+        m_ticksRun = std::max(m_ticksRun, due - 4);
+        if (ticked)
+            update();
+        return;
+    }
     while (m_ticksRun < due && ran < 4 && m_debugState == Debug::SessionState::Running) {
         m_slowBudget += m_session->fightScreen().gameSpeed(m_session->match());
         for (; m_slowBudget >= 1; m_slowBudget -= 1) {
@@ -413,8 +458,23 @@ bool EmulatorWidget::tick()
     return true;
 }
 
+void EmulatorWidget::storyTick()
+{
+    m_storyboard.tick();
+    if (m_mixer)
+        m_storyboard.playSounds(*m_mixer);
+    m_frame = m_storyboard.render();
+    if (m_storyboard.isFinished())
+        finishStop();
+}
+
 void EmulatorWidget::step()
 {
+    if (m_storyMode) {
+        if (m_debugState != Debug::SessionState::None)
+            storyTick();
+        return;
+    }
     if (!m_session->isStarted() || m_debugState == Debug::SessionState::None)
         return;
     if (m_debugger.beforeFrame(*m_session)) {
@@ -451,7 +511,7 @@ InputState EmulatorWidget::inputOf(int player) const
 
 QRect EmulatorWidget::screenRect() const
 {
-    const QSize game = EmulatorRenderer::Screen;
+    const QSize game = m_frame.isNull() ? EmulatorRenderer::Screen : m_frame.size();
     const QSize fitted = m_zoom > 0 ? game * m_zoom : game.scaled(size(), Qt::KeepAspectRatio);
     return QRect(QPoint((width() - fitted.width()) / 2, (height() - fitted.height()) / 2), fitted);
 }

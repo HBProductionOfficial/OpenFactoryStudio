@@ -50,6 +50,8 @@ add_library(ofs_mugen_lib STATIC
     emulator/EmulatorSession.cpp
     emulator/FightScreen.h
     emulator/FightScreen.cpp
+    emulator/StoryboardPlayer.h
+    emulator/StoryboardPlayer.cpp
     emulator/Training.h
     emulator/Training.cpp
     emulator/EmulatorRenderer.h

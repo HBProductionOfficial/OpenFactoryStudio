@@ -9,6 +9,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QPainter>
 
 #include <algorithm>
 #include <cmath>
@@ -100,6 +101,70 @@ Formats::Palette FightScreen::Font::palette(int bank) const
     for (int i = 0; i < c; ++i)
         out[std::size_t(256 - c + i)] = base[std::size_t(256 - c * (bank + 1) + i)];
     return out;
+}
+
+std::optional<FightScreen::Font> FightScreen::Font::load(const QString& path)
+{
+    const QByteArray data = readBytes(path);
+    auto doc = Formats::FntDocument::read(span(data));
+    if (!doc)
+        return std::nullopt;
+    auto image = doc->image();
+    if (!image || !image->isIndexed())
+        return std::nullopt;
+    Font font;
+    font.image = std::move(image.value());
+    font.info = doc->info();
+    for (const Formats::FntInfo::Glyph& g : font.info.glyphs) {
+        if (font.info.type == Formats::FntInfo::Type::Fixed)
+            font.glyphs.insert(g.code, {g.x * font.info.width, font.info.width});
+        else
+            font.glyphs.insert(g.code, {g.x, g.width});
+    }
+    if (font.info.colors > 0) {
+        font.bankColors = std::min(255, (font.info.colors + 15) / 16 * 16);
+        font.banks = std::max(1, 255 / font.bankColors);
+    }
+    return font;
+}
+
+QImage FightScreen::Font::render(int bank) const
+{
+    QImage indexed(image.width(), image.height(), QImage::Format_Indexed8);
+    for (int y = 0; y < image.height(); ++y) {
+        std::copy_n(image.pixels().data() + std::size_t(y) * std::size_t(image.width()), image.width(),
+                    indexed.scanLine(y));
+    }
+    QList<QRgb> colors;
+    const Formats::Palette colours = palette(bank);
+    for (std::size_t i = 0; i < colours.size(); ++i)
+        colors << (i == 0 ? qRgba(0, 0, 0, 0) : qRgb(colours[i].r, colours[i].g, colours[i].b));
+    indexed.setColorTable(colors);
+    return indexed.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+}
+
+void FightScreen::Font::draw(QPainter& painter, const QImage& glyphImage, QPointF pos, int align, QPointF scale,
+                             const QString& text) const
+{
+    const double sx = scale.x();
+    const double sy = scale.y();
+    double x = pos.x() + info.offsetX * sx;
+    const double y = pos.y() + (info.offsetY - info.height + 1) * sy;
+    const int width = textWidth(text);
+    if (align == 0)
+        x -= width * sx / 2;
+    else if (align < 0)
+        x -= width * sx;
+    for (const QChar c : text) {
+        const auto glyph = glyphs.constFind(c.unicode());
+        if (c == QLatin1Char(' ') || glyph == glyphs.cend()) {
+            x += (info.width + info.spacingX) * sx;
+            continue;
+        }
+        painter.drawImage(QRectF(x, y, glyph->second * sx, info.height * sy), glyphImage,
+                          QRectF(glyph->first, 0, glyph->second, info.height));
+        x += (glyph->second + info.spacingX) * sx;
+    }
 }
 
 FightScreen::FightScreen() = default;
@@ -217,27 +282,8 @@ bool FightScreen::load(const QString& engineDir, const QString& fightDef,
             const int number = key.startsWith(QLatin1String("font")) ? key.mid(4).toInt(&ok) : 0;
             if (!ok)
                 continue;
-            const QByteArray data = readBytes(resolve(entry.value));
-            auto doc = Formats::FntDocument::read(span(data));
-            if (!doc)
-                continue;
-            auto image = doc->image();
-            if (!image || !image->isIndexed())
-                continue;
-            Font font;
-            font.image = std::move(image.value());
-            font.info = doc->info();
-            for (const Formats::FntInfo::Glyph& g : font.info.glyphs) {
-                if (font.info.type == Formats::FntInfo::Type::Fixed)
-                    font.glyphs.insert(g.code, {g.x * font.info.width, font.info.width});
-                else
-                    font.glyphs.insert(g.code, {g.x, g.width});
-            }
-            if (font.info.colors > 0) {
-                font.bankColors = std::min(255, (font.info.colors + 15) / 16 * 16);
-                font.banks = std::max(1, 255 / font.bankColors);
-            }
-            m_fonts.insert(number, std::move(font));
+            if (std::optional<Font> font = Font::load(resolve(entry.value)))
+                m_fonts.insert(number, std::move(*font));
         }
     }
 

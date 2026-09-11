@@ -248,20 +248,8 @@ const QImage& EmulatorRenderer::fontImage(const FightScreen::Font& font, int ban
 {
     const auto key = qMakePair(&font, bank);
     auto found = m_fonts.constFind(key);
-    if (found == m_fonts.cend()) {
-        const Formats::Image& image = font.image;
-        QImage indexed(image.width(), image.height(), QImage::Format_Indexed8);
-        for (int y = 0; y < image.height(); ++y) {
-            std::copy_n(image.pixels().data() + std::size_t(y) * std::size_t(image.width()), image.width(),
-                        indexed.scanLine(y));
-        }
-        QList<QRgb> colors;
-        const Formats::Palette palette = font.palette(bank);
-        for (std::size_t i = 0; i < palette.size(); ++i)
-            colors << (i == 0 ? qRgba(0, 0, 0, 0) : qRgb(palette[i].r, palette[i].g, palette[i].b));
-        indexed.setColorTable(colors);
-        found = m_fonts.insert(key, indexed.convertToFormat(QImage::Format_ARGB32_Premultiplied));
-    }
+    if (found == m_fonts.cend())
+        found = m_fonts.insert(key, font.render(bank));
     return found.value();
 }
 
@@ -491,31 +479,11 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
     canvas.setBase(QTransform());
     for (const FightScreen::Item& item : session.fightScreen().items(match, session.sides())) {
         if (item.font) {
-            const FightScreen::Font& font = *item.font;
-            const Formats::FntInfo& info = font.info;
-            const QImage image = withFx(fontImage(font, item.bank), allFx);
-            const double sx = item.scale.x();
-            const double sy = item.scale.y();
-            double x = item.pos.x() + info.offsetX * sx;
-            const double y = item.pos.y() + (info.offsetY - info.height + 1) * sy;
-            const int width = font.textWidth(item.text);
-            if (item.align == 0)
-                x -= width * sx / 2;
-            else if (item.align < 0)
-                x -= width * sx;
             p.save();
             if (item.clip)
                 p.setClipRect(*item.clip);
-            for (const QChar ch : item.text) {
-                const auto glyph = font.glyphs.constFind(ch.unicode());
-                if (ch == QLatin1Char(' ') || glyph == font.glyphs.cend()) {
-                    x += (info.width + info.spacingX) * sx;
-                    continue;
-                }
-                const QRectF target(x, y, glyph->second * sx, info.height * sy);
-                p.drawImage(target, image, QRectF(glyph->first, 0, glyph->second, info.height));
-                x += (glyph->second + info.spacingX) * sx;
-            }
+            item.font->draw(p, withFx(fontImage(*item.font, item.bank), allFx), item.pos, item.align, item.scale,
+                            item.text);
             p.restore();
         } else if (const Sprite* s = sprite(item.sprites, item.group, item.number); s && !s->image.isNull()) {
             const QImage image =

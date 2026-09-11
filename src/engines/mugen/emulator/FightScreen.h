@@ -7,6 +7,7 @@
 #include "formats/fnt/FntDocument.h"
 
 #include <QHash>
+#include <QImage>
 #include <QList>
 #include <QMap>
 #include <QPair>
@@ -18,6 +19,8 @@
 #include <functional>
 #include <memory>
 #include <optional>
+
+class QPainter;
 
 namespace OFS::Mugen {
 
@@ -40,6 +43,11 @@ public:
         int banks = 1;
         int textWidth(const QString& text) const;
         Formats::Palette palette(int bank) const;
+        static std::optional<Font> load(const QString& path);
+        QImage render(int bank) const;
+        // align 1 starts at `pos`, 0 centres on it, -1 ends there.
+        void draw(QPainter& painter, const QImage& image, QPointF pos, int align, QPointF scale,
+                  const QString& text) const;
     };
 
     struct Element

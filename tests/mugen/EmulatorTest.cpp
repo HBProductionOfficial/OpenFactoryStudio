@@ -781,6 +781,87 @@ private Q_SLOTS:
         emulator.stop();
     }
 
+    void storyboard()
+    {
+        EngineFolder engine;
+        QDir().mkpath(engine.dir.filePath("story"));
+        SpriteDocument sprites;
+        Formats::Palette colors(256);
+        colors[1] = Formats::Rgba{30, 160, 90, 255};
+        colors[2] = Formats::Rgba{250, 250, 250, 255};
+        sprites.palettes() << SpriteDocument::makePalette(1, 1, colors);
+        SpriteEntry square;
+        square.header.axisX = 5;
+        square.header.axisY = 5;
+        square.pixels =
+            SpriteDocument::makePixels(Formats::Image::indexed(10, 10, std::vector<std::uint8_t>(100, 1), colors));
+        square.palette = sprites.palettes().first();
+        sprites.sprites() << square;
+        SpriteEntry wide = square;
+        wide.header.group = 5;
+        wide.pixels =
+            SpriteDocument::makePixels(Formats::Image::indexed(40, 4, std::vector<std::uint8_t>(160, 2), colors));
+        sprites.sprites() << wide;
+        QVERIFY(sprites.toSff().save(engine.dir.filePath("story/intro.sff").toStdWString()).ok());
+        writeSounds(engine.dir.filePath("story/intro.snd"), {{1, 0, 0.5}});
+        Formats::Palette white(256);
+        white[1] = Formats::Rgba{255, 255, 255, 255};
+        Formats::FntDocument fnt;
+        fnt.pcx = *Formats::encodePcx(Formats::Image::indexed(30, 5, std::vector<std::uint8_t>(150, 1), white));
+        fnt.text = "[Def]\nSize = 3,5\nSpacing = 1,0\nColors = 1\nOffset = 0,0\nType = Variable\n[Map]\n";
+        for (int digit = 0; digit < 10; ++digit)
+            fnt.text += std::to_string(digit) + " " + std::to_string(digit * 3) + " 3\n";
+        QVERIFY(fnt.save(engine.dir.filePath("story/digits.fnt").toStdWString()).ok());
+        const QString def = engine.dir.filePath("story/intro.def");
+        writeFile(def, "[Info]\nlocalcoord = 320,240\n"
+                       "[SceneDef]\nspr = intro.sff\nsnd = intro.snd\nfont1 = digits.fnt\n"
+                       "[Scene 0]\nclearcolor = 0,0,0\nlayerall.pos = 160,120\nlayer0.anim = 0\n"
+                       "layer1.text = \"12\\n34\"\nlayer1.font = 1,0,1\nlayer1.offset = 20,0\nlayer1.textdelay = 2\n"
+                       "sound0.value = 1,0\nsound0.starttime = 3\nfadein.time = 10\nend.time = 20\n"
+                       "[Scene 1]\nlayer0.anim = 0\nlayer0.starttime = 5\nend.time = 10\nbg.name = sceneBg\n"
+                       "[sceneBgDef]\n[sceneBg wide]\ntype = normal\nspriteno = 5,0\nstart = 0,200\n"
+                       "[Begin Action 0]\n0,0, 0,0, -1\n");
+        MugenEngine mugen;
+        QString error;
+        std::unique_ptr<Project> project(mugen.openProject(def, &error));
+        QVERIFY2(project, qPrintable(error));
+        QCOMPARE(project->typeId(), QStringLiteral("storyboard"));
+        AppContext context;
+        EmulatorWidget emulator(*project, context);
+        QVERIFY2(emulator.start(), qPrintable(emulator.lastError()));
+        QVERIFY(emulator.playsStoryboard());
+        const StoryboardPlayer& story = emulator.storyboard();
+        QCOMPARE(story.scenes().size(), 2);
+        QCOMPARE(story.canvasSize(), QSize(320, 240));
+        QImage frame = emulator.frame();
+        QCOMPARE(qGreen(frame.pixel(160, 120)), 0);
+        for (int i = 0; i < 3; ++i)
+            emulator.step();
+        QVERIFY(emulator.mixer()->voices() > 0);
+        frame = emulator.frame();
+        QVERIFY(qGreen(frame.pixel(160, 120)) > 0 && qGreen(frame.pixel(160, 120)) < 160);
+        for (int i = 0; i < 9; ++i)
+            emulator.step();
+        frame = emulator.frame();
+        QCOMPARE(qGreen(frame.pixel(160, 120)), 160);
+        QVERIFY(qRed(frame.pixel(181, 118)) == 255); // "1" at x 180..182, above the base line
+        QVERIFY(qRed(frame.pixel(181, 118 + 6)) == 255);
+        for (int i = 0; i < 8; ++i)
+            emulator.step();
+        QCOMPARE(story.sceneIndex(), 1);
+        frame = emulator.frame();
+        QCOMPARE(qRed(frame.pixel(160, 198)), 250);
+        QCOMPARE(qGreen(frame.pixel(160, 120)), 0);
+        for (int i = 0; i < 6; ++i)
+            emulator.step();
+        QCOMPARE(qGreen(emulator.frame().pixel(160, 120)), 160);
+        for (int i = 0; i < 5 && emulator.isRunning(); ++i)
+            emulator.step();
+        QVERIFY(story.isFinished());
+        QVERIFY(!emulator.isRunning());
+        QVERIFY(!emulator.frame().isNull());
+    }
+
     void kungFuMan()
     {
         // Set OFS_EMULATOR_FRAME to save the frame for a look.
@@ -833,6 +914,30 @@ private Q_SLOTS:
         QVERIFY(litPixels(frame) > 320 * 240 / 2);
         if (!out.isEmpty())
             frame.scaled(960, 720).save(out);
+
+        const QString intro = QDir(engineDir).filePath("data/kfm/intro.def");
+        if (QFileInfo::exists(intro)) {
+            std::unique_ptr<Project> story(mugen.openProject(intro, &error));
+            QVERIFY2(story, qPrintable(error));
+            StoryboardPlayer player;
+            QVERIFY2(player.start(*story, intro, engineDir, &error), qPrintable(error));
+            QVERIFY(player.scenes().size() > 1);
+            QImage mountains;
+            QImage title;
+            for (int i = 0; i < 2000 && !player.isFinished(); ++i) {
+                player.tick();
+                if (i == 150)
+                    mountains = player.render();
+                if (i == 480)
+                    title = player.render();
+            }
+            QVERIFY(player.isFinished());
+            QVERIFY(litPixels(mountains) > 0);
+            if (!out.isEmpty()) {
+                mountains.scaled(mountains.size() * 2).save(QString(out).replace(".png", "_story1.png"));
+                title.scaled(title.size() * 2).save(QString(out).replace(".png", "_story2.png"));
+            }
+        }
     }
 };
 

@@ -5,6 +5,7 @@
 #include "engines/mugen/emulator/EmulatorDebugger.h"
 #include "engines/mugen/emulator/EmulatorRenderer.h"
 #include "engines/mugen/emulator/EmulatorSession.h"
+#include "engines/mugen/emulator/StoryboardPlayer.h"
 
 #include <QElapsedTimer>
 #include <QImage>
@@ -62,6 +63,8 @@ public:
     QString lastError() const { return m_error; }
     void step();
     const EmulatorSession& session() const { return *m_session; }
+    const StoryboardPlayer& storyboard() const { return m_storyboard; }
+    bool playsStoryboard() const { return m_storyMode; }
     const QImage& frame() const { return m_frame; }
     // Made when a match starts (null before, silent without a sound card).
     AudioMixer* mixer() const { return m_mixer.get(); }
@@ -104,6 +107,9 @@ private:
     bool m_stopRequested = false;
     bool m_restartRequested = false;
     int m_refresh = 0;
+    StoryboardPlayer m_storyboard;
+    bool m_storyMode = false;
+    void storyTick();
     EmulatorRenderer m_renderer;
     std::unique_ptr<AudioMixer> m_mixer;
     QImage m_frame;
