@@ -1,11 +1,18 @@
 #pragma once
 
 #include "core/CoreExport.h"
+#include "core/debug/DebugTypes.h"
 
 #include <QStringList>
 #include <QWidget>
 
+#include <optional>
+
 namespace OFS {
+
+namespace Debug {
+class BreakpointList;
+}
 
 class OFS_CORE_EXPORT EngineWorkspace : public QWidget
 {
@@ -23,8 +30,22 @@ public:
         return false;
     }
 
+    virtual Debug::SessionState debugState() const { return Debug::SessionState::None; }
+    virtual void setBreakpoints(Debug::BreakpointList* breakpoints) { Q_UNUSED(breakpoints) }
+    virtual QList<Debug::Variable> debugVariables() const { return {}; }
+    virtual std::optional<Debug::Variable> debugVariable(const QString& path) const
+    {
+        Q_UNUSED(path)
+        return std::nullopt;
+    }
+    virtual QList<Debug::StackFrame> debugStack() const { return {}; }
+
 Q_SIGNALS:
     void statusChanged();
+    void debugStateChanged();
+    // line is 1-based. An empty file means none.
+    void debugLineChanged(const QString& file, int line);
+    void debugVariablesChanged();
 };
 
 } // namespace OFS

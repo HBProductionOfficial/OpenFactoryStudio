@@ -279,6 +279,13 @@ void ProjectView::createEditor(const EditorInfo& info)
                     if (workspace == currentWorkspace())
                         Q_EMIT currentFileChanged();
                 });
+                workspace->setBreakpoints(m_breakpoints);
+                connect(workspace, &EngineWorkspace::debugStateChanged, this, [this, workspace] {
+                    setDebugging(workspace->debugState() != Debug::SessionState::None);
+                    Q_EMIT debugStateChanged();
+                });
+                connect(workspace, &EngineWorkspace::debugLineChanged, this, &ProjectView::showDebugLine);
+                connect(workspace, &EngineWorkspace::debugVariablesChanged, this, &ProjectView::debugVariablesChanged);
                 empty = workspace;
             }
         }
@@ -1010,6 +1017,10 @@ void ProjectView::addFileTab(const EditorInfo& info, const QString& filePath)
 void ProjectView::setBreakpoints(Debug::BreakpointList* breakpoints)
 {
     m_breakpoints = breakpoints;
+    for (EngineWorkspace* workspace : std::as_const(m_workspaces)) {
+        if (workspace)
+            workspace->setBreakpoints(breakpoints);
+    }
     if (!breakpoints)
         return;
     connect(breakpoints, &Debug::BreakpointList::changed, this, [this] {
@@ -1022,13 +1033,67 @@ void ProjectView::setBreakpoints(Debug::BreakpointList* breakpoints)
 
 void ProjectView::refreshBreakpointMarks(CodePage* page)
 {
+    // Bound to a running session (active, or waiting for its ignore count), else pending.
     QHash<int, CodeEditor::BreakpointMark> marks;
     if (m_breakpoints) {
-        for (const Debug::Breakpoint& b : m_breakpoints->inFile(page->property("filePath").toString()))
-            marks.insert(b.line - 1,
-                         b.enabled ? CodeEditor::BreakpointMark::Pending : CodeEditor::BreakpointMark::Disabled);
+        for (const Debug::Breakpoint& b : m_breakpoints->inFile(page->property("filePath").toString())) {
+            CodeEditor::BreakpointMark mark = CodeEditor::BreakpointMark::Pending;
+            if (!b.enabled)
+                mark = CodeEditor::BreakpointMark::Disabled;
+            else if (m_debugging)
+                mark = b.ignoreCount > 0 ? CodeEditor::BreakpointMark::Ignored : CodeEditor::BreakpointMark::Active;
+            marks.insert(b.line - 1, mark);
+        }
     }
     page->editor()->setBreakpointMarks(marks);
+}
+
+EngineWorkspace* ProjectView::debugWorkspace() const
+{
+    const QString id = debugEditor();
+    return id.isEmpty() ? nullptr : m_workspaces.value(id);
+}
+
+QString ProjectView::debugEditor() const
+{
+    for (const EditorInfo& info : engine()->editors()) {
+        if (info.workspace == WorkspaceType::Emulator && m_workspaces.value(info.id))
+            return info.id;
+    }
+    return QString();
+}
+
+QWidget* ProjectView::debugPanel() const
+{
+    QScrollArea* panel = m_extraPanels.value(QStringLiteral("debug"));
+    return panel ? panel->widget() : nullptr;
+}
+
+void ProjectView::setDebugging(bool debugging)
+{
+    if (m_debugging == debugging)
+        return;
+    m_debugging = debugging;
+    updateRightPanel();
+    for (CodePage* page : codePages())
+        refreshBreakpointMarks(page);
+}
+
+void ProjectView::showDebugLine(const QString& file, int line)
+{
+    for (CodeEditor* editor : codeEditors())
+        editor->setCurrentDebugLine(-1);
+    if (file.isEmpty() || line <= 0)
+        return;
+    // A file of the match without a tab (the engine's common states) opens in the States editor.
+    if (!showFileLine(file, line)) {
+        const QString states = QStringLiteral("states");
+        if (!editorIds().contains(states) || !openFile(states, file) || !showFileLine(file, line))
+            return;
+    }
+    CodePage* page = currentCodePage();
+    if (page && page->property("filePath").toString().compare(file, Qt::CaseInsensitive) == 0)
+        page->editor()->setCurrentDebugLine(line - 1);
 }
 
 void ProjectView::fileRenamed(QWidget* page, const QString& oldPath, const QString& newPath)
@@ -1192,6 +1257,25 @@ void ProjectView::applyPreset(const Preset::Model& model)
     const auto organizer = model.extraPanels.constFind(QStringLiteral("organizer"));
     if (organizer != model.extraPanels.cend() && organizer->layout)
         builder.buildPanel(*organizer->layout, m_extraPanels.value(QStringLiteral("organizer"))->widget(), 22);
+    if (!debugEditor().isEmpty() && !m_extraPanels.contains(QStringLiteral("debug"))) {
+        QScrollArea* debug = makeScrollArea(m_rightStack);
+        debug->setObjectName(QStringLiteral("extra_debug"));
+        m_rightStack->addWidget(debug);
+        m_extraPanels.insert(QStringLiteral("debug"), debug);
+        const auto panel = model.extraPanels.constFind(QStringLiteral("debug"));
+        if (panel != model.extraPanels.cend() && panel->layout)
+            builder.buildPanel(*panel->layout, debug->widget(), 22);
+    }
+    if (QWidget* debug = debugPanel()) {
+        if (auto* variables = debug->findChild<QTreeView*>(QStringLiteral("debug_variables"))) {
+            variables->setHeaderHidden(false);
+            variables->setContextMenuPolicy(Qt::ActionsContextMenu);
+            for (const char* id : {"debug_data_breakpoint", "debug_data_watch1", "debug_data_watch2"}) {
+                if (QAction* action = m_context.actions().action(QString::fromLatin1(id)))
+                    variables->addAction(action);
+            }
+        }
+    }
     updateRightPanel();
     if (m_sprites) {
         if (!m_extraPanels.contains(QStringLiteral("thumbnails"))) {
@@ -1278,6 +1362,10 @@ void ProjectView::updateRightPanel()
     QString name = currentEditorInfo().extraPanel;
     if (m_organizerVisible && organizerEditors.contains(m_currentEditor))
         name = QStringLiteral("organizer");
+    const WorkspaceType workspace = currentEditorInfo().workspace;
+    if (m_debugging && m_extraPanels.contains(QStringLiteral("debug")) &&
+        (workspace == WorkspaceType::Code || workspace == WorkspaceType::Emulator))
+        name = QStringLiteral("debug");
     // The organizer lists the items of the editor shown, or the sprites in other editors.
     const bool organizer = name == QLatin1String("organizer");
     const bool backgroundsOrganizer = organizer && m_currentEditor == QLatin1String("backgrounds") && m_backgrounds;

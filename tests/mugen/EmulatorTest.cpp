@@ -1,4 +1,5 @@
 #include "core/app/AppContext.h"
+#include "core/debug/Breakpoints.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
 #include "core/settings/Config.h"
@@ -18,9 +19,11 @@
 #include <QTest>
 #include <QTextCursor>
 #include <QTextDocument>
+#include <QTimer>
 #include <QWheelEvent>
 
 #include <cmath>
+#include <functional>
 #include <memory>
 #include <tuple>
 
@@ -84,6 +87,38 @@ void writeSounds(const QString& path, const QList<std::tuple<int, int, double>>&
         snd.sounds.push_back(std::move(sound));
     }
     QVERIFY(snd.save(path.toStdWString()).ok());
+}
+
+// Line numbers on the right.
+const char* kDebugCmd = "[Statedef -1]\n"           // 1
+                        "[State -1, count]\n"       // 2
+                        "type = VarAdd\n"           // 3
+                        "trigger1 = 1\n"            // 4
+                        "v = 0\n"                   // 5
+                        "value = 1\n"               // 6
+                        "[State -1, other]\n"       // 7
+                        "type = VarAdd\n"           // 8
+                        "triggerall = var(0) > 0\n" // 9
+                        "trigger1 = 1\n"            // 10
+                        "v = 1\n"                   // 11
+                        "value = 1\n";              // 12
+
+// Runs `run` while answering each stop of the debugger with the next step of `script`.
+void whileStopped(EmulatorWidget& emulator, QList<std::function<void()>> script, const std::function<void()>& run,
+                  int* answered = nullptr)
+{
+    int next = 0;
+    QTimer driver;
+    driver.setInterval(0);
+    QObject::connect(&driver, &QTimer::timeout, [&] {
+        if (next < script.size() && emulator.debugState() == Debug::SessionState::Interrupted)
+            script[next++]();
+    });
+    driver.start();
+    run();
+    driver.stop();
+    if (answered)
+        *answered = next;
 }
 
 int litPixels(const QImage& image)
@@ -540,6 +575,160 @@ private Q_SLOTS:
         const Formats::Palette* palette = session.paletteOf(*player.character, entries[1].group(), entries[1].number());
         QVERIFY(palette);
         QCOMPARE(int((*palette)[1].b), 3);
+    }
+
+    void debugger()
+    {
+        EngineFolder engine;
+        writeFile(engine.dir.filePath("chars/test/test.cmd"), kDebugCmd);
+        const QString cmd = QDir::cleanPath(engine.dir.filePath("chars/test/test.cmd"));
+        const QString common = QDir::cleanPath(engine.dir.filePath("data/common1.cns"));
+        MugenEngine mugen;
+        std::unique_ptr<Project> project(mugen.openProject(engine.def, nullptr));
+        AppContext context;
+        Debug::BreakpointList breakpoints;
+        EmulatorWidget emulator(*project, context);
+        emulator.setBreakpoints(&breakpoints);
+        QVERIFY2(emulator.start(), qPrintable(emulator.lastError()));
+        QCOMPARE(emulator.debugState(), Debug::SessionState::Running);
+        for (int i = 0; i < 30 && emulator.session().match().roundState() < 2; ++i)
+            emulator.step();
+        const int p1 = emulator.session().players()[0].character->id();
+        const int p2 = emulator.session().players()[1].character->id();
+        QList<std::pair<QString, int>> lines;
+        connect(&emulator, &EngineWorkspace::debugLineChanged, this,
+                [&lines](const QString& file, int line) { lines << std::pair(file, line); });
+
+        breakpoints.toggle(cmd, 4);
+        auto at = [&emulator]() {
+            return emulator.debugger().location().value_or(EmulatorDebugger::Location());
+        };
+        int answered = 0;
+        whileStopped(
+            emulator,
+            {[&] {
+                 QCOMPARE(at().line, 4);
+                 QCOMPARE(at().file, cmd);
+                 QCOMPARE(at().characterId, p1);
+                 QCOMPARE(at().stateNo, -1);
+                 QCOMPARE(emulator.debugStack().size(), 2);
+                 QCOMPARE(emulator.debugStack().at(0).line, 4);
+                 QCOMPARE(emulator.debugStack().at(1).line, 1);
+                 const auto var0 = emulator.debugVariable(QStringLiteral("%1.var(0)").arg(p1));
+                 QVERIFY(var0);
+                 QCOMPARE(var0->type, QStringLiteral("int"));
+                 QVERIFY(emulator.debugVariables().size() >= 3);
+                 emulator.perform("debug_step_into");
+             },
+             [&] {
+                 QCOMPARE(at().line, 7);
+                 emulator.perform("debug_step_over");
+             },
+             [&] {
+                 QCOMPARE(at().line, 9);
+                 emulator.perform("debug_step_out");
+             },
+             [&] {
+                 QCOMPARE(at().stateNo, 0);
+                 QCOMPARE(at().file, common);
+                 emulator.perform("debug_continue");
+             },
+             [&] {
+                 QCOMPARE(at().characterId, p2);
+                 QCOMPARE(at().line, 4);
+                 breakpoints.removeAll();
+                 emulator.perform("debug_continue");
+             }},
+            [&] { emulator.step(); }, &answered);
+        QCOMPARE(answered, 5);
+        QCOMPARE(emulator.debugState(), Debug::SessionState::Running);
+        QVERIFY(!lines.isEmpty());
+        QCOMPARE(lines.first(), std::pair(cmd, 4));
+        QCOMPARE(lines.last(), std::pair(QString(), 0));
+
+        Debug::Breakpoint conditional;
+        conditional.file = cmd;
+        conditional.line = 10;
+        conditional.condition = QStringLiteral("var(0) % 2 = 0");
+        conditional.ignoreCount = 1;
+        conditional.oneShot = true;
+        const int number = breakpoints.add(conditional);
+        QList<int> stoppedAt;
+        whileStopped(
+            emulator, {[&] {
+                stoppedAt << emulator.session().match().playerById(at().characterId)->var(0);
+                emulator.perform("debug_continue");
+            }},
+            [&] {
+                for (int i = 0; i < 6; ++i)
+                    emulator.step();
+            },
+            &answered);
+        QCOMPARE(answered, 1);
+        QCOMPARE(stoppedAt.size(), 1);
+        QCOMPARE(stoppedAt.first() % 2, 0);
+        QVERIFY(!breakpoints.find(number)->enabled);
+        breakpoints.removeAll();
+
+        Debug::Breakpoint data;
+        data.type = Debug::BreakpointType::Memory;
+        data.address = QStringLiteral("%1.var(1)").arg(p2);
+        breakpoints.add(data);
+        int before = 0;
+        whileStopped(
+            emulator, {[&] {
+                QVERIFY(emulator.session().match().playerById(p2)->var(1) != before);
+                breakpoints.removeAll();
+                emulator.perform("debug_continue");
+            }},
+            [&] {
+                emulator.step();
+                before = emulator.session().match().playerById(p2)->var(1);
+                emulator.step();
+            },
+            &answered);
+        QCOMPARE(answered, 1);
+
+        emulator.perform("debug_interrupt");
+        int time = emulator.session().match().gameTime();
+        emulator.step();
+        QCOMPARE(emulator.debugState(), Debug::SessionState::Interrupted);
+        QVERIFY(!emulator.debugger().location());
+        QCOMPARE(emulator.session().match().gameTime(), time);
+        emulator.perform("debug_step_frame");
+        emulator.step();
+        QCOMPARE(emulator.session().match().gameTime(), time + 1);
+        emulator.step();
+        QCOMPARE(emulator.debugState(), Debug::SessionState::Interrupted);
+        QCOMPARE(emulator.session().match().gameTime(), time + 1);
+        whileStopped(
+            emulator, {[&] {
+                QCOMPARE(at().line, 2);
+                emulator.perform("debug_continue");
+            }},
+            [&] {
+                emulator.perform("debug_step_into");
+                emulator.step();
+            },
+            &answered);
+        QCOMPARE(answered, 1);
+        time = emulator.session().match().gameTime();
+        emulator.step();
+        QCOMPARE(emulator.session().match().gameTime(), time + 1);
+
+        breakpoints.toggle(cmd, 4);
+        whileStopped(emulator, {[&] { emulator.perform("debug_stop"); }}, [&] { emulator.step(); }, &answered);
+        QCOMPARE(answered, 1);
+        QVERIFY(!emulator.isRunning());
+        QCOMPARE(emulator.debugState(), Debug::SessionState::None);
+
+        auto* doomed = new EmulatorWidget(*project, context);
+        doomed->setBreakpoints(&breakpoints);
+        QVERIFY(doomed->start());
+        QPointer<EmulatorWidget> watch(doomed);
+        whileStopped(*doomed, {[&] { delete doomed; }}, [&] { doomed->step(); }, &answered);
+        QCOMPARE(answered, 1);
+        QVERIFY(!watch);
     }
 
     void kungFuMan()

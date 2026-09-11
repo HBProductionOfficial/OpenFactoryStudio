@@ -2,7 +2,9 @@
 #include "core/actions/ActionRegistry.h"
 #include "core/app/AppContext.h"
 #include "core/code/CodeEditor.h"
+#include "core/debug/Breakpoints.h"
 #include "core/engine/Engine.h"
+#include "core/engine/EngineWorkspace.h"
 #include "core/engine/RunConfiguration.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
@@ -4214,6 +4216,119 @@ private Q_SLOTS:
         actions.action("debug_breakpoint")->trigger();
         QVERIFY(panels->breakpointRows().value(0).startsWith("1|"));
         actions.action("breakpoint_remove_all")->trigger();
+    }
+
+    void emulatorDebugging()
+    {
+        // A character in an engine folder. Its -1 state counts up var(0) and line 4 is the trigger.
+        QTemporaryDir engine;
+        QVERIFY(engine.isValid());
+        auto write = [&engine](const QString& name, const QByteArray& text) {
+            QDir().mkpath(QFileInfo(engine.filePath(name)).absolutePath());
+            writeFile(engine.filePath(name), text);
+        };
+        write("data/common1.cns", "[Statedef 5900]\ntype = S\n[State 5900]\ntype = ChangeState\ntrigger1 = 1\n"
+                                  "value = 0\n[Statedef 0]\ntype = S\nphysics = S\nanim = 0\nctrl = 1\n"
+                                  "[State 0]\ntype = Null\ntrigger1 = 1\n");
+        write("data/fight.def", "[Round]\nmatch.wins = 1\nstart.waittime = 3\nctrl.time = 3\n");
+        write("data/mugen.cfg", "[Options]\ntime = 5\n");
+        write("stages/stage0.def", "[StageInfo]\nzoffset = 200\n[Camera]\nboundleft = -100\nboundright = 100\n"
+                                   "[PlayerInfo]\np1startx = -50\np2startx = 50\n[BGdef]\nspr = stage0.sff\n");
+        SpriteDocument sprites;
+        Formats::Palette colors(256);
+        colors[1] = Formats::Rgba{200, 100, 50, 255};
+        sprites.palettes() << SpriteDocument::makePalette(1, 1, colors);
+        SpriteEntry sprite;
+        sprite.header.group = 0;
+        sprite.header.number = 0;
+        sprite.header.axisX = 4;
+        sprite.header.axisY = 8;
+        sprite.pixels =
+            SpriteDocument::makePixels(Formats::Image::indexed(8, 8, std::vector<std::uint8_t>(64, 1), colors));
+        sprite.palette = sprites.palettes().first();
+        sprites.sprites() << sprite;
+        QDir().mkpath(engine.filePath("chars/dbg"));
+        QVERIFY(sprites.toSff().save(engine.filePath("chars/dbg/dbg.sff").toStdWString()).ok());
+        QVERIFY(sprites.toSff().save(engine.filePath("stages/stage0.sff").toStdWString()).ok());
+        write("chars/dbg/dbg.air", "[Begin Action 0]\n0,0, 0,0, -1\n");
+        write("chars/dbg/dbg.cns", "[Data]\nlife = 1000\n");
+        write("chars/dbg/dbg.cmd", "[Statedef -1]\n[State -1, count]\ntype = VarAdd\ntrigger1 = 1\nv = 0\nvalue = 1\n");
+        write("chars/dbg/dbg.def", "[Info]\nname = \"Debugged\"\n[Files]\nsprite = dbg.sff\nanim = dbg.air\n"
+                                   "cns = dbg.cns\nst = dbg.cns\ncmd = dbg.cmd\nstcommon = common1.cns\n");
+        const QString cmd = QDir::cleanPath(engine.filePath("chars/dbg/dbg.cmd"));
+
+        MainWindow window(*m_context);
+        window.show();
+        ActionRegistry& actions = m_context->actions();
+        QVERIFY(window.openProject(engine.filePath("chars/dbg/dbg.def")));
+        ProjectView* view = window.currentProjectView();
+        EngineWorkspace* debugger = view->debugWorkspace();
+        QVERIFY(debugger);
+        QVERIFY(actions.action("debug_start_emul")->isEnabled());
+        QVERIFY(!actions.action("debug_interrupt")->isEnabled());
+        auto* breakpoints = window.findChild<Debug::BreakpointList*>();
+        QVERIFY(breakpoints);
+        breakpoints->toggle(cmd, 4);
+
+        QStringList failures;
+        auto check = [&failures](bool ok, const char* what) {
+            if (!ok)
+                failures << QString::fromLatin1(what);
+        };
+        int phase = 0;
+        QTimer driver;
+        driver.setInterval(5);
+        connect(&driver, &QTimer::timeout, this, [&] {
+            if (phase != 0 || debugger->debugState() != Debug::SessionState::Interrupted)
+                return;
+            phase = 1;
+            CodeEditor* editor = view->currentCodeEditor();
+            check(editor && editor->currentDebugLine() == 3, "current line marked");
+            check(view->currentEditor() == QLatin1String("commands"), "the file's editor shown");
+            check(actions.action("debug_continue")->isEnabled(), "continue enabled");
+            check(actions.action("debug_step_into")->isEnabled(), "step enabled");
+            check(!actions.action("debug_interrupt")->isEnabled(), "interrupt disabled");
+            auto* variables = view->debugPanel()->findChild<QTreeView*>("debug_variables");
+            check(variables && variables->model() && variables->model()->rowCount() >= 3, "variables listed");
+            check(variables && variables->isVisible(), "debug panel shown");
+            QTreeView* stack = window.findChild<QTreeView*>("callStack");
+            check(stack && stack->model() && stack->model()->rowCount() == 2, "call stack");
+            check(editor && editor->breakpointMarks().value(3) == CodeEditor::BreakpointMark::Active, "bound");
+            if (variables && variables->model()) {
+                const QModelIndexList found =
+                    variables->model()->match(variables->model()->index(0, 0), Qt::DisplayRole, "var(0)", 1,
+                                              Qt::MatchExactly | Qt::MatchRecursive);
+                check(!found.isEmpty(), "var(0) found");
+                if (!found.isEmpty())
+                    variables->setCurrentIndex(found.first());
+                actions.action("debug_data_watch1")->trigger();
+                QTreeView* watch = window.findChild<QTreeView*>("watch1");
+                check(watch && watch->model() && watch->model()->rowCount() == 1, "watched");
+            }
+            breakpoints->removeAll();
+            actions.action("debug_continue")->trigger();
+            phase = 2;
+        });
+        driver.start();
+        actions.action("debug_start_emul")->trigger();
+        QCOMPARE(view->currentEditor(), view->debugEditor());
+        QTRY_COMPARE_WITH_TIMEOUT(phase, 2, 10000);
+        driver.stop();
+        QVERIFY2(failures.isEmpty(), qPrintable(failures.join(", ")));
+        QTRY_COMPARE(debugger->debugState(), Debug::SessionState::Running);
+        QVERIFY(actions.action("debug_interrupt")->isEnabled());
+        QCOMPARE(view->currentCodeEditor() ? view->currentCodeEditor()->currentDebugLine() : -1, -1);
+
+        actions.action("debug_stop")->trigger();
+        QCOMPARE(debugger->debugState(), Debug::SessionState::None);
+        QVERIFY(actions.action("debug_start_emul")->isEnabled());
+        QVERIFY(!actions.action("debug_stop")->isEnabled());
+        QVERIFY(!view->isDebugging());
+        QTreeView* watch = window.findChild<QTreeView*>("watch1");
+        QCOMPARE(watch->model()->index(0, 1).data().toString(), tr("N/A"));
+        actions.action("watch_remove_all")->trigger();
+        QCOMPARE(watch->model()->rowCount(), 0);
+        window.closeAllProjects();
     }
 
 private:

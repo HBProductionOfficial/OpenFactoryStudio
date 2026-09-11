@@ -74,6 +74,10 @@ public:
     CodeEditor* currentCodeEditor() const;
     CodePage* currentCodePage() const;
     EngineWorkspace* currentWorkspace() const;
+    EngineWorkspace* debugWorkspace() const;
+    QString debugEditor() const;
+    QWidget* debugPanel() const;
+    bool isDebugging() const { return m_debugging; }
     QList<CodePage*> codePages() const;
     // `line` is 1-based, 0 keeps the cursor where it is.
     bool showFileLine(const QString& filePath, int line);
@@ -111,6 +115,8 @@ Q_SIGNALS:
     void currentFileChanged();
     void modifiedChanged();
     void issuesChanged();
+    void debugStateChanged();
+    void debugVariablesChanged();
 
 private:
     void createEditor(const EditorInfo& info);
@@ -118,6 +124,8 @@ private:
     void addFileTab(const EditorInfo& info, const QString& filePath);
     void fileRenamed(QWidget* page, const QString& oldPath, const QString& newPath);
     void configureCodeEditor(CodeEditor* editor, const QString& editorId);
+    void setDebugging(bool debugging);
+    void showDebugLine(const QString& file, int line);
     struct Analysis
     {
         IssueList issues;
@@ -144,6 +152,7 @@ private:
     QString m_currentEditor;
     bool m_rightPanelVisible = true;
     bool m_organizerVisible = false;
+    bool m_debugging = false;
 
     EPanelWidget* m_left;
     QStackedWidget* m_leftStack;

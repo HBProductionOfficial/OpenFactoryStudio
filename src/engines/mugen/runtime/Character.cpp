@@ -245,14 +245,23 @@ bool Character::triggered(const Controller& controller)
 {
     if (controller.triggers.empty())
         return false;
-    for (const Expr& e : controller.triggerAll) {
-        if (!e.evaluate(*this).toBool())
+    auto observe = [this, &controller](const std::vector<int>& lines, std::size_t i) {
+        if (m_match && i < lines.size())
+            m_match->observeLine(*this, controller, lines[i]);
+    };
+    for (std::size_t i = 0; i < controller.triggerAll.size(); ++i) {
+        observe(controller.triggerAllLines, i);
+        if (!controller.triggerAll[i].evaluate(*this).toBool())
             return false;
     }
-    for (const std::vector<Expr>& group : controller.triggers) {
+    for (std::size_t g = 0; g < controller.triggers.size(); ++g) {
+        const std::vector<Expr>& group = controller.triggers[g];
+        const std::vector<int> none;
+        const std::vector<int>& lines = g < controller.triggerLines.size() ? controller.triggerLines[g] : none;
         bool all = true;
-        for (const Expr& e : group) {
-            if (!e.evaluate(*this).toBool()) {
+        for (std::size_t i = 0; i < group.size(); ++i) {
+            observe(lines, i);
+            if (!group[i].evaluate(*this).toBool()) {
                 all = false;
                 break;
             }
@@ -268,6 +277,8 @@ bool Character::runState(const CharacterData& source, int number, std::vector<in
     const StateDef* def = source.state(number);
     if (!def)
         return false;
+    m_runningState = number;
+    m_runningStateData = &source;
     if (counters.size() != def->controllers.size())
         counters.assign(def->controllers.size(), 0);
     for (std::size_t i = 0; i < def->controllers.size(); ++i) {
@@ -279,6 +290,8 @@ bool Character::runState(const CharacterData& source, int number, std::vector<in
             --counters[i];
         if (counters[i] > 0)
             continue;
+        if (m_match)
+            m_match->observeLine(*this, controller, controller.line);
         if (!triggered(controller))
             continue;
         if (execute(controller))

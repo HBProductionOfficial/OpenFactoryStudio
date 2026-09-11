@@ -40,6 +40,8 @@ struct Controller
     // trigger1, trigger2...: each a group of lines that must all hold. The controller runs when every
     // triggerall line and one group hold. Numbering stops at the first missing number.
     std::vector<std::vector<Expr>> triggers;
+    std::vector<int> triggerAllLines;
+    std::vector<std::vector<int>> triggerLines;
     QHash<QString, Param> params;
     // persistent = 0: once each time the state is entered. 1: whenever triggered. n: every n times.
     int persistent = 1;

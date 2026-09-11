@@ -9,6 +9,7 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDir>
+#include <QEventLoop>
 #include <QGroupBox>
 #include <QKeyEvent>
 #include <QKeySequence>
@@ -78,7 +79,13 @@ EmulatorWidget::EmulatorWidget(Project& project, AppContext& context, QWidget* p
     }
 }
 
-EmulatorWidget::~EmulatorWidget() = default;
+EmulatorWidget::~EmulatorWidget()
+{
+    // End a break's event loop. The match finishes its tick on its own because it holds the session.
+    m_alive.reset();
+    if (m_breakLoop)
+        m_breakLoop->quit();
+}
 
 void EmulatorWidget::bindPanel(QWidget* panel)
 {
@@ -111,8 +118,8 @@ void EmulatorWidget::bindPanel(QWidget* panel)
     if (m_aiLevel && m_aiLevel->value() == 0)
         m_aiLevel->setValue(4);
     auto applyTraining = [this] {
-        if (m_session.isStarted())
-            m_session.setTrainingOptions(trainingOptions());
+        if (m_session->isStarted())
+            m_session->setTrainingOptions(trainingOptions());
     };
     for (QComboBox* combo :
          {m_dummyCtrl.data(), m_dummyMode.data(), m_guardMode.data(), m_distance.data(), m_buttonJam.data()}) {
@@ -177,6 +184,11 @@ void EmulatorWidget::setEngineDir(const QString& dir)
 
 bool EmulatorWidget::start()
 {
+    if (m_breakLoop) {
+        m_restartRequested = true;
+        m_breakLoop->quit();
+        return true;
+    }
     m_error.clear();
     if (m_project.typeId() != QLatin1String("char")) {
         m_error = tr("The emulator runs character projects.");
@@ -191,7 +203,7 @@ bool EmulatorWidget::start()
     options.rounds = m_rounds ? m_rounds->value() : 0;
     options.time = m_time ? m_time->value() : 0;
     options.seed = std::uint32_t(QDateTime::currentMSecsSinceEpoch() & 0x7fffffff) | 1u;
-    if (!m_session.start(m_project, options, &m_error))
+    if (!m_session->start(m_project, options, &m_error))
         return false;
     m_renderer.clearCache();
     if (!m_mixer) {
@@ -200,27 +212,155 @@ bool EmulatorWidget::start()
                                                    : AudioEngine::Backend::System);
     }
     m_mixer->stopAll();
-    m_frame = m_renderer.render(m_session, renderOptions());
-    m_ticksRun = 0;
+    m_frame = m_renderer.render(*m_session, renderOptions());
+    m_debugger.setBreakpoints(m_breakpoints);
+    m_debugger.reset();
+    m_stopRequested = m_restartRequested = false;
+    std::weak_ptr<bool> alive = m_alive;
+    m_session->match().setLineObserver([this, alive](const Character& c, const Controller& controller, int line) {
+        if (!alive.expired())
+            onLine(c, controller, line);
+    });
     m_slowBudget = 0;
-    m_clock.start();
-    m_timer.start();
+    startTimer();
     setFocus();
     if (m_start)
         m_start->setToolTip(tr("Stop emulator"));
     update();
+    setDebugState(Debug::SessionState::Running);
     Q_EMIT statusChanged();
     return true;
 }
 
+void EmulatorWidget::startTimer()
+{
+    m_ticksRun = 0;
+    m_clock.start();
+    m_timer.start();
+}
+
 void EmulatorWidget::stop()
 {
+    // In a break, the match ends its tick first (without stopping again).
+    if (m_breakLoop) {
+        m_stopRequested = true;
+        m_debugState = Debug::SessionState::None;
+        m_breakLoop->quit();
+        return;
+    }
+    finishStop();
+}
+
+void EmulatorWidget::restart()
+{
+    if (m_breakLoop) {
+        m_restartRequested = true;
+        m_debugState = Debug::SessionState::None;
+        m_breakLoop->quit();
+        return;
+    }
+    finishStop();
+    if (!start() && !m_error.isEmpty())
+        QMessageBox::warning(this, tr("Emulator"), m_error);
+}
+
+void EmulatorWidget::finishStop()
+{
     m_timer.stop();
+    m_stopRequested = false;
     if (m_mixer)
         m_mixer->stopAll();
     if (m_start)
         m_start->setToolTip(tr("Start emulator"));
+    setDebugState(Debug::SessionState::None);
+    Q_EMIT debugLineChanged(QString(), 0);
     Q_EMIT statusChanged();
+}
+
+bool EmulatorWidget::handleRequests()
+{
+    if (m_restartRequested) {
+        m_restartRequested = false;
+        finishStop();
+        if (!start() && !m_error.isEmpty())
+            QMessageBox::warning(this, tr("Emulator"), m_error);
+        return true;
+    }
+    if (m_stopRequested) {
+        finishStop();
+        return true;
+    }
+    return false;
+}
+
+void EmulatorWidget::setDebugState(Debug::SessionState state)
+{
+    if (m_debugState == state)
+        return;
+    m_debugState = state;
+    Q_EMIT debugStateChanged();
+}
+
+void EmulatorWidget::onLine(const Character& character, const Controller& controller, int line)
+{
+    if (m_debugState != Debug::SessionState::Running || m_breakLoop)
+        return;
+    if (!m_debugger.atLine(*m_session, character, controller, line))
+        return;
+    interrupted();
+    // The match waits here until Continue, a step, Stop or Restart.
+    QEventLoop loop;
+    m_breakLoop = &loop;
+    std::weak_ptr<bool> alive = m_alive;
+    loop.exec();
+    if (alive.expired())
+        return;
+    m_breakLoop = nullptr;
+}
+
+void EmulatorWidget::interrupted()
+{
+    m_timer.stop();
+    setDebugState(Debug::SessionState::Interrupted);
+    const std::optional<EmulatorDebugger::Location>& at = m_debugger.location();
+    Q_EMIT debugLineChanged(at ? at->file : QString(), at ? at->line : 0);
+    Q_EMIT debugVariablesChanged();
+    m_frame = m_renderer.render(*m_session, renderOptions());
+    update();
+}
+
+void EmulatorWidget::resumeRun(EmulatorDebugger::Step step)
+{
+    if (m_debugState != Debug::SessionState::Interrupted)
+        return;
+    m_debugger.resume(step);
+    setDebugState(Debug::SessionState::Running);
+    Q_EMIT debugLineChanged(QString(), 0);
+    if (m_breakLoop)
+        m_breakLoop->quit();
+    else
+        startTimer();
+}
+
+void EmulatorWidget::setBreakpoints(Debug::BreakpointList* breakpoints)
+{
+    m_breakpoints = breakpoints;
+    m_debugger.setBreakpoints(breakpoints);
+}
+
+QList<Debug::Variable> EmulatorWidget::debugVariables() const
+{
+    return EmulatorDebugger::variables(*m_session);
+}
+
+std::optional<Debug::Variable> EmulatorWidget::debugVariable(const QString& path) const
+{
+    return EmulatorDebugger::variable(*m_session, path);
+}
+
+QList<Debug::StackFrame> EmulatorWidget::debugStack() const
+{
+    return m_debugger.stack(*m_session);
 }
 
 void EmulatorWidget::advance()
@@ -229,35 +369,61 @@ void EmulatorWidget::advance()
     const qint64 due = m_clock.elapsed() * TicksPerSecond / 1000;
     int ran = 0;
     bool ticked = false;
-    while (m_ticksRun < due && ran < 4) {
-        m_slowBudget += m_session.fightScreen().gameSpeed(m_session.match());
+    while (m_ticksRun < due && ran < 4 && m_debugState == Debug::SessionState::Running) {
+        m_slowBudget += m_session->fightScreen().gameSpeed(m_session->match());
         for (; m_slowBudget >= 1; m_slowBudget -= 1) {
-            tick();
+            if (m_debugger.beforeFrame(*m_session)) {
+                m_slowBudget = 0;
+                interrupted();
+                return;
+            }
+            if (!tick())
+                return;
+            if (handleRequests())
+                return;
             ticked = true;
+            if (m_debugState != Debug::SessionState::Running)
+                break;
         }
         ++m_ticksRun;
         ++ran;
     }
     m_ticksRun = std::max(m_ticksRun, due - 4);
     if (ticked) {
-        m_frame = m_renderer.render(m_session, renderOptions());
+        m_frame = m_renderer.render(*m_session, renderOptions());
         update();
+        if (++m_refresh % 6 == 0)
+            Q_EMIT debugVariablesChanged();
     }
+    if (m_debugState == Debug::SessionState::Running && !m_timer.isActive())
+        startTimer();
 }
 
-void EmulatorWidget::tick()
+bool EmulatorWidget::tick()
 {
-    m_session.tick(inputOf(1), inputOf(2));
+    // The session and the workspace may part during a break, so keep the session until the tick ends.
+    const std::shared_ptr<EmulatorSession> session = m_session;
+    const std::weak_ptr<bool> alive = m_alive;
+    session->tick(inputOf(1), inputOf(2));
+    if (alive.expired())
+        return false;
+    m_debugger.afterFrame();
     if (m_mixer)
-        m_session.playSounds(*m_mixer);
+        session->playSounds(*m_mixer);
+    return true;
 }
 
 void EmulatorWidget::step()
 {
-    if (!m_session.isStarted())
+    if (!m_session->isStarted() || m_debugState == Debug::SessionState::None)
         return;
-    tick();
-    m_frame = m_renderer.render(m_session, renderOptions());
+    if (m_debugger.beforeFrame(*m_session)) {
+        interrupted();
+        return;
+    }
+    if (!tick() || handleRequests())
+        return;
+    m_frame = m_renderer.render(*m_session, renderOptions());
 }
 
 InputState EmulatorWidget::inputOf(int player) const
@@ -328,8 +494,8 @@ EmulatorRenderer::Options EmulatorWidget::renderOptions() const
 
 void EmulatorWidget::applySettings()
 {
-    if (m_session.isStarted()) {
-        m_frame = m_renderer.render(m_session, renderOptions());
+    if (m_session->isStarted()) {
+        m_frame = m_renderer.render(*m_session, renderOptions());
         update();
     }
 }
@@ -381,15 +547,33 @@ QStringList EmulatorWidget::statusSections() const
 bool EmulatorWidget::perform(const QString& actionId)
 {
     if (actionId == QLatin1String("debug_start_emul")) {
-        if (!start() && !m_error.isEmpty())
+        if (!isRunning() && !start() && !m_error.isEmpty())
             QMessageBox::warning(this, tr("Emulator"), m_error);
         return true;
     }
-    if (actionId == QLatin1String("debug_stop") && isRunning()) {
+    if (!isRunning())
+        return false;
+    if (actionId == QLatin1String("debug_stop")) {
         stop();
-        return true;
+    } else if (actionId == QLatin1String("debug_restart")) {
+        restart();
+    } else if (actionId == QLatin1String("debug_interrupt")) {
+        if (m_debugState == Debug::SessionState::Running)
+            m_debugger.interrupt();
+    } else if (actionId == QLatin1String("debug_continue") || actionId == QLatin1String("debug_start")) {
+        resumeRun(EmulatorDebugger::Step::None);
+    } else if (actionId == QLatin1String("debug_step_into")) {
+        resumeRun(EmulatorDebugger::Step::Into);
+    } else if (actionId == QLatin1String("debug_step_over")) {
+        resumeRun(EmulatorDebugger::Step::Over);
+    } else if (actionId == QLatin1String("debug_step_out")) {
+        resumeRun(EmulatorDebugger::Step::Out);
+    } else if (actionId == QLatin1String("debug_step_frame")) {
+        resumeRun(EmulatorDebugger::Step::Frame);
+    } else {
+        return false;
     }
-    return false;
+    return true;
 }
 
 } // namespace OFS::Mugen

@@ -67,6 +67,8 @@ add_library(ofsshell STATIC
     dialogs/BreakpointDialog.cpp
     DebuggerPanels.h
     DebuggerPanels.cpp
+    DebugView.h
+    DebugView.cpp
     dialogs/ScriptEditorDialog.h
     dialogs/ScriptEditorDialog.cpp
     dialogs/ProjectDialogs.h

@@ -26,6 +26,8 @@ public:
 
     int selectedBreakpoint() const;
     void setIcons(const IconSet& icons);
+    void setSessionActive(bool active);
+    int watchList() const { return m_watchList; }
 
     // For tests: each row's cells joined by '|'.
     QStringList breakpointRows() const;
@@ -43,6 +45,8 @@ private:
     Debug::BreakpointList& m_breakpoints;
     ActionRegistry& m_actions;
     const IconSet* m_icons;
+    bool m_sessionActive = false;
+    int m_watchList = 0;
 };
 
 } // namespace OFS

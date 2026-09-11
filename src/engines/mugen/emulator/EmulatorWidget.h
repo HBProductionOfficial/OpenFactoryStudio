@@ -2,6 +2,7 @@
 
 #include "core/audio/AudioMixer.h"
 #include "core/engine/EngineWorkspace.h"
+#include "engines/mugen/emulator/EmulatorDebugger.h"
 #include "engines/mugen/emulator/EmulatorRenderer.h"
 #include "engines/mugen/emulator/EmulatorSession.h"
 
@@ -14,6 +15,7 @@
 #include <memory>
 
 class QAbstractButton;
+class QEventLoop;
 class QCheckBox;
 class QComboBox;
 class QGroupBox;
@@ -45,12 +47,21 @@ public:
     void setZoom(int zoom);
     EmulatorRenderer::Options renderOptions() const;
 
-    bool isRunning() const { return m_timer.isActive(); }
+    // Debugging: every match is a debug session.
+    Debug::SessionState debugState() const override { return m_debugState; }
+    void setBreakpoints(Debug::BreakpointList* breakpoints) override;
+    QList<Debug::Variable> debugVariables() const override;
+    std::optional<Debug::Variable> debugVariable(const QString& path) const override;
+    QList<Debug::StackFrame> debugStack() const override;
+    const EmulatorDebugger& debugger() const { return m_debugger; }
+
+    bool isRunning() const { return m_debugState != Debug::SessionState::None; }
     bool start();
     void stop();
+    void restart();
     QString lastError() const { return m_error; }
     void step();
-    const EmulatorSession& session() const { return m_session; }
+    const EmulatorSession& session() const { return *m_session; }
     const QImage& frame() const { return m_frame; }
     // Made when a match starts (null before, silent without a sound card).
     AudioMixer* mixer() const { return m_mixer.get(); }
@@ -67,7 +78,16 @@ protected:
 
 private:
     void advance();
-    void tick();
+    // Returns false when the workspace went away during the tick (a break's event loop).
+    bool tick();
+    // The debugger may stop at a line of the match, in an event loop until it goes on.
+    void onLine(const Runtime::Character& character, const Runtime::Controller& controller, int line);
+    void interrupted();
+    void resumeRun(EmulatorDebugger::Step step);
+    void startTimer();
+    void finishStop();
+    bool handleRequests();
+    void setDebugState(Debug::SessionState state);
     void updateTraining();
     TrainingOptions trainingOptions() const;
     Runtime::InputState inputOf(int player) const;
@@ -75,7 +95,15 @@ private:
 
     Project& m_project;
     AppContext& m_context;
-    EmulatorSession m_session;
+    std::shared_ptr<EmulatorSession> m_session = std::make_shared<EmulatorSession>();
+    std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
+    EmulatorDebugger m_debugger;
+    Debug::SessionState m_debugState = Debug::SessionState::None;
+    QPointer<Debug::BreakpointList> m_breakpoints;
+    QEventLoop* m_breakLoop = nullptr;
+    bool m_stopRequested = false;
+    bool m_restartRequested = false;
+    int m_refresh = 0;
     EmulatorRenderer m_renderer;
     std::unique_ptr<AudioMixer> m_mixer;
     QImage m_frame;

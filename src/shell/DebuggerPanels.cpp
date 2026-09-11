@@ -40,6 +40,14 @@ DebuggerPanels::DebuggerPanels(BottomDock& dock, Debug::BreakpointList& breakpoi
     refresh();
 }
 
+void DebuggerPanels::setSessionActive(bool active)
+{
+    if (m_sessionActive == active)
+        return;
+    m_sessionActive = active;
+    refresh();
+}
+
 void DebuggerPanels::setIcons(const IconSet& icons)
 {
     m_icons = &icons;
@@ -67,8 +75,10 @@ void DebuggerPanels::refresh()
         QList<QStandardItem*> row;
         auto* number = new QStandardItem(QString::number(b.number));
         number->setData(b.number, Qt::UserRole);
-        number->setIcon(
-            m_icons->icon(b.enabled ? QStringLiteral("breakpoint_pending") : QStringLiteral("breakpoint_disabled")));
+        number->setIcon(m_icons->icon(!b.enabled          ? QStringLiteral("breakpoint_disabled")
+                                      : !m_sessionActive  ? QStringLiteral("breakpoint_pending")
+                                      : b.ignoreCount > 0 ? QStringLiteral("breakpoint_ignored")
+                                                          : QStringLiteral("breakpoint_active")));
         row << number;
         row << new QStandardItem(text(b.function));
         row << new QStandardItem(
@@ -135,6 +145,7 @@ void DebuggerPanels::showWatchMenu(QTreeView* view, const QPoint& pos)
 {
     if (!view->indexAt(pos).isValid())
         view->clearSelection();
+    m_watchList = view == m_dock.watchView(1) ? 1 : 0;
     QAction* remove = m_actions.action(QStringLiteral("watch_remove"));
     QAction* removeAll = m_actions.action(QStringLiteral("watch_remove_all"));
     remove->setEnabled(view->selectionModel()->hasSelection());

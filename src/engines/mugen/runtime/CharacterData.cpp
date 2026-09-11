@@ -340,6 +340,7 @@ void CharacterData::addStates(const QString& text, const QString& file, bool rep
         controller.file = file;
         controller.line = section.line;
         QMap<int, std::vector<Expr>> groups;
+        QMap<int, std::vector<int>> groupLines;
         for (const IniEntry& entry : section.entries) {
             const QString key = entry.key.toLower();
             if (key == QLatin1String("type")) {
@@ -351,10 +352,13 @@ void CharacterData::addStates(const QString& text, const QString& file, bool rep
                 Expr expr = Expr::compile(entry.value, &error);
                 if (!error.isEmpty())
                     m_issues << LoadIssue{file, entry.line, error};
-                if (t.captured(1).compare(QLatin1String("all"), Qt::CaseInsensitive) == 0)
+                if (t.captured(1).compare(QLatin1String("all"), Qt::CaseInsensitive) == 0) {
                     controller.triggerAll.push_back(expr);
-                else
+                    controller.triggerAllLines.push_back(entry.line);
+                } else {
                     groups[t.captured(1).toInt()].push_back(expr);
+                    groupLines[t.captured(1).toInt()].push_back(entry.line);
+                }
                 continue;
             }
             if (key == QLatin1String("persistent")) {
@@ -368,8 +372,10 @@ void CharacterData::addStates(const QString& text, const QString& file, bool rep
             controller.params.insert(key, compileParam(entry.value, entry.line, file, false));
         }
         // Triggers count from 1 without gaps.
-        for (int n = 1; groups.contains(n); ++n)
+        for (int n = 1; groups.contains(n); ++n) {
             controller.triggers.push_back(groups.value(n));
+            controller.triggerLines.push_back(groupLines.value(n));
+        }
         if (controller.type.isEmpty())
             m_issues << LoadIssue{file, section.line, QStringLiteral("missing type for the controller")};
         else if (controller.triggers.empty())

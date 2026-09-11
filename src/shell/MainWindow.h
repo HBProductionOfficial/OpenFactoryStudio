@@ -133,6 +133,10 @@ public:
     Script::Environment scriptEnvironment();
     // Number 0 makes a new breakpoint.
     void editBreakpoint(int number);
+    void refreshDebugViews();
+    void addDataBreakpoint();
+    void addWatch(int list);
+    void removeWatch(bool all);
     void showScriptEditor();
     void runToolScript(const QString& path);
 
@@ -153,6 +157,7 @@ private:
     BottomDock* m_dock = nullptr;
     Debug::BreakpointList* m_breakpoints = nullptr;
     DebuggerPanels* m_debugPanels = nullptr;
+    QStringList m_watches[2];
     StatusBar* m_status = nullptr;
     QActionGroup* m_editorGroup = nullptr;
     QDockWidget* m_actionListDock = nullptr;

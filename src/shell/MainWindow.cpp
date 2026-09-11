@@ -1,4 +1,5 @@
 #include "shell/MainWindow.h"
+#include "shell/DebugView.h"
 #include "shell/DebuggerPanels.h"
 #include "shell/dialogs/BreakpointDialog.h"
 
@@ -97,6 +98,7 @@
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QToolBar>
+#include <QTreeView>
 #include <QUndoStack>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -483,6 +485,28 @@ void MainWindow::connectActions()
             m_breakpoints->toggle(page->property("filePath").toString(), editor->cursorLine());
     });
     on("breakpoint_add", [this] { editBreakpoint(0); });
+    on("debug_start_emul", [this] {
+        ProjectView* view = currentProjectView();
+        if (!view || view->debugEditor().isEmpty())
+            return;
+        view->setCurrentEditor(view->debugEditor());
+        if (EngineWorkspace* debugger = view->debugWorkspace())
+            debugger->perform(QStringLiteral("debug_start_emul"));
+    });
+    for (const char* id : {"debug_interrupt", "debug_continue", "debug_start", "debug_stop", "debug_restart",
+                           "debug_step_over", "debug_step_into", "debug_step_out", "debug_step_frame"}) {
+        const QString action = QString::fromLatin1(id);
+        on(id, [this, action] {
+            ProjectView* view = currentProjectView();
+            if (EngineWorkspace* debugger = view ? view->debugWorkspace() : nullptr)
+                debugger->perform(action);
+        });
+    }
+    on("debug_data_breakpoint", [this] { addDataBreakpoint(); });
+    on("debug_data_watch1", [this] { addWatch(0); });
+    on("debug_data_watch2", [this] { addWatch(1); });
+    on("watch_remove", [this] { removeWatch(false); });
+    on("watch_remove_all", [this] { removeWatch(true); });
     on("breakpoint_edit", [this] {
         if (const int number = m_debugPanels->selectedBreakpoint())
             editBreakpoint(number);
@@ -1954,6 +1978,69 @@ Script::Environment MainWindow::scriptEnvironment()
     return environment;
 }
 
+void MainWindow::refreshDebugViews()
+{
+    ProjectView* view = currentProjectView();
+    EngineWorkspace* debugger = view ? view->debugWorkspace() : nullptr;
+    const Debug::SessionState session = debugger ? debugger->debugState() : Debug::SessionState::None;
+    const bool on = session != Debug::SessionState::None;
+    QWidget* panel = view ? view->debugPanel() : nullptr;
+    QTreeView* variables = panel ? panel->findChild<QTreeView*>(QStringLiteral("debug_variables")) : nullptr;
+    DebugView::showVariables(variables, on ? debugger->debugVariables() : QList<Debug::Variable>());
+    DebugView::showStack(m_dock->callStackView(), session == Debug::SessionState::Interrupted
+                                                      ? debugger->debugStack()
+                                                      : QList<Debug::StackFrame>());
+    for (int list = 0; list < 2; ++list) {
+        QList<Debug::Variable> rows;
+        for (const QString& path : std::as_const(m_watches[list])) {
+            const std::optional<Debug::Variable> v = on ? debugger->debugVariable(path) : std::nullopt;
+            rows << Debug::Variable{path, path, v ? v->value : tr("N/A"), v ? v->type : QString(), {}};
+        }
+        DebugView::showWatch(m_dock->watchView(list), rows);
+    }
+}
+
+void MainWindow::addDataBreakpoint()
+{
+    ProjectView* view = currentProjectView();
+    QWidget* panel = view ? view->debugPanel() : nullptr;
+    const QString path =
+        DebugView::currentPath(panel ? panel->findChild<QTreeView*>(QStringLiteral("debug_variables")) : nullptr);
+    if (path.isEmpty())
+        return;
+    Debug::Breakpoint breakpoint;
+    breakpoint.type = Debug::BreakpointType::Memory;
+    breakpoint.address = path;
+    BreakpointDialog dialog(this);
+    dialog.setBreakpoint(breakpoint, false);
+    if (dialog.exec() == QDialog::Accepted)
+        m_breakpoints->add(dialog.breakpoint());
+}
+
+void MainWindow::addWatch(int list)
+{
+    ProjectView* view = currentProjectView();
+    QWidget* panel = view ? view->debugPanel() : nullptr;
+    const QString path =
+        DebugView::currentPath(panel ? panel->findChild<QTreeView*>(QStringLiteral("debug_variables")) : nullptr);
+    if (path.isEmpty() || list < 0 || list > 1)
+        return;
+    if (!m_watches[list].contains(path))
+        m_watches[list] << path;
+    refreshDebugViews();
+}
+
+void MainWindow::removeWatch(bool all)
+{
+    const int list = m_debugPanels->watchList();
+    if (all) {
+        m_watches[list].clear();
+    } else if (QTreeView* view = m_dock->watchView(list); view && view->currentIndex().isValid()) {
+        m_watches[list].removeAt(view->currentIndex().row());
+    }
+    refreshDebugViews();
+}
+
 void MainWindow::editBreakpoint(int number)
 {
     BreakpointDialog dialog(this);
@@ -2025,6 +2112,17 @@ void MainWindow::addProjectView(Project* project, const QString& editorId)
             refreshStatusBar();
     });
     connect(view, &ProjectView::modifiedChanged, this, [this, view] { updateProjectTab(view); });
+    connect(view, &ProjectView::debugStateChanged, this, [this, view] {
+        if (view != currentProjectView())
+            return;
+        m_debugPanels->setSessionActive(view->isDebugging());
+        refreshActionStates();
+        refreshDebugViews();
+    });
+    connect(view, &ProjectView::debugVariablesChanged, this, [this, view] {
+        if (view == currentProjectView())
+            refreshDebugViews();
+    });
     view->setCodeMenu(m_menus->submenu(QStringLiteral("menu_code")));
     connect(view, &ProjectView::issuesChanged, this, [this] {
         refreshIssues();
@@ -2262,9 +2360,16 @@ void MainWindow::refreshActionStates()
                "debug_start_emul",   "debug_breakpoint",  "editor_new",       "editor_open",
                "editor_save",        "editor_saveas",     "tools_export_html"},
               project);
-    enableAll({"debug_interrupt", "debug_continue", "debug_stop", "debug_restart", "debug_step_over", "debug_step_into",
-               "debug_step_out", "debug_step_frame"},
-              false);
+    EngineWorkspace* debugger = view ? view->debugWorkspace() : nullptr;
+    const Debug::SessionState session = debugger ? debugger->debugState() : Debug::SessionState::None;
+    const bool interrupted = session == Debug::SessionState::Interrupted;
+    enable(QStringLiteral("debug_start_emul"), debugger && session == Debug::SessionState::None);
+    enable(QStringLiteral("debug_interrupt"), session == Debug::SessionState::Running);
+    enableAll(
+        {"debug_continue", "debug_start", "debug_step_over", "debug_step_into", "debug_step_out", "debug_step_frame"},
+        interrupted);
+    enableAll({"debug_stop", "debug_restart", "debug_data_breakpoint", "debug_data_watch1", "debug_data_watch2"},
+              session != Debug::SessionState::None);
     const Project* current = view ? view->project() : nullptr;
     enable(QStringLiteral("file_backup"), current && !current->isMemoryOnly());
     enable(QStringLiteral("file_load_backup"),

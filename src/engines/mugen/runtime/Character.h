@@ -18,6 +18,7 @@
 
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -135,6 +136,14 @@ public:
     bool isAsserted(const QString& flag) const;
     void setExplodRules(ExplodRules rules) { m_explodRules = rules; }
     ExplodRules explodRules() const { return m_explodRules; }
+    // Called before each controller and trigger line (0-based). The debugger may hold the match there.
+    using LineObserver = std::function<void(const Character& character, const Controller& controller, int line)>;
+    void setLineObserver(LineObserver observer) { m_lineObserver = std::move(observer); }
+    void observeLine(const Character& character, const Controller& controller, int line) const
+    {
+        if (m_lineObserver)
+            m_lineObserver(character, controller, line);
+    }
     void setNoKo(bool noKo) { m_noKo = noKo; }
     bool noKo() const { return m_noKo; }
     const Character* attackerNear(const Character* c) const;
@@ -201,6 +210,7 @@ private:
     std::vector<std::unique_ptr<Character>> m_helpers;
 
     bool m_noKo = false;
+    LineObserver m_lineObserver;
     ExplodRules m_explodRules = ExplodRules::PlayerVersion;
     bool m_roundActive = false;
     RoundSettings m_settings;
@@ -298,6 +308,10 @@ public:
     int power() const { return powerOwner()->m_power; }
     int var(int index) const;
     float fvar(int index) const;
+    int sysVar(int index) const { return index >= 0 && index < 5 ? m_sysVars[std::size_t(index)] : 0; }
+    float sysFVar(int index) const { return index >= 0 && index < 5 ? m_sysFVars[std::size_t(index)] : 0; }
+    int runningState() const { return m_runningState; }
+    const CharacterData& runningStateData() const { return m_runningStateData ? *m_runningStateData : m_data; }
     void setVar(int index, int value)
     {
         if (index >= 0 && index < int(m_vars.size()))
@@ -374,6 +388,8 @@ private:
 
     const CharacterData& m_data;
     const CharacterData* m_stateData;
+    int m_runningState = 0;
+    const CharacterData* m_runningStateData = nullptr;
     const CharacterData* m_animData;
     Match* m_match;
     int m_id;
