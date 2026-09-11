@@ -9,6 +9,8 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QFontDatabase>
+#include <QFontMetrics>
 #include <QPainter>
 
 #include <algorithm>
@@ -76,6 +78,28 @@ int integer(const IniSection* section, const QString& key, int fallback)
 
 int FightScreen::Font::textWidth(const QString& text) const
 {
+    if (kind == Kind::TrueType) {
+        QFont font(family);
+        font.setPixelSize(std::max(1, info.height));
+        return QFontMetrics(font).horizontalAdvance(text);
+    }
+    if (kind == Kind::Bitmap) {
+        // Characters without a glyph take no room. A space is the font's width.
+        int width = 0;
+        for (int i = 0; i < text.size(); ++i) {
+            int w = 0;
+            if (text[i] == QLatin1Char(' ')) {
+                w = info.width;
+            } else if (sprites) {
+                const int index = sprites->findSprite(0, text[i].unicode());
+                w = index >= 0 ? sprites->sprites()[index].width() : 0;
+            }
+            width += w;
+            if (w > 0 && i < text.size() - 1)
+                width += info.spacingX;
+        }
+        return width;
+    }
     int width = 0;
     for (int i = 0; i < text.size(); ++i) {
         const auto glyph = glyphs.constFind(text[i].unicode());
@@ -105,6 +129,38 @@ Formats::Palette FightScreen::Font::palette(int bank) const
 
 std::optional<FightScreen::Font> FightScreen::Font::load(const QString& path)
 {
+    // FNT v2: a definition naming the glyphs' sprite file or a TrueType file.
+    if (path.endsWith(QLatin1String(".def"), Qt::CaseInsensitive)) {
+        const IniText ini = IniText::parse(readText(path));
+        const IniSection* def = ini.section(QStringLiteral("Def"));
+        if (!def)
+            return std::nullopt;
+        Font font;
+        const QList<double> size = numbers(def->value(QStringLiteral("size")));
+        const QList<double> spacing = numbers(def->value(QStringLiteral("spacing")));
+        const QList<double> offset = numbers(def->value(QStringLiteral("offset")));
+        font.info.width = int(size.value(0));
+        font.info.height = int(size.value(1));
+        font.info.spacingX = int(spacing.value(0));
+        font.info.spacingY = int(spacing.value(1));
+        font.info.offsetX = int(offset.value(0));
+        font.info.offsetY = int(offset.value(1));
+        const QString file = QDir(QFileInfo(path).absolutePath()).filePath(unquote(def->value(QStringLiteral("file"))));
+        if (def->value(QStringLiteral("type")).trimmed().compare(QLatin1String("truetype"), Qt::CaseInsensitive) == 0) {
+            font.kind = Kind::TrueType;
+            const int id = QFontDatabase::addApplicationFont(file);
+            const QStringList families = id >= 0 ? QFontDatabase::applicationFontFamilies(id) : QStringList();
+            font.family = families.isEmpty() ? QFileInfo(file).completeBaseName() : families.first();
+            return font;
+        }
+        const QByteArray sff = readBytes(file);
+        auto doc = Formats::SffDocument::read(span(sff));
+        if (!doc)
+            return std::nullopt;
+        font.kind = Kind::Bitmap;
+        font.sprites = std::make_shared<const SpriteDocument>(SpriteDocument::fromSff(doc.value()));
+        return font;
+    }
     const QByteArray data = readBytes(path);
     auto doc = Formats::FntDocument::read(span(data));
     if (!doc)
@@ -130,6 +186,8 @@ std::optional<FightScreen::Font> FightScreen::Font::load(const QString& path)
 
 QImage FightScreen::Font::render(int bank) const
 {
+    if (kind != Kind::Fnt)
+        return QImage();
     QImage indexed(image.width(), image.height(), QImage::Format_Indexed8);
     for (int y = 0; y < image.height(); ++y) {
         std::copy_n(image.pixels().data() + std::size_t(y) * std::size_t(image.width()), image.width(),
@@ -144,10 +202,63 @@ QImage FightScreen::Font::render(int bank) const
 }
 
 void FightScreen::Font::draw(QPainter& painter, const QImage& glyphImage, QPointF pos, int align, QPointF scale,
-                             const QString& text) const
+                             const QString& text, int bank) const
 {
     const double sx = scale.x();
     const double sy = scale.y();
+    if (kind == Kind::TrueType) {
+        QFont font(family);
+        font.setPixelSize(std::max(1, info.height));
+        painter.save();
+        painter.setFont(font);
+        painter.setPen(Qt::white);
+        const int width = textWidth(text);
+        double x = pos.x() + info.offsetX;
+        if (align == 0)
+            x -= width / 2.0;
+        else if (align < 0)
+            x -= width;
+        painter.translate(x, pos.y() + info.offsetY);
+        painter.scale(sx, sy);
+        painter.drawText(QPointF(), text);
+        painter.restore();
+        return;
+    }
+    if (kind == Kind::Bitmap) {
+        if (!sprites)
+            return;
+        const int bankPalette = sprites->findPalette(0, std::max(0, bank));
+        double x = pos.x() + info.offsetX * sx;
+        const double y = pos.y() + (info.offsetY - info.height + 1) * sy;
+        const int width = textWidth(text);
+        if (align == 0)
+            x -= width * sx / 2;
+        else if (align < 0)
+            x -= width * sx;
+        for (const QChar c : text) {
+            if (c == QLatin1Char(' ')) {
+                x += (info.width + info.spacingX) * sx;
+                continue;
+            }
+            const int index = sprites->findSprite(0, c.unicode());
+            if (index < 0)
+                continue;
+            const SpriteEntry& entry = sprites->sprites()[index];
+            const Formats::Palette* palette =
+                bankPalette >= 0 ? &sprites->palettes()[bankPalette]->palette.colors : nullptr;
+            const Formats::Image rgba = sprites->imageRgba(index, palette);
+            if (!rgba.pixelBuffer().empty()) {
+                const QImage glyph =
+                    QImage(rgba.pixels().data(), rgba.width(), rgba.height(), rgba.width() * 4, QImage::Format_RGBA8888)
+                        .convertToFormat(QImage::Format_ARGB32_Premultiplied);
+                painter.drawImage(QRectF(x - entry.header.axisX * sx, y - entry.header.axisY * sy, glyph.width() * sx,
+                                         glyph.height() * sy),
+                                  glyph);
+            }
+            x += (entry.width() + info.spacingX) * sx;
+        }
+        return;
+    }
     double x = pos.x() + info.offsetX * sx;
     const double y = pos.y() + (info.offsetY - info.height + 1) * sy;
     const int width = textWidth(text);

@@ -408,7 +408,8 @@ QImage StoryboardPlayer::render()
             const QStringList lines = shown.split(QLatin1Char('\n'));
             const double lineHeight = font->info.height + font->info.spacingY;
             for (int i = 0; i < lines.size(); ++i)
-                font->draw(p, glyphs, at + QPointF(0, i * lineHeight), layer.align, QPointF(1, 1), lines[i]);
+                font->draw(p, glyphs, at + QPointF(0, i * lineHeight), layer.align, QPointF(1, 1), lines[i],
+                           layer.bank);
         }
     }
     p.restore();

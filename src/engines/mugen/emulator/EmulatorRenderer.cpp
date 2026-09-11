@@ -483,7 +483,7 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
             if (item.clip)
                 p.setClipRect(*item.clip);
             item.font->draw(p, withFx(fontImage(*item.font, item.bank), allFx), item.pos, item.align, item.scale,
-                            item.text);
+                            item.text, item.bank);
             p.restore();
         } else if (const Sprite* s = sprite(item.sprites, item.group, item.number); s && !s->image.isNull()) {
             const QImage image =

@@ -12,6 +12,7 @@
 #include "formats/codecs/Pcx.h"
 #include "formats/palette/PaletteFormats.h"
 
+#include <QComboBox>
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
@@ -862,6 +863,68 @@ private Q_SLOTS:
         QVERIFY(!emulator.frame().isNull());
     }
 
+    void motifScreens()
+    {
+        EngineFolder engine;
+        Formats::Test::FixtureFactory fixtures;
+        QVERIFY(
+            fixtures.sff(Formats::SffVersion::V1, 1).save(engine.dir.filePath("data/system.sff").toStdWString()).ok());
+        writeSounds(engine.dir.filePath("data/system.snd"), {{100, 0, 0.5}, {100, 1, 0.5}});
+        const QString system = engine.dir.filePath("data/system.def");
+        writeFile(system, "[Info]\nlocalcoord = 320,240\n[Files]\nspr = system.sff\nsnd = system.snd\n"
+                          "[Title Info]\nmenu.pos = 160,150\nmenu.item.spacing = 0,13\nmenu.itemname.teamcoop =\n"
+                          "menu.window.visibleitems = 3\nmenu.window.margins.y = 12,8\n"
+                          "cursor.move.snd = 100,0\ncursor.done.snd = 100,1\n[TitleBGdef]\n");
+        MugenEngine mugen;
+        QString error;
+        std::unique_ptr<Project> motif(mugen.openProject(system, &error));
+        QVERIFY2(motif, qPrintable(error));
+        QCOMPARE(motif->typeId(), QStringLiteral("motif"));
+        MotifScreen menu;
+        QVERIFY2(menu.start(*motif, system, engine.dir.path(), MotifScreen::Screen::Menu, &error), qPrintable(error));
+        QCOMPARE(menu.menuItems().size(), 10);
+        QCOMPARE(menu.menuItems().first(), QStringLiteral("ARCADE"));
+        QVERIFY(!menu.menuItems().contains("TEAM CO-OP"));
+        qputenv("OFS_AUDIO_BACKEND", "null");
+        AudioMixer mixer(AudioEngine::Backend::Null);
+        Runtime::InputState up;
+        up.up = true;
+        menu.tick(up);
+        menu.playSounds(mixer);
+        QCOMPARE(menu.menuIndex(), 9);
+        QCOMPARE(mixer.voices(), 1);
+        menu.tick(up);
+        QCOMPARE(menu.menuIndex(), 9);
+        menu.tick({});
+        menu.tick(up);
+        QCOMPARE(menu.menuIndex(), 8);
+        QCOMPARE(menu.canvasSize(), QSize(320, 240));
+
+        AppContext context;
+        EmulatorWidget emulator(*motif, context);
+        QWidget panel;
+        auto* screens = new QComboBox(&panel);
+        screens->setObjectName("emul_screen");
+        emulator.bindPanel(&panel);
+        QVERIFY(screens->isEnabled());
+        QCOMPARE(screens->count(), 6);
+        QVERIFY2(emulator.start(), qPrintable(emulator.lastError()));
+        QVERIFY(emulator.showsMotif());
+        QCOMPARE(emulator.motifScreen().screen(), MotifScreen::Screen::Menu);
+        screens->setCurrentIndex(1);
+        QCOMPARE(emulator.motifScreen().screen(), MotifScreen::Screen::Versus);
+        emulator.step();
+        QVERIFY(!emulator.frame().isNull());
+        emulator.stop();
+        std::unique_ptr<Project> character(mugen.openProject(engine.def, nullptr));
+        EmulatorWidget fighter(*character, context);
+        QWidget otherPanel;
+        auto* off = new QComboBox(&otherPanel);
+        off->setObjectName("emul_screen");
+        fighter.bindPanel(&otherPanel);
+        QVERIFY(!off->isEnabled());
+    }
+
     void kungFuMan()
     {
         // Set OFS_EMULATOR_FRAME to save the frame for a look.
@@ -936,6 +999,33 @@ private Q_SLOTS:
             if (!out.isEmpty()) {
                 mountains.scaled(mountains.size() * 2).save(QString(out).replace(".png", "_story1.png"));
                 title.scaled(title.size() * 2).save(QString(out).replace(".png", "_story2.png"));
+            }
+        }
+
+        const QString system = QDir(engineDir).filePath("data/system.def");
+        if (QFileInfo::exists(system)) {
+            std::unique_ptr<Project> motif(mugen.openProject(system, &error));
+            QVERIFY2(motif, qPrintable(error));
+            QCOMPARE(motif->typeId(), QStringLiteral("motif"));
+            const char* names[] = {"menu", "versus", "continue", "victory", "win", "survival"};
+            for (int screen = 0; screen < 6; ++screen) {
+                MotifScreen shown;
+                QVERIFY2(shown.start(*motif, system, engineDir, MotifScreen::Screen(screen), &error),
+                         qPrintable(error));
+                Runtime::InputState down;
+                down.down = true;
+                for (int i = 0; i < 40; ++i)
+                    shown.tick(screen == 0 && (i == 20 || i == 22) ? down : Runtime::InputState());
+                if (screen == 0) {
+                    QVERIFY(shown.menuItems().size() >= 5);
+                    QCOMPARE(shown.menuIndex(), 2);
+                }
+                const QImage picture = shown.render();
+                QVERIFY(litPixels(picture) > 0);
+                if (!out.isEmpty())
+                    picture.scaled(picture.size() * 2)
+                        .save(
+                            QString(out).replace(".png", QStringLiteral("_%1.png").arg(QLatin1String(names[screen]))));
             }
         }
     }

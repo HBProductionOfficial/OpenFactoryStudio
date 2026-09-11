@@ -5,6 +5,7 @@
 #include "engines/mugen/emulator/EmulatorDebugger.h"
 #include "engines/mugen/emulator/EmulatorRenderer.h"
 #include "engines/mugen/emulator/EmulatorSession.h"
+#include "engines/mugen/emulator/MotifScreen.h"
 #include "engines/mugen/emulator/StoryboardPlayer.h"
 
 #include <QElapsedTimer>
@@ -65,6 +66,8 @@ public:
     const EmulatorSession& session() const { return *m_session; }
     const StoryboardPlayer& storyboard() const { return m_storyboard; }
     bool playsStoryboard() const { return m_storyMode; }
+    const MotifScreen& motifScreen() const { return m_motif; }
+    bool showsMotif() const { return m_motifMode; }
     const QImage& frame() const { return m_frame; }
     // Made when a match starts (null before, silent without a sound card).
     AudioMixer* mixer() const { return m_mixer.get(); }
@@ -109,6 +112,10 @@ private:
     int m_refresh = 0;
     StoryboardPlayer m_storyboard;
     bool m_storyMode = false;
+    MotifScreen m_motif;
+    bool m_motifMode = false;
+    QPointer<QComboBox> m_screenCombo;
+    void motifTick();
     void storyTick();
     EmulatorRenderer m_renderer;
     std::unique_ptr<AudioMixer> m_mixer;

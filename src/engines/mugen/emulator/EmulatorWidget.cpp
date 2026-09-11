@@ -99,6 +99,7 @@ void EmulatorWidget::bindPanel(QWidget* panel)
     m_time = panel->findChild<QSpinBox*>(QStringLiteral("emul_time"));
     m_debugInfo = panel->findChild<QCheckBox*>(QStringLiteral("emul_debug_info"));
     m_explodMode = panel->findChild<QComboBox*>(QStringLiteral("emul_explod_mode"));
+    m_screenCombo = panel->findChild<QComboBox*>(QStringLiteral("emul_screen"));
     m_training = panel->findChild<QGroupBox*>(QStringLiteral("emul_training"));
     m_dummyCtrl = panel->findChild<QComboBox*>(QStringLiteral("emul_dummy_ctrl"));
     m_dummyMode = panel->findChild<QComboBox*>(QStringLiteral("emul_dummy_mode"));
@@ -128,8 +129,14 @@ void EmulatorWidget::bindPanel(QWidget* panel)
     }
     if (m_aiLevel)
         connect(m_aiLevel, &QSpinBox::valueChanged, this, applyTraining);
-    fill(panel->findChild<QComboBox*>(QStringLiteral("emul_screen")),
-         {tr("Menu"), tr("Versus"), tr("Continue"), tr("Victory"), tr("Win"), tr("Survival Results")});
+    fill(m_screenCombo, {tr("Menu"), tr("Versus"), tr("Continue"), tr("Victory"), tr("Win"), tr("Survival Results")});
+    if (m_screenCombo) {
+        m_screenCombo->setEnabled(m_project.typeId() == QLatin1String("motif"));
+        connect(m_screenCombo, &QComboBox::currentIndexChanged, this, [this] {
+            if (m_motifMode && isRunning())
+                restart();
+        });
+    }
     if (auto* edit = qobject_cast<QLineEdit*>(m_engine.data())) {
         edit->setText(QDir::toNativeSeparators(m_engineDir));
         connect(edit, &QLineEdit::editingFinished, this, [this, edit] { setEngineDir(edit->text()); });
@@ -212,8 +219,26 @@ bool EmulatorWidget::start()
         return true;
     }
     m_storyMode = false;
+    if (m_project.typeId() == QLatin1String("motif")) {
+        const int screen = m_screenCombo ? std::clamp(m_screenCombo->currentIndex(), 0, 5) : 0;
+        if (!m_motif.start(m_project, m_project.filePath(), m_engineDir, MotifScreen::Screen(screen), &m_error))
+            return false;
+        m_motifMode = true;
+        m_mixer->stopAll();
+        m_frame = m_motif.render();
+        m_stopRequested = m_restartRequested = false;
+        startTimer();
+        setFocus();
+        if (m_start)
+            m_start->setToolTip(tr("Stop emulator"));
+        update();
+        setDebugState(Debug::SessionState::Running);
+        Q_EMIT statusChanged();
+        return true;
+    }
+    m_motifMode = false;
     if (!EmulatorSession::canPlay(m_project.typeId())) {
-        m_error = tr("The emulator runs character, stage, fight screen and storyboard projects.");
+        m_error = tr("The emulator runs character, stage, fight screen, storyboard and motif projects.");
         return false;
     }
     EmulatorSession::Options options;
@@ -367,6 +392,20 @@ void EmulatorWidget::setBreakpoints(Debug::BreakpointList* breakpoints)
 
 QList<Debug::Variable> EmulatorWidget::debugVariables() const
 {
+    if (m_motifMode) {
+        Debug::Variable screen{QStringLiteral("screen"), tr("Screen"), QString(), QString(), {}};
+        screen.children << Debug::Variable{QStringLiteral("screen.time"),
+                                           QStringLiteral("time"),
+                                           QString::number(m_motif.time()),
+                                           QStringLiteral("int"),
+                                           {}};
+        screen.children << Debug::Variable{QStringLiteral("screen.menu"),
+                                           QStringLiteral("menu"),
+                                           QString::number(m_motif.menuIndex()),
+                                           QStringLiteral("int"),
+                                           {}};
+        return {screen};
+    }
     if (m_storyMode) {
         Debug::Variable story{QStringLiteral("story"), tr("Storyboard"), QString(), QString(), {}};
         const auto& scenes = m_storyboard.scenes();
@@ -402,9 +441,12 @@ void EmulatorWidget::advance()
     const qint64 due = m_clock.elapsed() * TicksPerSecond / 1000;
     int ran = 0;
     bool ticked = false;
-    if (m_storyMode) {
+    if (m_storyMode || m_motifMode) {
         while (m_ticksRun < due && ran < 4 && m_debugState == Debug::SessionState::Running) {
-            storyTick();
+            if (m_motifMode)
+                motifTick();
+            else
+                storyTick();
             ticked = true;
             ++m_ticksRun;
             ++ran;
@@ -468,8 +510,21 @@ void EmulatorWidget::storyTick()
         finishStop();
 }
 
+void EmulatorWidget::motifTick()
+{
+    m_motif.tick(inputOf(1));
+    if (m_mixer)
+        m_motif.playSounds(*m_mixer);
+    m_frame = m_motif.render();
+}
+
 void EmulatorWidget::step()
 {
+    if (m_motifMode) {
+        if (m_debugState != Debug::SessionState::None)
+            motifTick();
+        return;
+    }
     if (m_storyMode) {
         if (m_debugState != Debug::SessionState::None)
             storyTick();
