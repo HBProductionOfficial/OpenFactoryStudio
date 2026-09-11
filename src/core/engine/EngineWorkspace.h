@@ -15,6 +15,7 @@ public:
     using QWidget::QWidget;
 
     virtual void bindPanel(QWidget* panel) = 0;
+    virtual void applySettings() {}
     virtual QStringList statusSections() const { return {}; }
     virtual bool perform(const QString& actionId)
     {

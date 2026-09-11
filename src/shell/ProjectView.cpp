@@ -516,6 +516,10 @@ void ProjectView::reconfigureEditors()
                 configureCodeEditor(page->editor(), it.key());
         }
     }
+    for (EngineWorkspace* workspace : std::as_const(m_workspaces)) {
+        if (workspace)
+            workspace->applySettings();
+    }
 }
 
 CodeEditor* ProjectView::currentCodeEditor() const

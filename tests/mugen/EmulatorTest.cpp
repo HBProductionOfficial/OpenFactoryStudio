@@ -1,6 +1,7 @@
 #include "core/app/AppContext.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
+#include "core/settings/Config.h"
 #include "core/sprites/SpriteEdits.h"
 #include "engines/mugen/MugenEngine.h"
 #include "engines/mugen/emulator/EmulatorRenderer.h"
@@ -10,12 +11,14 @@
 #include "formats/codecs/Pcx.h"
 #include "formats/palette/PaletteFormats.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTextCursor>
 #include <QTextDocument>
+#include <QWheelEvent>
 
 #include <cmath>
 #include <memory>
@@ -181,6 +184,25 @@ private Q_SLOTS:
             emulator.step();
         QCOMPARE(emulator.frame().size(), QSize(320, 240));
         QCOMPARE(emulator.statusSections().value(2), QStringLiteral("Renderer: OpenGL"));
+        context.config().setValue(QStringLiteral("show_attack_box"), false);
+        context.engineConfig(QStringLiteral("mugen"))
+            .setValue(QStringLiteral("clsn_default_collision"), QStringLiteral("1,2,3"));
+        EmulatorRenderer::Options look = emulator.renderOptions();
+        QVERIFY(!look.attackBoxes);
+        QVERIFY(look.collisionBoxes);
+        QCOMPARE(look.collisionColor, QColor(1, 2, 3));
+        emulator.applySettings();
+        emulator.resize(700, 500);
+        QCOMPARE(emulator.zoom(), 0);
+        QWheelEvent up(QPointF(10, 10), QPointF(10, 10), QPoint(), QPoint(0, 120), Qt::NoButton, Qt::NoModifier,
+                       Qt::NoScrollPhase, false);
+        QCoreApplication::sendEvent(&emulator, &up);
+        QCOMPARE(emulator.zoom(), 3);
+        QWheelEvent down(QPointF(10, 10), QPointF(10, 10), QPoint(), QPoint(0, -120), Qt::NoButton, Qt::NoModifier,
+                         Qt::NoScrollPhase, false);
+        for (int i = 0; i < 3; ++i)
+            QCoreApplication::sendEvent(&emulator, &down);
+        QCOMPARE(emulator.zoom(), 0);
         emulator.stop();
         QVERIFY(!emulator.isRunning());
     }
@@ -425,6 +447,8 @@ private Q_SLOTS:
         SpriteEdits::setIdentifiers(sprites, 0, 0, 0);
         SpriteEdits::setAxis(sprites, 0, 5, 10);
         QVERIFY(sprites.toSff().save(engine.dir.filePath("chars/test/test.sff").toStdWString()).ok());
+        writeFile(engine.dir.filePath("chars/test/test.air"),
+                  "[Begin Action 0]\nClsn2: 1\n Clsn2[0] = -20,-30,20,0\n0,0, 0,0, -1\n");
         writeFile(engine.dir.filePath("chars/test/test.cmd"),
                   "[Statedef -1]\n"
                   "[State -1]\ntype = EnvColor\ntrigger1 = 1\nvalue = 200,200,200\ntime = 1\nunder = 1\n"
@@ -478,6 +502,14 @@ private Q_SLOTS:
         QVERIFY(trail != qRgb(200, 200, 200));
         QVERIFY(qBlue(trail) < 200 && qRed(trail) < 100);
         QCOMPARE(rgb(frame.pixel(x, 195)), QList<int>({100, 50, 200}));
+
+        EmulatorRenderer::Options boxes;
+        boxes.collisionBoxes = true;
+        boxes.collisionColor = QColor(0, 255, 255);
+        const QImage withBoxes = renderer.render(session, boxes);
+        QCOMPARE(rgb(withBoxes.pixel(x - 20, 200 - 30)), QList<int>({0, 255, 255}));
+        QVERIFY(withBoxes.pixel(x, 200 - 30) == qRgb(0, 255, 255));
+        QVERIFY(renderer.render(session).pixel(x - 20, 200 - 30) != qRgb(0, 255, 255));
     }
 
     void actPalettes()

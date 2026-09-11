@@ -16,6 +16,7 @@
 #include <QMessageBox>
 #include <QPainter>
 #include <QSpinBox>
+#include <QWheelEvent>
 
 namespace OFS::Mugen {
 
@@ -199,7 +200,7 @@ bool EmulatorWidget::start()
                                                    : AudioEngine::Backend::System);
     }
     m_mixer->stopAll();
-    m_frame = m_renderer.render(m_session, m_debugInfo && m_debugInfo->isChecked());
+    m_frame = m_renderer.render(m_session, renderOptions());
     m_ticksRun = 0;
     m_slowBudget = 0;
     m_clock.start();
@@ -239,7 +240,7 @@ void EmulatorWidget::advance()
     }
     m_ticksRun = std::max(m_ticksRun, due - 4);
     if (ticked) {
-        m_frame = m_renderer.render(m_session, m_debugInfo && m_debugInfo->isChecked());
+        m_frame = m_renderer.render(m_session, renderOptions());
         update();
     }
 }
@@ -256,7 +257,7 @@ void EmulatorWidget::step()
     if (!m_session.isStarted())
         return;
     tick();
-    m_frame = m_renderer.render(m_session, m_debugInfo && m_debugInfo->isChecked());
+    m_frame = m_renderer.render(m_session, renderOptions());
 }
 
 InputState EmulatorWidget::inputOf(int player) const
@@ -285,8 +286,52 @@ InputState EmulatorWidget::inputOf(int player) const
 QRect EmulatorWidget::screenRect() const
 {
     const QSize game = EmulatorRenderer::Screen;
-    const QSize fitted = game.scaled(size(), Qt::KeepAspectRatio);
+    const QSize fitted = m_zoom > 0 ? game * m_zoom : game.scaled(size(), Qt::KeepAspectRatio);
     return QRect(QPoint((width() - fitted.width()) / 2, (height() - fitted.height()) / 2), fitted);
+}
+
+void EmulatorWidget::setZoom(int zoom)
+{
+    m_zoom = std::clamp(zoom, 0, 8);
+    update();
+}
+
+void EmulatorWidget::wheelEvent(QWheelEvent* event)
+{
+    const int fitted = std::max(1, screenRect().width() / EmulatorRenderer::Screen.width());
+    const int current = m_zoom > 0 ? m_zoom : fitted;
+    if (event->angleDelta().y() > 0)
+        setZoom(current + 1);
+    else if (event->angleDelta().y() < 0)
+        setZoom(current > 1 ? current - 1 : 0);
+    event->accept();
+}
+
+EmulatorRenderer::Options EmulatorWidget::renderOptions() const
+{
+    EmulatorRenderer::Options options;
+    options.debugInfo = m_debugInfo && m_debugInfo->isChecked();
+    const Config& config = m_context.config();
+    options.attackBoxes = config.boolValue(QStringLiteral("show_attack_box"), true);
+    options.collisionBoxes = config.boolValue(QStringLiteral("show_collision_box"), true);
+    const Config& engine = m_context.engineConfig(QStringLiteral("mugen"));
+    auto color = [&engine](const char* key, const QColor& fallback) {
+        const QStringList parts = engine.value(QLatin1String(key)).split(QLatin1Char(','));
+        if (parts.size() != 3)
+            return fallback;
+        return QColor(parts[0].trimmed().toInt(), parts[1].trimmed().toInt(), parts[2].trimmed().toInt());
+    };
+    options.attackColor = color("clsn_default_attack", options.attackColor);
+    options.collisionColor = color("clsn_default_collision", options.collisionColor);
+    return options;
+}
+
+void EmulatorWidget::applySettings()
+{
+    if (m_session.isStarted()) {
+        m_frame = m_renderer.render(m_session, renderOptions());
+        update();
+    }
 }
 
 void EmulatorWidget::paintEvent(QPaintEvent*)

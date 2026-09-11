@@ -2,6 +2,7 @@
 
 #include "engines/mugen/emulator/FightScreen.h"
 
+#include <QColor>
 #include <QHash>
 #include <QImage>
 #include <QPoint>
@@ -29,7 +30,22 @@ public:
 
     static constexpr QSize Screen{320, 240};
 
-    QImage render(const EmulatorSession& session, bool debugInfo = false);
+    struct Options
+    {
+        bool debugInfo = false;
+        bool attackBoxes = false;
+        bool collisionBoxes = false;
+        QColor attackColor{255, 128, 0};
+        QColor collisionColor{0, 255, 255};
+    };
+
+    QImage render(const EmulatorSession& session, const Options& options);
+    QImage render(const EmulatorSession& session, bool debugInfo = false)
+    {
+        Options options;
+        options.debugInfo = debugInfo;
+        return render(session, options);
+    }
     // Call after sprites are edited.
     void clearCache();
 

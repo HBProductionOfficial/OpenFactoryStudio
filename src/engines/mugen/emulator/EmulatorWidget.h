@@ -39,6 +39,11 @@ public:
     void bindPanel(QWidget* panel) override;
     QStringList statusSections() const override;
     bool perform(const QString& actionId) override;
+    void applySettings() override;
+    // 0 fits the game's screen to the workspace, else whole times its size.
+    int zoom() const { return m_zoom; }
+    void setZoom(int zoom);
+    EmulatorRenderer::Options renderOptions() const;
 
     bool isRunning() const { return m_timer.isActive(); }
     bool start();
@@ -57,6 +62,7 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
     void keyReleaseEvent(QKeyEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
+    void wheelEvent(QWheelEvent* event) override;
     void focusOutEvent(QFocusEvent* event) override;
 
 private:
@@ -81,6 +87,7 @@ private:
     QPoint m_mouse;
     QString m_error;
     QString m_engineDir;
+    int m_zoom = 0;
 
     QPointer<QAbstractButton> m_start;
     QPointer<QWidget> m_engine;

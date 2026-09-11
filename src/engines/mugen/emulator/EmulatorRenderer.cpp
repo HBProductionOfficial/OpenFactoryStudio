@@ -265,7 +265,7 @@ const QImage& EmulatorRenderer::fontImage(const FightScreen::Font& font, int ban
     return found.value();
 }
 
-QImage EmulatorRenderer::render(const EmulatorSession& session, bool debugInfo)
+QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& options)
 {
     QImage frame(Screen, QImage::Format_ARGB32_Premultiplied);
     frame.fill(Qt::black);
@@ -529,7 +529,31 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, bool debugInfo)
         }
     }
 
-    if (debugInfo) {
+    if (options.attackBoxes || options.collisionBoxes) {
+        p.save();
+        canvas.setBase(QTransform());
+        for (const Character* c : match.characters()) {
+            if (c->destroyed())
+                continue;
+            for (int type : {2, 1}) {
+                if ((type == 1 && !options.attackBoxes) || (type == 2 && !options.collisionBoxes))
+                    continue;
+                const QColor line = type == 1 ? options.attackColor : options.collisionColor;
+                QColor area = line;
+                area.setAlpha(64);
+                for (const QRectF& box : c->boxes(type)) {
+                    const QPointF topLeft = toScreen(Vec2{float(box.left()), float(box.top())});
+                    const QRectF onScreen(topLeft, box.size());
+                    p.fillRect(onScreen, area);
+                    p.setPen(line);
+                    p.drawRect(onScreen.adjusted(0, 0, -1, -1));
+                }
+            }
+        }
+        p.restore();
+    }
+
+    if (options.debugInfo) {
         p.resetTransform();
         p.setPen(Qt::white);
         QFont font = p.font();
