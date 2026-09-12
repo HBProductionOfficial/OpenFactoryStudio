@@ -27,6 +27,14 @@ class DialogsTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void screenScale()
+    {
+        const QByteArray expected = qgetenv("OFS_EXPECT_DPR");
+        if (expected.isEmpty())
+            QSKIP("not a HiDPI run");
+        QCOMPARE(QGuiApplication::primaryScreen()->devicePixelRatio(), expected.toDouble());
+    }
+
     void about()
     {
         AboutDialog dialog;

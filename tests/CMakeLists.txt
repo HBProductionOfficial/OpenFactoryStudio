@@ -365,3 +365,20 @@ ofs_add_test(NAME mugen_training
 ofs_add_test(NAME mugen_runtime_corpus LABELS corpus TIMEOUT 600
     SOURCES mugen/RuntimeCorpusTest.cpp
     LIBS OFS::mugen_runtime)
+
+# Relative path: the drive colon of an absolute Windows path would end the platform argument.
+file(WRITE "${CMAKE_BINARY_DIR}/hidpi/screen-150.json"
+    "{\"screens\":[{\"name\":\"hidpi\",\"x\":0,\"y\":0,\"width\":2560,\"height\":1440,"
+    "\"logicalDpi\":144,\"logicalBaseDpi\":96}]}\n")
+file(RELATIVE_PATH _ofs_hidpi_config "${OFS_OUTPUT_DIR}" "${CMAKE_BINARY_DIR}/hidpi/screen-150.json")
+foreach(name IN ITEMS gui_mainwindow gui_options gui_breakpoint_dialog gui_script_editor gui_dialogs
+                      gui_image_editor gui_first_run)
+    add_test(NAME ${name}_hidpi COMMAND test_${name} WORKING_DIRECTORY "${OFS_OUTPUT_DIR}")
+    set(_ofs_env "OFS_CONFIG_DIR=${CMAKE_BINARY_DIR}/test-config/${name}_hidpi" "QT_FORCE_STDERR_LOGGING=1"
+        "QT_QPA_PLATFORM=offscreen:configfile=${_ofs_hidpi_config}" "OFS_EXPECT_DPR=1.5")
+    set_tests_properties(${name}_hidpi PROPERTIES LABELS "gui;hidpi" ENVIRONMENT "${_ofs_env}")
+    get_test_property(${name} ENVIRONMENT_MODIFICATION _ofs_envmod)
+    if(_ofs_envmod)
+        set_tests_properties(${name}_hidpi PROPERTIES ENVIRONMENT_MODIFICATION "${_ofs_envmod}")
+    endif()
+endforeach()
