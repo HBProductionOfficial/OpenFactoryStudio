@@ -133,6 +133,9 @@ public:
     Script::Environment scriptEnvironment();
     // Number 0 makes a new breakpoint.
     void editBreakpoint(int number);
+    // Quick search by key ("group,number", or an action's number or name) in the Sprites, Sounds and Animations
+    // editors. Returns false in other editors.
+    bool findItem(const QString& text, bool* found);
     // Big binary files save in the background, the others at once. Returns false when a file that saves at once failed.
     bool saveNow(ProjectFile* file);
     void waitForTasks();

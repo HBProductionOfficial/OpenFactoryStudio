@@ -21,6 +21,8 @@
 #include "core/widgets/TimelineWidget.h"
 #include "core/widgets/WaveformView.h"
 #include "formats/codecs/Png.h"
+#include "formats/snd/SndDocument.h"
+#include "formats/wav/WavFile.h"
 #include "shell/AdvancedPaletteEditor.h"
 #include "shell/AdvancedSearchPanel.h"
 #include "shell/AnimationPage.h"
@@ -34,6 +36,7 @@
 #include "shell/ImageEditor.h"
 #include "shell/OrganizerBinding.h"
 #include "shell/ProjectView.h"
+#include "shell/QuickFindBar.h"
 #include "shell/SoundPage.h"
 #include "shell/SoundsEditor.h"
 #include "shell/SpritePage.h"
@@ -4217,6 +4220,78 @@ private Q_SLOTS:
         actions.action("debug_breakpoint")->trigger();
         QVERIFY(panels->breakpointRows().value(0).startsWith("1|"));
         actions.action("breakpoint_remove_all")->trigger();
+    }
+
+    void graphicQuickFind()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("q.def"), "[Info]\nname = \"Q\"\nmugenversion = 1.0\n[Files]\nsprite = q.sff\n"
+                                         "anim = q.air\nsound = q.snd\ncmd = q.cmd\ncns = q.cns\n");
+        writeFile(dir.filePath("q.cmd"), "[Command]\nname = \"x\"\ncommand = x\n");
+        writeFile(dir.filePath("q.cns"), "[Data]\nlife = 1000\n");
+        writeFile(dir.filePath("q.air"), "; Standing Animation\n[Begin Action 0]\n0,0, 0,0, 10\n\n"
+                                         "; Stand Light Punch\n[Begin Action 200]\n200,1, 0,0, 10\n");
+        SpriteDocument sprites;
+        Formats::Palette colors(256);
+        sprites.palettes() << SpriteDocument::makePalette(1, 1, colors);
+        for (const auto& [group, number] : {std::pair(0, 0), std::pair(200, 1)}) {
+            SpriteEntry sprite;
+            sprite.header.group = std::uint16_t(group);
+            sprite.header.number = std::uint16_t(number);
+            sprite.pixels =
+                SpriteDocument::makePixels(Formats::Image::indexed(2, 2, std::vector<std::uint8_t>(4, 1), colors));
+            sprite.palette = sprites.palettes().first();
+            sprites.sprites() << sprite;
+        }
+        QVERIFY(sprites.toSff().save(dir.filePath("q.sff").toStdWString()).ok());
+        Formats::SndDocument snd;
+        for (const auto& [group, number] : {std::pair(1, 0), std::pair(5, 0)}) {
+            Formats::SndSound sound;
+            sound.group = group;
+            sound.number = number;
+            sound.data = Formats::WavFile::fromSamples(std::vector<double>(50, 0.1), 1, 22050, 16, false)->write();
+            snd.sounds.push_back(sound);
+        }
+        QVERIFY(snd.save(dir.filePath("q.snd").toStdWString()).ok());
+
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("q.def")));
+        ActionRegistry& actions = m_context->actions();
+        ProjectView* view = window.currentProjectView();
+        auto find = [&](const QString& text) {
+            actions.action("edit_find_replace")->trigger();
+            auto* bar = window.findChild<QuickFindBar*>();
+            bar->setFindText(text);
+            Q_EMIT bar->findRequested();
+        };
+        auto nothingFound = [&](const QString& text) {
+            bool asked = false;
+            whenModal<QMessageBox>([&asked](QMessageBox* box) {
+                asked = box->text() == QStringLiteral("Nothing found!");
+                box->accept();
+            });
+            find(text);
+            return asked;
+        };
+        window.switchEditor("sprites");
+        find("200,1");
+        QCOMPARE(view->spritesEditor()->page()->current(), 1);
+        find("0,0");
+        QCOMPARE(view->spritesEditor()->page()->current(), 0);
+        QVERIFY(nothingFound("200"));
+        QVERIFY(nothingFound("0, 0"));
+        window.switchEditor("sounds");
+        find("5,0");
+        QCOMPARE(view->soundsEditor()->page()->current(), 1);
+        QVERIFY(nothingFound("5"));
+        window.switchEditor("animations");
+        find("200");
+        QCOMPARE(view->animationsEditor()->page()->current(), 1);
+        find("standing animation");
+        QCOMPARE(view->animationsEditor()->page()->current(), 0);
+        QVERIFY(nothingFound("Stand"));
+        window.closeAllProjects();
     }
 
     void toolbarPlaces()

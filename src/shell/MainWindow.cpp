@@ -1184,6 +1184,15 @@ void MainWindow::quickFind(int operation)
 {
     QPlainTextEdit* target = searchTarget();
     const TextSearch search(m_quickFind->findText(), m_quickFind->options());
+    if (!target && !m_quickFind->findText().isEmpty()) {
+        bool found = false;
+        if (operation == 0 && findItem(m_quickFind->findText(), &found)) {
+            m_quickFind->setNotFound(!found);
+            if (!found)
+                QMessageBox::information(this, tr("Find"), tr("Nothing found!"));
+        }
+        return;
+    }
     if (!target || search.isEmpty())
         return;
     if (!search.isValid()) {
@@ -1208,6 +1217,60 @@ void MainWindow::quickFind(int operation)
     m_quickFind->setNotFound(!found);
     if (!found)
         QMessageBox::information(this, tr("Find"), tr("Nothing found!"));
+}
+
+bool MainWindow::findItem(const QString& text, bool* found)
+{
+    *found = false;
+    ProjectView* view = currentProjectView();
+    if (!view)
+        return false;
+    const QString editor = view->currentEditor();
+    static const QRegularExpression pair(QStringLiteral("^(\\d+),(\\d+)$"));
+    const QRegularExpressionMatch ids = pair.match(text);
+    if (editor == QLatin1String("sprites")) {
+        SpritePage* page = view->spritesEditor() ? view->spritesEditor()->page() : nullptr;
+        if (!page || !page->file())
+            return true;
+        const int index =
+            ids.hasMatch() ? page->file()->document().findSprite(ids.captured(1).toInt(), ids.captured(2).toInt()) : -1;
+        if (index >= 0) {
+            page->setCurrent(index);
+            *found = true;
+        }
+        return true;
+    }
+    if (editor == QLatin1String("sounds")) {
+        SoundPage* page = view->soundsEditor() ? view->soundsEditor()->page() : nullptr;
+        if (!page || !page->file())
+            return true;
+        const int index =
+            ids.hasMatch() ? page->file()->document().find(ids.captured(1).toInt(), ids.captured(2).toInt()) : -1;
+        if (index >= 0)
+            *found = page->setCurrent(index) || page->current() == index;
+        return true;
+    }
+    if (editor == QLatin1String("animations")) {
+        AnimationPage* page = view->animationsEditor() ? view->animationsEditor()->page() : nullptr;
+        if (!page)
+            return true;
+        const QList<AirAnimation>& animations = page->document().animations();
+        bool isNumber = false;
+        const int number = text.toInt(&isNumber);
+        const int count = int(animations.size());
+        for (int step = 0; step < count; ++step) {
+            const int i = (std::max(0, page->current()) + step) % count;
+            const AirAnimation& a = animations[i];
+            if ((isNumber && !text.contains(QLatin1Char(' ')) && a.number == number) ||
+                (!a.name.isEmpty() && a.name.trimmed().compare(text.trimmed(), Qt::CaseInsensitive) == 0)) {
+                page->setCurrent(i);
+                *found = true;
+                break;
+            }
+        }
+        return true;
+    }
+    return false;
 }
 
 void MainWindow::showMultiLineFind()
