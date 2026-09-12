@@ -21,6 +21,8 @@ public:
     // Editor > New: an untitled empty list.
     void createEmpty();
     bool saveAs(const QString& path, QString* error) override;
+    bool canSaveAsync() const override { return !isUntitled(); }
+    void saveAsync(std::function<void(bool ok, const QString& error)> done) override;
     bool isModified() const override;
     bool writeCopy(const QString& path, QString* error) const override;
 

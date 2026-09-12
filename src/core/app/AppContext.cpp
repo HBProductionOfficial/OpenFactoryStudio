@@ -1,4 +1,6 @@
 #include "core/app/AppContext.h"
+
+#include "core/app/TaskList.h"
 #include "core/app/Translations.h"
 
 #include "core/actions/ActionCatalog.h"
@@ -38,6 +40,7 @@ AppContext::AppContext(QObject* parent)
     , m_config(new Config(this))
     , m_shortcuts(new ShortcutSettings(this))
     , m_history(new History(this))
+    , m_tasks(new TaskList(this))
     , m_actions(new ActionRegistry(this))
     , m_controls(new ControlRegistry(m_actions))
     , m_engines(new EngineManager(this))

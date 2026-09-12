@@ -6,6 +6,8 @@ add_library(ofscore SHARED
     "${PROJECT_BINARY_DIR}/src/core/Version.h"
     app/AppContext.h
     app/AppContext.cpp
+    app/TaskList.h
+    app/TaskList.cpp
     app/Messages.h
     app/Messages.cpp
     app/Languages.h
@@ -188,7 +190,7 @@ target_compile_definitions(ofscore PRIVATE OFS_CORE_LIBRARY)
 set_target_properties(ofscore PROPERTIES PREFIX "")
 target_link_libraries(ofscore
     PUBLIC
-        Qt6::Core Qt6::Gui Qt6::Widgets
+        Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Concurrent
         OFS::formats OFS::audio
     PRIVATE
         OFS::sol2 OFS::uchardet ofs_miniaudio ofs_miniz Qt6::Core5Compat)

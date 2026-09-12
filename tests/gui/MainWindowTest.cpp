@@ -228,6 +228,7 @@ private Q_SLOTS:
         m_context = new AppContext;
         m_context->loadSettings();
         m_context->history().clear();
+        m_context->config().setValue("lastEditor", QString());
         m_context->initializeEngines();
         QVERIFY(m_dir.isValid());
 
@@ -2373,7 +2374,7 @@ private Q_SLOTS:
 
         // Save runs in the background.
         actions.action("file_save")->trigger();
-        QVERIFY(!file->isModified());
+        QTRY_VERIFY(!file->isModified());
         SoundFile reread(dir.filePath("s.snd"), "sounds");
         QString error;
         QVERIFY2(reread.load(&error), qPrintable(error));

@@ -4,7 +4,9 @@
 
 #include <QByteArray>
 #include <QObject>
+
 #include <QString>
+#include <functional>
 
 class QTextDocument;
 
@@ -34,6 +36,9 @@ public:
     virtual bool load(QString* error) = 0;
     virtual bool save(QString* error);
     virtual bool saveAs(const QString& path, QString* error) = 0;
+    // Big binary files save on another thread. done runs on this thread after saved().
+    virtual bool canSaveAsync() const { return false; }
+    virtual void saveAsync(std::function<void(bool ok, const QString& error)> done);
     virtual bool isModified() const = 0;
     virtual bool writeCopy(const QString& path, QString* error) const;
 
@@ -71,6 +76,8 @@ public:
     void createEmpty(const QString& text = QString());
     bool saveAs(const QString& path, QString* error) override;
     bool isModified() const override;
+    // Text saves fast enough to count as a background save (autosave).
+    bool canSaveAsync() const override { return !isUntitled(); }
     bool writeCopy(const QString& path, QString* error) const override;
 
     QString encoding() const { return m_encoding; }

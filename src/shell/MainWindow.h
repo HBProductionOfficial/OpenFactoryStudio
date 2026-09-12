@@ -133,6 +133,9 @@ public:
     Script::Environment scriptEnvironment();
     // Number 0 makes a new breakpoint.
     void editBreakpoint(int number);
+    // Big binary files save in the background, the others at once. Returns false when a file that saves at once failed.
+    bool saveNow(ProjectFile* file);
+    void waitForTasks();
     void refreshDebugViews();
     void addDataBreakpoint();
     void addWatch(int list);

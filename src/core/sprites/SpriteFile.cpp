@@ -1,11 +1,16 @@
 #include "core/sprites/SpriteFile.h"
 
+#include "core/app/AppContext.h"
+#include "core/app/TaskList.h"
+
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QFutureWatcher>
 #include <QSaveFile>
 #include <QUndoCommand>
 #include <QUndoStack>
+#include <QtConcurrent/QtConcurrentRun>
 
 namespace OFS {
 
@@ -56,26 +61,98 @@ SpriteFile::~SpriteFile() = default;
 
 bool SpriteFile::load(QString* error)
 {
-    QFile file(path());
-    if (!file.open(QIODevice::ReadOnly)) {
+    QByteArray data;
+    SpriteDocument document;
+    QString problem;
+    const QString file = path();
+    auto read = [&] {
+        QFile in(file);
+        if (!in.open(QIODevice::ReadOnly)) {
+            problem = in.errorString();
+            return;
+        }
+        data = in.readAll();
+        auto sff = Formats::SffDocument::read(
+            Formats::ByteSpan(reinterpret_cast<const std::byte*>(data.constData()), std::size_t(data.size())));
+        if (!sff) {
+            problem = tr("%1 is not a sprite file that can be read: %2")
+                          .arg(QFileInfo(file).fileName(), QString::fromStdString(sff.error().message));
+            return;
+        }
+        document = SpriteDocument::fromSff(sff.value());
+    };
+    if (AppContext* context = AppContext::instance())
+        context->tasks().run(tr("Loading %1").arg(fileName()), read);
+    else
+        read();
+    if (!problem.isEmpty()) {
         if (error)
-            *error = file.errorString();
-        return false;
-    }
-    const QByteArray data = file.readAll();
-    auto sff = Formats::SffDocument::read(
-        Formats::ByteSpan(reinterpret_cast<const std::byte*>(data.constData()), std::size_t(data.size())));
-    if (!sff) {
-        if (error)
-            *error = tr("%1 is not a sprite file that can be read: %2")
-                         .arg(fileName(), QString::fromStdString(sff.error().message));
+            *error = problem;
         return false;
     }
     m_original = data;
-    m_document = SpriteDocument::fromSff(sff.value());
+    m_document = document;
     m_undo->clear();
     Q_EMIT documentChanged();
     return true;
+}
+
+void SpriteFile::saveAsync(std::function<void(bool ok, const QString& error)> done)
+{
+    if (isUntitled()) {
+        ProjectFile::saveAsync(std::move(done));
+        return;
+    }
+    struct Result
+    {
+        bool ok = false;
+        QString error;
+        QByteArray bytes;
+    };
+    const SpriteDocument snapshot = m_document;
+    const QByteArray original = !isModified() ? m_original : QByteArray();
+    const QString target = path();
+    const int index = m_undo->index();
+    AppContext* context = AppContext::instance();
+    const int task = context ? context->tasks().begin(tr("Saving %1").arg(fileName())) : 0;
+    auto* watcher = new QFutureWatcher<Result>(this);
+    connect(watcher, &QFutureWatcher<Result>::finished, this, [this, watcher, done, index, task] {
+        const Result result = watcher->result();
+        watcher->deleteLater();
+        if (AppContext* ctx = AppContext::instance())
+            ctx->tasks().end(task);
+        if (result.ok) {
+            m_original = result.bytes;
+            // Saved as it was when the save began: clean unless edited since.
+            if (m_undo->index() == index)
+                m_undo->setClean();
+            Q_EMIT saved();
+        }
+        if (done)
+            done(result.ok, result.error);
+    });
+    watcher->setFuture(QtConcurrent::run([snapshot, original, target]() {
+        Result result;
+        if (!original.isEmpty()) {
+            result.bytes = original;
+        } else {
+            auto bytes = snapshot.toSff().write();
+            if (!bytes) {
+                result.error = QString::fromStdString(bytes.error().message);
+                return result;
+            }
+            result.bytes =
+                QByteArray(reinterpret_cast<const char*>(bytes.value().data()), qsizetype(bytes.value().size()));
+        }
+        QDir().mkpath(QFileInfo(target).absolutePath());
+        QSaveFile out(target);
+        if (!out.open(QIODevice::WriteOnly) || out.write(result.bytes) != result.bytes.size() || !out.commit()) {
+            result.error = out.errorString();
+            return result;
+        }
+        result.ok = true;
+        return result;
+    }));
 }
 
 void SpriteFile::createEmpty(Formats::SffVersion version)

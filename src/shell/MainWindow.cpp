@@ -10,6 +10,7 @@
 #include "core/app/AppContext.h"
 #include "core/app/Messages.h"
 #include "core/app/Paths.h"
+#include "core/app/TaskList.h"
 #include "core/code/CodeEditor.h"
 #include "core/code/Snippet.h"
 #include "core/code/TextSearch.h"
@@ -142,6 +143,15 @@ MainWindow::MainWindow(AppContext& context, QWidget* parent)
     buildCentralArea();
     m_status = new StatusBar(this);
     setStatusBar(m_status);
+    connect(&m_context.tasks(), &TaskList::changed, this, [this] {
+        QStringList names;
+        int progress = -1;
+        for (const TaskList::Task& task : m_context.tasks().tasks()) {
+            names << task.name;
+            progress = task.progress;
+        }
+        m_status->setTasks(names, progress);
+    });
     connect(m_status->sectionLabel(2), &EClickableLabel::clicked, this, [this] {
         ProjectView* view = currentProjectView();
         QMenu* encodings = m_menus->submenu(QStringLiteral("menu_encoding"));
@@ -1108,9 +1118,10 @@ void MainWindow::connectEditActions()
             if (file->isUntitled() && file->isModified() && !saveFileAs(file))
                 return;
         }
-        QString error;
-        if (!view->project()->save(&error))
-            QMessageBox::warning(this, tr("Save"), error);
+        for (ProjectFile* file : view->project()->files()) {
+            if (file->isModified() && !file->isUntitled() && !saveNow(file))
+                return;
+        }
     });
     on("editor_save", [this] {
         if (ProjectView* view = currentProjectView())
@@ -1419,14 +1430,37 @@ void MainWindow::saveFile(ProjectFile* file, bool asUtf8)
             saveFile(file, true);
         return;
     }
+    if (auto* code = qobject_cast<CodeFile*>(file); code && asUtf8) {
+        QString error;
+        if (!code->saveAsUtf8(&error))
+            QMessageBox::warning(this, tr("Save"), error);
+        return;
+    }
+    saveNow(file);
+}
+
+bool MainWindow::saveNow(ProjectFile* file)
+{
+    if (file->canSaveAsync()) {
+        QPointer<MainWindow> self(this);
+        file->saveAsync([self](bool ok, const QString& error) {
+            if (!ok && self)
+                QMessageBox::warning(self, tr("Save"), error);
+        });
+        return true;
+    }
     QString error;
-    bool ok = false;
-    if (auto* code = qobject_cast<CodeFile*>(file); code && asUtf8)
-        ok = code->saveAsUtf8(&error);
-    else
-        ok = file->save(&error);
-    if (!ok)
+    if (!file->save(&error)) {
         QMessageBox::warning(this, tr("Save"), error);
+        return false;
+    }
+    return true;
+}
+
+void MainWindow::waitForTasks()
+{
+    while (!m_context.tasks().isEmpty())
+        QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents, 20);
 }
 
 void MainWindow::saveEditorFile(const QString& editorId, bool asUtf8)
@@ -1537,6 +1571,7 @@ void MainWindow::updateProjectTab(ProjectView* view)
 
 bool MainWindow::confirmClose(ProjectView* view)
 {
+    waitForTasks();
     Project* project = view->project();
     if (!project->isModified())
         return true;
@@ -1882,9 +1917,22 @@ void MainWindow::restartAutosave()
 
 void MainWindow::autosave()
 {
+    // Big binary files save in the background. With "Only save if asynchronous mode is supported" the others are
+    // skipped so the window never stalls. Documents without a file are left for the user to name.
+    const bool asyncOnly = m_context.config().boolValue(QStringLiteral("autosave_async"), true);
     for (ProjectView* view : projectViews()) {
         for (ProjectFile* file : view->project()->files()) {
             if (!file->isModified() || file->isUntitled())
+                continue;
+            if (file->canSaveAsync()) {
+                const QString path = file->path();
+                file->saveAsync([path](bool ok, const QString& error) {
+                    if (!ok)
+                        qWarning("auto save of %s failed: %s", qPrintable(path), qPrintable(error));
+                });
+                continue;
+            }
+            if (asyncOnly)
                 continue;
             QString error;
             if (!file->save(&error))
@@ -2741,6 +2789,7 @@ void MainWindow::closeEvent(QCloseEvent* event)
             return;
         }
     }
+    waitForTasks();
     for (ProjectView* view : projectViews()) {
         if (!confirmClose(view)) {
             event->ignore();

@@ -12,6 +12,7 @@ class Config;
 class ControlRegistry;
 class EngineManager;
 class History;
+class TaskList;
 class ShortcutSettings;
 class ThemeManager;
 
@@ -35,6 +36,7 @@ public:
     Config& config() const { return *m_config; }
     ShortcutSettings& shortcuts() const { return *m_shortcuts; }
     History& history() const { return *m_history; }
+    TaskList& tasks() const { return *m_tasks; }
     ActionRegistry& actions() const { return *m_actions; }
     ControlRegistry& controls() const { return *m_controls; }
     EngineManager& engines() const { return *m_engines; }
@@ -47,6 +49,7 @@ private:
     Config* m_config;
     ShortcutSettings* m_shortcuts;
     History* m_history;
+    TaskList* m_tasks;
     ActionRegistry* m_actions;
     ControlRegistry* m_controls;
     EngineManager* m_engines;

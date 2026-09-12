@@ -29,6 +29,14 @@ ProjectFile::ProjectFile(const QString& path, const QString& editorId, QObject* 
 
 ProjectFile::~ProjectFile() = default;
 
+void ProjectFile::saveAsync(std::function<void(bool ok, const QString& error)> done)
+{
+    QString error;
+    const bool ok = save(&error);
+    if (done)
+        done(ok, error);
+}
+
 bool ProjectFile::save(QString* error)
 {
     if (m_untitled) {

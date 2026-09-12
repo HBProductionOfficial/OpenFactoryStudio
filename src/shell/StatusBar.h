@@ -39,10 +39,17 @@ public:
     QProgressBar* progressBar() const { return m_progress; }
 
     void clearSections();
+    // The progress bar moves while tasks run and shows the progress when only one task knows it.
+    void setTasks(const QStringList& names, int progress = -1);
+    const QStringList& tasks() const { return m_tasks; }
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
     EClickableLabel* m_sections[SectionCount];
     QProgressBar* m_progress;
+    QStringList m_tasks;
 };
 
 } // namespace OFS
