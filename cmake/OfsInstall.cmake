@@ -1,4 +1,9 @@
+# Install layout. Paths::dataDir() and Paths::engineSearchDirs() must match it.
+
 include(GNUInstallDirs)
+
+set(_ofs_libraries ofscore ofsformats ofsaudio ofslua)
+get_property(_ofs_plugins GLOBAL PROPERTY OFS_ENGINE_PLUGINS)
 
 if(WIN32)
     set(OFS_INSTALL_BINDIR ".")
@@ -6,25 +11,62 @@ if(WIN32)
     set(OFS_INSTALL_PLUGINDIR ".")
     set(OFS_INSTALL_DATADIR "data")
     set(OFS_INSTALL_DOCDIR ".")
+elseif(APPLE)
+    set(_ofs_contents "ofs.app/Contents")
+    set(OFS_INSTALL_BINDIR "${_ofs_contents}/MacOS")
+    set(OFS_INSTALL_LIBDIR "${_ofs_contents}/Frameworks")
+    set(OFS_INSTALL_PLUGINDIR "${_ofs_contents}/PlugIns")
+    set(OFS_INSTALL_DATADIR "${_ofs_contents}/Resources/data")
+    set(OFS_INSTALL_DOCDIR "${_ofs_contents}/Resources")
+    set_target_properties(ofs PROPERTIES INSTALL_RPATH "@executable_path/../Frameworks")
+    set_target_properties(${_ofs_libraries} PROPERTIES INSTALL_RPATH "@loader_path")
+    if(_ofs_plugins)
+        set_target_properties(${_ofs_plugins} PROPERTIES INSTALL_RPATH "@loader_path/../../../Frameworks")
+    endif()
 else()
     set(OFS_INSTALL_BINDIR "${CMAKE_INSTALL_BINDIR}")
     set(OFS_INSTALL_LIBDIR "${CMAKE_INSTALL_LIBDIR}/openfactorystudio")
     set(OFS_INSTALL_PLUGINDIR "${CMAKE_INSTALL_LIBDIR}/openfactorystudio")
     set(OFS_INSTALL_DATADIR "${CMAKE_INSTALL_DATADIR}/openfactorystudio")
     set(OFS_INSTALL_DOCDIR "${CMAKE_INSTALL_DOCDIR}")
-    set(CMAKE_INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}/openfactorystudio")
+    set_target_properties(ofs PROPERTIES INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}/openfactorystudio")
+    set_target_properties(${_ofs_libraries} PROPERTIES INSTALL_RPATH "$ORIGIN")
+    if(_ofs_plugins)
+        set_target_properties(${_ofs_plugins} PROPERTIES INSTALL_RPATH "$ORIGIN/../..")
+    endif()
 endif()
 
-install(TARGETS ofs ofscore ofsformats ofsaudio ofslua
-    BUNDLE DESTINATION .
-    RUNTIME DESTINATION "${OFS_INSTALL_BINDIR}"
-    LIBRARY DESTINATION "${OFS_INSTALL_LIBDIR}")
+if(APPLE)
+    install(TARGETS ofs BUNDLE DESTINATION .)
+    install(TARGETS ${_ofs_libraries} LIBRARY DESTINATION "${OFS_INSTALL_LIBDIR}")
+else()
+    install(TARGETS ofs ${_ofs_libraries}
+        RUNTIME DESTINATION "${OFS_INSTALL_BINDIR}"
+        LIBRARY DESTINATION "${OFS_INSTALL_LIBDIR}")
+endif()
 
-get_property(_ofs_plugins GLOBAL PROPERTY OFS_ENGINE_PLUGINS)
 foreach(plugin IN LISTS _ofs_plugins)
     string(REGEX REPLACE "^ofs_" "" engine "${plugin}")
     install(TARGETS ${plugin} LIBRARY DESTINATION "${OFS_INSTALL_PLUGINDIR}/engines/${engine}")
 endforeach()
+
+# The C++ runtime ships beside the program so the portable folder runs on a clean system.
+if(WIN32)
+    if(MSVC)
+        set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION "${OFS_INSTALL_BINDIR}")
+        set(CMAKE_INSTALL_UCRT_LIBRARIES OFF)
+        include(InstallRequiredSystemLibraries)
+    elseif(MINGW)
+        get_filename_component(_ofs_compiler_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
+        set(_ofs_runtime)
+        foreach(dll libc++.dll libunwind.dll libstdc++-6.dll libgcc_s_seh-1.dll libwinpthread-1.dll)
+            if(EXISTS "${_ofs_compiler_dir}/${dll}")
+                list(APPEND _ofs_runtime "${_ofs_compiler_dir}/${dll}")
+            endif()
+        endforeach()
+        install(FILES ${_ofs_runtime} DESTINATION "${OFS_INSTALL_BINDIR}")
+    endif()
+endif()
 
 install(DIRECTORY "${PROJECT_SOURCE_DIR}/data/" DESTINATION "${OFS_INSTALL_DATADIR}")
 install(FILES "${PROJECT_SOURCE_DIR}/LICENSE" "${PROJECT_SOURCE_DIR}/Third party notices.pdf"

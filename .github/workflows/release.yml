@@ -1,0 +1,91 @@
+name: Release
+
+# A version tag (v1.2.3) publishes the packages as a GitHub release, which the update check reads.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/build
+        with:
+          preset: win-msvc-release
+          qt-arch: win64_msvc2022_64
+      - name: Inno Setup
+        run: choco install innosetup --no-progress -y
+      - name: Package
+        shell: pwsh
+        run: ./packaging/windows/package.ps1 -Preset win-msvc-release -SkipBuild
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: build/dist/*
+
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/build
+        with:
+          preset: linux-release
+          qt-arch: linux_gcc_64
+      - name: linuxdeploy
+        run: |
+          mkdir -p "$RUNNER_TEMP/ld"
+          cd "$RUNNER_TEMP/ld"
+          curl -fsSLO https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          curl -fsSLO https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x *.AppImage
+          echo "LINUXDEPLOY_DIR=$RUNNER_TEMP/ld" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/ld" >> "$GITHUB_PATH"
+          sudo apt-get update && sudo apt-get install -y libfuse2
+      - name: Package
+        run: QMAKE="$QT_ROOT_DIR/bin/qmake" packaging/linux/package.sh --skip-build linux-release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: build/dist/*
+
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/build
+        with:
+          preset: macos-release
+          qt-arch: clang_64
+      - name: Package
+        run: MACDEPLOYQT="$QT_ROOT_DIR/bin/macdeployqt" packaging/macos/package.sh --skip-build macos-release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: build/dist/*
+
+  publish:
+    needs: [windows, linux, macos]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Release notes
+        run: |
+          echo "Open Factory Studio ${GITHUB_REF_NAME#v}. Changelog.pdf lists what changed." > notes.md
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease=""
+          case "$GITHUB_REF_NAME" in v0.*|*-*) prerelease="--prerelease";; esac
+          gh release create "$GITHUB_REF_NAME" dist/* --title "Open Factory Studio ${GITHUB_REF_NAME#v}" \
+            --notes-file notes.md --verify-tag $prerelease

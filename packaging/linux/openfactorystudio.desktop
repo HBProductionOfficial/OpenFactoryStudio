@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Open Factory Studio
+GenericName=M.U.G.E.N editor
+Comment=Edit characters, stages and screenpacks for M.U.G.E.N
+Exec=ofs %F
+Icon=openfactorystudio
+Terminal=false
+Categories=Development;Graphics;
+MimeType=text/plain;
