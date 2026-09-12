@@ -10,10 +10,10 @@ namespace OFS::Mugen {
 
 namespace {
 
-QString tr(const char* text)
+struct ExpressionTexts
 {
-    return QCoreApplication::translate("MugenExpression", text);
-}
+    Q_DECLARE_TR_FUNCTIONS(OFS::Mugen::ExpressionTexts)
+};
 
 int precedence(const QString& op)
 {
@@ -151,7 +151,7 @@ ExprPtr ExpressionParser::parse(const QString& text, int offset, int line, Issue
         case CodeToken::Kind::String:
             token.kind = Token::Kind::String;
             if (token.text.size() < 2 || !token.text.endsWith(QLatin1Char('"')))
-                error(token.start, token.length, tr("Unterminated string"));
+                error(token.start, token.length, ExpressionTexts::tr("Unterminated string"));
             break;
         case CodeToken::Kind::Identifier:
             token.kind = Token::Kind::Identifier;
@@ -175,21 +175,21 @@ ExprPtr ExpressionParser::parse(const QString& text, int offset, int line, Issue
             token.kind = Token::Kind::Operator;
             break;
         case CodeToken::Kind::Other:
-            error(token.start, token.length, tr("Syntax error - unexpected '%1'").arg(token.text));
+            error(token.start, token.length, ExpressionTexts::tr("Syntax error - unexpected '%1'").arg(token.text));
             token.kind = Token::Kind::Operator;
             break;
         }
         m_tokens << token;
     }
     if (m_tokens.isEmpty()) {
-        error(offset, 1, tr("Syntax error - missing expression"));
+        error(offset, 1, ExpressionTexts::tr("Syntax error - missing expression"));
         return nullptr;
     }
 
     ExprPtr root = parseExpression(1);
     if (!atEnd()) {
         const Token& t = peek();
-        error(t.start, t.length, tr("Syntax error - unexpected '%1'").arg(t.text));
+        error(t.start, t.length, ExpressionTexts::tr("Syntax error - unexpected '%1'").arg(t.text));
     }
     return root;
 }
@@ -241,13 +241,13 @@ ExprPtr ExpressionParser::parseComparisonTail(ExprPtr left, const Token& op)
     ExprPtr low = parseExpression(1);
     if (!accept(QStringLiteral(","))) {
         const Token& t = peek();
-        error(t.start, t.length, tr("Syntax error - ',' expected in interval"));
+        error(t.start, t.length, ExpressionTexts::tr("Syntax error - ',' expected in interval"));
         return left;
     }
     ExprPtr high = parseExpression(1);
     const Token& close = peek();
     if (close.kind != Token::Kind::CloseBracket && close.kind != Token::Kind::CloseParen) {
-        error(close.start, close.length, tr("Syntax error - ']' or ')' expected"));
+        error(close.start, close.length, ExpressionTexts::tr("Syntax error - ']' or ')' expected"));
         return left;
     }
     next();
@@ -273,7 +273,7 @@ ExprPtr ExpressionParser::parseUnary()
 ExprPtr ExpressionParser::parsePrimary()
 {
     if (atEnd()) {
-        error(m_offset + int(m_text.size()), 1, tr("Syntax error - code ends before line"));
+        error(m_offset + int(m_text.size()), 1, ExpressionTexts::tr("Syntax error - code ends before line"));
         return nullptr;
     }
     const Token t = next();
@@ -286,14 +286,14 @@ ExprPtr ExpressionParser::parsePrimary()
         ExprPtr inner = parseExpression(1);
         if (!accept(QStringLiteral(")"))) {
             const Token& n = peek();
-            error(atEnd() ? t.start : n.start, atEnd() ? 1 : n.length, tr("Unbalanced parentheses"));
+            error(atEnd() ? t.start : n.start, atEnd() ? 1 : n.length, ExpressionTexts::tr("Unbalanced parentheses"));
         }
         return inner;
     }
     case Token::Kind::Identifier:
         return parseTrigger(t);
     default:
-        error(t.start, t.length, tr("Syntax error - unexpected '%1'").arg(t.text));
+        error(t.start, t.length, ExpressionTexts::tr("Syntax error - unexpected '%1'").arg(t.text));
         return nullptr;
     }
 }
@@ -310,16 +310,18 @@ ExprPtr ExpressionParser::parseTrigger(const Token& name)
             next();
             node->children << parseExpression(1);
             if (!accept(QStringLiteral(")")))
-                error(name.start, name.length, tr("Unbalanced parentheses"));
+                error(name.start, name.length, ExpressionTexts::tr("Unbalanced parentheses"));
         }
         if (peek().kind != Token::Kind::Comma) {
-            error(name.start, name.length, tr("Syntax error - ',' expected after redirection '%1'").arg(name.text));
+            error(name.start, name.length,
+                  ExpressionTexts::tr("Syntax error - ',' expected after redirection '%1'").arg(name.text));
             return node;
         }
         next();
         const Token target = next();
         if (target.kind != Token::Kind::Identifier) {
-            error(target.start, target.length, tr("Syntax error - trigger expected after redirection"));
+            error(target.start, target.length,
+                  ExpressionTexts::tr("Syntax error - trigger expected after redirection"));
             return node;
         }
         node->children << parseTrigger(target);
@@ -329,7 +331,7 @@ ExprPtr ExpressionParser::parseTrigger(const Token& name)
     const SyntaxTrigger* trigger = m_syntax ? m_syntax->trigger(name.text) : nullptr;
     if (!trigger) {
         if (m_syntax && !m_syntax->triggerNames().isEmpty())
-            error(name.start, name.length, tr("Unknown trigger '%1'").arg(name.text));
+            error(name.start, name.length, ExpressionTexts::tr("Unknown trigger '%1'").arg(name.text));
         // Skip a parenthesized argument list so one unknown name gives one error.
         if (peek().kind == Token::Kind::OpenParen) {
             int depth = 0;
@@ -350,7 +352,7 @@ ExprPtr ExpressionParser::parseTrigger(const Token& name)
         issue.line = m_line;
         issue.column = name.start;
         issue.length = name.length;
-        issue.message = tr("Trigger '%1' isn't valid for the current project version").arg(name.text);
+        issue.message = ExpressionTexts::tr("Trigger '%1' isn't valid for the current project version").arg(name.text);
         m_issues->append(issue);
     }
     if (SyntaxDatabase::deprecatedIn(trigger->deprecated, m_version)) {
@@ -359,7 +361,7 @@ ExprPtr ExpressionParser::parseTrigger(const Token& name)
         issue.line = m_line;
         issue.column = name.start;
         issue.length = name.length;
-        issue.message = tr("Trigger deprecated in %1").arg(trigger->deprecated);
+        issue.message = ExpressionTexts::tr("Trigger deprecated in %1").arg(trigger->deprecated);
         m_issues->append(issue);
     }
 
@@ -371,7 +373,7 @@ ExprPtr ExpressionParser::parseTrigger(const Token& name)
     auto parseArguments = [&](int minCount, int maxCount, bool required) {
         if (peek().kind != Token::Kind::OpenParen) {
             if (required)
-                error(name.start, name.length, tr("Trigger '%1' needs an argument").arg(name.text));
+                error(name.start, name.length, ExpressionTexts::tr("Trigger '%1' needs an argument").arg(name.text));
             return;
         }
         next();
@@ -384,11 +386,13 @@ ExprPtr ExpressionParser::parseTrigger(const Token& name)
         }
         if (!accept(QStringLiteral(")"))) {
             const Token& t = peek();
-            error(atEnd() ? name.start : t.start, atEnd() ? name.length : t.length, tr("Unbalanced parentheses"));
+            error(atEnd() ? name.start : t.start, atEnd() ? name.length : t.length,
+                  ExpressionTexts::tr("Unbalanced parentheses"));
             return;
         }
         if (count < minCount || count > maxCount)
-            error(name.start, name.length, tr("Wrong number of arguments for trigger '%1'").arg(name.text));
+            error(name.start, name.length,
+                  ExpressionTexts::tr("Wrong number of arguments for trigger '%1'").arg(name.text));
     };
 
     if (type == QLatin1String("exp")) {
@@ -401,21 +405,21 @@ ExprPtr ExpressionParser::parseTrigger(const Token& name)
         parseArguments(1, 1, false);
     } else if (type == QLatin1String("const") || type == QLatin1String("constexp")) {
         if (peek().kind != Token::Kind::OpenParen) {
-            error(name.start, name.length, tr("Trigger '%1' needs an argument").arg(name.text));
+            error(name.start, name.length, ExpressionTexts::tr("Trigger '%1' needs an argument").arg(name.text));
             return node;
         }
         next();
         const Token arg = next();
         if (arg.kind != Token::Kind::Identifier) {
-            error(arg.start, arg.length, tr("Syntax error - constant name expected"));
+            error(arg.start, arg.length, ExpressionTexts::tr("Syntax error - constant name expected"));
             return node;
         }
         QString group = trigger->name;
         if (m_syntax && !m_syntax->constNames(group).isEmpty() && !m_syntax->isConst(group, arg.text))
-            error(arg.start, arg.length, tr("Unknown constant '%1'").arg(arg.text));
+            error(arg.start, arg.length, ExpressionTexts::tr("Unknown constant '%1'").arg(arg.text));
         node->children << makeNode(ExprNode::Kind::Keyword, arg.text, arg.start, arg.length);
         if (!accept(QStringLiteral(")")))
-            error(name.start, name.length, tr("Unbalanced parentheses"));
+            error(name.start, name.length, ExpressionTexts::tr("Unbalanced parentheses"));
     } else if (type == QLatin1String("keyword")) {
         const Token& component = peek();
         bool ok = component.kind == Token::Kind::Identifier;
@@ -430,13 +434,14 @@ ExprPtr ExpressionParser::parseTrigger(const Token& name)
         }
         if (!ok) {
             error(name.start, name.length,
-                  tr("Trigger '%1' needs one of: %2").arg(name.text, trigger->list.join(QStringLiteral(", "))));
+                  ExpressionTexts::tr("Trigger '%1' needs one of: %2")
+                      .arg(name.text, trigger->list.join(QStringLiteral(", "))));
             return node;
         }
         const Token k = next();
         node->children << makeNode(ExprNode::Kind::Keyword, k.text, k.start, k.length);
     } else if (peek().kind == Token::Kind::OpenParen && type.isEmpty()) {
-        error(name.start, name.length, tr("Trigger '%1' does not take arguments").arg(name.text));
+        error(name.start, name.length, ExpressionTexts::tr("Trigger '%1' does not take arguments").arg(name.text));
     }
     return node;
 }
@@ -457,7 +462,8 @@ bool ExpressionParser::parseSpecialForm(const QString& type, const Token& name, 
     const bool equality = comparison && (opToken.text == QLatin1String("=") || opToken.text == QLatin1String("!="));
     if (!comparison || (!equality && type != QLatin1String("opint2") && type != QLatin1String("op2int2") &&
                         type != QLatin1String("opint"))) {
-        error(name.start, name.length, tr("Trigger '%1' must be compared with '=' or '!='").arg(name.text));
+        error(name.start, name.length,
+              ExpressionTexts::tr("Trigger '%1' must be compared with '=' or '!='").arg(name.text));
         return true;
     }
     next();
@@ -466,7 +472,7 @@ bool ExpressionParser::parseSpecialForm(const QString& type, const Token& name, 
     if (type == QLatin1String("opstr")) {
         const Token value = next();
         if (value.kind != Token::Kind::String)
-            error(value.start, value.length, tr("Syntax error - string expected"));
+            error(value.start, value.length, ExpressionTexts::tr("Syntax error - string expected"));
         else
             node->children << makeNode(ExprNode::Kind::String, value.text, value.start, value.length);
         return true;
@@ -486,7 +492,7 @@ bool ExpressionParser::parseSpecialForm(const QString& type, const Token& name, 
             }
         }
         if (!ok)
-            error(value.start, value.length, tr("Unknown keyword '%1'").arg(value.text));
+            error(value.start, value.length, ExpressionTexts::tr("Unknown keyword '%1'").arg(value.text));
         else
             node->children << makeNode(ExprNode::Kind::Keyword, value.text, value.start, value.length);
         return true;
@@ -495,12 +501,12 @@ bool ExpressionParser::parseSpecialForm(const QString& type, const Token& name, 
         // State type letters, then two-letter attack classes, separated by commas.
         const Token first = next();
         if (first.kind != Token::Kind::Identifier) {
-            error(first.start, first.length, tr("Unknown hit attribute/flag"));
+            error(first.start, first.length, ExpressionTexts::tr("Unknown hit attribute/flag"));
             return true;
         }
         for (QChar c : first.text) {
             if (!QStringLiteral("SCAscan").contains(c)) {
-                error(first.start, first.length, tr("Unknown hit attribute/flag"));
+                error(first.start, first.length, ExpressionTexts::tr("Unknown hit attribute/flag"));
                 return true;
             }
         }
@@ -512,7 +518,7 @@ bool ExpressionParser::parseSpecialForm(const QString& type, const Token& name, 
                                                 QStringLiteral("NT"), QStringLiteral("ST"), QStringLiteral("HT"),
                                                 QStringLiteral("AA"), QStringLiteral("AT"), QStringLiteral("AP")};
             if (cls.kind != Token::Kind::Identifier || !classes.contains(cls.text.toUpper())) {
-                error(cls.start, cls.length, tr("Unknown hit attribute/flag"));
+                error(cls.start, cls.length, ExpressionTexts::tr("Unknown hit attribute/flag"));
                 return true;
             }
         }
@@ -523,7 +529,7 @@ bool ExpressionParser::parseSpecialForm(const QString& type, const Token& name, 
     node->children << parseExpression(precedence(QStringLiteral("=")) + 1);
     if (type == QLatin1String("opint2")) {
         if (!accept(QStringLiteral(","))) {
-            error(name.start, name.length, tr("Syntax error - ',' expected"));
+            error(name.start, name.length, ExpressionTexts::tr("Syntax error - ',' expected"));
             return true;
         }
         node->children << parseExpression(precedence(QStringLiteral("=")) + 1);

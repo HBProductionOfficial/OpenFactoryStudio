@@ -20,10 +20,10 @@ using namespace Formats;
 
 namespace {
 
-QString tr(const char* text)
+struct SpriteTransferTexts
 {
-    return QCoreApplication::translate("OFS::SpriteTransfer", text);
-}
+    Q_DECLARE_TR_FUNCTIONS(OFS::SpriteTransferTexts)
+};
 
 QString idFile(int group, int number, const char* suffix)
 {
@@ -169,14 +169,17 @@ QList<int> importFfe(SpriteDocument& doc, int after, const QString& path, const 
             continue;
         if (line.startsWith(QLatin1Char('['))) {
             if (!line.endsWith(QLatin1Char(']')))
-                return fail(
-                    tr("%1, line %2: the section name is not closed.").arg(QFileInfo(path).fileName()).arg(n + 1));
+                return fail(SpriteTransferTexts::tr("%1, line %2: the section name is not closed.")
+                                .arg(QFileInfo(path).fileName())
+                                .arg(n + 1));
             sections << Section{line.mid(1, line.size() - 2).trimmed().toLower(), {}, n + 1};
             continue;
         }
         const qsizetype equals = line.indexOf(QLatin1Char('='));
         if (equals <= 0)
-            return fail(tr("%1, line %2: expected 'name = value'.").arg(QFileInfo(path).fileName()).arg(n + 1));
+            return fail(SpriteTransferTexts::tr("%1, line %2: expected 'name = value'.")
+                            .arg(QFileInfo(path).fileName())
+                            .arg(n + 1));
         const QString key = line.left(equals).trimmed().toLower();
         const QString value = line.mid(equals + 1).trimmed();
         if (sections.isEmpty()) {
@@ -194,12 +197,15 @@ QList<int> importFfe(SpriteDocument& doc, int after, const QString& path, const 
             continue;
         QFile act(dir.filePath(section.values.value(QStringLiteral("file"))));
         if (!act.open(QIODevice::ReadOnly))
-            return fail(tr("%1, line %2: %3").arg(QFileInfo(path).fileName()).arg(section.line).arg(act.errorString()));
+            return fail(SpriteTransferTexts::tr("%1, line %2: %3")
+                            .arg(QFileInfo(path).fileName())
+                            .arg(section.line)
+                            .arg(act.errorString()));
         const QByteArray data = act.readAll();
         auto colors = readAct(ByteSpan(reinterpret_cast<const std::byte*>(data.constData()), std::size_t(data.size())),
                               ActOrder::Reversed);
         if (!colors)
-            return fail(tr("%1, line %2: %3")
+            return fail(SpriteTransferTexts::tr("%1, line %2: %3")
                             .arg(QFileInfo(path).fileName())
                             .arg(section.line)
                             .arg(QString::fromStdString(colors.error().message)));
@@ -232,7 +238,10 @@ QList<int> importFfe(SpriteDocument& doc, int after, const QString& path, const 
             QString loadError;
             Image image = loadImageFile(dir.filePath(imageFile), &loadError);
             if (image.pixelBuffer().empty())
-                return fail(tr("%1, line %2: %3").arg(QFileInfo(path).fileName()).arg(section.line).arg(loadError));
+                return fail(SpriteTransferTexts::tr("%1, line %2: %3")
+                                .arg(QFileInfo(path).fileName())
+                                .arg(section.line)
+                                .arg(loadError));
             pixels = SpriteDocument::makePixels(std::move(image));
             images.insert(imageFile, pixels);
         }

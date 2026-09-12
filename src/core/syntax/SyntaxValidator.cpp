@@ -12,10 +12,11 @@ namespace OFS {
 
 namespace {
 
-QString tr(const char* text)
+// Translation context for this file's texts. lupdate reads the qualified class name.
+struct SyntaxValidatorTexts
 {
-    return QCoreApplication::translate("SyntaxValidator", text);
-}
+    Q_DECLARE_TR_FUNCTIONS(OFS::SyntaxValidatorTexts)
+};
 
 Issue makeIssue(Issue::Severity severity, int line, int column, int length, const QString& message)
 {
@@ -68,13 +69,15 @@ void ExpressionChecker::check(const QString& text, int offset, const Context& co
         else if (!quoted && c == QLatin1Char('('))
             ++depth;
         else if (!quoted && c == QLatin1Char(')') && --depth < 0) {
-            issues << makeIssue(Issue::Severity::Error, context.line, offset + i, 1, tr("Unbalanced parentheses"));
+            issues << makeIssue(Issue::Severity::Error, context.line, offset + i, 1,
+                                SyntaxValidatorTexts::tr("Unbalanced parentheses"));
             return;
         }
     }
     if (depth != 0 || quoted)
         issues << makeIssue(Issue::Severity::Error, context.line, offset, int(text.size()),
-                            quoted ? tr("Unterminated string") : tr("Unbalanced parentheses"));
+                            quoted ? SyntaxValidatorTexts::tr("Unterminated string")
+                                   : SyntaxValidatorTexts::tr("Unbalanced parentheses"));
 }
 
 SyntaxValidator::SyntaxValidator(const SyntaxDatabase& syntax, const QString& fileType, const QString& version)
@@ -110,13 +113,14 @@ void SyntaxValidator::checkValue(const SyntaxParam& param, const QString& value,
     if (v.isEmpty()) {
         if (param.required && !param.nil)
             issues << makeIssue(Issue::Severity::Error, line, offset, 1,
-                                tr("Missing value for parameter '%1'").arg(param.name));
+                                SyntaxValidatorTexts::tr("Missing value for parameter '%1'").arg(param.name));
         return;
     }
 
     auto badValue = [&](const QString& what) {
-        issues << makeIssue(Issue::Severity::Error, line, offset, int(value.size()),
-                            tr("Invalid value '%1' for parameter '%2' (%3 expected)").arg(v, param.name, what));
+        issues << makeIssue(
+            Issue::Severity::Error, line, offset, int(value.size()),
+            SyntaxValidatorTexts::tr("Invalid value '%1' for parameter '%2' (%3 expected)").arg(v, param.name, what));
     };
 
     if (type.startsWith(QLatin1String("exp")) || type == QLatin1String("hitattr") ||
@@ -140,12 +144,12 @@ void SyntaxValidator::checkValue(const SyntaxParam& param, const QString& value,
         if (!param.prefixes.isEmpty() && !n.isEmpty() && param.prefixes.contains(n.at(0), Qt::CaseInsensitive))
             n = n.mid(1);
         if (!isInteger(n) && !(param.nil && n == QLatin1String("-1")))
-            badValue(tr("integer"));
+            badValue(SyntaxValidatorTexts::tr("integer"));
         return;
     }
     if (type == QLatin1String("float")) {
         if (!isNumber(v))
-            badValue(tr("number"));
+            badValue(SyntaxValidatorTexts::tr("number"));
         return;
     }
     const int count = componentCount(type);
@@ -153,8 +157,9 @@ void SyntaxValidator::checkValue(const SyntaxParam& param, const QString& value,
         const QStringList parts = v.split(QLatin1Char(','));
         const int max = count > 0 ? count : (param.max > 0 ? param.max : 1024);
         if (parts.size() > max) {
-            issues << makeIssue(Issue::Severity::Warning, line, offset, int(value.size()),
-                                tr("Too many values for parameter '%1' (%2 at most)").arg(param.name).arg(max));
+            issues << makeIssue(
+                Issue::Severity::Warning, line, offset, int(value.size()),
+                SyntaxValidatorTexts::tr("Too many values for parameter '%1' (%2 at most)").arg(param.name).arg(max));
         }
         const bool integers = type.startsWith(QLatin1String("int")) || type == QLatin1String("intvec");
         for (qsizetype i = 0; i < parts.size() && i < max; ++i) {
@@ -162,13 +167,13 @@ void SyntaxValidator::checkValue(const SyntaxParam& param, const QString& value,
             const bool required = i < param.optional.size() && param.optional[i] == QLatin1String("req");
             if (p.isEmpty()) {
                 if (required)
-                    badValue(tr("%1 values").arg(max));
+                    badValue(SyntaxValidatorTexts::tr("%1 values").arg(max));
                 continue;
             }
             // ifloat3: the first component is an integer, the others numbers.
             const bool wantInt = integers || (type == QLatin1String("ifloat3") && i == 0);
             if (wantInt ? !isInteger(p) : !isNumber(p)) {
-                badValue(wantInt ? tr("integers") : tr("numbers"));
+                badValue(wantInt ? SyntaxValidatorTexts::tr("integers") : SyntaxValidatorTexts::tr("numbers"));
                 return;
             }
         }
@@ -184,7 +189,7 @@ void SyntaxValidator::checkValue(const SyntaxParam& param, const QString& value,
             if (!SyntaxDatabase::keywordMatches(param.list, word)) {
                 const int pos = int(value.indexOf(word));
                 issues << makeIssue(Issue::Severity::Error, line, offset + qMax(0, pos), int(word.size()),
-                                    tr("Unknown keyword '%1'").arg(word));
+                                    SyntaxValidatorTexts::tr("Unknown keyword '%1'").arg(word));
             }
         }
     }
@@ -219,7 +224,7 @@ IssueList SyntaxValidator::validate(const QString& text) const
             sections << s;
             if (!line.headerClosed)
                 issues << makeIssue(Issue::Severity::Error, n, line.headerStart, line.headerLength,
-                                    tr("Missing ']' in block header"));
+                                    SyntaxValidatorTexts::tr("Missing ']' in block header"));
         } else if (line.kind == CodeLine::Kind::KeyValue || line.kind == CodeLine::Kind::Raw) {
             if (!sections.isEmpty())
                 sections.last().lines << ParsedLine{n, line};
@@ -242,7 +247,7 @@ IssueList SyntaxValidator::validate(const QString& text) const
             }
             if (!typeLine && !m_syntax.hasPlainBlock(m_fileType, header)) {
                 issues << makeIssue(Issue::Severity::Error, s.headerLine, s.header.headerStart, s.header.headerLength,
-                                    tr("Missing required parameter 'type'"));
+                                    SyntaxValidatorTexts::tr("Missing required parameter 'type'"));
                 continue;
             }
         }
@@ -251,17 +256,19 @@ IssueList SyntaxValidator::validate(const QString& text) const
         if (!block) {
             if (typeLine)
                 issues << makeIssue(Issue::Severity::Error, typeLine->number, typeLine->code.valueStart,
-                                    int(typeLine->code.value.size()), tr("Unknown type '%1'").arg(typeValue));
+                                    int(typeLine->code.value.size()),
+                                    SyntaxValidatorTexts::tr("Unknown type '%1'").arg(typeValue));
             else if (!isBuiltIn(header))
                 issues << makeIssue(Issue::Severity::Error, s.headerLine, s.header.headerStart, s.header.headerLength,
-                                    tr("Unknown block header"));
+                                    SyntaxValidatorTexts::tr("Unknown block header"));
             continue;
         }
 
         if (typeLine && block->typeName.isEmpty()) {
             if (!m_syntax.param(m_fileType, *block, QStringLiteral("type"))) {
                 issues << makeIssue(Issue::Severity::Error, typeLine->number, typeLine->code.valueStart,
-                                    int(typeLine->code.value.size()), tr("Unknown type '%1'").arg(typeValue));
+                                    int(typeLine->code.value.size()),
+                                    SyntaxValidatorTexts::tr("Unknown type '%1'").arg(typeValue));
                 continue;
             }
             typeLine = nullptr;
@@ -269,10 +276,10 @@ IssueList SyntaxValidator::validate(const QString& text) const
         const QString blockName = block->typeName.isEmpty() ? block->section : block->typeName;
         if (!SyntaxDatabase::availableIn(block->minver, m_version))
             issues << makeIssue(Issue::Severity::Warning, s.headerLine, s.header.headerStart, s.header.headerLength,
-                                tr("Invalid block for current project version"));
+                                SyntaxValidatorTexts::tr("Invalid block for current project version"));
         if (SyntaxDatabase::deprecatedIn(block->deprecated, m_version))
             issues << makeIssue(Issue::Severity::Deprecation, s.headerLine, s.header.headerStart, s.header.headerLength,
-                                tr("Block deprecated in %1").arg(block->deprecated));
+                                SyntaxValidatorTexts::tr("Block deprecated in %1").arg(block->deprecated));
         if (block->raw)
             continue;
         QSet<QString> seen;
@@ -284,8 +291,9 @@ IssueList SyntaxValidator::validate(const QString& text) const
             const QString key = l.code.key;
             if (!block->typeName.isEmpty() && key.compare(QLatin1String("type"), Qt::CaseInsensitive) == 0) {
                 // The section's type was read from its first "type" line.
-                issues << makeIssue(Issue::Severity::Warning, l.number, l.code.keyStart, l.code.keyLength,
-                                    tr("Duplicate parameter '%1' on group '%2'").arg(key, header));
+                issues << makeIssue(
+                    Issue::Severity::Warning, l.number, l.code.keyStart, l.code.keyLength,
+                    SyntaxValidatorTexts::tr("Duplicate parameter '%1' on group '%2'").arg(key, header));
                 continue;
             }
             const SyntaxParam* param = m_syntax.param(m_fileType, *block, key);
@@ -298,8 +306,9 @@ IssueList SyntaxValidator::validate(const QString& text) const
                 }
             }
             if (!param) {
-                issues << makeIssue(Issue::Severity::Error, l.number, l.code.keyStart, l.code.keyLength,
-                                    tr("Unknown parameter '%1' for '%2' block").arg(key, blockName));
+                issues << makeIssue(
+                    Issue::Severity::Error, l.number, l.code.keyStart, l.code.keyLength,
+                    SyntaxValidatorTexts::tr("Unknown parameter '%1' for '%2' block").arg(key, blockName));
                 continue;
             }
             bool repeatable = param->indexed;
@@ -311,16 +320,17 @@ IssueList SyntaxValidator::validate(const QString& text) const
             }
             const QString seenKey = key.toLower() + (param->indexed ? QLatin1Char('(') + l.code.index : QString());
             if (!repeatable && seen.contains(seenKey)) {
-                issues << makeIssue(Issue::Severity::Warning, l.number, l.code.keyStart, l.code.keyLength,
-                                    tr("Duplicate parameter '%1' on group '%2'").arg(key, header));
+                issues << makeIssue(
+                    Issue::Severity::Warning, l.number, l.code.keyStart, l.code.keyLength,
+                    SyntaxValidatorTexts::tr("Duplicate parameter '%1' on group '%2'").arg(key, header));
             }
             seen.insert(seenKey);
             if (!SyntaxDatabase::availableIn(param->minver, m_version))
                 issues << makeIssue(Issue::Severity::Warning, l.number, l.code.keyStart, l.code.keyLength,
-                                    tr("Invalid parameter for current project version"));
+                                    SyntaxValidatorTexts::tr("Invalid parameter for current project version"));
             if (SyntaxDatabase::deprecatedIn(param->deprecated, m_version))
                 issues << makeIssue(Issue::Severity::Deprecation, l.number, l.code.keyStart, l.code.keyLength,
-                                    tr("Parameter deprecated in %1").arg(param->deprecated));
+                                    SyntaxValidatorTexts::tr("Parameter deprecated in %1").arg(param->deprecated));
             checkValue(*param, l.code.value, l.code.valueStart, l.number, header, block->typeName, issues);
         }
 
@@ -329,7 +339,7 @@ IssueList SyntaxValidator::validate(const QString& text) const
                 continue;
             if (!seen.contains(p.name.toLower()))
                 issues << makeIssue(Issue::Severity::Error, s.headerLine, s.header.headerStart, s.header.headerLength,
-                                    tr("Missing required parameter '%1'").arg(p.name));
+                                    SyntaxValidatorTexts::tr("Missing required parameter '%1'").arg(p.name));
         }
     }
     return issues;

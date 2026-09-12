@@ -18,10 +18,10 @@ using namespace Formats;
 
 namespace {
 
-QString tr(const char* text)
+struct SpriteExportTexts
 {
-    return QCoreApplication::translate("OFS::SpriteExport", text);
-}
+    Q_DECLARE_TR_FUNCTIONS(OFS::SpriteExportTexts)
+};
 
 Result<Bytes> encode(const QString& suffix, const Image& image)
 {
@@ -70,7 +70,8 @@ bool writeImageFile(const QString& path, const Image& image, QString* error)
     auto bytes = encode(QFileInfo(path).suffix(), image);
     if (!bytes) {
         if (error)
-            *error = tr("%1: %2").arg(QFileInfo(path).fileName(), QString::fromStdString(bytes.error().message));
+            *error = SpriteExportTexts::tr("%1: %2").arg(QFileInfo(path).fileName(),
+                                                         QString::fromStdString(bytes.error().message));
         return false;
     }
     QSaveFile file(path);

@@ -17,10 +17,11 @@ using namespace Formats;
 
 namespace {
 
-QString tr(const char* text)
+// Translation context for this file's texts. lupdate reads the qualified class name.
+struct SoundTransferTexts
 {
-    return QCoreApplication::translate("OFS::SoundTransfer", text);
-}
+    Q_DECLARE_TR_FUNCTIONS(OFS::SoundTransferTexts)
+};
 
 bool writeFile(const QString& path, const QByteArray& data, QString* error)
 {
@@ -116,13 +117,14 @@ QList<int> importFfe(SoundDocument& doc, int after, const QString& path, const S
             continue;
         if (line.startsWith(QLatin1Char('['))) {
             if (!line.endsWith(QLatin1Char(']')))
-                return fail(tr("%1, line %2: the section name is not closed.").arg(name).arg(n + 1));
+                return fail(
+                    SoundTransferTexts::tr("%1, line %2: the section name is not closed.").arg(name).arg(n + 1));
             sections << Section{line.mid(1, line.size() - 2).trimmed().toLower(), {}, n + 1};
             continue;
         }
         const qsizetype equals = line.indexOf(QLatin1Char('='));
         if (equals <= 0)
-            return fail(tr("%1, line %2: expected 'name = value'.").arg(name).arg(n + 1));
+            return fail(SoundTransferTexts::tr("%1, line %2: expected 'name = value'.").arg(name).arg(n + 1));
         if (!sections.isEmpty())
             sections.last().values.insert(line.left(equals).trimmed().toLower(), line.mid(equals + 1).trimmed());
     }
@@ -139,10 +141,10 @@ QList<int> importFfe(SoundDocument& doc, int after, const QString& path, const S
         QString readError;
         Bytes data = readBytes(dir.filePath(section.values.value(QStringLiteral("file"))), &readError);
         if (data.empty())
-            return fail(tr("%1, line %2: %3").arg(name).arg(section.line).arg(readError));
+            return fail(SoundTransferTexts::tr("%1, line %2: %3").arg(name).arg(section.line).arg(readError));
         data = SoundEdits::importData(data, &readError);
         if (data.empty())
-            return fail(tr("%1, line %2: %3").arg(name).arg(section.line).arg(readError));
+            return fail(SoundTransferTexts::tr("%1, line %2: %3").arg(name).arg(section.line).arg(readError));
         incoming << Incoming{section.values.value(QStringLiteral("group")).toInt(),
                              section.values.value(QStringLiteral("sample")).toInt(), std::move(data)};
     }

@@ -24,12 +24,13 @@ $version = (($cache | Select-String '^CMAKE_PROJECT_VERSION:STATIC=(.*)$').Match
 $qtDir = (($cache | Select-String '^Qt6_DIR:PATH=(.*)$').Matches[0].Groups[1].Value)
 $qtBin = Join-Path $qtDir '..\..\..\bin'
 
+# Qt's translations are kept for the standard dialogs.
 $stage = Join-Path $root 'build/stage'
 if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
 cmake --install $BuildDir --prefix $stage --config Release
 if ($LASTEXITCODE) { throw 'install failed' }
 $deploy = Join-Path $qtBin 'windeployqt.exe'
-& $deploy --no-translations --no-system-d3d-compiler --svg --dir $stage `
+& $deploy --no-system-d3d-compiler --svg --dir $stage `
     (Join-Path $stage 'ofs.exe') (Join-Path $stage 'ofscore.dll')
 if ($LASTEXITCODE) { throw 'windeployqt failed' }
 Get-ChildItem (Join-Path $stage 'engines') -Recurse -Filter *.dll | ForEach-Object {

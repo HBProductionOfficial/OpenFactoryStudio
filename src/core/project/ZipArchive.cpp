@@ -14,10 +14,10 @@ namespace OFS::Zip {
 
 namespace {
 
-QString tr(const char* text)
+struct ZipTexts
 {
-    return QCoreApplication::translate("OFS::Zip", text);
-}
+    Q_DECLARE_TR_FUNCTIONS(OFS::Zip::ZipTexts)
+};
 
 void fail(QString* error, const QString& message)
 {
@@ -42,7 +42,7 @@ struct Reader
         bytes = file.readAll();
         open = mz_zip_reader_init_mem(&zip, bytes.constData(), size_t(bytes.size()), 0);
         if (!open)
-            fail(error, tr("%1 is not a ZIP archive.").arg(QDir::toNativeSeparators(path)));
+            fail(error, ZipTexts::tr("%1 is not a ZIP archive.").arg(QDir::toNativeSeparators(path)));
         return open;
     }
     ~Reader()
@@ -98,7 +98,7 @@ bool extract(const QString& archive, const QString& folder, QString* error)
         const QString name = entryName(&reader.zip, i);
         const QString target = QDir::cleanPath(root.absoluteFilePath(name));
         if (!QString(target + QLatin1Char('/')).startsWith(rootPath, Qt::CaseInsensitive)) {
-            fail(error, tr("The archive entry %1 points outside the folder.").arg(name));
+            fail(error, ZipTexts::tr("The archive entry %1 points outside the folder.").arg(name));
             return false;
         }
         if (mz_zip_reader_is_file_a_directory(&reader.zip, i) || name.endsWith(QLatin1Char('/'))) {
@@ -110,7 +110,7 @@ bool extract(const QString& archive, const QString& folder, QString* error)
         std::unique_ptr<void, decltype(&mz_free)> data(mz_zip_reader_extract_to_heap(&reader.zip, i, &size, 0),
                                                        &mz_free);
         if (!data && size != 0) {
-            fail(error, tr("Cannot extract %1.").arg(name));
+            fail(error, ZipTexts::tr("Cannot extract %1.").arg(name));
             return false;
         }
         QSaveFile out(target);
@@ -137,7 +137,7 @@ QByteArray read(const QString& archive, const QString& name, QString* error)
                                                        &mz_free);
         return data ? QByteArray(static_cast<const char*>(data.get()), qsizetype(size)) : QByteArray();
     }
-    fail(error, tr("%1 is not in the archive.").arg(name));
+    fail(error, ZipTexts::tr("%1 is not in the archive.").arg(name));
     return {};
 }
 
@@ -145,7 +145,7 @@ bool create(const QString& archive, const QString& root, const QStringList& file
 {
     mz_zip_archive zip{};
     if (!mz_zip_writer_init_heap(&zip, 0, 0)) {
-        fail(error, tr("Cannot create the archive."));
+        fail(error, ZipTexts::tr("Cannot create the archive."));
         return false;
     }
     const QDir base(root);
@@ -160,7 +160,7 @@ bool create(const QString& archive, const QString& root, const QStringList& file
         const QByteArray name = QDir::fromNativeSeparators(relative).toUtf8();
         if (!mz_zip_writer_add_mem(&zip, name.constData(), data.constData(), size_t(data.size()),
                                    MZ_DEFAULT_COMPRESSION)) {
-            fail(error, tr("Cannot add %1 to the archive.").arg(relative));
+            fail(error, ZipTexts::tr("Cannot add %1 to the archive.").arg(relative));
             mz_zip_writer_end(&zip);
             return false;
         }
@@ -174,7 +174,7 @@ bool create(const QString& archive, const QString& root, const QStringList& file
     mz_free(buffer); // the finished archive belongs to the caller
     mz_zip_writer_end(&zip);
     if (!written)
-        fail(error, finished ? out.errorString() : tr("Cannot create the archive."));
+        fail(error, finished ? out.errorString() : ZipTexts::tr("Cannot create the archive."));
     return written;
 }
 

@@ -33,10 +33,10 @@ namespace OFS::Mugen {
 
 namespace {
 
-QString tr(const char* text)
+struct HtmlExportTexts
 {
-    return QCoreApplication::translate("OFS::Mugen::HtmlExport", text);
-}
+    Q_DECLARE_TR_FUNCTIONS(OFS::Mugen::HtmlExportTexts)
+};
 
 bool fail(QString* error, const QString& message)
 {
@@ -91,7 +91,8 @@ bool writeBytes(const QString& path, const QByteArray& bytes, QString* error)
 {
     QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit())
-        return fail(error, tr("Cannot write %1: %2").arg(QDir::toNativeSeparators(path), file.errorString()));
+        return fail(error,
+                    HtmlExportTexts::tr("Cannot write %1: %2").arg(QDir::toNativeSeparators(path), file.errorString()));
     return true;
 }
 
@@ -353,7 +354,8 @@ bool exportHtml(Project& project, const HtmlExportOptions& options, const QStrin
     if (pages.isEmpty())
         pages = layout.entryList({QStringLiteral("*.html"), QStringLiteral("*.htm")}, QDir::Files, QDir::Name);
     if (pages.isEmpty())
-        return fail(error, tr("The layout %1 has no page.").arg(QDir::toNativeSeparators(options.layout)));
+        return fail(error,
+                    HtmlExportTexts::tr("The layout %1 has no page.").arg(QDir::toNativeSeparators(options.layout)));
     QFile templateFile(layout.filePath(pages.first()));
     if (!templateFile.open(QIODevice::ReadOnly))
         return fail(error, templateFile.errorString());
@@ -365,7 +367,8 @@ bool exportHtml(Project& project, const HtmlExportOptions& options, const QStrin
     const QFileInfo target(htmlPath);
     const QDir images(target.absolutePath() + QStringLiteral("/images"));
     if (!QDir().mkpath(images.path()))
-        return fail(error, tr("Cannot create the folder %1.").arg(QDir::toNativeSeparators(images.path())));
+        return fail(error,
+                    HtmlExportTexts::tr("Cannot create the folder %1.").arg(QDir::toNativeSeparators(images.path())));
     for (const QFileInfo& file : layout.entryInfoList(QDir::Files)) {
         const QString suffix = file.suffix().toLower();
         if (suffix == QLatin1String("html") || suffix == QLatin1String("htm"))
@@ -398,14 +401,14 @@ bool exportHtml(Project& project, const HtmlExportOptions& options, const QStrin
     values.insert(QStringLiteral("homepage"), escape(options.homepage));
     values.insert(QStringLiteral("titletext"), escape(options.title));
     values.insert(QStringLiteral("text"), escape(options.text).replace(QLatin1Char('\n'), QLatin1String("<br/>")));
-    values.insert(QStringLiteral("titlename"), tr("Name: "));
-    values.insert(QStringLiteral("titledate"), tr("Date: "));
-    values.insert(QStringLiteral("titleversion"), tr("Version: "));
-    values.insert(QStringLiteral("titleauthor"), tr("Author: "));
-    values.insert(QStringLiteral("titleemail"), tr("E-mail: "));
-    values.insert(QStringLiteral("titlehomepage"), tr("Home-page: "));
-    values.insert(QStringLiteral("titleanim"), tr("Palettes: "));
-    values.insert(QStringLiteral("titlecomm"), tr("Commands:"));
+    values.insert(QStringLiteral("titlename"), HtmlExportTexts::tr("Name: "));
+    values.insert(QStringLiteral("titledate"), HtmlExportTexts::tr("Date: "));
+    values.insert(QStringLiteral("titleversion"), HtmlExportTexts::tr("Version: "));
+    values.insert(QStringLiteral("titleauthor"), HtmlExportTexts::tr("Author: "));
+    values.insert(QStringLiteral("titleemail"), HtmlExportTexts::tr("E-mail: "));
+    values.insert(QStringLiteral("titlehomepage"), HtmlExportTexts::tr("Home-page: "));
+    values.insert(QStringLiteral("titleanim"), HtmlExportTexts::tr("Palettes: "));
+    values.insert(QStringLiteral("titlecomm"), HtmlExportTexts::tr("Commands:"));
 
     const QString base = target.completeBaseName();
     const SpriteDocument* sprites = projectSprites(project);

@@ -68,6 +68,9 @@ if(WIN32)
     endif()
 endif()
 
-install(DIRECTORY "${PROJECT_SOURCE_DIR}/data/" DESTINATION "${OFS_INSTALL_DATADIR}")
+install(DIRECTORY "${PROJECT_SOURCE_DIR}/data/" DESTINATION "${OFS_INSTALL_DATADIR}" PATTERN "*.ts" EXCLUDE)
+# The .qm translations built by ofs_stage_data.
+install(DIRECTORY "${OFS_DATA_OUTPUT_DIR}/languages/" DESTINATION "${OFS_INSTALL_DATADIR}/languages"
+    FILES_MATCHING PATTERN "*.qm")
 install(FILES "${PROJECT_SOURCE_DIR}/LICENSE" "${PROJECT_SOURCE_DIR}/Third party notices.pdf"
     DESTINATION "${OFS_INSTALL_DOCDIR}")

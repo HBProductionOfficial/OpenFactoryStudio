@@ -18,10 +18,10 @@ namespace OFS::Backup {
 
 namespace {
 
-QString tr(const char* text)
+struct BackupTexts
 {
-    return QCoreApplication::translate("OFS::Backup", text);
-}
+    Q_DECLARE_TR_FUNCTIONS(OFS::Backup::BackupTexts)
+};
 
 QString fail(QString* error, const QString& message)
 {
@@ -84,7 +84,7 @@ QDateTime timeOf(const QString& name, bool* automatic)
 QString create(const Project& project, const QDateTime& time, bool automatic, QString* error)
 {
     if (project.isMemoryOnly())
-        return fail(error, tr("The project has not been saved yet."));
+        return fail(error, BackupTexts::tr("The project has not been saved yet."));
     QTemporaryDir staging;
     if (!staging.isValid())
         return fail(error, staging.errorString());
@@ -99,7 +99,7 @@ QString create(const Project& project, const QDateTime& time, bool automatic, QS
 
     const QString dir = folder(project);
     if (!QDir().mkpath(dir))
-        return fail(error, tr("Cannot create the folder %1.").arg(QDir::toNativeSeparators(dir)));
+        return fail(error, BackupTexts::tr("Cannot create the folder %1.").arg(QDir::toNativeSeparators(dir)));
     QString path = QDir(dir).filePath(fileName(time, automatic));
     for (int n = 2; QFileInfo::exists(path); ++n)
         path =
@@ -124,9 +124,9 @@ QList<Item> list(const Project& project)
                          clock12(item.time.time(), QLatin1Char(':')) +
                          (item.time.time().hour() < 12 ? QStringLiteral(" am") : QStringLiteral(" pm"));
             if (item.automatic)
-                item.label += tr(" (automatic)");
+                item.label += BackupTexts::tr(" (automatic)");
         } else {
-            item.label = tr("Unknown");
+            item.label = BackupTexts::tr("Unknown");
         }
         items << item;
     }
@@ -145,7 +145,7 @@ bool restore(const Project& project, const QString& backupPath, QString* error)
     if (info.isFile())
         return Zip::extract(backupPath, target, error);
     if (!info.isDir()) {
-        fail(error, tr("The backup %1 does not exist.").arg(QDir::toNativeSeparators(backupPath)));
+        fail(error, BackupTexts::tr("The backup %1 does not exist.").arg(QDir::toNativeSeparators(backupPath)));
         return false;
     }
     const QDir source(backupPath);
@@ -156,7 +156,7 @@ bool restore(const Project& project, const QString& backupPath, QString* error)
         QDir().mkpath(QFileInfo(destination).absolutePath());
         QFile::remove(destination);
         if (!QFile::copy(file, destination)) {
-            fail(error, tr("Cannot write %1.").arg(QDir::toNativeSeparators(destination)));
+            fail(error, BackupTexts::tr("Cannot write %1.").arg(QDir::toNativeSeparators(destination)));
             return false;
         }
     }

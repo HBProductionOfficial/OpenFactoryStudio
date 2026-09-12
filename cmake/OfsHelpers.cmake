@@ -139,7 +139,8 @@ function(ofs_stage_data)
     add_dependencies(ofs_translations ofs_data)
     if(TARGET Qt6::lupdate)
         add_custom_target(update_translations
-            COMMAND Qt6::lupdate -locations relative "${PROJECT_SOURCE_DIR}/src" -ts ${_ofs_ts}
+            COMMAND Qt6::lupdate -I "${PROJECT_SOURCE_DIR}/src" -locations relative -no-obsolete
+                    "${PROJECT_SOURCE_DIR}/src" -ts ${_ofs_ts}
             WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}"
             COMMENT "Updating the translation sources"
             VERBATIM)

@@ -16,10 +16,10 @@ namespace OFS::Mugen {
 
 namespace {
 
-QString tr(const char* text)
+struct MugenRunTexts
 {
-    return QCoreApplication::translate("OFS::Mugen::MugenRun", text);
-}
+    Q_DECLARE_TR_FUNCTIONS(OFS::Mugen::MugenRunTexts)
+};
 
 QString freeName(const QString& dir)
 {
@@ -43,7 +43,7 @@ bool makeFolders(const QString& folder, RunCopy& copy)
     }
     for (const QString& dir : std::as_const(missing)) {
         if (!QDir().mkdir(dir)) {
-            copy.error = tr("Could not create the folder %1.").arg(QDir::toNativeSeparators(dir));
+            copy.error = MugenRunTexts::tr("Could not create the folder %1.").arg(QDir::toNativeSeparators(dir));
             return false;
         }
         copy.folders << dir;
@@ -54,7 +54,8 @@ bool makeFolders(const QString& folder, RunCopy& copy)
 bool put(const Project& project, const QString& source, const QString& target, RunCopy& copy)
 {
     if (QFileInfo::exists(target)) {
-        copy.error = tr("%1 already exists; running would overwrite it.").arg(QDir::toNativeSeparators(target));
+        copy.error =
+            MugenRunTexts::tr("%1 already exists; running would overwrite it.").arg(QDir::toNativeSeparators(target));
         return false;
     }
     if (!makeFolders(QFileInfo(target).absolutePath(), copy))
@@ -69,7 +70,7 @@ bool put(const Project& project, const QString& source, const QString& target, R
         error = in.errorString();
     }
     if (!ok) {
-        copy.error = tr("Could not write %1: %2").arg(QDir::toNativeSeparators(target), error);
+        copy.error = MugenRunTexts::tr("Could not write %1: %2").arg(QDir::toNativeSeparators(target), error);
         return false;
     }
     copy.files << target;
@@ -181,7 +182,7 @@ RunCopy prepareRunCopy(const Project& project, const QString& engineDir)
             if (QFileInfo::exists(target)) {
                 if (fileHash(target) == fileHash(source))
                     continue;
-                copy.error = tr("%1 already exists with other content; running would overwrite it.")
+                copy.error = MugenRunTexts::tr("%1 already exists with other content; running would overwrite it.")
                                  .arg(QDir::toNativeSeparators(target));
                 return fail();
             }
@@ -205,7 +206,7 @@ RunCopy prepareRunCopy(const Project& project, const QString& engineDir)
         return copy;
     }
 
-    copy.error = tr("Only characters, stages and screenpacks can be run.");
+    copy.error = MugenRunTexts::tr("Only characters, stages and screenpacks can be run.");
     return copy;
 }
 

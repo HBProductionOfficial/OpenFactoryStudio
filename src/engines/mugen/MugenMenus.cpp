@@ -8,10 +8,10 @@ namespace {
 
 using I = MenuItemSpec;
 
-QString tr(const char* text)
+struct MenuTexts
 {
-    return QCoreApplication::translate("Menus", text);
-}
+    Q_DECLARE_TR_FUNCTIONS(OFS::Mugen::MenuTexts)
+};
 
 I a(const char* id)
 {
@@ -34,7 +34,7 @@ QList<MenuSpec> mugenMenus()
                          true};
 
     MenuSpec palettes{QStringLiteral("menu_palettes"),
-                      tr("Palettes"),
+                      MenuTexts::tr("Palettes"),
                       {
                           a("pal_clear"),
                           a("pal_clear_unused"),
@@ -57,7 +57,7 @@ QList<MenuSpec> mugenMenus()
                       false};
 
     MenuSpec backgrounds{QStringLiteral("menu_backgrounds"),
-                         tr("Backgrounds"),
+                         MenuTexts::tr("Backgrounds"),
                          {
                              a("bgs_add"),
                              a("bgs_delete"),
@@ -67,7 +67,7 @@ QList<MenuSpec> mugenMenus()
                              a("bgs_pause"),
                              a("bgs_stop"),
                              sep(),
-                             I::submenu(QStringLiteral("menu_bg_controllers"), tr("Controllers"),
+                             I::submenu(QStringLiteral("menu_bg_controllers"), MenuTexts::tr("Controllers"),
                                         {
                                             a("bgctrls_def_add"),
                                             a("bgctrls_def_delete"),
@@ -80,7 +80,7 @@ QList<MenuSpec> mugenMenus()
                          false};
 
     MenuSpec sprites{QStringLiteral("menu_sprites"),
-                     tr("Sprites"),
+                     MenuTexts::tr("Sprites"),
                      {
                          a("spr_new"),
                          a("spr_open"),
@@ -101,7 +101,7 @@ QList<MenuSpec> mugenMenus()
                          a("spr_align"),
                          a("spr_edit_img"),
                          a("spr_split_channels"),
-                         I::submenu(QStringLiteral("menu_spr_layers"), tr("Layers"),
+                         I::submenu(QStringLiteral("menu_spr_layers"), MenuTexts::tr("Layers"),
                                     {
                                         a("spr_layer_add"),
                                         a("spr_layer_delete"),
@@ -113,11 +113,11 @@ QList<MenuSpec> mugenMenus()
                                         a("spr_layer_save"),
                                         a("spr_layer_play"),
                                     }),
-                         I::submenu(QStringLiteral("menu_spr_image"), tr("Image"),
+                         I::submenu(QStringLiteral("menu_spr_image"), MenuTexts::tr("Image"),
                                     {a("spr_view_original"), a("spr_image_properties")}),
-                         I::submenu(QStringLiteral("menu_spr_select"), tr("Select"),
+                         I::submenu(QStringLiteral("menu_spr_select"), MenuTexts::tr("Select"),
                                     {a("spr_select_all"), a("spr_select_none"), a("spr_select_invert")}),
-                         I::submenu(QStringLiteral("menu_spr_rotation"), tr("Rotation"),
+                         I::submenu(QStringLiteral("menu_spr_rotation"), MenuTexts::tr("Rotation"),
                                     {a("spr_image_rotate"), a("spr_image_fliph"), a("spr_image_flipv")}),
                          sep(),
                          a("spr_export"),
@@ -131,7 +131,7 @@ QList<MenuSpec> mugenMenus()
                      false};
 
     MenuSpec animations{QStringLiteral("menu_animations"),
-                        tr("Animations"),
+                        MenuTexts::tr("Animations"),
                         {
                             a("anim_new"),
                             a("anim_open"),
@@ -174,12 +174,12 @@ QList<MenuSpec> mugenMenus()
                         false};
 
     MenuSpec commands{QStringLiteral("menu_commands"),
-                      tr("Commands"),
+                      MenuTexts::tr("Commands"),
                       {a("cmd_new"), a("cmd_open"), a("cmd_save"), a("cmd_saveas_utf8"), a("cmd_saveas")},
                       false};
 
     MenuSpec states{QStringLiteral("menu_states"),
-                    tr("States"),
+                    MenuTexts::tr("States"),
                     {
                         a("st_new"),
                         a("st_open"),
@@ -195,42 +195,42 @@ QList<MenuSpec> mugenMenus()
                     },
                     false};
 
-    MenuSpec sounds{
-        QStringLiteral("menu_sounds"),
-        tr("Sounds"),
-        {
-            a("snd_new"),
-            a("snd_open"),
-            a("snd_save"),
-            a("snd_saveas"),
-            sep(),
-            a("snd_add"),
-            a("snd_delete"),
-            a("snd_duplicate"),
-            a("snd_open_sample"),
-            a("snd_save_sample"),
-            a("snd_resample"),
-            a("snd_play"),
-            a("snd_play_loop"),
-            a("snd_pause"),
-            a("snd_stop"),
-            a("snd_delete_grp"),
-            a("snd_rename_grp"),
-            sep(),
-            I::submenu(QStringLiteral("menu_snd_select"), tr("Select"), {a("snd_select_all"), a("snd_select_none")}),
-            a("snd_remove_selected"),
-            a("snd_fill_silence"),
-            a("snd_fade_in"),
-            a("snd_fade_out"),
-            sep(),
-            a("snd_save_changes"),
-            a("snd_discard_changes"),
-            sep(),
-            a("snd_export"),
-            a("snd_import"),
-            a("snd_import_proj"),
-        },
-        false};
+    MenuSpec sounds{QStringLiteral("menu_sounds"),
+                    MenuTexts::tr("Sounds"),
+                    {
+                        a("snd_new"),
+                        a("snd_open"),
+                        a("snd_save"),
+                        a("snd_saveas"),
+                        sep(),
+                        a("snd_add"),
+                        a("snd_delete"),
+                        a("snd_duplicate"),
+                        a("snd_open_sample"),
+                        a("snd_save_sample"),
+                        a("snd_resample"),
+                        a("snd_play"),
+                        a("snd_play_loop"),
+                        a("snd_pause"),
+                        a("snd_stop"),
+                        a("snd_delete_grp"),
+                        a("snd_rename_grp"),
+                        sep(),
+                        I::submenu(QStringLiteral("menu_snd_select"), MenuTexts::tr("Select"),
+                                   {a("snd_select_all"), a("snd_select_none")}),
+                        a("snd_remove_selected"),
+                        a("snd_fill_silence"),
+                        a("snd_fade_in"),
+                        a("snd_fade_out"),
+                        sep(),
+                        a("snd_save_changes"),
+                        a("snd_discard_changes"),
+                        sep(),
+                        a("snd_export"),
+                        a("snd_import"),
+                        a("snd_import_proj"),
+                    },
+                    false};
 
     return {definitions, palettes, backgrounds, sprites, animations, commands, states, sounds};
 }

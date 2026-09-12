@@ -12,10 +12,10 @@ namespace OFS::Mugen {
 
 namespace {
 
-QString tr(const char* text)
+struct MugenSyntaxTexts
 {
-    return QCoreApplication::translate("MugenSyntax", text);
-}
+    Q_DECLARE_TR_FUNCTIONS(OFS::Mugen::MugenSyntaxTexts)
+};
 
 void addIssue(IssueList& issues, int line, int column, int length, const QString& message,
               Issue::Severity severity = Issue::Severity::Error)
@@ -90,8 +90,8 @@ void MugenExpressionChecker::check(const QString& text, int offset, const Contex
     else if (type == QLatin1String("exp2keyword"))
         max = 3;
     if (max > 0 && parts.size() > max)
-        addIssue(issues, context.line, offset, int(text.size()), tr("Too many values (%1 at most)").arg(max),
-                 Issue::Severity::Warning);
+        addIssue(issues, context.line, offset, int(text.size()),
+                 MugenSyntaxTexts::tr("Too many values (%1 at most)").arg(max), Issue::Severity::Warning);
     for (int i = 0; i < parts.size(); ++i) {
         const QString part = parts[i].first;
         if (part.trimmed().isEmpty())
@@ -101,7 +101,7 @@ void MugenExpressionChecker::check(const QString& text, int offset, const Contex
             if (!context.list.isEmpty()) {
                 if (!SyntaxDatabase::keywordMatches(context.list, word))
                     addIssue(issues, context.line, parts[i].second + int(part.indexOf(word)), int(word.size()),
-                             tr("Unknown keyword '%1'").arg(word));
+                             MugenSyntaxTexts::tr("Unknown keyword '%1'").arg(word));
             }
             continue;
         }
@@ -114,12 +114,13 @@ void MugenExpressionChecker::checkHitAttr(const QString& text, int offset, int l
     const auto parts = ExpressionParser::splitTopLevel(text, offset);
     const QString states = parts.value(0).first.trimmed();
     if (states.isEmpty()) {
-        addIssue(issues, line, offset, int(text.size()), tr("Unknown hit attribute/flag"));
+        addIssue(issues, line, offset, int(text.size()), MugenSyntaxTexts::tr("Unknown hit attribute/flag"));
         return;
     }
     for (QChar c : states) {
         if (!QStringLiteral("SCAsca").contains(c)) {
-            addIssue(issues, line, parts[0].second, int(parts[0].first.size()), tr("Unknown hit attribute/flag"));
+            addIssue(issues, line, parts[0].second, int(parts[0].first.size()),
+                     MugenSyntaxTexts::tr("Unknown hit attribute/flag"));
             return;
         }
     }
@@ -131,7 +132,7 @@ void MugenExpressionChecker::checkHitAttr(const QString& text, int offset, int l
         const QString cls = parts[i].first.trimmed();
         if (!classes.contains(cls.toUpper())) {
             addIssue(issues, line, parts[i].second + int(parts[i].first.indexOf(cls)), qMax(1, int(cls.size())),
-                     tr("Unknown hit attribute/flag"));
+                     MugenSyntaxTexts::tr("Unknown hit attribute/flag"));
             return;
         }
     }
@@ -144,12 +145,12 @@ void MugenExpressionChecker::checkFlags(const QString& text, int offset, int lin
     const int start = offset + int(text.indexOf(flags));
     for (QChar c : flags) {
         if (!allowed.contains(c.toUpper())) {
-            addIssue(issues, line, start, int(flags.size()), tr("Unknown hit attribute/flag"));
+            addIssue(issues, line, start, int(flags.size()), MugenSyntaxTexts::tr("Unknown hit attribute/flag"));
             return;
         }
     }
     if (flags.contains(QLatin1Char('+')) && flags.contains(QLatin1Char('-')))
-        addIssue(issues, line, start, int(flags.size()), tr("'+' and '-' are mutually exclusive"));
+        addIssue(issues, line, start, int(flags.size()), MugenSyntaxTexts::tr("'+' and '-' are mutually exclusive"));
 }
 
 bool MugenExpressionChecker::isValidKeySequence(const QString& text, QString* problem)
@@ -166,14 +167,14 @@ bool MugenExpressionChecker::isValidKeySequence(const QString& text, QString* pr
         QStringLiteral("^\\s*(>?)\\s*(~\\s*\\d*)?\\s*(/?)\\s*(\\$?)\\s*(.+?)\\s*$"));
     if (text.trimmed().isEmpty()) {
         if (problem)
-            *problem = tr("Empty command");
+            *problem = MugenSyntaxTexts::tr("Empty command");
         return false;
     }
     for (const QString& part : text.split(QLatin1Char(','))) {
         const auto m = element.match(part);
         if (!m.hasMatch()) {
             if (problem)
-                *problem = tr("Invalid command element '%1'").arg(part.trimmed());
+                *problem = MugenSyntaxTexts::tr("Invalid command element '%1'").arg(part.trimmed());
             return false;
         }
         for (const QString& key : m.captured(5).split(QLatin1Char('+'))) {
@@ -181,7 +182,7 @@ bool MugenExpressionChecker::isValidKeySequence(const QString& text, QString* pr
             const bool ok = directions.contains(k, Qt::CaseInsensitive) || buttons.contains(k, Qt::CaseInsensitive);
             if (!ok) {
                 if (problem)
-                    *problem = tr("Invalid command element '%1'").arg(part.trimmed());
+                    *problem = MugenSyntaxTexts::tr("Invalid command element '%1'").arg(part.trimmed());
                 return false;
             }
         }
@@ -252,7 +253,8 @@ IssueList validateMugenCode(const SyntaxDatabase& syntax, const QString& fileTyp
         bool hasTrigger1 = true;
         auto flush = [&] {
             if (header >= 0 && !hasTrigger1)
-                addIssue(issues, header, 0, int(lines[header].size()), tr("Missing parameter 'trigger1'"));
+                addIssue(issues, header, 0, int(lines[header].size()),
+                         MugenSyntaxTexts::tr("Missing parameter 'trigger1'"));
         };
         for (int n = 0; n < lines.size(); ++n) {
             const CodeLine line = CodeLine::parse(lines[n]);

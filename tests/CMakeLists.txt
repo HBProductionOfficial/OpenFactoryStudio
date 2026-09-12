@@ -208,6 +208,18 @@ ofs_add_test(NAME gui_mainwindow GUI LABELS gui
     SOURCES gui/MainWindowTest.cpp
     LIBS OFS::shell)
 
+ofs_add_test(NAME gui_translation_coverage GUI LABELS gui TIMEOUT 600
+    SOURCES gui/TranslationCoverageTest.cpp
+    LIBS OFS::shell)
+find_package(Qt6 QUIET COMPONENTS LinguistTools)
+if(TARGET Qt6::lupdate AND TARGET Qt6::lrelease)
+    target_compile_definitions(test_gui_translation_coverage PRIVATE
+        OFS_LUPDATE="$<TARGET_FILE:Qt6::lupdate>" OFS_LRELEASE="$<TARGET_FILE:Qt6::lrelease>")
+else()
+    target_compile_definitions(test_gui_translation_coverage PRIVATE OFS_LUPDATE="" OFS_LRELEASE="")
+endif()
+target_compile_definitions(test_gui_translation_coverage PRIVATE OFS_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
+
 ofs_add_test(NAME gui_options GUI LABELS gui
     SOURCES gui/OptionsDialogTest.cpp
     LIBS OFS::shell)
@@ -236,6 +248,7 @@ ofs_add_test(NAME gui_engine_run GUI LABELS oracle TIMEOUT 300
 get_property(_ofs_plugins GLOBAL PROPERTY OFS_ENGINE_PLUGINS)
 add_dependencies(test_core_engines ofs_data ${_ofs_plugins})
 add_dependencies(test_gui_mainwindow ofs_data ${_ofs_plugins})
+add_dependencies(test_gui_translation_coverage ofs_data ${_ofs_plugins})
 add_dependencies(test_gui_engine_run ofs_data ${_ofs_plugins})
 add_dependencies(test_core_preset_coverage ofs_data ${_ofs_plugins})
 

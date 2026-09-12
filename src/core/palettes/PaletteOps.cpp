@@ -50,9 +50,13 @@ Rgba normalized(Rgba c)
 
 QStringList effectNames()
 {
-    static const char* const names[] = {"Blue to Red",  "Blue to Green", "Green to Red", "Green to Blue",
-                                        "Red to Green", "Red to Blue",   "Lighter",      "Darker",
-                                        "Monochrome",   "Fire",          "Sapphire",     "Stone"};
+    static const char* const names[] = {
+        QT_TRANSLATE_NOOP("OFS::PaletteOps", "Blue to Red"),  QT_TRANSLATE_NOOP("OFS::PaletteOps", "Blue to Green"),
+        QT_TRANSLATE_NOOP("OFS::PaletteOps", "Green to Red"), QT_TRANSLATE_NOOP("OFS::PaletteOps", "Green to Blue"),
+        QT_TRANSLATE_NOOP("OFS::PaletteOps", "Red to Green"), QT_TRANSLATE_NOOP("OFS::PaletteOps", "Red to Blue"),
+        QT_TRANSLATE_NOOP("OFS::PaletteOps", "Lighter"),      QT_TRANSLATE_NOOP("OFS::PaletteOps", "Darker"),
+        QT_TRANSLATE_NOOP("OFS::PaletteOps", "Monochrome"),   QT_TRANSLATE_NOOP("OFS::PaletteOps", "Fire"),
+        QT_TRANSLATE_NOOP("OFS::PaletteOps", "Sapphire"),     QT_TRANSLATE_NOOP("OFS::PaletteOps", "Stone")};
     QStringList list;
     for (const char* name : names)
         list << QCoreApplication::translate("OFS::PaletteOps", name);

@@ -8,23 +8,23 @@ namespace {
 
 using I = MenuItemSpec;
 
-QString tr(const char* text)
+struct MenuTexts
 {
-    return QCoreApplication::translate("Menus", text);
-}
+    Q_DECLARE_TR_FUNCTIONS(OFS::MenuTexts)
+};
 
 } // namespace
 
 QList<MenuSpec> applicationMenusBeforeEngine()
 {
     MenuSpec project{QStringLiteral("menu_project"),
-                     tr("Project"),
+                     MenuTexts::tr("Project"),
                      {
                          I::action(QStringLiteral("file_new")),
                          I::action(QStringLiteral("file_open")),
                          I::action(QStringLiteral("file_open_archive")),
                          I::action(QStringLiteral("file_open_single")),
-                         I::submenu(QStringLiteral("menu_open_recent"), tr("Open recent"),
+                         I::submenu(QStringLiteral("menu_open_recent"), MenuTexts::tr("Open recent"),
                                     {I::dynamic(QStringLiteral("recent_projects"))}),
                          I::action(QStringLiteral("file_save")),
                          I::action(QStringLiteral("file_saveas")),
@@ -44,41 +44,41 @@ QList<MenuSpec> applicationMenusBeforeEngine()
                      },
                      false};
 
-    MenuSpec edit{
-        QStringLiteral("menu_edit"),
-        tr("Edit"),
-        {
-            I::action(QStringLiteral("edit_undo")),
-            I::action(QStringLiteral("edit_redo")),
-            I::separator(),
-            I::action(QStringLiteral("edit_cut")),
-            I::action(QStringLiteral("edit_copy")),
-            I::action(QStringLiteral("edit_paste")),
-            I::separator(),
-            I::action(QStringLiteral("edit_find_replace")),
-            I::action(QStringLiteral("edit_find_replace_multi")),
-            I::separator(),
-            I::submenu(QStringLiteral("menu_code"), tr("Code"),
-                       {
-                           I::action(QStringLiteral("code_goto")),
-                           I::action(QStringLiteral("code_prev_error")),
-                           I::action(QStringLiteral("code_next_error")),
-                           I::action(QStringLiteral("code_prev_deprecation")),
-                           I::action(QStringLiteral("code_next_deprecation")),
-                           I::separator(),
-                           I::action(QStringLiteral("code_comment")),
-                           I::action(QStringLiteral("code_fold_all")),
-                           I::action(QStringLiteral("code_unfold_all")),
-                           I::separator(),
-                           I::action(QStringLiteral("code_autoindent")),
-                           I::action(QStringLiteral("code_autoformat")),
-                       }),
-            I::submenu(QStringLiteral("menu_encoding"), tr("Encoding"), {I::dynamic(QStringLiteral("encodings"))}),
-        },
-        false};
+    MenuSpec edit{QStringLiteral("menu_edit"),
+                  MenuTexts::tr("Edit"),
+                  {
+                      I::action(QStringLiteral("edit_undo")),
+                      I::action(QStringLiteral("edit_redo")),
+                      I::separator(),
+                      I::action(QStringLiteral("edit_cut")),
+                      I::action(QStringLiteral("edit_copy")),
+                      I::action(QStringLiteral("edit_paste")),
+                      I::separator(),
+                      I::action(QStringLiteral("edit_find_replace")),
+                      I::action(QStringLiteral("edit_find_replace_multi")),
+                      I::separator(),
+                      I::submenu(QStringLiteral("menu_code"), MenuTexts::tr("Code"),
+                                 {
+                                     I::action(QStringLiteral("code_goto")),
+                                     I::action(QStringLiteral("code_prev_error")),
+                                     I::action(QStringLiteral("code_next_error")),
+                                     I::action(QStringLiteral("code_prev_deprecation")),
+                                     I::action(QStringLiteral("code_next_deprecation")),
+                                     I::separator(),
+                                     I::action(QStringLiteral("code_comment")),
+                                     I::action(QStringLiteral("code_fold_all")),
+                                     I::action(QStringLiteral("code_unfold_all")),
+                                     I::separator(),
+                                     I::action(QStringLiteral("code_autoindent")),
+                                     I::action(QStringLiteral("code_autoformat")),
+                                 }),
+                      I::submenu(QStringLiteral("menu_encoding"), MenuTexts::tr("Encoding"),
+                                 {I::dynamic(QStringLiteral("encodings"))}),
+                  },
+                  false};
 
     MenuSpec view{QStringLiteral("menu_view"),
-                  tr("View"),
+                  MenuTexts::tr("View"),
                   {
                       I::action(QStringLiteral("view_left_panel")),
                       I::action(QStringLiteral("view_right_panel")),
@@ -86,7 +86,7 @@ QList<MenuSpec> applicationMenusBeforeEngine()
                       I::action(QStringLiteral("view_actions")),
                       I::action(QStringLiteral("view_calculator")),
                       I::action(QStringLiteral("view_clipboard")),
-                      I::submenu(QStringLiteral("menu_zoom"), tr("Zoom"),
+                      I::submenu(QStringLiteral("menu_zoom"), MenuTexts::tr("Zoom"),
                                  {
                                      I::action(QStringLiteral("view_zoomreset")),
                                      I::action(QStringLiteral("view_zoomfit")),
@@ -114,7 +114,7 @@ QList<MenuSpec> applicationMenusBeforeEngine()
                   false};
 
     MenuSpec debug{QStringLiteral("menu_debug"),
-                   tr("Debug"),
+                   MenuTexts::tr("Debug"),
                    {
                        I::action(QStringLiteral("debug_start_engine")),
                        I::action(QStringLiteral("debug_start_emul")),
@@ -140,7 +140,7 @@ QList<MenuSpec> applicationMenusBeforeEngine()
 QList<MenuSpec> applicationMenusAfterEngine()
 {
     MenuSpec tools{QStringLiteral("menu_tools"),
-                   tr("Tools"),
+                   MenuTexts::tr("Tools"),
                    {
                        I::action(QStringLiteral("tools_options")),
                        I::separator(),
@@ -153,7 +153,7 @@ QList<MenuSpec> applicationMenusAfterEngine()
                    false};
 
     MenuSpec help{QStringLiteral("menu_help"),
-                  tr("Help"),
+                  MenuTexts::tr("Help"),
                   {
                       I::action(QStringLiteral("check_updates")),
                       I::separator(),

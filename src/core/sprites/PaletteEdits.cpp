@@ -44,10 +44,10 @@ void modify(SpriteDocument& doc, int index, Change change)
     repoint(doc, {{old.get(), copy}});
 }
 
-QString translate(const char* text)
+struct PaletteEditsTexts
 {
-    return QCoreApplication::translate("OFS::PaletteEdits", text);
-}
+    Q_DECLARE_TR_FUNCTIONS(OFS::PaletteEdits::PaletteEditsTexts)
+};
 
 } // namespace
 
@@ -237,7 +237,7 @@ IssueList issues(const SpriteDocument& doc)
         Issue issue;
         issue.severity = Issue::Severity::Error;
         issue.line = i;
-        issue.message = translate("The group %1, index %2 is already in use by palette #%3!")
+        issue.message = PaletteEditsTexts::tr("The group %1, index %2 is already in use by palette #%3!")
                             .arg(palette.group)
                             .arg(palette.number)
                             .arg(found.value() + 1);
@@ -250,7 +250,7 @@ IssueList issues(const SpriteDocument& doc)
         Issue issue;
         issue.severity = Issue::Severity::Error;
         issue.line = i;
-        issue.message = translate("Indexed sprite without palette!");
+        issue.message = PaletteEditsTexts::tr("Indexed sprite without palette!");
         issues << issue;
     }
     return issues;

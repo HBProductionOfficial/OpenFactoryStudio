@@ -13,6 +13,11 @@ namespace OFS {
 
 namespace {
 
+struct RunConfigurationTexts
+{
+    Q_DECLARE_TR_FUNCTIONS(OFS::RunConfigurationTexts)
+};
+
 const QString kCount = QStringLiteral("run_count");
 
 QString key(int index, const char* field)
@@ -148,17 +153,14 @@ bool RunConfiguration::writeEngineSettings(const Config& config, const QString& 
 
 QList<QPair<QString, QString>> RunConfiguration::parameterPresets()
 {
-    auto tr = [](const char* text) {
-        return QCoreApplication::translate("OFS::RunConfiguration", text);
-    };
     return {
-        {tr("Current char vs KFM"), QStringLiteral("%0 kfm")},
-        {tr("Current char vs KFM AI"), QStringLiteral("%0 kfm -p2.ai 1")},
-        {tr("Current char vs current char"), QStringLiteral("%0 %0")},
-        {tr("Current char vs current char AI"), QStringLiteral("%0 %0 -p2.ai 1")},
-        {tr("Current motif"), QStringLiteral("-r %0")},
-        {tr("KFM vs KFM on current Stage"), QStringLiteral("kfm kfm -s %0")},
-        {tr("KFM vs KFM on current motif"), QStringLiteral("kfm kfm -r %0")},
+        {RunConfigurationTexts::tr("Current char vs KFM"), QStringLiteral("%0 kfm")},
+        {RunConfigurationTexts::tr("Current char vs KFM AI"), QStringLiteral("%0 kfm -p2.ai 1")},
+        {RunConfigurationTexts::tr("Current char vs current char"), QStringLiteral("%0 %0")},
+        {RunConfigurationTexts::tr("Current char vs current char AI"), QStringLiteral("%0 %0 -p2.ai 1")},
+        {RunConfigurationTexts::tr("Current motif"), QStringLiteral("-r %0")},
+        {RunConfigurationTexts::tr("KFM vs KFM on current Stage"), QStringLiteral("kfm kfm -s %0")},
+        {RunConfigurationTexts::tr("KFM vs KFM on current motif"), QStringLiteral("kfm kfm -r %0")},
     };
 }
 
