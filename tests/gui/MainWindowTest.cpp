@@ -4218,6 +4218,31 @@ private Q_SLOTS:
         actions.action("breakpoint_remove_all")->trigger();
     }
 
+    void toolbarPlaces()
+    {
+        Config& config = m_context->config();
+        const bool confirm = config.boolValue("confirm_close", true);
+        config.setValue("confirm_close", false);
+        config.setValue("main_toolbar", int(Qt::LeftToolBarArea));
+        config.setValue("extra_toolbar", int(Qt::TopToolBarArea));
+        {
+            MainWindow window(*m_context);
+            auto* main = window.findChild<QToolBar*>("mainToolBar");
+            auto* extra = window.findChild<QToolBar*>("extraToolBar");
+            QCOMPARE(window.toolBarArea(main), Qt::LeftToolBarArea);
+            QCOMPARE(window.toolBarArea(extra), Qt::TopToolBarArea);
+            window.addToolBar(Qt::BottomToolBarArea, extra);
+            window.close();
+        }
+        QCOMPARE(config.intValue("extra_toolbar", 0), int(Qt::BottomToolBarArea));
+        QCOMPARE(config.intValue("main_toolbar", 0), int(Qt::LeftToolBarArea));
+        config.setValue("main_toolbar", int(Qt::TopToolBarArea));
+        config.setValue("extra_toolbar", int(Qt::TopToolBarArea));
+        config.setValue("toolbar_break", true);
+        config.setValue("toolbar_first", true);
+        config.setValue("confirm_close", confirm);
+    }
+
     void emulatorDebugging()
     {
         // A character in an engine folder. Its -1 state counts up var(0) and line 4 is the trigger.

@@ -254,12 +254,25 @@ void MainWindow::buildToolBars()
     m_mainBar = new QToolBar(tr("Main"), this);
     m_mainBar->setObjectName(QStringLiteral("mainToolBar"));
     m_mainBar->setIconSize(QSize(32, 32));
-    addToolBar(Qt::TopToolBarArea, m_mainBar);
-    addToolBarBreak(Qt::TopToolBarArea);
     m_extraBar = new QToolBar(tr("Extra"), this);
     m_extraBar->setObjectName(QStringLiteral("extraToolBar"));
     m_extraBar->setIconSize(QSize(22, 22));
-    addToolBar(Qt::TopToolBarArea, m_extraBar);
+    const Config& config = m_context.config();
+    auto area = [&config](const char* key) {
+        const int value = config.intValue(QLatin1String(key), Qt::TopToolBarArea);
+        return value == Qt::LeftToolBarArea || value == Qt::RightToolBarArea || value == Qt::BottomToolBarArea
+                   ? Qt::ToolBarArea(value)
+                   : Qt::TopToolBarArea;
+    };
+    const Qt::ToolBarArea mainArea = area("main_toolbar");
+    const Qt::ToolBarArea extraArea = area("extra_toolbar");
+    const bool mainFirst = config.boolValue(QStringLiteral("toolbar_first"), true);
+    QToolBar* first = mainFirst ? m_mainBar : m_extraBar;
+    QToolBar* second = mainFirst ? m_extraBar : m_mainBar;
+    addToolBar(mainFirst ? mainArea : extraArea, first);
+    if (mainArea == extraArea && config.boolValue(QStringLiteral("toolbar_break"), true))
+        addToolBarBreak(mainArea);
+    addToolBar(mainFirst ? extraArea : mainArea, second);
 
     m_editorGroup = new QActionGroup(this);
     m_editorGroup->setExclusive(true);
@@ -2700,6 +2713,15 @@ void MainWindow::saveWindowGeometry()
     config.setValue(QStringLiteral("window_width"), normal.width());
     config.setValue(QStringLiteral("window_height"), normal.height());
     config.setValue(QStringLiteral("window_state"), int(windowState() & Qt::WindowMaximized) | int(Qt::WindowActive));
+    config.setValue(QStringLiteral("main_toolbar"), int(toolBarArea(m_mainBar)));
+    config.setValue(QStringLiteral("extra_toolbar"), int(toolBarArea(m_extraBar)));
+    config.setValue(QStringLiteral("toolbar_break"), toolBarBreak(m_extraBar) || toolBarBreak(m_mainBar));
+    const bool vertical =
+        toolBarArea(m_mainBar) == Qt::LeftToolBarArea || toolBarArea(m_mainBar) == Qt::RightToolBarArea;
+    config.setValue(QStringLiteral("toolbar_first"),
+                    vertical ? m_mainBar->x() <= m_extraBar->x() || m_mainBar->y() <= m_extraBar->y()
+                             : m_mainBar->y() < m_extraBar->y() ||
+                                   (m_mainBar->y() == m_extraBar->y() && m_mainBar->x() <= m_extraBar->x()));
 }
 
 void MainWindow::closeEvent(QCloseEvent* event)
