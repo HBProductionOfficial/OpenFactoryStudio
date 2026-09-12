@@ -51,6 +51,7 @@ struct OFS_CORE_EXPORT RunCopy
     QStringList files;
     QStringList folders;
     QString error;
+    bool inPlace = false; // already in the engine folder and runs from there
 
     bool isValid() const { return error.isEmpty() && !name.isEmpty(); }
     void remove() const;

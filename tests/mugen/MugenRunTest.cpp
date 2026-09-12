@@ -77,6 +77,41 @@ private Q_SLOTS:
         cns->document()->setModified(false);
     }
 
+    void inPlace()
+    {
+        QTemporaryDir work;
+        const QString engine = work.filePath("mugen");
+        writeFile(engine + "/chars/hero/hero.def",
+                  "[Info]\r\nname = \"Hero\"\r\n[Files]\r\ncmd = hero.cmd\r\ncns = hero.cns\r\n");
+        writeFile(engine + "/chars/hero/hero.cmd", "[Command]\r\nname = \"x\"\r\ncommand = x\r\n");
+        writeFile(engine + "/chars/hero/hero.cns", "[Data]\r\nlife = 1000\r\n");
+        writeFile(engine + "/chars/hero/alt.def",
+                  "[Info]\r\nname = \"Alt\"\r\n[Files]\r\ncmd = hero.cmd\r\ncns = hero.cns\r\n");
+        writeFile(engine + "/stages/arena.def", "[Info]\r\nname = \"Arena\"\r\n[StageInfo]\r\nzoffset = 200\r\n");
+        writeFile(engine + "/data/neo/system.def",
+                  "[Info]\r\nname = \"Neo\"\r\n[Files]\r\nspr = system.sff\r\n[Title Info]\r\n");
+        Mugen::MugenEngine mugen;
+        QString error;
+        const struct
+        {
+            const char* file;
+            const char* name;
+        } cases[] = {{"/chars/hero/hero.def", "hero"},
+                     {"/chars/hero/alt.def", "hero/alt.def"},
+                     {"/stages/arena.def", "arena"},
+                     {"/data/neo/system.def", "neo"}};
+        for (const auto& c : cases) {
+            std::unique_ptr<Project> p(mugen.openProject(engine + QLatin1String(c.file), &error));
+            QVERIFY2(p, qPrintable(error));
+            const RunCopy copy = mugen.prepareRun(*p, engine);
+            QVERIFY2(copy.isValid(), qPrintable(copy.error));
+            QVERIFY(copy.inPlace);
+            QCOMPARE(copy.name, QLatin1String(c.name));
+            QVERIFY(copy.files.isEmpty() && copy.folders.isEmpty());
+        }
+        QVERIFY(!QFileInfo::exists(engine + "/chars/ofs_0"));
+    }
+
     void stage()
     {
         QTemporaryDir work;

@@ -116,6 +116,39 @@ RunCopy prepareRunCopy(const Project& project, const QString& engineDir)
         return copy;
     };
 
+    // A project already inside the engine folder runs from there (saved first) without a copy: a
+    // character by its folder (or folder/file.def), a stage by its name, a motif by its folder.
+    const QString projectFile = QDir::cleanPath(QDir::fromNativeSeparators(project.filePath()));
+    auto inside = [&](const QString& folder) -> QString {
+        const QString base = root + QLatin1Char('/') + folder + QLatin1Char('/');
+        return projectFile.startsWith(base, Qt::CaseInsensitive) && !project.isMemoryOnly()
+                   ? projectFile.mid(base.size())
+                   : QString();
+    };
+    if (type == QLatin1String("char")) {
+        if (const QString relative = inside(QStringLiteral("chars")); relative.count(QLatin1Char('/')) == 1) {
+            const QString folder = relative.section(QLatin1Char('/'), 0, 0);
+            const bool same = QFileInfo(relative).completeBaseName().compare(folder, Qt::CaseInsensitive) == 0;
+            copy.name = same ? folder : relative;
+            copy.inPlace = true;
+            return copy;
+        }
+    } else if (type == QLatin1String("stage")) {
+        if (const QString relative = inside(QStringLiteral("stages")); !relative.isEmpty()) {
+            copy.name = relative.endsWith(QLatin1String(".def"), Qt::CaseInsensitive) ? relative.chopped(4) : relative;
+            copy.inPlace = true;
+            return copy;
+        }
+    } else if (type == QLatin1String("motif")) {
+        const QString relative = inside(QStringLiteral("data"));
+        if (relative.count(QLatin1Char('/')) == 1 &&
+            QFileInfo(relative).fileName().compare(QLatin1String("system.def"), Qt::CaseInsensitive) == 0) {
+            copy.name = relative.section(QLatin1Char('/'), 0, 0);
+            copy.inPlace = true;
+            return copy;
+        }
+    }
+
     if (type == QLatin1String("char")) {
         const QString chars = root + QStringLiteral("/chars");
         copy.name = freeName(chars);

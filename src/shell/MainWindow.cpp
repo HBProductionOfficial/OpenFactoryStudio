@@ -1307,6 +1307,15 @@ void MainWindow::runInEngine()
         QMessageBox::warning(this, tr("Run in engine"), copy.error);
         return;
     }
+    // Run in place: the engine reads the project's own files, so they are saved first.
+    if (copy.inPlace) {
+        waitForTasks();
+        QString error;
+        if (!view->project()->save(&error)) {
+            QMessageBox::warning(this, tr("Run in engine"), error);
+            return;
+        }
+    }
     QString parameters = run.parameters;
     parameters.replace(QStringLiteral("%0"), copy.name);
 
