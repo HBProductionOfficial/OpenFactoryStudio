@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Definitions, Commands and States</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav class="top"><a href="index.html">Contents</a></nav>
+<h1>Definitions, Commands and States</h1>
+
+<h2>The code editor</h2>
+<ul>
+  <li>Syntax coloring by meaning (sections, parameters, values, triggers, comments), using the colors of the
+  color set you picked.</li>
+  <li>Line numbers, the current line, matching brackets and section folding.</li>
+  <li>Parameters, controllers and triggers are completed as you type. The code toolbar has code
+  snippets.</li>
+  <li><b>Ctrl+click</b> a controller or trigger to see its documentation.</li>
+  <li>Ctrl+wheel zooms in and out. The status bar shows the encoding, and you can click it to change it.</li>
+  <li><b>Edit &gt; Code</b>: go to line, comment and uncomment, fold and unfold all, auto indent and auto
+  format, and jump to the previous or next error or deprecation.</li>
+</ul>
+
+<h2>The code tree</h2>
+<p>The left panel lists the sections in the file and their parameters. Click one to move the cursor there.
+In the States editor, the tree groups the controllers under their states and can show where each variable
+is used. In the Commands editor, the organizer lists the commands.</p>
+
+<h2>Issues</h2>
+<p>Every file is checked as you type. The check looks for unknown sections, parameters or triggers, wrong
+values, missing files, and things the project's engine version doesn't have. Mistakes are underlined and
+listed in the Issues panel. Double-click one to go to its line.</p>
+
+<h2>Search</h2>
+<ul>
+  <li><b>Quick search</b> (Ctrl+F): find and replace in the current file. The options are regular expression
+  (put <code>%1</code>, <code>%2</code>... in the replacement for the captures), case sensitive, backward
+  search and circular search. In the Sprites and Sounds editors it finds <code>group,number</code>. In the
+  Animations editor it finds an action's number or name.</li>
+  <li><b>Advanced Search</b>: find and replace in the file, the open files, the project, all projects or a
+  folder, with file patterns. Lazy syntax fix corrects common mistakes.</li>
+</ul>
+
+<h2>States tools</h2>
+<p>The State controller window inserts or edits a controller and its parameters. The Controllers panel
+lists templates. The PalFX editor previews palette effects. The Throw creator writes the states for a
+throw.</p>
+</body>
+</html>

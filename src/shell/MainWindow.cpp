@@ -542,7 +542,14 @@ void MainWindow::connectActions()
     on("file_run", [this] { runInEngine(); });
     on("view_calculator", [this] { CalculatorDialog::showCalculator(this); });
     on("view_clipboard", [this] { ClipboardContainer::showClipboard(this); });
-    on("ref_docs", [] { QDesktopServices::openUrl(QUrl(QStringLiteral(OFS_HOMEPAGE))); });
+    on("ref_docs", [this] {
+        const QString docs = Paths::dataDir() + QStringLiteral("/docs/");
+        QString index =
+            docs + m_context.config().value(QStringLiteral("language")).toLower() + QStringLiteral("/index.html");
+        if (!QFileInfo::exists(index))
+            index = docs + QStringLiteral("en-us/index.html");
+        QDesktopServices::openUrl(QUrl::fromLocalFile(index));
+    });
     m_updates = new UpdateChecker(this);
     on("check_updates", [this] { m_updates->check(true); });
     connect(m_updates, &UpdateChecker::updateAvailable, this,

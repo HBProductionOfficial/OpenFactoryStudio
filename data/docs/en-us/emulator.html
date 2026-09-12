@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Emulator</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav class="top"><a href="index.html">Contents</a></nav>
+<h1>Emulator</h1>
+
+<p>The Emulator runs your project inside the program, in an engine that follows M.U.G.E.N's rules. It
+needs a M.U.G.E.N engine folder for the common states, the fight screen, fonts and stages. It uses the
+folder your project is in, or the one you type in <b>Engine directory</b> on the panel. It runs what is in
+the editors right now, unsaved changes included.</p>
+
+<h2>What it plays</h2>
+<ul>
+  <li><b>Characters</b> fight a copy of themselves (Enemy: Self) or a random character from the engine
+  folder. The fight is on the engine's first stage, with the engine folder's fight screen, sounds and
+  announcer.</li>
+  <li><b>Stages</b> and <b>fight screens</b> are shown with the engine's character.</li>
+  <li><b>Storyboards</b> play their scenes.</li>
+  <li><b>System screens</b> (motifs): pick a screen with <b>Screen</b> on the panel. It can be the title
+  menu, versus, continue, victory, win or survival results screen.</li>
+</ul>
+
+<h2>Playing</h2>
+<p>Click the workspace and play with the player 1 and player 2 keys set in Options &gt; MUGENext. The mouse
+wheel zooms in and out. <b>View &gt; Attack box</b> and <b>Collision box</b> draw the contact boxes on top
+of the game. On the panel you set the mode (Versus or Training), the rounds, the round time and the explod
+rules (M.U.G.E.N 1.0, 1.1, or each character's own version). You can also choose whether debug text is
+drawn under the players.</p>
+
+<h2>Training</h2>
+<p>In Training mode, life and power come back and nobody gets knocked out. There is no time limit. The
+dummy (player 2) can be <b>Cooperative</b>: it stands, crouches or jumps, guards by itself, keeps a distance
+and mashes a button, depending on your settings. It can also be <b>AI</b>, which is the computer at the
+level you pick, or <b>Manual</b>, which uses player 2's keys. Your changes take effect while the match is
+running.</p>
+
+<h2>Debugging</h2>
+<p>Every match is also a debug session (<b>Debug &gt; Start emulator</b>).</p>
+<ul>
+  <li><b>Breakpoints</b> on <code>[State]</code> lines and trigger lines in the code files stop the match
+  when a character gets to them. A breakpoint can have a condition (a M.U.G.E.N expression) and an ignore
+  count, and it can be one-shot. Frame breakpoints stop before a frame. Data breakpoints stop after a value
+  changes.</li>
+  <li><b>Interrupt</b> stops before the next frame. <b>Step into</b> goes to the next line, and
+  <b>Step over</b> goes to the next line of the same character. <b>Step out</b> leaves the current state.
+  <b>Step frame</b> goes to the next frame. <b>Continue</b> keeps the match running.</li>
+  <li>When the match stops, the place where it stopped opens in its editor with the current line marked. The
+  <b>Debug panel</b> shows the values of the match and of every character (life, power, position, states,
+  variables and so on). Right-click a value to watch it or to add a data breakpoint. The <b>Debugger</b>
+  panel shows the call stack and the breakpoints. The <b>Watch</b> panel shows the values you are
+  watching.</li>
+</ul>
+</body>
+</html>

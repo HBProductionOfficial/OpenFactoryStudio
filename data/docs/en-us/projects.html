@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Projects</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav class="top"><a href="index.html">Contents</a></nav>
+<h1>Projects</h1>
+
+<h2>Project types</h2>
+<table>
+  <tr><th>Type</th><th>Definitions file</th><th>Editors</th></tr>
+  <tr><td>Character</td><td>[Info] and [Files] with cmd, cns, sprite, anim</td><td>Definitions, Sprites, Animations, Commands, States, Sounds, Emulator</td></tr>
+  <tr><td>Stage</td><td>[StageInfo], [BGdef]</td><td>Definitions, Sprites, Animations, Backgrounds, Emulator</td></tr>
+  <tr><td>System screens (motif)</td><td>system.def</td><td>Definitions, Sprites, Animations, Backgrounds, Sounds, Emulator</td></tr>
+  <tr><td>Fight screen</td><td>fight.def ([Lifebar], [FightFx])</td><td>Definitions, Sprites, Animations, Sounds, Emulator</td></tr>
+  <tr><td>Storyboard</td><td>[SceneDef]</td><td>Definitions, Sprites, Animations, Backgrounds, Emulator</td></tr>
+  <tr><td>Font</td><td>[FNT v2]</td><td>Definitions, Sprites, Emulator</td></tr>
+  <tr><td>Select screen</td><td>select.def</td><td>Definitions, Emulator</td></tr>
+</table>
+<p>The version in <code>mugenversion</code> decides which parameters and triggers the code editors accept.
+It also decides how the files are written.</p>
+
+<h2>Saving</h2>
+<p><b>Project &gt; Save</b> saves every changed file in the project. Sprite and sound files save in the
+background, so you can keep working while they save. The status bar shows the progress. <b>Save as</b>
+copies the whole project to another folder. In each editor, <b>Save</b> and <b>Save as</b> work on that
+editor's current file.</p>
+
+<h2>Backups and autosave</h2>
+<ul>
+  <li><b>Project &gt; Create backup</b> puts the project's files in a ZIP file. <b>Load backup</b> restores
+  one. You can set Options to make a backup every time you open a project.</li>
+  <li><b>Autosave</b> (Options &gt; General) saves changed files every few minutes. If you turn on "Only save
+  if asynchronous mode is supported", it never freezes the window.</li>
+  <li>The <b>file watcher</b> notices when another program changes your files and asks if you want to
+  reload them.</li>
+</ul>
+
+<h2>Run in engine</h2>
+<p><b>Project &gt; Run in engine</b> starts a M.U.G.E.N engine with your project. It uses a run
+configuration from Options &gt; MUGENext, which holds the engine's executable and its parameters. In the
+parameters, <code>%0</code> stands for the project. For the run, the project is copied into the engine
+folder (<code>chars/ofs_0</code> and so on) with its unsaved changes. The copy is deleted when the engine
+closes. If the project is already inside the engine folder, it is saved first and runs from there. The
+engine's log shows up in the Engine Output panel.</p>
+</body>
+</html>

@@ -54,6 +54,7 @@
 #include <QColorDialog>
 #include <QComboBox>
 #include <QContextMenuEvent>
+#include <QDesktopServices>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDir>
@@ -220,6 +221,17 @@ void answerEmptyWizard(const QString& choice)
 
 } // namespace
 
+class UrlRecorder : public QObject
+{
+    Q_OBJECT
+
+public:
+    QList<QUrl> urls;
+
+public Q_SLOTS:
+    void open(const QUrl& url) { urls << url; }
+};
+
 class MainWindowTest : public QObject
 {
     Q_OBJECT
@@ -232,6 +244,7 @@ private Q_SLOTS:
         m_context->loadSettings();
         m_context->history().clear();
         m_context->config().setValue("lastEditor", QString());
+        m_context->config().setValue("show_quicksearch", false);
         m_context->initializeEngines();
         QVERIFY(m_dir.isValid());
 
@@ -4222,6 +4235,34 @@ private Q_SLOTS:
         actions.action("breakpoint_remove_all")->trigger();
     }
 
+    void referenceDocumentation()
+    {
+        UrlRecorder recorder;
+        QDesktopServices::setUrlHandler("file", &recorder, "open");
+        MainWindow window(*m_context);
+        m_context->actions().action("ref_docs")->trigger();
+        QDesktopServices::unsetUrlHandler("file");
+        QCOMPARE(recorder.urls.size(), 1);
+        const QString path = recorder.urls.first().toLocalFile();
+        QVERIFY2(path.endsWith("/docs/en-us/index.html"), qPrintable(path));
+        QVERIFY(QFileInfo::exists(path));
+        const QString text = readFile(path);
+        static const QRegularExpression link(QStringLiteral("href=\"([^\"#]+\\.html)\""));
+        int pages = 0;
+        for (auto m = link.globalMatch(text); m.hasNext(); ++pages) {
+            const QString target = QFileInfo(path).dir().filePath(m.next().captured(1));
+            QVERIFY2(QFileInfo::exists(target), qPrintable(target));
+        }
+        QVERIFY(pages >= 10);
+        // The MUGEN reference index must list every controller and trigger page (tools/gen_docs_index.py).
+        const QDir reference(QFileInfo(path).dir().filePath("../../engines/mugen/docs/en-us"));
+        const QString index = readFile(reference.filePath("index.html"));
+        const QStringList common = QDir(reference.filePath("common")).entryList({"*.html"}, QDir::Files);
+        QVERIFY(common.size() > 200);
+        for (const QString& page : common)
+            QVERIFY2(index.contains("\"common/" + page + "\""), qPrintable(page));
+    }
+
     void graphicQuickFind()
     {
         QTemporaryDir dir;
@@ -4291,6 +4332,7 @@ private Q_SLOTS:
         find("standing animation");
         QCOMPARE(view->animationsEditor()->page()->current(), 0);
         QVERIFY(nothingFound("Stand"));
+        window.findChild<QuickFindBar*>()->closeRequested();
         window.closeAllProjects();
     }
 
