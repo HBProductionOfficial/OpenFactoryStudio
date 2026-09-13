@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+<g transform="translate(-1.668,9) skewX(-10) scale(1.25)" fill="none" stroke="#173a76" stroke-width="4.64" stroke-linecap="round" stroke-linejoin="round">
+<path d="M6 4l6 16l6 -16"/>
+</g>
+<g transform="translate(-1.668,9) skewX(-10) scale(1.25)" fill="none" stroke="#2a6ad8" stroke-width="3.36" stroke-linecap="round" stroke-linejoin="round">
+<path d="M6 4l6 16l6 -16"/>
+</g>
+<g transform="translate(12.832,9) skewX(-10) scale(1.25)" fill="none" stroke="#173a76" stroke-width="4.64" stroke-linecap="round" stroke-linejoin="round">
+<path d="M13 20v-16l-5 5"/>
+</g>
+<g transform="translate(12.832,9) skewX(-10) scale(1.25)" fill="none" stroke="#2a6ad8" stroke-width="3.36" stroke-linecap="round" stroke-linejoin="round">
+<path d="M13 20v-16l-5 5"/>
+</g>
+<circle cx="28.174" cy="33.58" r="4.176" fill="#173a76"/>
+<circle cx="28.174" cy="33.58" r="3.024" fill="#2a6ad8"/>
+<g transform="translate(27.457,9) skewX(-10) scale(1.25)" fill="none" stroke="#173a76" stroke-width="4.64" stroke-linecap="round" stroke-linejoin="round">
+<path d="M16 16v-8"/>
+<path d="M12 20a4 4 0 0 0 4 -4v-8a4 4 0 1 0 -8 0v8a4 4 0 0 0 4 4"/>
+</g>
+<g transform="translate(27.457,9) skewX(-10) scale(1.25)" fill="none" stroke="#2a6ad8" stroke-width="3.36" stroke-linecap="round" stroke-linejoin="round">
+<path d="M16 16v-8"/>
+<path d="M12 20a4 4 0 0 0 4 -4v-8a4 4 0 1 0 -8 0v8a4 4 0 0 0 4 4"/>
+</g>
+</svg>

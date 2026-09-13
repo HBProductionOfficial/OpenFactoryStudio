@@ -1,29 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Built by tools/iconsets/build_iconsets.py from its tables; edit those instead of this file. -->
 <iconset>
-    <icon name="advpal_adapt_image" file="../Nuvola/pal/apply_sprite.png"/>
-    <icon name="advpal_add_diff" file="../Nuvola/pal/add_missing.svg"/>
+    <icon name="advpal_adapt_image" file="pal/apply_sprite.png"/>
+    <icon name="advpal_add_diff" file="pal/add_missing.png"/>
     <icon name="advpal_auto_sort" file="editors/organizer.png"/>
-    <icon name="advpal_colto_left" file="../Nuvola/pal/colors_to_left.svg"/>
-    <icon name="advpal_colto_right" file="../Nuvola/pal/colors_to_right.svg"/>
-    <icon name="advpal_commit_changes" file="../Nuvola/pal/commit_palette.png"/>
+    <icon name="advpal_colto_left" file="pal/colors_to_left.png"/>
+    <icon name="advpal_colto_right" file="pal/colors_to_right.png"/>
+    <icon name="advpal_commit_changes" file="pal/commit_palette.png"/>
     <icon name="advpal_commit_spr_changes" file="../Nuvola/pal/commit_image.png"/>
     <icon name="advpal_del_duplicate" file="../Nuvola/pal/replace_duplicates.svg"/>
-    <icon name="advpal_effect_apply" file="../Nuvola/pal/apply.png"/>
-    <icon name="advpal_gen_pal_imgs" file="../Nuvola/pal/palette_from_images.png"/>
+    <icon name="advpal_effect_apply" file="pal/apply.png"/>
+    <icon name="advpal_gen_pal_imgs" file="pal/palette_from_images.png"/>
     <icon name="advpal_gradient" file="../Nuvola/pal/gradient.svg"/>
     <icon name="advpal_grayscale" file="../Nuvola/pal/grayscale.svg"/>
-    <icon name="advpal_huesat_apply" file="../Nuvola/pal/apply.png"/>
-    <icon name="advpal_huesat_reset" file="../Nuvola/pal/reset.png"/>
-    <icon name="advpal_insert_pal_imgs" file="../Nuvola/pal/palette_to_images.png"/>
+    <icon name="advpal_huesat_apply" file="pal/apply.png"/>
+    <icon name="advpal_huesat_reset" file="pal/reset.png"/>
+    <icon name="advpal_insert_pal_imgs" file="pal/palette_to_images.png"/>
     <icon name="advpal_invert_all" file="../Nuvola/pal/invert.svg"/>
     <icon name="advpal_open" file="../Nuvola/common/open.png"/>
     <icon name="advpal_open_img" file="../Nuvola/sff/open_image.png"/>
-    <icon name="advpal_optimize" file="../Nuvola/common/optimize.png"/>
+    <icon name="advpal_optimize" file="common/optimize.png"/>
     <icon name="advpal_pick_color" file="../Nuvola/pal/picker.png"/>
     <icon name="advpal_redo" file="../Nuvola/common/redo.png"/>
-    <icon name="advpal_rgb_apply" file="../Nuvola/pal/apply.png"/>
-    <icon name="advpal_rgb_reset" file="../Nuvola/pal/reset.png"/>
+    <icon name="advpal_rgb_apply" file="pal/apply.png"/>
+    <icon name="advpal_rgb_reset" file="pal/reset.png"/>
     <icon name="advpal_save" file="common/save.png"/>
     <icon name="advpal_save_img" file="../Nuvola/sff/save_image.png"/>
     <icon name="advpal_save_new" file="../Nuvola/pal/save_new.png"/>
@@ -38,13 +38,13 @@
     <icon name="anim_box_add_attack" file="air/clsn1_add.png"/>
     <icon name="anim_box_add_collision" file="air/clsn2_add.png"/>
     <icon name="anim_box_del" file="air/clsn_delete.png"/>
-    <icon name="anim_box_delall" file="../Nuvola/air/clsn_delete_frame.svg"/>
-    <icon name="anim_box_delall_anim" file="../Nuvola/air/clsn_delete_anim.svg"/>
-    <icon name="anim_box_prev" file="../Nuvola/air/clsn_previous.svg"/>
-    <icon name="anim_box_type" file="../Nuvola/air/clsn_switch.svg"/>
+    <icon name="anim_box_delall" file="air/clsn_delete_frame.png"/>
+    <icon name="anim_box_delall_anim" file="air/clsn_delete_anim.png"/>
+    <icon name="anim_box_prev" file="air/clsn_previous.png"/>
+    <icon name="anim_box_type" file="air/clsn_switch.png"/>
     <icon name="anim_code" file="../Nuvola/air/edit_text.png"/>
     <icon name="anim_delete" file="common/remove.png"/>
-    <icon name="anim_duplicate" file="../Nuvola/common/duplicate.png"/>
+    <icon name="anim_duplicate" file="common/duplicate.png"/>
     <icon name="anim_editcode" file="../Nuvola/air/edit_code.png"/>
     <icon name="anim_frame_add" file="common/add.png"/>
     <icon name="anim_frame_align" file="../Nuvola/air/align.png"/>
@@ -54,7 +54,7 @@
     <icon name="anim_frameall_scale" file="../Nuvola/air/all_scale.svg"/>
     <icon name="anim_frameall_time" file="../Nuvola/air/all_time.svg"/>
     <icon name="anim_new" file="common/new.png"/>
-    <icon name="anim_onion_find" file="../Nuvola/common/find.png"/>
+    <icon name="anim_onion_find" file="common/find.png"/>
     <icon name="anim_open" file="../Nuvola/common/open.png"/>
     <icon name="anim_play" file="../Nuvola/common/play.png"/>
     <icon name="anim_pos_down" file="../Nuvola/common/down.png"/>
@@ -66,7 +66,7 @@
     <icon name="anim_saveas" file="../Nuvola/common/saveas.png"/>
     <icon name="anim_stop" file="../Nuvola/common/stop.png"/>
     <icon name="anim_thumb_add" file="common/add.png"/>
-    <icon name="anim_thumb_add_all" file="../Nuvola/common/add_all.svg"/>
+    <icon name="anim_thumb_add_all" file="common/add_all.png"/>
     <icon name="anim_thumb_new" file="common/new.png"/>
     <icon name="anim_thumb_new_all" file="../Nuvola/common/new_all.png"/>
     <icon name="bottom_down" file="../Nuvola/common/down.png"/>
@@ -100,11 +100,11 @@
     <icon name="debug_step_out" file="../Nuvola/debug/step_out.svg"/>
     <icon name="debug_step_over" file="../Nuvola/debug/step_over.svg"/>
     <icon name="debug_stop" file="../Nuvola/common/stop.png"/>
-    <icon name="edit_copy" file="../Nuvola/common/copy.png"/>
-    <icon name="edit_cut" file="../Nuvola/common/cut.png"/>
-    <icon name="edit_find_replace" file="../Nuvola/common/find.png"/>
+    <icon name="edit_copy" file="common/copy.png"/>
+    <icon name="edit_cut" file="common/cut.png"/>
+    <icon name="edit_find_replace" file="common/find.png"/>
     <icon name="edit_find_replace_multi" file="../Nuvola/common/find_multi.png"/>
-    <icon name="edit_paste" file="../Nuvola/common/paste.png"/>
+    <icon name="edit_paste" file="common/paste.png"/>
     <icon name="edit_redo" file="../Nuvola/common/redo.png"/>
     <icon name="edit_undo" file="../Nuvola/common/undo.png"/>
     <icon name="editor_anim" file="editors/animations.png"/>
@@ -122,7 +122,7 @@
     <icon name="file_close_all" file="../Nuvola/project/close_all.png"/>
     <icon name="file_load_backup" file="../Nuvola/project/load_backup.png"/>
     <icon name="file_new" file="common/new.png"/>
-    <icon name="file_open" file="../Nuvola/project/open.png"/>
+    <icon name="file_open" file="project/open.png"/>
     <icon name="file_run" file="misc/run.png"/>
     <icon name="file_save" file="common/save.png"/>
     <icon name="icon_animation" file="../Nuvola/files/animation.png"/>
@@ -143,7 +143,7 @@
     <icon name="org_up" file="../Nuvola/organizer/up.png"/>
     <icon name="org_up_10" file="../Nuvola/organizer/up_10.png"/>
     <icon name="pal_add" file="common/add.png"/>
-    <icon name="pal_apply_sprite" file="../Nuvola/pal/apply_sprite.png"/>
+    <icon name="pal_apply_sprite" file="pal/apply_sprite.png"/>
     <icon name="pal_delete" file="../Nuvola/common/delete.png"/>
     <icon name="pal_open" file="../Nuvola/common/open.png"/>
     <icon name="pal_pick_color" file="../Nuvola/pal/picker.png"/>
@@ -169,15 +169,15 @@
     <icon name="snd_add" file="common/add.png"/>
     <icon name="snd_delete" file="../Nuvola/common/delete.png"/>
     <icon name="snd_discard_changes" file="common/remove.png"/>
-    <icon name="snd_duplicate" file="../Nuvola/common/duplicate.png"/>
+    <icon name="snd_duplicate" file="common/duplicate.png"/>
     <icon name="snd_new" file="common/new.png"/>
     <icon name="snd_open" file="../Nuvola/common/open.png"/>
-    <icon name="snd_open_sample" file="../Nuvola/snd/open_wav.png"/>
+    <icon name="snd_open_sample" file="snd/open_wav.png"/>
     <icon name="snd_pause" file="../Nuvola/common/pause.png"/>
     <icon name="snd_play" file="../Nuvola/common/play.png"/>
     <icon name="snd_play_loop" file="../Nuvola/snd/play_loop.png"/>
     <icon name="snd_save" file="common/save.png"/>
-    <icon name="snd_save_changes" file="imgedit/commit.png"/>
+    <icon name="snd_save_changes" file="../Nuvola/imgedit/commit.png"/>
     <icon name="snd_save_sample" file="../Nuvola/snd/save_wav.png"/>
     <icon name="snd_saveas" file="../Nuvola/common/saveas.png"/>
     <icon name="snd_stop" file="../Nuvola/common/stop.png"/>
@@ -191,7 +191,7 @@
     <icon name="spr_add" file="common/add.png"/>
     <icon name="spr_crop" file="../Nuvola/sff/crop.png"/>
     <icon name="spr_delete" file="../Nuvola/common/delete.png"/>
-    <icon name="spr_duplicate" file="../Nuvola/common/duplicate.png"/>
+    <icon name="spr_duplicate" file="common/duplicate.png"/>
     <icon name="spr_explorer" file="../Nuvola/sff/explorer.png"/>
     <icon name="spr_import_proj" file="../Nuvola/sff/import_project.png"/>
     <icon name="spr_layer_add" file="common/add.png"/>
@@ -204,7 +204,7 @@
     <icon name="spr_openimg" file="../Nuvola/sff/open_image.png"/>
     <icon name="spr_save" file="common/save.png"/>
     <icon name="spr_saveas" file="../Nuvola/common/saveas.png"/>
-    <icon name="spr_saveimg" file="imgedit/commit.png"/>
+    <icon name="spr_saveimg" file="../Nuvola/imgedit/commit.png"/>
     <icon name="spr_saveimgas" file="../Nuvola/sff/save_image.png"/>
     <icon name="spr_thumb_add" file="common/new.png"/>
     <icon name="spr_thumb_add_aligned" file="../Nuvola/common/new_aligned.png"/>

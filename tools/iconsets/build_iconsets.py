@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Builds the icon sets in data/iconsets/ and data/engines/mugen/iconsets/ from the tables below.
 
-    Usage: build_iconsets.py [--check] [--sets Nuvola,Flat-Dark]. Needs Pillow and PySide6.
-    """
-
+Usage: build_iconsets.py [--check] [--sets Nuvola,Flat-Dark]. Needs Pillow and PySide6.
+"""
 from __future__ import annotations
 
 import argparse
@@ -376,6 +375,18 @@ class Nv:
     bright: float = 1.0
     flip: bool = False
     stack: int = 1              # draw n copies offset diagonally
+    badges: tuple = ()
+
+
+@dataclass(frozen=True)
+class Tg:
+    """A Tango picture (category/name of the theme's scalable SVGs), optionally modified."""
+    icon: str
+    hue: float = 0.0
+    gray: float = 0.0
+    bright: float = 1.0
+    flip: bool = False
+    stack: int = 1
     badges: tuple = ()
 
 
@@ -817,31 +828,77 @@ FLAT_THEMES = {
     "Flat-Light": {"glyph": "#3c3c3c", "badge_dark": "#1a1a1a"},
 }
 
-PLUS = Nv("actions/edit_add")
-MINUS = Nv("actions/edit_remove")
+# --- Classic and Ultimate -----------------------------------------------------------------------
+# Nuvola with Tango pictures for about a third of the icons. Other files point to ../Nuvola/.
+T_PLUS = Tg("actions/list-add", hue=-110)          # green
+T_MINUS = Tg("actions/list-remove", hue=150)       # red
+T_FLOPPY = Tg("devices/media-floppy")
+T_PICTURE = Tg("mimetypes/image-x-generic")
+T_PALETTE = Tg("categories/applications-graphics")
+T_PLAY = Tg("actions/media-playback-start")
+T_CLOCK = Tg("actions/appointment-new")
+T_SOUND = Tg("mimetypes/audio-x-generic")
+T_LEFT = Tg("actions/go-previous", hue=110)        # blue
+T_RIGHT = Tg("actions/go-next", hue=110)
 CLASSIC = {
-    "common/new": Nv("mimetypes/misc_doc", badges=(B(PLUS, 0.6, "c"),)),
-    "project/close": Nv("filesystems/file_locked"),
-    "common/save": Nv("devices/zip_unmount"),
-    "project/backup": Nv("mimetypes/file_locked"),
-    "misc/run": Nv("devices/samba_unmount", badges=(B(Nv("actions/forward"), 0.6, "bl"),)),
-    "common/add": PLUS,
-    "common/remove": MINUS,
-    "editors/animations": Nv("apps/aktion"),
-    "editors/sounds": Nv("apps/juk"),
-    "editors/sprites": Nv("actions/kgpg_photo"),
-    "editors/organizer": Nv("actions/view_top_bottom", badges=(B(Nv("actions/kaboodleloop"), 0.6),)),
-    "air/clsn1_add": Nv("actions/edit_add", hue=-120),
-    "air/clsn2_add": Nv("actions/edit_add", hue=100),
-    "air/clsn_delete": Nv("actions/edit_remove", hue=-120),
-    "air/save_gif": Nv("apps/khangman"),
-    "imgedit/commit": Nv("actions/revert"),
-    "pal/switch_count": Nv("actions/reload"),
+    "air/clsn1_add": Tg("actions/list-add", hue=150),
+    "air/clsn2_add": Tg("actions/list-add"),
+    "air/clsn_delete": Tg("actions/list-remove", hue=150),
+    "air/clsn_delete_frame": Tg("actions/edit-delete"),
+    "air/clsn_delete_anim": Tg("actions/edit-delete", badges=(B(Tg("mimetypes/video-x-generic"), 0.55, "tl"),)),
+    "air/clsn_previous": Tg("actions/edit-undo"),
+    "air/clsn_switch": Tg("actions/view-refresh"),
+    "air/clsn_default": Tg("actions/edit-select-all"),
+    "air/save_gif": Tg("mimetypes/video-x-generic", badges=(B(T_FLOPPY),)),
+    "code/coord": Draw(dw.g_text("XY", "#2a6ad8")),
+    "code/exp": Draw(dw.g_icon_text("math-function", "#2a8a2a", 38, 6, 3.6)),
+    "code/ustring": Draw(dw.g_icon_text("abc", "#2a8a2a")),
+    "code/version": Draw(dw.g_text("V1.0", "#2a6ad8")),
+    "common/add": T_PLUS,
+    "common/add_all": Tg("actions/list-add", hue=-110, stack=2),
+    "common/remove": T_MINUS,
+    "common/copy": Tg("actions/edit-copy"),
+    "common/cut": Tg("actions/edit-cut"),
+    "common/paste": Tg("actions/edit-paste"),
+    "common/duplicate": Tg("actions/window-new"),
+    "common/find": Tg("actions/edit-find"),
+    "common/new": Tg("actions/document-new"),
+    "common/optimize": Tg("mimetypes/package-x-generic"),
+    "common/save": T_FLOPPY,
+    "editors/animations": Tg("categories/applications-multimedia"),
+    "editors/organizer": Tg("actions/format-indent-more"),
+    "editors/sounds": T_SOUND,
+    "editors/sprites": T_PICTURE,
+    "misc/run": Tg("devices/computer", badges=(B(T_PLAY, 0.6),)),
+    "pal/add_missing": T_PALETTE.__class__(T_PALETTE.icon, badges=(B(T_PLUS, 0.55),)),
+    "pal/apply": T_RIGHT,
+    "pal/apply_sprite": Tg("mimetypes/image-x-generic", badges=(B(T_PALETTE, 0.6, "tr"),)),
+    "pal/colors_to_left": Tg("actions/go-previous", hue=110, badges=(B(T_PALETTE, 0.55, "tr"),)),
+    "pal/colors_to_right": Tg("actions/go-next", hue=110, badges=(B(T_PALETTE, 0.55, "tl"),)),
+    "pal/commit_palette": Tg("categories/applications-graphics", badges=(B(T_FLOPPY, 0.58),)),
+    "pal/palette_from_images": Tg("mimetypes/image-x-generic", stack=2, badges=(B(T_PALETTE, 0.6, "tr"),)),
+    "pal/palette_to_images": Tg("categories/applications-graphics", badges=(B(T_PICTURE, 0.58),)),
+    "pal/reset": Tg("actions/edit-clear"),
+    "pal/switch_count": Tg("actions/view-refresh"),
+    "project/backup": Tg("devices/media-floppy", badges=(B(T_CLOCK, 0.6),)),
+    "project/close": Tg("emblems/emblem-unreadable"),
+    "project/open": Tg("actions/document-open"),
+    "snd/open_wav": Tg("actions/document-open", badges=(B(T_SOUND, 0.55),)),
+    "st/throw": Tg("apps/system-users"),
+    "st/var_log": Draw(dw.g_var("#2a8a2a", True)),
 }
 ULTIMATE = {
     **CLASSIC,
-    "air/clsn_switch": Nv("actions/2uparrow", badges=(B(Nv("actions/2downarrow", hue=145), 0.7, "br"),)),
-    "air/clsn_previous": Nv("actions/undo"),
+    "air/clsn1_add": Draw(dw.g_clsn1_add),
+    "air/clsn2_add": Draw(dw.g_clsn2_add),
+    "air/clsn_delete": Draw(dw.g_clsn_delete),
+    "air/clsn_previous": Draw(dw.g_clsn_previous),
+    "air/clsn_switch": Draw(dw.g_clsn_switch),
+    "air/clsn_default": Draw(dw.g_clsn_default),
+    "common/add_blue": Tg("actions/list-add"),
+    "common/find": Tg("actions/system-search"),
+    "editors/organizer": Tg("actions/format-justify-fill"),
+    "snd/open_wav": Tg("status/folder-open", badges=(B(T_SOUND, 0.55),)),
 }
 # Names that use a different file in a set.
 NAME_OVERRIDES = {
@@ -849,7 +906,7 @@ NAME_OVERRIDES = {
                 "snd_discard_changes": "common/remove", "spr_layer_delete": "common/remove"},
     "Ultimate": {"anim_delete": "common/remove", "anim_frame_delete": "common/remove",
                  "snd_discard_changes": "common/remove", "spr_layer_delete": "common/remove",
-                 "spr_delete": "common/remove", "snd_delete": "common/remove"},
+                 "spr_delete": "common/remove", "snd_delete": "common/remove", "snd_add": "common/add_blue"},
 }
 
 
@@ -871,9 +928,9 @@ SETS = [
     SetSpec("Flat-Light", "flat", FLAT, FLAT_THEMES["Flat-Light"],
             description="Flat outline icons in one color, with dark shapes for light interface styles."),
     SetSpec("Classic", "variant", CLASSIC, base="Nuvola",
-            description="The Nuvola icons with the changes of the Classic preset."),
+            description="The Nuvola icons, with Tango pictures for the icons the Classic preset changes."),
     SetSpec("Ultimate", "variant", ULTIMATE, base="Nuvola",
-            description="The Nuvola icons with the changes of the Ultimate preset."),
+            description="The Classic icons with the changes of the Ultimate preset."),
 ]
 
 
@@ -883,7 +940,9 @@ class Context:
         nuv = fetch(SOURCES["nuvola"], cache)
         tab = fetch(SOURCES["tabler"], cache)
         luc = fetch(SOURCES["lucide"], cache)
-        self.roots = {"nuvola": nuv, "tabler": tab, "lucide": luc}
+        tan = fetch(SOURCES["tango"], cache)
+        self.roots = {"nuvola": nuv, "tabler": tab, "lucide": luc, "tango": tan}
+        self.tango_root = tan / SOURCES["tango"].root
         self.nuvola_root = nuv / SOURCES["nuvola"].root
         self._tabler = art.OutlineLibrary([tab / "package/icons/outline"])
         self._lucide = art.OutlineLibrary([luc / "package/icons"])
@@ -926,6 +985,23 @@ class Context:
         return img
 
 
+def _tango(self, icon: str) -> Image.Image:
+    key = "tango:" + icon
+    if key in self._img_cache:
+        self.used.add(key)
+        return self._img_cache[key][1]
+    path = self.tango_root / f"{icon}.svg"
+    if not path.is_file():
+        raise KeyError(f"Tango icon not found: {icon}")
+    img = art.render_svg(path.read_text(encoding="utf-8"), PNG_SIZE)
+    self.used.add(key)
+    self._img_cache[key] = (PNG_SIZE, img)
+    return img
+
+
+Context.tango = _tango
+
+
 class _Recorder:
     def __init__(self, lib, key, used):
         self._lib, self._key, self._used = lib, key, used
@@ -943,7 +1019,7 @@ def render_raster(recipe, ctx: Context, size: int = PNG_SIZE) -> Image.Image:
         svg = art.Svg(48)
         recipe.fn(svg, ctx)
         return art.render_svg(svg.render(), size)
-    img = ctx.nuvola(recipe.icon)
+    img = ctx.tango(recipe.icon) if isinstance(recipe, Tg) else ctx.nuvola(recipe.icon)
     if recipe.hue:
         img = art.hue_shift(img, recipe.hue)
     if recipe.gray or recipe.bright != 1.0:
@@ -1018,7 +1094,7 @@ class Output:
 
 
 def ext_for(recipe) -> str:
-    return ".png" if isinstance(recipe, Nv) else ".svg"
+    return ".png" if isinstance(recipe, (Nv, Tg)) else ".svg"
 
 
 def build_file(recipe, ctx: Context, spec: SetSpec) -> tuple[bytes, list[str]]:
@@ -1156,7 +1232,8 @@ def sources_text(spec: SetSpec, where: str, outs: list[Output]) -> str:
 def license_names(key: str) -> list[str]:
     """Names of the copied license files, e.g. LICENSE.Nuvola.txt."""
     src = SOURCES[key]
-    stems = {"license.txt": "LICENSE", "LICENSE": "LICENSE", "readme.txt": "README", "author": "AUTHORS"}
+    stems = {"license.txt": "LICENSE", "LICENSE": "LICENSE", "readme.txt": "README", "author": "AUTHORS",
+             "COPYING": "LICENSE", "AUTHORS": "AUTHORS"}
     return [f"{stems[Path(lf).name]}.{src.title.split()[0]}.txt" for lf in src.license_files]
 
 
@@ -1165,15 +1242,18 @@ def describe(used: list[str]) -> str:
     nuv = [u.split(":", 1)[1] for u in used if u.startswith("nuvola:")]
     tab = [u.split(":", 1)[1] for u in used if u.startswith("tabler:")]
     luc = [u.split(":", 1)[1] for u in used if u.startswith("lucide:")]
+    tan = [u.split(":", 1)[1] for u in used if u.startswith("tango:")]
     glyphs = [t for t in tab if t.startswith(("letter-", "number-"))]
     icons = [t for t in tab if t not in glyphs]
     if nuv:
-        parts.append("Nuvola " + ", ".join(f"`{n}`" for n in nuv))
+        parts.append("Nuvola " + ", ".join(nuv))
     if icons:
-        parts.append("Tabler " + ", ".join(f"`{n}`" for n in icons))
+        parts.append("Tabler " + ", ".join(icons))
     if luc:
-        parts.append("Lucide " + ", ".join(f"`{n}`" for n in luc))
-    drawn = not nuv and not icons and not luc
+        parts.append("Lucide " + ", ".join(luc))
+    if tan:
+        parts.append("Tango " + ", ".join(tan))
+    drawn = not nuv and not icons and not luc and not tan
     if glyphs:
         parts.append("Tabler letters " + ", ".join(glyphs))
     if drawn or glyphs:

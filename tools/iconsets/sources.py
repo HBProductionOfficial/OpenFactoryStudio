@@ -51,6 +51,19 @@ SOURCES: dict[str, Source] = {
         license_files=("package/LICENSE",),
         copyright="Copyright (c) 2020-2026 Paweł Kuna",
     ),
+    "tango": Source(
+        key="tango",
+        title="Tango Icon Library",
+        version="0.8.90",
+        # tango.freedesktop.org no longer serves files, so use Debian's copy of the release.
+        url="https://deb.debian.org/debian/pool/main/t/tango-icon-theme/tango-icon-theme_0.8.90.orig.tar.gz",
+        sha256="6e98d8032d57d818acc907ec47e6a718851ff251ae7c29aafb868743eb65c88e",
+        license="Public domain",
+        homepage="https://en.wikipedia.org/wiki/Tango_Desktop_Project",
+        root="tango-icon-theme-0.8.90/scalable",
+        license_files=("tango-icon-theme-0.8.90/COPYING", "tango-icon-theme-0.8.90/AUTHORS"),
+        copyright="The Tango Desktop Project",
+    ),
     "lucide": Source(
         key="lucide",
         title="Lucide",

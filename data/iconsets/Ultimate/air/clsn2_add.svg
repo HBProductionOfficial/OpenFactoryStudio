@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+<defs>
+<radialGradient id="r1" cx="13" cy="13" r="12" fx="13" fy="13" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fffde0"/><stop offset="0.35" stop-color="#ffe23a"/><stop offset="1" stop-color="#ff7a00"/></radialGradient>
+</defs>
+<rect x="13" y="13" width="30" height="30" fill="#0016d8" fill-opacity="0.188" stroke="#0016d8" stroke-width="3"/>
+<rect x="14.5" y="14.5" width="27" height="27" fill="none" stroke="#6a7aff" stroke-width="0.9"/>
+<polygon points="13,1 14.929,8.344 19.109,6.891 17.213,11.255 25,13 17.656,14.929 19.109,19.109 14.745,17.213 13,25 11.071,17.656 6.891,19.109 8.787,14.745 1,13 8.344,11.071 6.891,6.891 11.255,8.787" fill="url(#r1)" stroke="#c84c00" stroke-width="0.84" stroke-linejoin="round"/>
+<circle cx="13" cy="13" r="2.64" fill="#ffffff"/>
+</svg>
