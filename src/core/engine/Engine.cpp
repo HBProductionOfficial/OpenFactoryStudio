@@ -101,6 +101,12 @@ IssueList Engine::validate(const Project&, const QString&, const QString&) const
     return {};
 }
 
+QImage Engine::portrait(Project& project) const
+{
+    Q_UNUSED(project);
+    return {};
+}
+
 QStringList Engine::documentationVariants(const Project& project) const
 {
     Q_UNUSED(project);

@@ -49,6 +49,7 @@ public:
     void scaleContactBoxes(Project& project, const QList<QPair<int, int>>& sprites, double widthScale,
                            double heightScale) override;
     bool hasContactBoxes() const override { return true; }
+    QImage portrait(Project& project) const override;
     void runTool(const QString& actionId, const ToolContext& context) override;
 
 protected:

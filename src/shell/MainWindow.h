@@ -38,6 +38,7 @@ class ProjectFile;
 class ProjectView;
 class QuickFindBar;
 class StatusBar;
+class TaskbarTabs;
 class UpdateChecker;
 class WelcomePage;
 
@@ -101,6 +102,7 @@ private:
     void addProjectView(Project* project, const QString& editorId);
     void onCurrentTabChanged(int index);
     void refreshForCurrent();
+    void updateTaskbarTabs();
     void refreshToolBars();
     void refreshActionStates();
     void refreshTitle();
@@ -158,6 +160,7 @@ private:
     QToolBar* m_mainBar = nullptr;
     QToolBar* m_extraBar = nullptr;
     QTabBar* m_projectTabs = nullptr;
+    TaskbarTabs* m_taskbarTabs = nullptr;
     QStackedWidget* m_stack = nullptr;
     WelcomePage* m_welcome = nullptr;
     BottomDock* m_dock = nullptr;

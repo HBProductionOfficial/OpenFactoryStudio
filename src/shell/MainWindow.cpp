@@ -59,6 +59,7 @@
 #include "shell/SpritePage.h"
 #include "shell/SpritesEditor.h"
 #include "shell/StatusBar.h"
+#include "shell/TaskbarTabs.h"
 #include "shell/UpdateChecker.h"
 #include "shell/WelcomePage.h"
 #include "shell/dialogs/AboutDialog.h"
@@ -385,6 +386,25 @@ void MainWindow::buildCentralArea()
     connect(m_projectTabs, &QTabBar::currentChanged, this, &MainWindow::onCurrentTabChanged);
     connect(m_projectTabs, &QTabBar::tabCloseRequested, this, [this](int index) { closeProject(index); });
     connect(m_projectTabs, &QTabBar::tabMoved, this, [this] { refreshForCurrent(); });
+    m_taskbarTabs = new TaskbarTabs(this);
+    connect(m_taskbarTabs, &TaskbarTabs::activated, this, [this](QObject* view) {
+        for (int i = 0; i < m_projectTabs->count(); ++i) {
+            if (m_projectTabs->tabData(i).value<QObject*>() == view)
+                m_projectTabs->setCurrentIndex(i);
+        }
+        if (isMinimized())
+            showNormal();
+        raise();
+        activateWindow();
+    });
+    connect(m_taskbarTabs, &TaskbarTabs::closeRequested, this, [this](QObject* view) {
+        for (int i = 0; i < m_projectTabs->count(); ++i) {
+            if (m_projectTabs->tabData(i).value<QObject*>() == view) {
+                closeProject(i);
+                return;
+            }
+        }
+    });
     connect(m_welcome, &WelcomePage::openProjectRequested, this, &MainWindow::openRecentProject);
     connect(m_welcome, &WelcomePage::contributeRequested, this,
             [] { QDesktopServices::openUrl(QUrl(QStringLiteral(OFS_HOMEPAGE))); });
@@ -1648,7 +1668,10 @@ void MainWindow::updateProjectTab(ProjectView* view)
     for (int i = 0; i < m_projectTabs->count(); ++i) {
         if (m_projectTabs->tabData(i).value<QObject*>() == view) {
             const QString marker = view->project()->isModified() ? QStringLiteral("*") : QString();
-            m_projectTabs->setTabText(i, view->project()->name() + marker);
+            if (m_projectTabs->tabText(i) != view->project()->name() + marker) {
+                m_projectTabs->setTabText(i, view->project()->name() + marker);
+                updateTaskbarTabs();
+            }
             break;
         }
     }
@@ -2419,8 +2442,26 @@ void MainWindow::onCurrentTabChanged(int)
 // ---------------------------------------------------------------------------------------------
 // Refreshing the interface for the current project and editor
 
+void MainWindow::updateTaskbarTabs()
+{
+    QList<TaskbarTabs::Tab> tabs;
+    for (int i = 0; i < m_projectTabs->count(); ++i) {
+        auto* view = qobject_cast<ProjectView*>(m_projectTabs->tabData(i).value<QObject*>());
+        if (!view)
+            continue;
+        QPointer<ProjectView> guarded(view);
+        tabs.append({view, m_projectTabs->tabText(i), [guarded] {
+                         return guarded && guarded->project()->engine()
+                                    ? guarded->project()->engine()->portrait(*guarded->project())
+                                    : QImage();
+                     }});
+    }
+    m_taskbarTabs->setTabs(tabs, currentProjectView());
+}
+
 void MainWindow::refreshForCurrent()
 {
+    updateTaskbarTabs();
     ProjectView* view = currentProjectView();
     m_projectTabs->setVisible(m_projectTabs->count() > 0);
     if (view) {

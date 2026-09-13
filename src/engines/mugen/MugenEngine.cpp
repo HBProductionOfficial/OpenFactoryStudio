@@ -372,6 +372,29 @@ QStringList MugenEngine::codeTemplateDirs(const QString& editorId) const
     return {dataDir() + QStringLiteral("/sctrls"), userDataDir() + QStringLiteral("/sctrls")};
 }
 
+QImage MugenEngine::portrait(Project& project) const
+{
+    // Sprite 9000,1 of the character's sprite file (9000,0 without it), if the file is there.
+    const QStringList files = project.editorFiles(QStringLiteral("sprites"));
+    if (files.isEmpty() || files.first().isEmpty())
+        return {};
+    auto* sprites = qobject_cast<SpriteFile*>(project.file(files.first()));
+    if (!sprites && QFileInfo::exists(files.first()))
+        sprites = project.spriteFile(files.first(), QStringLiteral("sprites"));
+    if (!sprites)
+        return {};
+    const SpriteDocument& doc = sprites->document();
+    int index = doc.findSprite(9000, 1);
+    if (index < 0)
+        index = doc.findSprite(9000, 0);
+    if (index < 0)
+        return {};
+    const Formats::Image rgba = doc.image(index).toRgba(true);
+    if (rgba.pixelBuffer().empty())
+        return {};
+    return QImage(rgba.pixels().data(), rgba.width(), rgba.height(), rgba.width() * 4, QImage::Format_RGBA8888).copy();
+}
+
 QStringList MugenEngine::documentationVariants(const Project& project) const
 {
     // Version folders hold pages that differ from the common ones for that engine release.

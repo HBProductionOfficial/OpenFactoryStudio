@@ -34,6 +34,8 @@ add_library(ofsshell STATIC
     ProjectView.cpp
     SaveChecks.h
     SaveChecks.cpp
+    TaskbarTabs.h
+    TaskbarTabs.cpp
     SpritePage.h
     SpritePage.cpp
     SpritesEditor.h
@@ -107,6 +109,10 @@ add_library(ofsshell STATIC
 add_library(OFS::shell ALIAS ofsshell)
 ofs_target_defaults(ofsshell)
 target_link_libraries(ofsshell PUBLIC OFS::core Qt6::Widgets Qt6::Network Qt6::Concurrent)
+if(WIN32)
+    # TaskbarTabs uses these for the taskbar thumbnails.
+    target_link_libraries(ofsshell PRIVATE dwmapi ole32 uuid)
+endif()
 
 # The About dialog reads the GPL text and the icon from embedded copies so they work with any install layout.
 qt_add_resources(ofsshell "ofsshell_about"

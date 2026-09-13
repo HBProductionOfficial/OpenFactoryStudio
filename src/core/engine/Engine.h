@@ -6,6 +6,7 @@
 #include "core/syntax/Issue.h"
 
 #include <QIcon>
+#include <QImage>
 #include <QList>
 #include <QObject>
 #include <QPair>
@@ -107,6 +108,7 @@ public:
     virtual Project* newProject(const QString& typeId, const QString& folder, QString* error);
     virtual Project* openSingleFile(const QString& filePath, QString* error);
     virtual QString singleFileFilter() const;
+    virtual QImage portrait(Project& project) const;
 
     // Name of the global script table ("MUGEN") that holds scriptEnums():
     // enum name -> (value name -> value), e.g. ProjectType -> Character -> "char".
