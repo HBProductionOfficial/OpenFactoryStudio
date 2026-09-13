@@ -37,6 +37,7 @@
 #include "core/theme/ThemeManager.h"
 #include "core/widgets/GraphicsView.h"
 #include "core/widgets/ImageCanvas.h"
+#include "core/widgets/RenderSurface.h"
 #include "core/widgets/WaveformView.h"
 #include "shell/AdvancedPaletteEditor.h"
 #include "shell/AdvancedSearchPanel.h"
@@ -2712,7 +2713,7 @@ void MainWindow::refreshStatusBar()
             m_status->setSection(
                 0, tr("Position: %1, %2").arg(animation->cursorPosition().x()).arg(animation->cursorPosition().y()));
             m_status->setSection(1, tr("Horizontal guide: %1, Vertical guide: %2").arg(guides.y()).arg(guides.x()));
-            m_status->setSection(2, tr("Renderer: %1").arg(QStringLiteral("OpenGL")));
+            m_status->setSection(2, tr("Renderer: %1").arg(Rendering::backendName()));
             break;
         }
         if (auto* page = tabs ? qobject_cast<BackgroundsPage*>(tabs->currentWidget()) : nullptr) {
@@ -2722,7 +2723,7 @@ void MainWindow::refreshStatusBar()
                        ? tr("%1 FPS").arg(60)
                        : tr("Position: %1, %2").arg(page->cursorPosition().x()).arg(page->cursorPosition().y()));
             m_status->setSection(1, tr("Horizontal guide: %1, Vertical guide: %2").arg(guides.y()).arg(guides.x()));
-            m_status->setSection(2, tr("Renderer: %1").arg(QStringLiteral("OpenGL")));
+            m_status->setSection(2, tr("Renderer: %1").arg(Rendering::backendName()));
             break;
         }
         if (auto* page = tabs ? qobject_cast<SpritePage*>(tabs->currentWidget()) : nullptr) {
@@ -2739,7 +2740,7 @@ void MainWindow::refreshStatusBar()
             break;
         }
         m_status->setSection(0, tr("Position: %1, %2").arg(0).arg(0));
-        m_status->setSection(2, tr("Renderer: %1").arg(QStringLiteral("OpenGL")));
+        m_status->setSection(2, tr("Renderer: %1").arg(Rendering::backendName()));
         break;
     }
     case WorkspaceType::Sound: {

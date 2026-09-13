@@ -1,6 +1,8 @@
 #include "core/Version.h"
 #include "core/app/AppContext.h"
+#include "core/app/Paths.h"
 #include "core/settings/Config.h"
+#include "core/widgets/RenderSurface.h"
 #include "shell/MainWindow.h"
 #include "shell/dialogs/FirstRunDialog.h"
 
@@ -25,6 +27,7 @@ int main(int argc, char* argv[])
 
     OFS::AppContext context;
     context.loadSettings();
+    OFS::Rendering::choose(context.config(), OFS::Paths::userDir());
     context.initializeEngines();
 
     if (OFS::FirstRunDialog::isNeeded(context)) {
@@ -41,5 +44,7 @@ int main(int argc, char* argv[])
         if (!arg.startsWith(QLatin1Char('-')))
             window.openProject(arg);
     }
-    return app.exec();
+    const int result = app.exec();
+    OFS::Rendering::finish();
+    return result;
 }

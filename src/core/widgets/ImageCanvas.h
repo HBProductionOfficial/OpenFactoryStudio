@@ -47,6 +47,7 @@ Q_SIGNALS:
 
 protected:
     void paintEvent(QPaintEvent* event) override;
+    void paintContent(QPainter& p);
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
@@ -54,6 +55,7 @@ protected:
     void leaveEvent(QEvent* event) override;
 
 private:
+    QWidget* m_surface = nullptr;
     QRectF canvasArea() const;
     QRectF editArea() const;
     void drawCanvas(QPainter& p, const QRectF& target) const;

@@ -1,7 +1,11 @@
 #include "core/widgets/GraphicsView.h"
+#include "core/settings/Config.h"
+#include "core/widgets/RenderSurface.h"
 
 #include <QApplication>
+#include <QFile>
 #include <QSignalSpy>
+#include <QTemporaryDir>
 #include <QTest>
 #include <QWheelEvent>
 
@@ -23,6 +27,30 @@ class GraphicsViewTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void rendererChoice()
+    {
+        QTemporaryDir dir;
+        Config config;
+        config.setValue("native_painting", true);
+        Rendering::choose(config, dir.path());
+        QCOMPARE(Rendering::backend(), Rendering::Backend::Native);
+        QCOMPARE(Rendering::backendName(), QStringLiteral("Native"));
+        config.setValue("native_painting", false);
+        Rendering::choose(config, dir.path());
+        if (QGuiApplication::platformName() == QLatin1String("offscreen"))
+            QCOMPARE(Rendering::backend(), Rendering::Backend::Native);
+        // renderer.lock is left by a start that crashed.
+        QFile guard(dir.filePath("renderer.lock"));
+        QVERIFY(guard.open(QIODevice::WriteOnly));
+        guard.close();
+        Rendering::choose(config, dir.path());
+        QCOMPARE(Rendering::backend(), Rendering::Backend::Native);
+        QVERIFY(!QFile::exists(dir.filePath("renderer.lock")));
+        Rendering::finish();
+        GraphicsView view;
+        QVERIFY(view.findChildren<QWidget*>().isEmpty());
+    }
+
     void boxesOverCrosses()
     {
         GraphicsView view;

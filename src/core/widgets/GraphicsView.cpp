@@ -1,8 +1,11 @@
 #include "core/widgets/GraphicsView.h"
 
+#include "core/widgets/RenderSurface.h"
+
 #include <QKeyEvent>
 #include <QLinearGradient>
 #include <QMouseEvent>
+#include <QPaintEngine>
 #include <QPainter>
 #include <QPainterPath>
 #include <QWheelEvent>
@@ -66,6 +69,7 @@ GraphicsView::GraphicsView(QWidget* parent)
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    m_surface = Rendering::attachSurface(this, [this](QPainter& p) { paintContent(p); });
 }
 
 void GraphicsView::setImages(const QList<Image>& images)
@@ -416,16 +420,51 @@ void GraphicsView::drawRulers(QPainter& p)
 void GraphicsView::paintEvent(QPaintEvent* event)
 {
     Q_UNUSED(event);
+    if (m_surface) {
+        Rendering::update(m_surface);
+        return;
+    }
     QPainter p(this);
+    paintContent(p);
+}
+
+bool GraphicsView::needsRasterImages(const QPainter& p) const
+{
+    // The OpenGL painter only has the Porter-Duff modes and Plus. Others like Difference (subtractive
+    // blending) need an extension some drivers lack, so those images are composed in memory.
+    if (!p.paintEngine() || p.paintEngine()->type() != QPaintEngine::OpenGL2)
+        return false;
+    return std::any_of(m_images.cbegin(), m_images.cend(), [](const Image& image) {
+        return image.mode > QPainter::CompositionMode_Plus && image.mode <= QPainter::CompositionMode_Exclusion;
+    });
+}
+
+void GraphicsView::paintContent(QPainter& p)
+{
     const QRect area = contentRect();
     p.save();
     p.setClipRect(area);
     // Back to front: background, images, boxes, crosses, guides. The two "over" options swap the
     // guides with the images and the boxes with the crosses.
-    drawBackground(p, area);
-    if (m_imagesOverGuides)
-        drawGuides(p, area);
-    drawImages(p);
+    if (needsRasterImages(p)) {
+        QImage layers(size() * devicePixelRatioF(), QImage::Format_ARGB32_Premultiplied);
+        layers.setDevicePixelRatio(devicePixelRatioF());
+        layers.fill(Qt::transparent);
+        {
+            QPainter raster(&layers);
+            raster.setClipRect(area);
+            drawBackground(raster, area);
+            if (m_imagesOverGuides)
+                drawGuides(raster, area);
+            drawImages(raster);
+        }
+        p.drawImage(QPoint(0, 0), layers);
+    } else {
+        drawBackground(p, area);
+        if (m_imagesOverGuides)
+            drawGuides(p, area);
+        drawImages(p);
+    }
     if (!m_boxesOverCrosses) {
         drawBoxes(p);
         drawFrames(p);

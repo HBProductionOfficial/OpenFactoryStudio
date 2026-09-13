@@ -1,5 +1,7 @@
 #include "engines/mugen/emulator/EmulatorWidget.h"
 
+#include "core/widgets/RenderSurface.h"
+
 #include "core/app/AppContext.h"
 #include "core/project/Project.h"
 #include "core/settings/Config.h"
@@ -62,6 +64,7 @@ EmulatorWidget::EmulatorWidget(Project& project, AppContext& context, QWidget* p
 {
     setFocusPolicy(Qt::StrongFocus);
     setMouseTracking(true);
+    m_surface = Rendering::attachSurface(this, [this](QPainter& p) { paintScreen(p); });
     setAttribute(Qt::WA_OpaquePaintEvent);
     m_timer.setTimerType(Qt::PreciseTimer);
     m_timer.setInterval(1000 / TicksPerSecond / 2);
@@ -617,7 +620,16 @@ void EmulatorWidget::applySettings()
 
 void EmulatorWidget::paintEvent(QPaintEvent*)
 {
+    if (m_surface) {
+        Rendering::update(m_surface);
+        return;
+    }
     QPainter p(this);
+    paintScreen(p);
+}
+
+void EmulatorWidget::paintScreen(QPainter& p)
+{
     p.fillRect(rect(), Qt::black);
     if (!m_frame.isNull())
         p.drawImage(screenRect(), m_frame);

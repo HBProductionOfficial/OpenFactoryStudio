@@ -76,6 +76,7 @@ public:
 
 protected:
     void paintEvent(QPaintEvent* event) override;
+    void paintScreen(QPainter& p);
     void keyPressEvent(QKeyEvent* event) override;
     void keyReleaseEvent(QKeyEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
@@ -83,6 +84,7 @@ protected:
     void focusOutEvent(QFocusEvent* event) override;
 
 private:
+    QWidget* m_surface = nullptr;
     void advance();
     // Returns false when the workspace went away during the tick (a break's event loop).
     bool tick();

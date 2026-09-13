@@ -1,5 +1,7 @@
 #include "core/widgets/ImageCanvas.h"
 
+#include "core/widgets/RenderSurface.h"
+
 #include <QLinearGradient>
 #include <QMouseEvent>
 #include <QPainter>
@@ -15,6 +17,7 @@ ImageCanvas::ImageCanvas(QWidget* parent)
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    m_surface = Rendering::attachSurface(this, [this](QPainter& p) { paintContent(p); });
 }
 
 void ImageCanvas::setDocument(const ImageDocument* document)
@@ -168,7 +171,16 @@ void ImageCanvas::drawCanvas(QPainter& p, const QRectF& target) const
 void ImageCanvas::paintEvent(QPaintEvent* event)
 {
     Q_UNUSED(event);
+    if (m_surface) {
+        Rendering::update(m_surface);
+        return;
+    }
     QPainter p(this);
+    paintContent(p);
+}
+
+void ImageCanvas::paintContent(QPainter& p)
+{
     QLinearGradient back(0, 0, 0, height());
     back.setColorAt(0, QColor(58, 58, 58));
     back.setColorAt(1, QColor(30, 30, 30));

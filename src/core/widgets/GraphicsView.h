@@ -189,6 +189,8 @@ private:
     QList<QRectF> handles(const QRect& units) const;
     int selectedBox() const;
     QRect contentRect() const;
+    void paintContent(QPainter& p);
+    bool needsRasterImages(const QPainter& p) const;
     void drawBackground(QPainter& p, const QRect& area);
     void drawGuides(QPainter& p, const QRect& area);
     void drawImages(QPainter& p);
@@ -212,6 +214,7 @@ private:
     bool m_guides = false;
     bool m_imagesOverGuides = false;
     bool m_boxesOverCrosses = false;
+    QWidget* m_surface = nullptr;
     QPoint m_guidePosition;
     Drag m_drag = Drag::None;
     QPoint m_dragStart;

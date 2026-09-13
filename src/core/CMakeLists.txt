@@ -121,6 +121,8 @@ add_library(ofscore SHARED
     widgets/ImageCanvas.h
     widgets/ImageCanvas.cpp
     widgets/GraphicsView.cpp
+    widgets/RenderSurface.h
+    widgets/RenderSurface.cpp
     tools/Calculator.h
     tools/Calculator.cpp
     script/LuaApi.h
@@ -197,4 +199,4 @@ target_link_libraries(ofscore
         Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Concurrent
         OFS::formats OFS::audio
     PRIVATE
-        OFS::sol2 OFS::uchardet ofs_miniaudio ofs_miniz Qt6::Core5Compat)
+        OFS::sol2 OFS::uchardet ofs_miniaudio ofs_miniz Qt6::Core5Compat Qt6::OpenGL Qt6::OpenGLWidgets)
