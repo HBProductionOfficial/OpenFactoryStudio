@@ -3159,6 +3159,26 @@ private Q_SLOTS:
         QVERIFY(groupItem && groupItem->isCheckable() && groupItem->isChecked());
     }
 
+    void reopenAfterClosingLast()
+    {
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(m_dir.filePath("fighter.def")));
+        m_context->actions().action("edit_find_replace")->trigger();
+        QVERIFY(window.findChild<QuickFindBar*>());
+        m_context->actions().action("file_close")->trigger();
+        QVERIFY(!window.currentProjectView());
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(window.findChild<QuickFindBar*>());
+        QVERIFY(window.openProject(m_dir.filePath("stage.def")));
+        QVERIFY(window.currentProjectView()->findChild<QuickFindBar*>());
+        m_context->actions().action("edit_find_replace")->trigger();
+        m_context->actions().action("file_close")->trigger();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(window.openProject(m_dir.filePath("fighter.def")));
+        QVERIFY(window.currentProjectView());
+    }
+
     void changeImageQuestions()
     {
         QTemporaryDir dir;

@@ -2367,9 +2367,14 @@ bool MainWindow::closeProject(int tabIndex, bool ask)
     auto* view = qobject_cast<ProjectView*>(tab.value<QObject*>());
     if (view && ask && !confirmClose(view))
         return false;
+    // The dock and quick find bar move between views, so take them out before this view is deleted.
     if (view && m_dock->parentWidget() && view->isAncestorOf(m_dock)) {
         m_dock->hide();
         m_dock->setParent(this);
+    }
+    if (view && view->isAncestorOf(m_quickFind)) {
+        m_quickFind->hide();
+        m_quickFind->setParent(this);
     }
     if (tab.toString() == kWelcomeTab)
         m_welcomeTab = false;
