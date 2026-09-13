@@ -154,6 +154,8 @@ add_library(ofscore SHARED
     app/Translations.h
     app/Translations.cpp
     project/ZipArchive.cpp
+    project/Archives.h
+    project/Archives.cpp
     project/ProjectBackup.h
     project/ProjectBackup.cpp
     project/ProjectWatcher.h

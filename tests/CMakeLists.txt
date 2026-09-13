@@ -159,6 +159,13 @@ ofs_add_test(NAME core_formatter
     SOURCES core/FormatterTest.cpp
     LIBS OFS::core)
 
+ofs_add_test(NAME core_archives
+    SOURCES core/ArchivesTest.cpp
+    LIBS OFS::core)
+if(TARGET ofs_archive_rar)
+    add_dependencies(test_core_archives ofs_archive_rar)
+endif()
+
 ofs_add_test(NAME core_performance GUI LABELS perf TIMEOUT 600
     SOURCES core/PerformanceTest.cpp
     LIBS OFS::core OFS::mugen)

@@ -6,6 +6,7 @@
 #include "core/engine/Engine.h"
 #include "core/engine/EngineWorkspace.h"
 #include "core/engine/RunConfiguration.h"
+#include "core/project/Archives.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
 #include "core/project/ZipArchive.h"
@@ -3836,7 +3837,10 @@ private Q_SLOTS:
         });
         actions.action("file_open_archive")->trigger();
         FileDialogs::setOpenPromptOverride({});
-        QCOMPARE(captions, (QStringList{"Open archive", "All supported (*.zip);;ZIP Archive (*.zip)"}));
+        QCOMPARE(captions, (QStringList{"Open archive",
+                                        Archives::formatOf("x.rar")
+                                            ? "All supported (*.rar *.zip);;Roshal ARchive (*.rar);;ZIP Archive (*.zip)"
+                                            : "All supported (*.zip);;ZIP Archive (*.zip)"}));
         ProjectView* view = window.currentProjectView();
         QVERIFY(view);
         Project* project = view->project();

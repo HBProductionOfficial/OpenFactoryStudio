@@ -14,8 +14,9 @@ set_target_properties(ofs PROPERTIES
     MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
     MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}")
 
-# Engine plugins and data must be built whenever the application is.
+# Engine and extension plugins and data must be built whenever the application is.
 get_property(_ofs_plugins GLOBAL PROPERTY OFS_ENGINE_PLUGINS)
-if(_ofs_plugins)
-    add_dependencies(ofs ${_ofs_plugins})
+get_property(_ofs_extensions GLOBAL PROPERTY OFS_EXTENSION_PLUGINS)
+if(_ofs_plugins OR _ofs_extensions)
+    add_dependencies(ofs ${_ofs_plugins} ${_ofs_extensions})
 endif()

@@ -1,5 +1,7 @@
 #include "core/app/AppContext.h"
 
+#include "core/project/Archives.h"
+
 #include "core/app/TaskList.h"
 #include "core/app/Translations.h"
 
@@ -96,6 +98,11 @@ void AppContext::applySettings()
 void AppContext::initializeEngines(const QStringList& engineSearchDirs)
 {
     registerApplicationActions(*m_actions);
+    static const bool extensionsLoaded = [] {
+        Archives::loadExtensions(Paths::extensionSearchDirs());
+        return true;
+    }();
+    Q_UNUSED(extensionsLoaded);
     if (engineSearchDirs.isEmpty())
         m_engines->loadPlugins();
     else

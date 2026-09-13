@@ -21,6 +21,7 @@
 #include "core/engine/RunConfiguration.h"
 #include "core/preset/PresetBuilder.h"
 #include "core/preset/PresetEngine.h"
+#include "core/project/Archives.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectBackup.h"
 #include "core/project/ProjectFile.h"
@@ -1775,7 +1776,7 @@ void MainWindow::openProjectDialog()
 bool MainWindow::openProject(const QString& filePath)
 {
     const QString path = QDir::fromNativeSeparators(QFileInfo(filePath).absoluteFilePath());
-    if (QFileInfo(path).suffix().compare(QLatin1String("zip"), Qt::CaseInsensitive) == 0)
+    if (Archives::formatOf(path))
         return openArchive(path);
     for (int i = 0; i < m_projectTabs->count(); ++i) {
         auto* view = qobject_cast<ProjectView*>(m_projectTabs->tabData(i).value<QObject*>());
@@ -1827,9 +1828,8 @@ bool MainWindow::openRecentProject(const QString& filePath)
 void MainWindow::openArchiveDialog()
 {
     Config& config = m_context.config();
-    const QString file =
-        FileDialogs::getOpenFileName(this, tr("Open archive"), config.value(QStringLiteral("proj_open_path")),
-                                     tr("All supported (*.zip)") + QStringLiteral(";;") + tr("ZIP Archive (*.zip)"));
+    const QString file = FileDialogs::getOpenFileName(
+        this, tr("Open archive"), config.value(QStringLiteral("proj_open_path")), Archives::openFilter());
     if (file.isEmpty())
         return;
     config.setValue(QStringLiteral("proj_open_path"), QFileInfo(file).absolutePath());
@@ -1850,7 +1850,7 @@ bool MainWindow::openArchive(const QString& archivePath)
     }
     // The project is the first definitions file in the archive's order.
     QString error;
-    const QList<Zip::Entry> entries = Zip::entries(archive, &error);
+    const QList<Zip::Entry> entries = Archives::entries(archive, &error);
     QString main;
     for (const Zip::Entry& entry : entries) {
         if (entry.directory)
@@ -1872,7 +1872,7 @@ bool MainWindow::openArchive(const QString& archivePath)
         return false;
     }
     QTemporaryDir extracted(QDir::tempPath() + QStringLiteral("/ofs-archive-XXXXXX"));
-    if (!extracted.isValid() || !Zip::extract(archive, extracted.path(), &error)) {
+    if (!extracted.isValid() || !Archives::extract(archive, extracted.path(), &error)) {
         QMessageBox::warning(this, tr("Open archive"), error.isEmpty() ? extracted.errorString() : error);
         return false;
     }

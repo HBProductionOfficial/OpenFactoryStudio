@@ -1,4 +1,4 @@
-#include "core/project/ZipArchive.h"
+#include "core/project/Archives.h"
 #include "core/script/LuaApi.h"
 
 #include <QBuffer>
@@ -34,7 +34,7 @@ using Archive = ScriptArchive;
 
 QList<Zip::Entry> zipEntries(const Archive& archive)
 {
-    return Zip::entries(archive.root);
+    return Archives::entries(archive.root);
 }
 
 QStringList stringsOf(const sol::object& object)
@@ -192,7 +192,7 @@ void registerFileApi(sol::state& lua, sol::table api)
         [](const std::string& fileName, sol::optional<bool> readOnly) {
             Archive archive;
             const QFileInfo info(QDir::fromNativeSeparators(fromStd(fileName)));
-            if (info.isFile() && info.suffix().compare(QLatin1String("zip"), Qt::CaseInsensitive) == 0) {
+            if (info.isFile() && Archives::formatOf(info.filePath())) {
                 archive.root = info.absoluteFilePath();
                 archive.zip = true;
                 archive.readOnly = true;
@@ -257,7 +257,7 @@ void registerFileApi(sol::state& lua, sol::table api)
                 if (flags & 2)
                     return sol::nullopt;
                 QString error;
-                const QByteArray data = Zip::read(a.root, Archive::entryName(fromStd(name)), &error);
+                const QByteArray data = Archives::read(a.root, Archive::entryName(fromStd(name)), &error);
                 if (!error.isEmpty())
                     return sol::nullopt;
                 auto buffer = std::make_shared<QBuffer>();

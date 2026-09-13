@@ -38,6 +38,26 @@ function(ofs_add_engine_plugin name)
     set_property(GLOBAL APPEND PROPERTY OFS_ENGINE_PLUGINS ${target})
 endfunction()
 
+# ofs_add_extension_plugin(<name> SOURCES ... [LIBS ...])
+function(ofs_add_extension_plugin name)
+    cmake_parse_arguments(ARG "" "" "SOURCES;LIBS" ${ARGN})
+    set(target ofs_${name})
+    add_library(${target} MODULE ${ARG_SOURCES})
+    ofs_target_defaults(${target})
+    target_link_libraries(${target} PRIVATE OFS::core ${ARG_LIBS})
+    set(out "${OFS_OUTPUT_DIR}/extensions/${name}")
+    set_target_properties(${target} PROPERTIES
+        PREFIX ""
+        LIBRARY_OUTPUT_DIRECTORY "${out}"
+        RUNTIME_OUTPUT_DIRECTORY "${out}")
+    foreach(cfg IN ITEMS DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
+        set_target_properties(${target} PROPERTIES
+            LIBRARY_OUTPUT_DIRECTORY_${cfg} "${out}"
+            RUNTIME_OUTPUT_DIRECTORY_${cfg} "${out}")
+    endforeach()
+    set_property(GLOBAL APPEND PROPERTY OFS_EXTENSION_PLUGINS ${target})
+endfunction()
+
 # ofs_add_test(NAME <name> SOURCES ... [LIBS ...] [LABELS ...] [TIMEOUT <seconds>] [GUI] [CATCH2])
 function(ofs_add_test)
     cmake_parse_arguments(ARG "GUI;CATCH2" "NAME;TIMEOUT" "SOURCES;LIBS;LABELS" ${ARGN})
