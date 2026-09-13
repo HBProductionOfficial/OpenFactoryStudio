@@ -23,6 +23,23 @@ class GraphicsViewTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void boxesOverCrosses()
+    {
+        GraphicsView view;
+        view.resize(200, 200);
+        view.setOrigin(QPoint(100, 100));
+        view.setBackground(GraphicsView::Background::Color);
+        view.setMainCrossPosition(QPoint(0, 0));
+        view.setBoxes({{QRect(-20, -20, 40, 40), QColor(0, 255, 255), false, true}});
+        const QPoint arm = view.toWidget(QPointF(3, 0)).toPoint();
+        QCOMPARE(view.grab().toImage().pixelColor(arm), QColor(Qt::black));
+        view.setBoxesOverCrosses(true);
+        const QColor tinted = view.grab().toImage().pixelColor(arm);
+        QVERIFY(tinted != QColor(Qt::black));
+        QCOMPARE(tinted.red(), 0);
+        QVERIFY(tinted.green() > 0 && tinted.blue() > 0);
+    }
+
     void coordinates()
     {
         GraphicsView view;

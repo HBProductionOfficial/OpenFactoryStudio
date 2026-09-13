@@ -8,6 +8,14 @@
 
 namespace OFS {
 
+StoredAnswer storedAnswer(const Config& config, const QString& key)
+{
+    const QString stored = config.value(key).trimmed();
+    if (stored.isEmpty() || stored == QLatin1String("0"))
+        return StoredAnswer::Ask;
+    return stored == QLatin1String("1") ? StoredAnswer::Always : StoredAnswer::Never;
+}
+
 bool askQuestion(QWidget* parent, Config& config, const QString& key, const QString& text)
 {
     return askQuestion(parent, config, key, QApplication::applicationDisplayName(), text);
@@ -15,9 +23,9 @@ bool askQuestion(QWidget* parent, Config& config, const QString& key, const QStr
 
 bool askQuestion(QWidget* parent, Config& config, const QString& key, const QString& title, const QString& text)
 {
-    const QString stored = config.value(key);
-    if (!stored.isEmpty())
-        return stored == QLatin1String("1");
+    const StoredAnswer stored = storedAnswer(config, key);
+    if (stored != StoredAnswer::Ask)
+        return stored == StoredAnswer::Always;
 
     QMessageBox box(QMessageBox::Question, title, text, QMessageBox::Yes | QMessageBox::No, parent);
     box.setDefaultButton(QMessageBox::Yes);

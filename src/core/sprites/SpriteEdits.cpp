@@ -206,17 +206,21 @@ int duplicate(SpriteDocument& doc, int index)
     return index + 1;
 }
 
-void setImage(SpriteDocument& doc, int index, Image image)
+void setImage(SpriteDocument& doc, int index, Image image, bool allInstances)
 {
     if (!valid(doc, index))
         return;
+    const QList<int> instances = allInstances ? doc.linkedSprites(index) : QList<int>{index};
     SpriteEntry& entry = doc.sprites()[index];
     if (image.isIndexed() && !image.palette().empty() &&
         !(entry.palette && entry.palette->palette.colors.size() == image.palette().size() &&
           sameRgb(entry.palette->palette.colors, image.palette())))
         entry.palette = paletteFor(doc, image.palette(), entry.group(), entry.number());
-    entry.pixels = SpriteDocument::makePixels(std::move(image));
-    entry.header.linkedIndex = -1;
+    const SpritePixelsPtr pixels = SpriteDocument::makePixels(std::move(image));
+    for (int i : instances) {
+        doc.sprites()[i].pixels = pixels;
+        doc.sprites()[i].header.linkedIndex = -1;
+    }
 }
 
 void crop(SpriteDocument& doc, const QList<int>& indexes)

@@ -1,5 +1,10 @@
 #include "shell/dialogs/PaletteDialogs.h"
 
+#include "core/palettes/PaletteOps.h"
+#include "core/sprites/PaletteEdits.h"
+#include "core/sprites/SpriteDocument.h"
+#include "core/sprites/SpriteEdits.h"
+
 #include <QCheckBox>
 #include <QComboBox>
 #include <QHBoxLayout>
@@ -150,6 +155,50 @@ CommitSpriteDialog::CommitSpriteDialog(const QStringList& palettes, QWidget* par
     layout->addLayout(selection);
     layout->addLayout(buttons);
     resize(373, 365);
+}
+
+QStringList CommitSpriteDialog::captions(const SpriteDocument& doc)
+{
+    QStringList list;
+    for (const SpritePalettePtr& palette : doc.palettes())
+        list << QStringLiteral("%1,%2").arg(palette->palette.group).arg(palette->palette.number);
+    return list;
+}
+
+void CommitSpriteDialog::commit(SpriteDocument& doc, int index, Formats::Image image, Formats::Palette colors,
+                                int result, bool allInstances) const
+{
+    if (index < 0 || index >= doc.spriteCount())
+        return;
+    if (result == QDialog::Accepted && reversed() && image.isIndexed()) {
+        // Reverse the palette and remap the pixels to follow it.
+        PaletteOps::SlotMap map(colors.size());
+        for (std::size_t i = 0; i < colors.size(); ++i)
+            map[i] = int(colors.size() - 1 - i);
+        std::reverse(colors.begin(), colors.end());
+        PaletteOps::remapImage(image, map);
+    }
+    const QList<int> chosen = palettes();
+    const int target = chosen.isEmpty() ? -1 : chosen.first();
+    if (result != QDialog::Accepted || !image.isIndexed()) {
+        image.setPalette({});
+        SpriteEdits::setImage(doc, index, std::move(image), allInstances);
+    } else if (mode() == Mode::ImagePalette || target < 0 || target >= int(doc.palettes().size())) {
+        image.setPalette(colors);
+        SpriteEdits::setImage(doc, index, std::move(image), allInstances);
+    } else if (mode() == Mode::ForcePalette) {
+        Formats::Image rgba = image;
+        rgba.setPalette(colors);
+        Formats::Image adapted = PaletteOps::adapt(rgba.toRgba(true), doc.palettes()[target]->palette.colors);
+        adapted.setPalette({});
+        SpriteEdits::setImage(doc, index, std::move(adapted), allInstances);
+        doc.sprites()[index].palette = doc.palettes()[target];
+    } else {
+        PaletteEdits::setColors(doc, target, colors);
+        image.setPalette({});
+        SpriteEdits::setImage(doc, index, std::move(image), allInstances);
+        doc.sprites()[index].palette = doc.palettes()[target];
+    }
 }
 
 CommitSpriteDialog::Mode CommitSpriteDialog::mode() const

@@ -32,6 +32,8 @@ add_library(ofsshell STATIC
     PalettesPanel.cpp
     ProjectView.h
     ProjectView.cpp
+    SaveChecks.h
+    SaveChecks.cpp
     SpritePage.h
     SpritePage.cpp
     SpritesEditor.h

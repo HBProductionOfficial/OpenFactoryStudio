@@ -302,7 +302,10 @@ private Q_SLOTS:
         QCOMPARE(config.value("undo_limit"), QStringLiteral("100"));
         QCOMPARE(config.value("showmsg_discard"), QStringLiteral("2"));
         QCOMPARE(config.value("showmsg_reload_file"), QStringLiteral("1"));
-        QCOMPARE(config.value("showmsg_snds_empty"), QStringLiteral("1"));
+        QCOMPARE(config.value("showmsg_snds_empty"), QStringLiteral("true"));
+        // Apply writes every message setting, Ask as "0" and the boxes as "false".
+        QCOMPARE(config.value("showmsg_crop_spr"), QStringLiteral("0"));
+        QCOMPARE(config.value("showmsg_sprs_empty"), QStringLiteral("false"));
         QCOMPARE(config.value("native_painting"), QStringLiteral("true"));
         QCOMPARE(config.value("opengl_mode"), QStringLiteral("0"));
         QCOMPARE(config.value("onion_opacity"), QStringLiteral("0.5"));

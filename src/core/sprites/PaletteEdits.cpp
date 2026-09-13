@@ -222,6 +222,38 @@ void applyToSprites(SpriteDocument& doc, int index, const QList<int>& sprites)
     }
 }
 
+QList<int> spritesWithoutPalette(const SpriteDocument& doc)
+{
+    QList<int> sprites;
+    for (int i = 0; i < doc.spriteCount(); ++i) {
+        const SpriteEntry& entry = doc.sprites()[i];
+        if (!entry.palette && isIndexed(entry))
+            sprites << i;
+    }
+    return sprites;
+}
+
+int addMissingPalette(SpriteDocument& doc)
+{
+    const QList<int> sprites = spritesWithoutPalette(doc);
+    if (sprites.isEmpty())
+        return -1;
+    Palette gray(256);
+    for (int i = 0; i < 256; ++i)
+        gray[std::size_t(i)] = Rgba{std::uint8_t(i), std::uint8_t(i), std::uint8_t(i), 255};
+    int number = 1;
+    for (bool taken = true; taken; ++number) {
+        taken = false;
+        for (const SpritePalettePtr& palette : doc.palettes())
+            taken = taken || (palette->palette.group == 1 && palette->palette.number == number);
+        if (!taken)
+            break;
+    }
+    const int index = insert(doc, int(doc.palettes().size()) - 1, 1, number, std::move(gray));
+    applyToSprites(doc, index, sprites);
+    return index;
+}
+
 IssueList issues(const SpriteDocument& doc)
 {
     IssueList issues;

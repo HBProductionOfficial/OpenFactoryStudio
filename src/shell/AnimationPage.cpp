@@ -545,6 +545,7 @@ void AnimationPage::applySettings(const Config& config, const Config* engine)
     }
     m_view->setRulersVisible(config.boolValue(QStringLiteral("show_rulers"), true));
     m_view->setMainCrossVisible(config.boolValue(QStringLiteral("show_cross1"), true));
+    m_view->setBoxesOverCrosses(config.boolValue(QStringLiteral("contact_over_cross"), false));
     m_view->setExtraCrossVisible(config.boolValue(QStringLiteral("show_cross3"), false));
     m_view->setGuidesVisible(config.boolValue(QStringLiteral("show_guides"), false));
     m_view->setImagesOverGuides(config.boolValue(QStringLiteral("sprite_over_guides"), false));

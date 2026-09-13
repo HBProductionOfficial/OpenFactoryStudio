@@ -420,18 +420,26 @@ void GraphicsView::paintEvent(QPaintEvent* event)
     const QRect area = contentRect();
     p.save();
     p.setClipRect(area);
+    // Back to front: background, images, boxes, crosses, guides. The two "over" options swap the
+    // guides with the images and the boxes with the crosses.
     drawBackground(p, area);
     if (m_imagesOverGuides)
         drawGuides(p, area);
     drawImages(p);
-    drawBoxes(p);
-    drawFrames(p);
+    if (!m_boxesOverCrosses) {
+        drawBoxes(p);
+        drawFrames(p);
+    }
     if (m_mainCross)
         drawCross(p, QPointF(m_mainCrossPosition), Qt::black, Qt::white);
     if (m_extraCross)
         drawCross(p, QPointF(0, 0), Qt::white, QColor(0, 160, 0));
     if (m_secondaryCross)
         drawCross(p, QPointF(m_secondaryPosition), Qt::white, QColor(0, 0, 255));
+    if (m_boxesOverCrosses) {
+        drawBoxes(p);
+        drawFrames(p);
+    }
     if (!m_imagesOverGuides)
         drawGuides(p, area);
     p.restore();

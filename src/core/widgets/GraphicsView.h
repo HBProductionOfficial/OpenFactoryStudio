@@ -134,6 +134,11 @@ public:
         m_imagesOverGuides = over;
         update();
     }
+    void setBoxesOverCrosses(bool over)
+    {
+        m_boxesOverCrosses = over;
+        update();
+    }
 
     QPointF toUnits(const QPointF& widgetPoint) const;
     QPointF toWidget(const QPointF& units) const;
@@ -206,6 +211,7 @@ private:
     QList<Frame> m_frames;
     bool m_guides = false;
     bool m_imagesOverGuides = false;
+    bool m_boxesOverCrosses = false;
     QPoint m_guidePosition;
     Drag m_drag = Drag::None;
     QPoint m_dragStart;

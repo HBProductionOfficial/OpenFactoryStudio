@@ -73,7 +73,7 @@ namespace {
 
 const QString kCustomColorSet = QStringLiteral("Custom");
 
-const QStringList kAnswerValues = {QString(), QStringLiteral("1"), QStringLiteral("2")};
+const QStringList kAnswerValues = {QStringLiteral("0"), QStringLiteral("1"), QStringLiteral("2")};
 
 void registerBuiltinPages()
 {
@@ -856,7 +856,7 @@ void OptionsDialog::bindAnswer(QComboBox* combo, const QString& key)
         key, QString(),
         [combo](const QString& value) {
             const QString v = value.trimmed();
-            combo->setCurrentIndex(v.isEmpty() ? 0 : v == kAnswerValues[1] ? 1 : 2);
+            combo->setCurrentIndex(v.isEmpty() || v == kAnswerValues[0] ? 0 : v == kAnswerValues[1] ? 1 : 2);
         },
         [combo] { return kAnswerValues.value(combo->currentIndex()); });
 }
@@ -864,8 +864,8 @@ void OptionsDialog::bindAnswer(QComboBox* combo, const QString& key)
 void OptionsDialog::bindFlag(QAbstractButton* box, const QString& key)
 {
     bind(
-        key, QString(), [box](const QString& value) { box->setChecked(!value.trimmed().isEmpty()); },
-        [box] { return box->isChecked() ? QStringLiteral("1") : QString(); });
+        key, QString(), [box](const QString& value) { box->setChecked(Config::decodeBool(value, false)); },
+        [box] { return Config::encodeBool(box->isChecked()); });
 }
 
 void OptionsDialog::bindRadio(QButtonGroup* group, const QString& key, int fallback)

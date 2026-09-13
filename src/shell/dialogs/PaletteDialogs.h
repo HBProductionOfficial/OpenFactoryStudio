@@ -1,5 +1,7 @@
 #pragma once
 
+#include "formats/image/Image.h"
+
 #include <QDialog>
 #include <QList>
 
@@ -10,6 +12,8 @@ class QStandardItemModel;
 class QTableView;
 
 namespace OFS {
+
+class SpriteDocument;
 
 QString paletteFileFilters();
 
@@ -59,9 +63,15 @@ public:
 
     explicit CommitSpriteDialog(const QStringList& palettes, QWidget* parent = nullptr);
 
+    static QStringList captions(const SpriteDocument& doc);
+
     Mode mode() const;
     bool reversed() const;
     QList<int> palettes() const;
+
+    // `result` is what exec() returned. `allInstances` also gives the new image to the linked sprites.
+    void commit(SpriteDocument& doc, int index, Formats::Image image, Formats::Palette colors, int result,
+                bool allInstances = false) const;
 
 private:
     QCheckBox* m_reversed;

@@ -52,6 +52,7 @@
 #include "shell/PalettesPanel.h"
 #include "shell/ProjectView.h"
 #include "shell/QuickFindBar.h"
+#include "shell/SaveChecks.h"
 #include "shell/SoundPage.h"
 #include "shell/SoundsEditor.h"
 #include "shell/SpritePage.h"
@@ -1520,6 +1521,8 @@ void MainWindow::saveFile(ProjectFile* file, bool asUtf8)
 
 bool MainWindow::saveNow(ProjectFile* file)
 {
+    if (!confirmSave(file, m_context.config(), this))
+        return false;
     if (file->canSaveAsync()) {
         QPointer<MainWindow> self(this);
         file->saveAsync([self](bool ok, const QString& error) {
@@ -1600,6 +1603,8 @@ bool MainWindow::saveFileAs(ProjectFile* file)
     if (!project)
         return false;
     if (qobject_cast<SoundFile*>(file)) {
+        if (!confirmSave(file, m_context.config(), this))
+            return false;
         const QString target = FileDialogs::getSaveFileName(this, tr("Save sounds as..."), project->suggestedPath(file),
                                                             tr("Sounds (*.snd);;All files (*.*)"));
         if (target.isEmpty())
@@ -2027,10 +2032,10 @@ void MainWindow::fileChangedOnDisk(ProjectFile* changed)
         return;
     Config& config = m_context.config();
     const QString key = QStringLiteral("showmsg_reload_file");
-    const QString setting = config.value(key);
-    if (!setting.isEmpty() && setting != QLatin1String("1"))
+    const StoredAnswer setting = storedAnswer(config, key);
+    if (setting == StoredAnswer::Never)
         return;
-    bool reload = setting == QLatin1String("1");
+    bool reload = setting == StoredAnswer::Always;
     // With "Always", reload without asking unless that would lose unsaved changes.
     if (!reload || file->isModified()) {
         const QString text = tr("The file '%1' has been modified. Do you want to reload all other instances of "

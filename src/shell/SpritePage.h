@@ -47,7 +47,7 @@ public:
     ImageEditor* imageEditor() const { return m_editor; }
     bool confirmDiscardImage();
     void reloadImage();
-    void saveImage();
+    void saveImage(bool allInstances = false);
     // With `currentSaved` the current sprite now holds the canvas and its axis follows the canvas origin.
     void applyFromImage(const QString& text, const SpriteDocument& doc, bool currentSaved);
     QPoint savedOrigin() const { return m_savedOrigin; }

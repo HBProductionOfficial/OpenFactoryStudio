@@ -398,7 +398,7 @@ bool SpritesEditor::performImage(const QString& id)
         return true;
 
     if (id == QLatin1String("spr_saveimg")) {
-        m_page->saveImage();
+        m_page->saveImage(shareImageChanges(m_page->current(), parent));
     } else if (id == QLatin1String("spr_layer_add")) {
         ImageEdits::addLayer(doc);
         editor->apply(tr("Add layer"), doc);

@@ -527,6 +527,8 @@ void ProjectView::reconfigureEditors()
         if (workspace)
             workspace->applySettings();
     }
+    if (m_sprites)
+        m_sprites->applySettings();
 }
 
 CodeEditor* ProjectView::currentCodeEditor() const

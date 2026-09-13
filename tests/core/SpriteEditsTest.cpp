@@ -69,6 +69,22 @@ class SpriteEditsTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void setImageOfLinkedSprite()
+    {
+        SpriteDocument doc = sample();
+        QCOMPARE(doc.linkedSprites(0), (QList<int>{0, 1}));
+        SpriteDocument alone = doc;
+        SpriteEdits::setImage(alone, 0, Image::indexed(1, 1, {2}));
+        QCOMPARE(alone.image(0).width(), 1);
+        QCOMPARE(alone.image(1).width(), 5);
+        QCOMPARE(alone.linkedSprites(1), (QList<int>{1}));
+        SpriteDocument all = doc;
+        SpriteEdits::setImage(all, 1, Image::indexed(1, 1, {2}), true);
+        QCOMPARE(all.image(0).width(), 1);
+        QCOMPARE(all.linkedSprites(0), (QList<int>{0, 1}));
+        QCOMPARE(all.image(2).width(), 3);
+    }
+
     void identifiersAndAxes()
     {
         SpriteDocument doc = sample();

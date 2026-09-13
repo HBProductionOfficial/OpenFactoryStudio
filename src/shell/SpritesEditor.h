@@ -51,6 +51,12 @@ public:
     // Outside the project folder it writes a copy. Returns whether the file was written.
     bool saveAs(SpriteFile* file, QWidget* parent);
 
+    // Sprite changes (Options > Messages > Sprite Sharing): whether a new image for a linked
+    // sprite goes to all its instances. False for a sprite that is not linked.
+    bool shareImageChanges(int index, QWidget* parent);
+
+    void applySettings() { refresh(); }
+
     bool perform(const QString& actionId);
 
     bool imageMode() const;
@@ -83,6 +89,7 @@ private:
     void addExplorerLayers(bool all, bool aligned);
     void saveExplorerImages();
     void refresh();
+    int axisSign() const;
     bool performDialog(const QString& actionId);
     void addSprites(QWidget* parent, const QString& imageFolder);
     static std::function<AddSpritesOptions::Conflict(int, int)> conflictPrompt(QWidget* parent);

@@ -153,7 +153,7 @@ void SpritePage::reloadImage()
     m_editor->open(doc.image(m_current), QStringLiteral("%1,%2").arg(entry.group()).arg(entry.number()));
 }
 
-void SpritePage::saveImage()
+void SpritePage::saveImage(bool allInstances)
 {
     const ImageDocument& image = m_editor->document();
     if (!imageMode() || m_current < 0 || m_current >= m_file->document().spriteCount() || image.width <= 0 ||
@@ -163,11 +163,12 @@ void SpritePage::saveImage()
     if (flat.isIndexed())
         flat.setPalette(image.palette);
     SpriteDocument doc = m_file->document();
-    SpriteEdits::setImage(doc, m_current, std::move(flat));
+    SpriteEdits::setImage(doc, m_current, std::move(flat), allInstances);
     // The canvas grew around the sprite's image: the axis moves with it.
     const QPoint shift = image.origin - m_savedOrigin;
     if (!shift.isNull())
-        SpriteEdits::moveAxes(doc, {m_current}, shift.x(), shift.y());
+        SpriteEdits::moveAxes(doc, allInstances ? doc.linkedSprites(m_current) : QList<int>{m_current}, shift.x(),
+                              shift.y());
     applyFromImage(tr("Save image changes"), doc, true);
     m_editor->markSaved();
 }

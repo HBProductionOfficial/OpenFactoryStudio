@@ -27,6 +27,10 @@ public:
     int slotAt(const QPoint& pos) const;
     QRect cellRect(int slot) const;
 
+    // Options > Graphics > Colors fit available space: as many columns as fit, at least 16.
+    void setFitWidth(bool fit);
+    int columns() const;
+
     void setDragEnabled(bool enabled) { m_dragEnabled = enabled; }
 
     QSize sizeHint() const override;
@@ -47,6 +51,8 @@ protected:
 
 private:
     QPoint gridOrigin() const;
+
+    bool m_fitWidth = false;
 
     Formats::Palette m_colors;
     QList<int> m_selection;

@@ -35,6 +35,9 @@ OFS_CORE_EXPORT void exchange(SpriteDocument& doc, int index, QList<int> slots);
 OFS_CORE_EXPORT void fill(SpriteDocument& doc, int index, const QList<int>& slots, Formats::Rgba color);
 OFS_CORE_EXPORT void applyToSprites(SpriteDocument& doc, int index, const QList<int>& sprites);
 
+OFS_CORE_EXPORT QList<int> spritesWithoutPalette(const SpriteDocument& doc);
+OFS_CORE_EXPORT int addMissingPalette(SpriteDocument& doc);
+
 OFS_CORE_EXPORT IssueList issues(const SpriteDocument& doc);
 
 // ACT files store colors in reverse order. Files with up to 32 colors give 32, others 256. Slot 0

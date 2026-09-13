@@ -28,7 +28,9 @@ OFS_CORE_EXPORT int renameGroup(SpriteDocument& doc, int from, int to, int first
 OFS_CORE_EXPORT int freeNumber(const SpriteDocument& doc, int group, int start = 0);
 OFS_CORE_EXPORT int duplicate(SpriteDocument& doc, int index);
 
-OFS_CORE_EXPORT void setImage(SpriteDocument& doc, int index, Formats::Image image);
+// With allInstances the linked sprites get the new image too. Otherwise this sprite leaves the
+// link.
+OFS_CORE_EXPORT void setImage(SpriteDocument& doc, int index, Formats::Image image, bool allInstances = false);
 
 OFS_CORE_EXPORT void crop(SpriteDocument& doc, const QList<int>& indexes);
 OFS_CORE_EXPORT void resize(SpriteDocument& doc, const QList<int>& indexes, double widthScale, double heightScale,

@@ -1,4 +1,5 @@
 #include "core/Version.h"
+#include "core/app/Messages.h"
 #include "core/settings/Config.h"
 #include "core/tools/ClipboardStore.h"
 #include "shell/dialogs/AboutDialog.h"
@@ -27,6 +28,26 @@ class DialogsTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void storedAnswers()
+    {
+        Config config;
+        const QString key = QStringLiteral("showmsg_crop_spr");
+        for (const auto& [value, answer] :
+             std::initializer_list<std::pair<const char*, StoredAnswer>>{{"", StoredAnswer::Ask},
+                                                                         {"0", StoredAnswer::Ask},
+                                                                         {"1", StoredAnswer::Always},
+                                                                         {"2", StoredAnswer::Never},
+                                                                         {"x", StoredAnswer::Never}}) {
+            config.setValue(key, QString::fromLatin1(value));
+            QCOMPARE(storedAnswer(config, key), answer);
+        }
+        config.setValue(key, "1");
+        QVERIFY(askQuestion(nullptr, config, key, "unused"));
+        config.setValue(key, "2");
+        QVERIFY(!askQuestion(nullptr, config, key, "unused"));
+    }
+
+    // The HiDPI runs of the widget tests set the screen scale they expect.
     void screenScale()
     {
         const QByteArray expected = qgetenv("OFS_EXPECT_DPR");

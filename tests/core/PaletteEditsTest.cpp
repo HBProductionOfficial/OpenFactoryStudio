@@ -54,6 +54,23 @@ class PaletteEditsTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void missingPalette()
+    {
+        SpriteDocument doc = document();
+        QVERIFY(PaletteEdits::spritesWithoutPalette(doc).isEmpty());
+        QCOMPARE(PaletteEdits::addMissingPalette(doc), -1);
+        PaletteEdits::clear(doc);
+        const QList<int> missing = PaletteEdits::spritesWithoutPalette(doc);
+        QCOMPARE(missing.size(), doc.spriteCount());
+        const int index = PaletteEdits::addMissingPalette(doc);
+        QCOMPARE(index, 0);
+        QCOMPARE(doc.palettes()[0]->palette.group, std::uint16_t(1));
+        QCOMPARE(doc.palettes()[0]->palette.number, std::uint16_t(1));
+        QCOMPARE(doc.palettes()[0]->palette.colors[200], (Rgba{200, 200, 200, 255}));
+        QVERIFY(PaletteEdits::spritesWithoutPalette(doc).isEmpty());
+        QCOMPARE(PaletteEdits::issues(doc).size(), 0);
+    }
+
     void colorEdits()
     {
         SpriteDocument doc = document();

@@ -372,6 +372,7 @@ AdvancedPaletteEditor::AdvancedPaletteEditor(AppContext& context, SpriteFile* fi
         m_views[std::size_t(i)] = view;
         auto* grid = new PaletteWidget(this);
         grid->setObjectName(QLatin1String(gridNames[i]));
+        grid->setFitWidth(m_context.config().boolValue(QStringLiteral("pal_fit_space"), false));
         connect(grid, &PaletteWidget::selectionChanged, this, [this, i] {
             if (m_mask->isChecked())
                 refreshColumn(i);
@@ -947,42 +948,12 @@ void AdvancedPaletteEditor::commitSprite()
     const Column& column = m_columns[Character];
     if (column.image.isNull())
         return;
-    QStringList captions;
-    for (const SpritePalettePtr& palette : m_file->document().palettes())
-        captions << caption(palette);
-    CommitSpriteDialog dialog(captions, this);
+    CommitSpriteDialog dialog(CommitSpriteDialog::captions(m_file->document()), this);
     const int result = dialog.exec();
     if (result != QDialog::Accepted && result != CommitSpriteDialog::Ignored)
         return;
-    Image image = column.image;
-    Palette colors = column.palette;
-    if (result == QDialog::Accepted && dialog.reversed() && image.isIndexed()) {
-        PaletteOps::SlotMap map(colors.size());
-        for (std::size_t i = 0; i < colors.size(); ++i)
-            map[i] = int(colors.size() - 1 - i);
-        std::reverse(colors.begin(), colors.end());
-        PaletteOps::remapImage(image, map);
-    }
     SpriteDocument doc = m_file->document();
-    const QList<int> chosen = dialog.palettes();
-    const int target = chosen.isEmpty() ? -1 : chosen.first();
-    if (result == CommitSpriteDialog::Ignored || !image.isIndexed()) {
-        image.setPalette({});
-        SpriteEdits::setImage(doc, m_sprite, image);
-    } else if (dialog.mode() == CommitSpriteDialog::Mode::ImagePalette || target < 0) {
-        image.setPalette(colors);
-        SpriteEdits::setImage(doc, m_sprite, image);
-    } else if (dialog.mode() == CommitSpriteDialog::Mode::ForcePalette) {
-        Image adapted = PaletteOps::adapt(showing(image, colors, true), doc.palettes()[target]->palette.colors);
-        adapted.setPalette({});
-        SpriteEdits::setImage(doc, m_sprite, adapted);
-        doc.sprites()[m_sprite].palette = doc.palettes()[target];
-    } else {
-        PaletteEdits::setColors(doc, target, colors);
-        image.setPalette({});
-        SpriteEdits::setImage(doc, m_sprite, image);
-        doc.sprites()[m_sprite].palette = doc.palettes()[target];
-    }
+    dialog.commit(doc, m_sprite, column.image, column.palette, result);
     m_file->apply(tr("Commit sprite changes"), doc);
     m_imageChanged = false;
     m_paletteSelector->setRange(0, std::max(0, int(doc.palettes().size()) - 1));

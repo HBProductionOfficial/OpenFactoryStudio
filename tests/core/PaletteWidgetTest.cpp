@@ -10,6 +10,24 @@ class PaletteWidgetTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void fitWidth()
+    {
+        PaletteWidget grid;
+        grid.resize(268, 200);
+        QCOMPARE(grid.columns(), 16);
+        grid.setFitWidth(true);
+        QCOMPARE(grid.columns(), 22);
+        QCOMPARE(grid.cellRect(0).left(), 1);
+        QCOMPARE(grid.cellRect(22).left(), 1);
+        QCOMPARE(grid.cellRect(22).top() - grid.cellRect(0).top(), 12);
+        QCOMPARE(grid.slotAt(grid.cellRect(255).center()), 255);
+        QCOMPARE(grid.slotAt(grid.cellRect(255).center() + QPoint(12, 0)), -1);
+        grid.resize(594, 200);
+        QCOMPARE(grid.columns(), 49);
+        grid.resize(193, 200);
+        QCOMPARE(grid.columns(), 16);
+    }
+
     void layoutAndGestures()
     {
         PaletteWidget grid;

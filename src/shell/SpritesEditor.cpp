@@ -1,6 +1,7 @@
 #include "shell/SpritesEditor.h"
 
 #include "core/app/AppContext.h"
+#include "core/app/Messages.h"
 #include "core/editors/Organize.h"
 #include "core/engine/Engine.h"
 #include "core/project/Project.h"
@@ -11,11 +12,14 @@
 #include "core/sprites/SpriteImages.h"
 #include "core/sprites/SpriteTransfer.h"
 #include "core/widgets/GraphicsView.h"
+#include "formats/image/ImageOps.h"
 #include "shell/FileDialogs.h"
 #include "shell/ImageEditor.h"
 #include "shell/OrganizerBinding.h"
 #include "shell/PalettesPanel.h"
+#include "shell/SaveChecks.h"
 #include "shell/SpritePage.h"
+#include "shell/dialogs/PaletteDialogs.h"
 #include "shell/dialogs/SpriteDialogs.h"
 
 #include <QApplication>
@@ -324,10 +328,13 @@ void SpritesEditor::refresh()
             m_group->setValue(entry.group());
         if (m_number)
             m_number->setValue(entry.number());
+        // Options > Graphics > Invert sprite axis: the spins show the image's offset from the axis (the negated axis).
+        // The axis itself and the drawing do not change.
+        const int sign = axisSign();
         if (m_axisX)
-            m_axisX->setValue(entry.header.axisX);
+            m_axisX->setValue(sign * entry.header.axisX);
         if (m_axisY)
-            m_axisY->setValue(entry.header.axisY);
+            m_axisY->setValue(sign * entry.header.axisY);
         if (m_decompress) {
             m_decompress->setEnabled(doc->version() != Formats::SffVersion::V1);
             m_decompress->setChecked(SpriteEdits::decompressesOnLoad(*doc, current));
@@ -382,8 +389,14 @@ void SpritesEditor::applyAxis()
     if (index < 0 || index >= m_page->file()->document().spriteCount())
         return;
     SpriteDocument doc = m_page->file()->document();
-    SpriteEdits::setAxis(doc, index, m_axisX->value(), m_axisY->value());
+    const int sign = axisSign();
+    SpriteEdits::setAxis(doc, index, sign * m_axisX->value(), sign * m_axisY->value());
     m_page->file()->applyAxisChange(index, doc);
+}
+
+int SpritesEditor::axisSign() const
+{
+    return m_context.config().boolValue(QStringLiteral("reverse_spr_axis"), false) ? -1 : 1;
 }
 
 void SpritesEditor::updateOnion()
@@ -578,12 +591,22 @@ std::function<AddSpritesOptions::Conflict(int, int)> SpritesEditor::conflictProm
     };
 }
 
+bool SpritesEditor::shareImageChanges(int index, QWidget* parent)
+{
+    if (!m_page || m_page->file()->document().linkedSprites(index).size() < 2)
+        return false;
+    return askQuestion(parent, m_context.config(), QStringLiteral("showmsg_share_spr"), tr("Sprite changes"),
+                       tr("Do you want to use this image in all other instances of this sprite?"));
+}
+
 bool SpritesEditor::saveAs(SpriteFile* file, QWidget* parent)
 {
     SpriteFormatDialog format(file->document().version(), parent);
     if (format.exec() != QDialog::Accepted)
         return false;
     const Formats::SffVersion version = format.version();
+    if (!confirmSave(file, m_context.config(), parent))
+        return false;
     if (version != Formats::SffVersion::V201 && SpriteEdits::hasTrueColor(file->document())) {
         if (QMessageBox::question(parent, tr("Convert sprites to 8-bit"),
                                   tr("This version doesn't support 24/32-bit sprites. Do you want to convert these "
@@ -759,8 +782,36 @@ bool SpritesEditor::performDialog(const QString& id)
             QMessageBox::warning(parent, tr("Change image..."), error);
             return true;
         }
+        // Questions in order: Crop image (Options > Messages > Crop new sprites), the Palette dialog for an indexed
+        // image, then Sprite changes for a linked sprite.
+        QPoint shift;
+        if (askQuestion(parent, config, QStringLiteral("showmsg_crop_spr"), tr("Crop image"),
+                        tr("Do you want to crop the image?"))) {
+            Formats::Rect bounds;
+            Formats::Image cropped = Formats::cropToContent(image, &bounds);
+            if (!cropped.pixelBuffer().empty()) {
+                image = std::move(cropped);
+                shift = QPoint(-bounds.x, -bounds.y);
+            }
+        }
+        CommitSpriteDialog palette(CommitSpriteDialog::captions(doc), parent);
+        int result = CommitSpriteDialog::Ignored;
+        if (image.isIndexed()) {
+            result = palette.exec();
+            if (result != QDialog::Accepted && result != CommitSpriteDialog::Ignored)
+                return true;
+        }
+        const bool allInstances = shareImageChanges(current, parent);
         SpriteDocument edited = doc;
-        SpriteEdits::setImage(edited, current, std::move(image));
+        const Formats::Palette colors = image.palette();
+        palette.commit(edited, current, std::move(image), colors, result, allInstances);
+        if (!shift.isNull()) {
+            for (int i : allInstances ? edited.linkedSprites(current) : QList<int>{current}) {
+                Formats::SffSprite& header = edited.sprites()[i].header;
+                header.axisX = std::int16_t(header.axisX + shift.x());
+                header.axisY = std::int16_t(header.axisY + shift.y());
+            }
+        }
         file->apply(tr("Change image"), edited);
     } else if (id == QLatin1String("spr_saveimgas")) {
         const QString path = FileDialogs::getSaveFileName(parent, tr("Save image..."), imageFolder,

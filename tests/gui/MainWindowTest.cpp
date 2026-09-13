@@ -11,7 +11,9 @@
 #include "core/project/ZipArchive.h"
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
+#include "core/sounds/SoundDocument.h"
 #include "core/sounds/SoundFile.h"
+#include "core/sprites/PaletteEdits.h"
 #include "core/sprites/SpriteDocument.h"
 #include "core/sprites/SpriteFile.h"
 #include "core/widgets/EPanelWidget.h"
@@ -3154,6 +3156,267 @@ private Q_SLOTS:
                 groupItem = a;
         }
         QVERIFY(groupItem && groupItem->isCheckable() && groupItem->isChecked());
+    }
+
+    void changeImageQuestions()
+    {
+        QTemporaryDir dir;
+        SpriteDocument doc;
+        doc.palettes() << SpriteDocument::makePalette(1, 1, Formats::grayscalePalette(256));
+        const SpritePixelsPtr shared =
+            SpriteDocument::makePixels(Formats::Image::indexed(2, 2, std::vector<std::uint8_t>(4, 3)));
+        for (int n = 0; n < 3; ++n) {
+            SpriteEntry entry;
+            entry.header.number = std::uint16_t(n);
+            entry.header.axisX = 10;
+            entry.header.axisY = 20;
+            entry.pixels =
+                n < 2 ? shared
+                      : SpriteDocument::makePixels(Formats::Image::indexed(1, 1, std::vector<std::uint8_t>(1, 5)));
+            entry.palette = doc.palettes()[0];
+            doc.sprites() << entry;
+        }
+        const auto bytes = doc.toSff().write();
+        QVERIFY(bytes.ok());
+        writeFile(dir.filePath("c.sff"),
+                  QByteArray(reinterpret_cast<const char*>(bytes.value().data()), qsizetype(bytes.value().size())));
+        writeFile(dir.filePath("c.def"), "[Info]\nname = \"C\"\nmugenversion = 1.0\n"
+                                         "[Files]\ncns = c.cns\nsprite = c.sff\n");
+        writeFile(dir.filePath("c.cns"), "[Data]\nlife = 1000\n");
+        // A 4x4 image with a transparent border of one pixel.
+        std::vector<std::uint8_t> pixels(16, 0);
+        for (int i : {5, 6, 9, 10})
+            pixels[std::size_t(i)] = 7;
+        Formats::Image image = Formats::Image::indexed(4, 4, pixels);
+        image.setPalette(Formats::grayscalePalette(256));
+        const auto png = Formats::encodePng(image);
+        QVERIFY(png.ok());
+        writeFile(dir.filePath("new.png"),
+                  QByteArray(reinterpret_cast<const char*>(png.value().data()), qsizetype(png.value().size())));
+
+        Config& config = m_context->config();
+        config.setValue("showmsg_crop_spr", "0");
+        config.setValue("showmsg_share_spr", "0");
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("c.def")));
+        ActionRegistry& actions = m_context->actions();
+        actions.action("editor_spr")->trigger();
+        auto* page = window.currentProjectView()->findChild<SpritePage*>();
+        QVERIFY(page);
+        SpriteFile* file = page->file();
+        page->setCurrent(0);
+        const SpritePixelsPtr linked = file->document().sprites()[0].pixels;
+        QCOMPARE(file->document().sprites()[1].pixels, linked);
+        FileDialogs::setOpenPromptOverride(
+            [&dir](const QString&, const QString&, const QString&) { return dir.filePath("new.png"); });
+
+        // Answers the dialogs in turn, one button each. The Palette dialog is just confirmed.
+        QStringList asked;
+        auto answer = [&asked](QList<QMessageBox::StandardButton> buttons) {
+            auto* timer = new QTimer(qApp);
+            timer->setInterval(5);
+            QObject::connect(timer, &QTimer::timeout, qApp, [timer, buttons, &asked]() mutable {
+                QWidget* modal = QApplication::activeModalWidget();
+                if (!modal || !modal->isVisible())
+                    return;
+                if (auto* box = qobject_cast<QMessageBox*>(modal)) {
+                    asked << box->windowTitle() + "|" + box->text();
+                    box->button(buttons.takeFirst())->click();
+                } else if (modal->objectName() == QLatin1String("PalDlg")) {
+                    asked << QStringLiteral("Palette");
+                    buttons.takeFirst();
+                    modal->findChild<QPushButton*>("okBut")->click();
+                }
+                if (buttons.isEmpty()) {
+                    timer->stop();
+                    timer->deleteLater();
+                }
+            });
+            timer->start();
+        };
+        answer({QMessageBox::Yes, QMessageBox::Ok, QMessageBox::Yes});
+        actions.action("spr_openimg")->trigger();
+        QTRY_COMPARE(asked.size(), 3);
+        QCOMPARE(asked[0], boxTitle("Crop image") + "|Do you want to crop the image?");
+        QCOMPARE(asked[1], QStringLiteral("Palette"));
+        QCOMPARE(asked[2],
+                 boxTitle("Sprite changes") + "|Do you want to use this image in all other instances of this sprite?");
+        const SpriteDocument& changed = file->document();
+        QCOMPARE(changed.image(0).width(), 2);
+        QCOMPARE(changed.sprites()[0].header.axisX, std::int16_t(9));
+        QCOMPARE(changed.sprites()[0].header.axisY, std::int16_t(19));
+        QCOMPARE(changed.sprites()[1].pixels, changed.sprites()[0].pixels);
+        QCOMPARE(changed.sprites()[1].header.axisX, std::int16_t(9));
+        QCOMPARE(changed.image(2).width(), 1);
+        file->undoStack()->undo();
+        QCOMPARE(file->document().sprites()[0].pixels, linked);
+
+        asked.clear();
+        answer({QMessageBox::No, QMessageBox::Ok, QMessageBox::No});
+        actions.action("spr_openimg")->trigger();
+        QTRY_COMPARE(asked.size(), 3);
+        QCOMPARE(file->document().image(0).width(), 4);
+        QCOMPARE(file->document().sprites()[0].header.axisX, std::int16_t(10));
+        QCOMPARE(file->document().sprites()[1].pixels, linked);
+        QVERIFY(file->document().sprites()[0].pixels != linked);
+
+        file->undoStack()->undo();
+        config.setValue("showmsg_crop_spr", "1"); // Always
+        page->setCurrent(2);
+        asked.clear();
+        answer({QMessageBox::Ok});
+        actions.action("spr_openimg")->trigger();
+        QTRY_COMPARE(asked, QStringList{QStringLiteral("Palette")});
+        QCOMPARE(file->document().image(2).width(), 2);
+        FileDialogs::setOpenPromptOverride({});
+        config.setValue("showmsg_crop_spr", "0");
+        config.setValue("showmsg_share_spr", "0");
+        while (file->undoStack()->canUndo())
+            file->undoStack()->undo();
+        QTRY_VERIFY(!QApplication::activeModalWidget());
+    }
+
+    // The Can't save options refuse empty lists and 8-bit sprites without a palette.
+    void saveChecks()
+    {
+        QTemporaryDir dir;
+        SpriteDocument doc;
+        doc.palettes() << SpriteDocument::makePalette(1, 1, Formats::grayscalePalette(256));
+        SpriteEntry entry;
+        entry.pixels = SpriteDocument::makePixels(Formats::Image::indexed(2, 2, std::vector<std::uint8_t>(4, 3)));
+        entry.palette = doc.palettes()[0];
+        doc.sprites() << entry;
+        const auto bytes = doc.toSff().write();
+        QVERIFY(bytes.ok());
+        const QByteArray sff(reinterpret_cast<const char*>(bytes.value().data()), qsizetype(bytes.value().size()));
+        writeFile(dir.filePath("k.sff"), sff);
+        Formats::SndDocument snd;
+        snd.sounds.push_back(Formats::SndSound{
+            0, 0,
+            Formats::encodeAudio(Formats::SampleBuffer::fromInt16(std::vector<std::int16_t>(100, 5), 1, 11025))
+                .value()});
+        const auto sndBytes = snd.write();
+        const QByteArray sndData(reinterpret_cast<const char*>(sndBytes.data()), qsizetype(sndBytes.size()));
+        writeFile(dir.filePath("k.snd"), sndData);
+        writeFile(dir.filePath("k.def"), "[Info]\nname = \"K\"\nmugenversion = 1.0\n"
+                                         "[Files]\ncns = k.cns\nsprite = k.sff\nsound = k.snd\n");
+        writeFile(dir.filePath("k.cns"), "[Data]\nlife = 1000\n");
+        auto readFile = [](const QString& path) {
+            QFile f(path);
+            return f.open(QIODevice::ReadOnly) ? f.readAll() : QByteArray();
+        };
+
+        Config& config = m_context->config();
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("k.def")));
+        ActionRegistry& actions = m_context->actions();
+        actions.action("editor_spr")->trigger();
+        SpriteFile* sprites = window.currentProjectView()->findChild<SpritePage*>()->file();
+        QStringList texts;
+
+        SpriteDocument empty = sprites->document();
+        empty.sprites().clear();
+        sprites->apply("Delete", empty);
+        config.setValue("showmsg_sprs_empty", "true");
+        answerBoxes({QMessageBox::Ok}, &texts);
+        actions.action("spr_save")->trigger();
+        QTRY_COMPARE(texts, QStringList{"You can't save an empty SFF because M.U.G.E.N. will not open it."});
+        QCOMPARE(readFile(dir.filePath("k.sff")), sff);
+        QVERIFY(sprites->isModified());
+        config.setValue("showmsg_sprs_empty", "false");
+        actions.action("spr_save")->trigger();
+        QTRY_VERIFY(!sprites->isModified());
+        QVERIFY(readFile(dir.filePath("k.sff")) != sff);
+        sprites->undoStack()->undo();
+
+        SpriteDocument noPalette = sprites->document();
+        PaletteEdits::clear(noPalette);
+        sprites->apply("Clear", noPalette);
+        config.setValue("showmsg_spr_no_pal", "true");
+        texts.clear();
+        answerBoxes({QMessageBox::Ok}, &texts);
+        actions.action("spr_save")->trigger();
+        QTRY_COMPARE(texts, QStringList{"You can't save this SFF without palettes."});
+        QVERIFY(sprites->isModified());
+        config.setValue("showmsg_spr_no_pal", "false");
+        texts.clear();
+        answerBoxes({QMessageBox::No}, &texts);
+        actions.action("spr_save")->trigger();
+        QTRY_COMPARE(texts.size(), 1);
+        QVERIFY(
+            texts[0].startsWith("Found 1 error(s). Do you want to let Open Factory Studio automatically fix them?"));
+        QVERIFY(sprites->isModified());
+        texts.clear();
+        answerBoxes({QMessageBox::Yes}, &texts);
+        actions.action("spr_save")->trigger();
+        QTRY_VERIFY(!sprites->isModified());
+        QCOMPARE(PaletteEdits::spritesWithoutPalette(sprites->document()).size(), 0);
+        QVERIFY(sprites->document().sprites()[0].palette);
+        config.setValue("showmsg_spr_no_pal", "false");
+
+        actions.action("editor_snd")->trigger();
+        SoundFile* sounds = window.currentProjectView()->findChild<SoundPage*>()->file();
+        SoundDocument silent = sounds->document();
+        silent.sounds()[0].data = std::make_shared<const Formats::Bytes>(
+            Formats::encodeAudio(Formats::SampleBuffer::fromInt16({}, 1, 11025)).value());
+        sounds->apply("Remove selected", silent);
+        actions.action("snd_save")->trigger();
+        QTRY_VERIFY(!sounds->isModified());
+        SoundDocument noSounds = sounds->document();
+        noSounds.sounds().clear();
+        sounds->apply("Delete", noSounds);
+        config.setValue("showmsg_snds_empty", "true");
+        texts.clear();
+        answerBoxes({QMessageBox::Ok}, &texts);
+        actions.action("snd_save")->trigger();
+        QTRY_COMPARE(texts, QStringList{"You can't save an empty SND because M.U.G.E.N. will not open it."});
+        QVERIFY(sounds->isModified());
+        config.setValue("showmsg_snds_empty", "false");
+        actions.action("snd_save")->trigger();
+        QTRY_VERIFY(!sounds->isModified());
+        QTRY_VERIFY(!QApplication::activeModalWidget());
+    }
+
+    void invertedSpriteAxis()
+    {
+        QTemporaryDir dir;
+        SpriteDocument doc;
+        doc.palettes() << SpriteDocument::makePalette(1, 1, Formats::grayscalePalette(256));
+        SpriteEntry entry;
+        entry.header.axisX = 18;
+        entry.header.axisY = 105;
+        entry.pixels = SpriteDocument::makePixels(Formats::Image::indexed(2, 2, std::vector<std::uint8_t>(4, 3)));
+        entry.palette = doc.palettes()[0];
+        doc.sprites() << entry;
+        const auto bytes = doc.toSff().write();
+        writeFile(dir.filePath("a.sff"),
+                  QByteArray(reinterpret_cast<const char*>(bytes.value().data()), qsizetype(bytes.value().size())));
+        writeFile(dir.filePath("a.def"), "[Info]\nname = \"A\"\nmugenversion = 1.0\n"
+                                         "[Files]\ncns = a.cns\nsprite = a.sff\n");
+        writeFile(dir.filePath("a.cns"), "[Data]\nlife = 1000\n");
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("a.def")));
+        m_context->actions().action("editor_spr")->trigger();
+        ProjectView* view = window.currentProjectView();
+        auto* x = view->findChild<QSpinBox*>("spr_xaxis");
+        auto* y = view->findChild<QSpinBox*>("spr_yaxis");
+        QVERIFY(x && y);
+        QCOMPARE(x->value(), 18);
+        m_context->config().setValue("reverse_spr_axis", true);
+        view->reconfigureEditors();
+        QCOMPARE(x->value(), -18);
+        QCOMPARE(y->value(), -105);
+        x->setValue(-20);
+        SpriteFile* file = view->findChild<SpritePage*>()->file();
+        QCOMPARE(file->document().sprites()[0].header.axisX, std::int16_t(20));
+        m_context->config().setValue("reverse_spr_axis", false);
+        view->reconfigureEditors();
+        QCOMPARE(x->value(), 20);
+        file->undoStack()->undo();
+        QCOMPARE(x->value(), 18);
     }
 
     void spritesSaveAs()

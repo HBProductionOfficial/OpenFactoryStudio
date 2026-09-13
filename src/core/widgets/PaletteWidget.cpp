@@ -52,16 +52,31 @@ void PaletteWidget::setSelection(QList<int> slots)
     Q_EMIT selectionChanged();
 }
 
+void PaletteWidget::setFitWidth(bool fit)
+{
+    if (m_fitWidth == fit)
+        return;
+    m_fitWidth = fit;
+    update();
+}
+
+int PaletteWidget::columns() const
+{
+    return m_fitWidth ? std::max(kColumns, (width() - 1) / kPitch) : kColumns;
+}
+
 QPoint PaletteWidget::gridOrigin() const
 {
+    if (m_fitWidth)
+        return QPoint(0, 0);
     return QPoint(std::max(0, (width() - kColumns * kPitch - 1) / 2), 0);
 }
 
 QRect PaletteWidget::cellRect(int slot) const
 {
     const QPoint origin = gridOrigin();
-    return QRect(origin.x() + (slot % kColumns) * kPitch + 1, origin.y() + (slot / kColumns) * kPitch + 1, kPitch - 1,
-                 kPitch - 1);
+    const int n = columns();
+    return QRect(origin.x() + (slot % n) * kPitch + 1, origin.y() + (slot / n) * kPitch + 1, kPitch - 1, kPitch - 1);
 }
 
 int PaletteWidget::slotAt(const QPoint& pos) const
@@ -69,9 +84,10 @@ int PaletteWidget::slotAt(const QPoint& pos) const
     const QPoint p = pos - gridOrigin();
     if (p.x() < 0 || p.y() < 0)
         return -1;
+    const int n = columns();
     const int column = p.x() / kPitch;
-    const int slot = (p.y() / kPitch) * kColumns + column;
-    return column < kColumns && slot < slotCount() ? slot : -1;
+    const int slot = (p.y() / kPitch) * n + column;
+    return column < n && slot < slotCount() ? slot : -1;
 }
 
 QSize PaletteWidget::sizeHint() const
@@ -88,9 +104,14 @@ void PaletteWidget::paintEvent(QPaintEvent*)
 {
     QPainter painter(this);
     const int count = slotCount();
-    const int rows = (count + kColumns - 1) / kColumns;
+    const int n = columns();
+    const int rows = (count + n - 1) / n;
     const QPoint origin = gridOrigin();
-    painter.fillRect(QRect(origin, QSize(kColumns * kPitch + 1, rows * kPitch + 1)), Qt::white);
+    const int fullRows = count / n;
+    painter.fillRect(QRect(origin, QSize(n * kPitch + 1, fullRows * kPitch + 1)), Qt::white);
+    if (rows > fullRows)
+        painter.fillRect(QRect(origin.x(), origin.y() + fullRows * kPitch, (count % n) * kPitch + 1, kPitch + 1),
+                         Qt::white);
     const QColor gray(160, 160, 164);
     for (int slot = 0; slot < count; ++slot) {
         const QRect cell = cellRect(slot);
