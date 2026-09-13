@@ -10,6 +10,7 @@
 #include "core/sprites/SpriteFile.h"
 #include "core/syntax/SyntaxDatabase.h"
 #include "engines/mugen/AirEdits.h"
+#include "engines/mugen/DefFile.h"
 #include "engines/mugen/MugenActions.h"
 #include "engines/mugen/MugenControls.h"
 #include "engines/mugen/MugenHtmlExport.h"
@@ -248,7 +249,7 @@ const CompletionModels* MugenEngine::completion() const
 
 QList<OutlineNode> MugenEngine::outline(const Project& project, const QString& editorId, const QString& text) const
 {
-    return mugenOutline(text, syntax(), syntaxFileType(project, editorId));
+    return mugenOutline(text, syntax(), syntaxFileTypeForText(project, editorId, text));
 }
 
 VariableUsage MugenEngine::variableUsage(const Project& project, const QString& editorId, const QString& text) const
@@ -424,6 +425,18 @@ QString MugenEngine::syntaxFileType(const Project& project, const QString& edito
     return {};
 }
 
+QString MugenEngine::syntaxFileTypeForText(const Project& project, const QString& editorId, const QString& text) const
+{
+    const QString type = syntaxFileType(project, editorId);
+    if (editorId != QLatin1String("definitions") || text.isEmpty())
+        return type;
+    // A motif's select, fight or storyboard file tells what it is by its sections.
+    DefFile def;
+    def.parse(text);
+    const QString detected = MugenProject::detectType(def);
+    return detected == QLatin1String("char") ? type : detected;
+}
+
 IssueList MugenEngine::validate(const Project& project, const QString& editorId, const QString& text) const
 {
     if (editorId == QLatin1String("animations")) {
@@ -450,7 +463,7 @@ IssueList MugenEngine::validate(const Project& project, const QString& editorId,
         }
         return issues;
     }
-    const QString fileType = syntaxFileType(project, editorId);
+    const QString fileType = syntaxFileTypeForText(project, editorId, text);
     const SyntaxDatabase* db = syntax();
     if (fileType.isEmpty() || !db || db->isEmpty())
         return {};

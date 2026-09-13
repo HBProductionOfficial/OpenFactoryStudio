@@ -101,6 +101,12 @@ IssueList Engine::validate(const Project&, const QString&, const QString&) const
     return {};
 }
 
+QString Engine::syntaxFileTypeForText(const Project& project, const QString& editorId, const QString& text) const
+{
+    Q_UNUSED(text);
+    return syntaxFileType(project, editorId);
+}
+
 QImage Engine::portrait(Project& project) const
 {
     Q_UNUSED(project);

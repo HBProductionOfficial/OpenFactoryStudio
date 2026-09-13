@@ -129,6 +129,13 @@ private Q_SLOTS:
         QCOMPARE(project->editorFiles("definitions"),
                  (QStringList{base + "/data/mine/system.def", base + "/data/select.def"}));
         QCOMPARE(project->editorFiles("backgrounds"), QStringList{base + "/data/mine/system.def"});
+
+        const QString select = "[Characters]\nkfm\n[ExtraStages]\n[Options]\narcade.maxmatches = 6,1,1\n";
+        QCOMPARE(engine.syntaxFileTypeForText(*project, "definitions", select), QStringLiteral("select"));
+        QCOMPARE(engine.syntaxFileTypeForText(*project, "definitions", "[Info]\nname = \"Mine\"\n"),
+                 QStringLiteral("motif"));
+        for (const Issue& issue : engine.validate(*project, "definitions", select))
+            QVERIFY2(issue.severity != Issue::Severity::Error, qPrintable(issue.message));
     }
 
     void characterFiles()

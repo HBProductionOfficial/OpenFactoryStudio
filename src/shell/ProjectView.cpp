@@ -498,10 +498,11 @@ void ProjectView::configureCodeEditor(CodeEditor* editor, const QString& editorI
          {CodeEditor::BreakpointMark::Disabled, icons.icon(QStringLiteral("breakpoint_disabled"))},
          {CodeEditor::BreakpointMark::Ignored, icons.icon(QStringLiteral("breakpoint_ignored"))}},
         icons.icon(QStringLiteral("debug_curr_line")));
-    editor->setSyntax(engine()->syntax(), engine()->syntaxFileType(*m_project, editorId));
+    const QString fileType = engine()->syntaxFileTypeForText(*m_project, editorId, editor->toPlainText());
+    editor->setSyntax(engine()->syntax(), fileType);
     editor->setColorSet(m_context.theme().colorSet());
-    editor->setCompletionProvider(std::make_unique<SyntaxCompletionProvider>(
-        engine()->syntax(), engine()->syntaxFileType(*m_project, editorId), engine()->completion()));
+    editor->setCompletionProvider(
+        std::make_unique<SyntaxCompletionProvider>(engine()->syntax(), fileType, engine()->completion()));
 }
 
 void ProjectView::refreshSnippets()

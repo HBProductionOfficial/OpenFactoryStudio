@@ -131,6 +131,9 @@ public:
 
     virtual const SyntaxDatabase* syntax() const { return nullptr; }
     virtual QString syntaxFileType(const Project& project, const QString& editorId) const;
+    // File type of one file from its text, because one editor can hold several kinds (a motif's
+    // definitions editor also shows its select and fight files). Defaults to syntaxFileType().
+    virtual QString syntaxFileTypeForText(const Project& project, const QString& editorId, const QString& text) const;
 
     virtual IssueList validate(const Project& project, const QString& editorId, const QString& text) const;
 

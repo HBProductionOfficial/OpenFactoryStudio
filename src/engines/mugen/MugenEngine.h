@@ -57,6 +57,7 @@ protected:
 
 public:
     QString syntaxFileType(const Project& project, const QString& editorId) const override;
+    QString syntaxFileTypeForText(const Project& project, const QString& editorId, const QString& text) const override;
     IssueList validate(const Project& project, const QString& editorId, const QString& text) const override;
 
 private:
