@@ -159,6 +159,10 @@ ofs_add_test(NAME core_formatter
     SOURCES core/FormatterTest.cpp
     LIBS OFS::core)
 
+ofs_add_test(NAME core_file_writer
+    SOURCES core/FileWriterTest.cpp
+    LIBS OFS::core)
+
 ofs_add_test(NAME core_archives
     SOURCES core/ArchivesTest.cpp
     LIBS OFS::core)

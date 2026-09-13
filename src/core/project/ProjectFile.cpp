@@ -1,12 +1,12 @@
 #include "core/project/ProjectFile.h"
 
+#include "core/project/FileWriter.h"
 #include "core/text/Encodings.h"
 
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QPlainTextDocumentLayout>
-#include <QSaveFile>
 #include <QStringConverter>
 #include <QTextDocument>
 
@@ -315,13 +315,8 @@ bool CodeFile::writeCopy(const QString& target, QString* error) const
             text.replace(QLatin1Char('\n'), m_lineEnding);
         bytes = m_bom + encode(text, m_encoding);
     }
-    QDir().mkpath(QFileInfo(target).absolutePath());
-    QSaveFile file(target);
-    if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit()) {
-        if (error)
-            *error = file.errorString();
+    if (!writeFileSafely(target, bytes, error))
         return false;
-    }
     return true;
 }
 
@@ -343,13 +338,8 @@ bool CodeFile::saveAs(const QString& target, QString* error)
             text.replace(QLatin1Char('\n'), m_lineEnding);
         bytes = m_bom + encode(text, m_encoding);
     }
-    QDir().mkpath(QFileInfo(target).absolutePath());
-    QSaveFile file(target);
-    if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit()) {
-        if (error)
-            *error = file.errorString();
+    if (!writeFileSafely(target, bytes, error))
         return false;
-    }
     m_original = bytes;
     setPath(QDir::fromNativeSeparators(target));
     m_document->setModified(false);

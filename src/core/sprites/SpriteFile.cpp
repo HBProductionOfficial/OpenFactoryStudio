@@ -2,12 +2,12 @@
 
 #include "core/app/AppContext.h"
 #include "core/app/TaskList.h"
+#include "core/project/FileWriter.h"
 
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QFutureWatcher>
-#include <QSaveFile>
 #include <QUndoCommand>
 #include <QUndoStack>
 #include <QtConcurrent/QtConcurrentRun>
@@ -144,12 +144,8 @@ void SpriteFile::saveAsync(std::function<void(bool ok, const QString& error)> do
             result.bytes =
                 QByteArray(reinterpret_cast<const char*>(bytes.value().data()), qsizetype(bytes.value().size()));
         }
-        QDir().mkpath(QFileInfo(target).absolutePath());
-        QSaveFile out(target);
-        if (!out.open(QIODevice::WriteOnly) || out.write(result.bytes) != result.bytes.size() || !out.commit()) {
-            result.error = out.errorString();
+        if (!writeFileSafely(target, result.bytes, &result.error))
             return result;
-        }
         result.ok = true;
         return result;
     }));
@@ -198,13 +194,8 @@ bool SpriteFile::saveAs(const QString& target, Formats::SffVersion version, QStr
     const QByteArray bytes = bytesToWrite(version, error);
     if (bytes.isEmpty())
         return false;
-    QDir().mkpath(QFileInfo(target).absolutePath());
-    QSaveFile file(target);
-    if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit()) {
-        if (error)
-            *error = file.errorString();
+    if (!writeFileSafely(target, bytes, error))
         return false;
-    }
     m_original = bytes;
     if (version != m_document.version()) {
         // The document is now what was written (the conversion cannot be undone).

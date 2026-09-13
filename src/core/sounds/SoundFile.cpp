@@ -2,12 +2,12 @@
 
 #include "core/app/AppContext.h"
 #include "core/app/TaskList.h"
+#include "core/project/FileWriter.h"
 
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QFutureWatcher>
-#include <QSaveFile>
 #include <QUndoCommand>
 #include <QUndoStack>
 #include <QtConcurrent/QtConcurrentRun>
@@ -121,12 +121,8 @@ void SoundFile::saveAsync(std::function<void(bool ok, const QString& error)> don
             const Formats::Bytes bytes = snapshot.toSnd().write();
             result.bytes = QByteArray(reinterpret_cast<const char*>(bytes.data()), qsizetype(bytes.size()));
         }
-        QDir().mkpath(QFileInfo(target).absolutePath());
-        QSaveFile out(target);
-        if (!out.open(QIODevice::WriteOnly) || out.write(result.bytes) != result.bytes.size() || !out.commit()) {
-            result.error = out.errorString();
+        if (!writeFileSafely(target, result.bytes, &result.error))
             return result;
-        }
         result.ok = true;
         return result;
     }));
@@ -152,13 +148,8 @@ QByteArray SoundFile::bytesToWrite() const
 bool SoundFile::saveAs(const QString& target, QString* error)
 {
     const QByteArray bytes = bytesToWrite();
-    QDir().mkpath(QFileInfo(target).absolutePath());
-    QSaveFile file(target);
-    if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size() || !file.commit()) {
-        if (error)
-            *error = file.errorString();
+    if (!writeFileSafely(target, bytes, error))
         return false;
-    }
     m_original = bytes;
     setPath(QDir::fromNativeSeparators(target));
     m_undo->setClean();
