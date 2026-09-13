@@ -336,7 +336,8 @@ private Q_SLOTS:
         ProjectView* view = window.currentProjectView();
         QVERIFY(view);
         QCOMPARE(view->editorIds(),
-                 (QStringList{"definitions", "sprites", "animations", "commands", "states", "sounds", "emulator"}));
+                 (QStringList{"definitions", "sprites", "animations", "commands", "states", "emulator"}));
+        // fighter.snd does not exist, so there is no Sounds editor.
         auto* left = view->findChild<EPanelWidget*>("leftPanel");
         auto* right = view->findChild<EPanelWidget*>("rightPanel");
         QCOMPARE(left->title(), QStringLiteral("Definitions"));
@@ -3159,6 +3160,66 @@ private Q_SLOTS:
         QVERIFY(groupItem && groupItem->isCheckable() && groupItem->isChecked());
     }
 
+    void closeFileTabs()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("t.def"), "[Info]\nname = \"T\"\nmugenversion = 1.0\n"
+                                         "[Files]\ncmd = t.cmd\ncns = t.cns\nst = t.cns\n");
+        writeFile(dir.filePath("t.cmd"), "[Command]\nname = \"x\"\ncommand = x\n");
+        writeFile(dir.filePath("t.cns"), "[Data]\nlife = 1000\n");
+        auto readFile = [](const QString& path) {
+            QFile f(path);
+            return f.open(QIODevice::ReadOnly) ? f.readAll() : QByteArray();
+        };
+        Config& config = m_context->config();
+        config.setValue("can_close_editor", true);
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("t.def")));
+        ProjectView* view = window.currentProjectView();
+        view->setCurrentEditor("commands");
+        auto* tabs = view->findChild<QTabWidget*>("fileTabs_commands");
+        QVERIFY(tabs);
+        QVERIFY(!tabs->tabBarAutoHide());
+        CodeEditor* editor = view->currentCodeEditor();
+        editor->insertPlainText("; edited\n");
+        auto* projectTabs = window.findChild<QTabBar*>();
+        QVERIFY(projectTabs);
+        QCOMPARE(projectTabs->tabText(projectTabs->currentIndex()), QStringLiteral("T"));
+        QVERIFY(tabs->tabText(0).endsWith('*'));
+
+        QStringList texts;
+        answerBoxes({QMessageBox::Cancel}, &texts);
+        QVERIFY(!view->closeFileTab("commands", tabs, 0));
+        QCOMPARE(texts.size(), 1);
+        QVERIFY(texts[0].contains("t.cmd"));
+        QCOMPARE(tabs->count(), 1);
+        answerBoxes({QMessageBox::Save}, nullptr);
+        QVERIFY(view->closeFileTab("commands", tabs, 0));
+        QVERIFY(readFile(dir.filePath("t.cmd")).startsWith("; edited"));
+        QCOMPARE(tabs->count(), 0);
+        QVERIFY(!view->editorIds().contains("commands"));
+        QVERIFY(!m_context->actions().action("editor_cmd")->isVisible());
+        QCOMPARE(view->currentEditor(), QStringLiteral("definitions"));
+
+        view->setCurrentEditor("states");
+        auto* states = view->findChild<QTabWidget*>("fileTabs_states");
+        view->currentCodeEditor()->insertPlainText("; dropped\n");
+        ProjectFile* cns = view->project()->file(dir.filePath("t.cns"));
+        QVERIFY(cns && cns->isModified());
+        answerBoxes({QMessageBox::Discard}, nullptr);
+        QVERIFY(view->closeFileTab("states", states, 0));
+        QVERIFY(!cns->isModified());
+        QCOMPARE(readFile(dir.filePath("t.cns")), QByteArray("[Data]\nlife = 1000\n"));
+
+        config.setValue("can_close_editor", false);
+        view->reconfigureEditors();
+        QVERIFY(view->findChild<QTabWidget*>("fileTabs_definitions")->tabBarAutoHide());
+        config.setValue("can_close_editor", true);
+        view->reconfigureEditors();
+    }
+
+    // The quick find bar and the bottom dock move between projects and must survive closing the last one.
     void reopenAfterClosingLast()
     {
         MainWindow window(*m_context);

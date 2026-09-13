@@ -29,9 +29,19 @@ bool MugenProject::load(QString* error)
         return false;
     }
     setTypeId(detectType(def));
-    setEditorIds(editorsForType(typeId()));
     readInfo(def);
     collectFiles(def);
+    // Same as Fighter Factory: editors whose files are all missing are hidden, but never Definitions,
+    // Sprites or the Emulator.
+    QStringList editors;
+    for (const QString& id : editorsForType(typeId())) {
+        const QStringList files = editorFiles(id);
+        const bool always =
+            id == QLatin1String("definitions") || id == QLatin1String("sprites") || id == QLatin1String("emulator");
+        if (always || std::any_of(files.cbegin(), files.cend(), [](const QString& f) { return QFileInfo::exists(f); }))
+            editors << id;
+    }
+    setEditorIds(editors);
     return true;
 }
 

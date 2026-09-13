@@ -9,6 +9,7 @@
 #include <QFutureWatcher>
 #include <QHash>
 #include <QPointer>
+#include <QSet>
 #include <QWidget>
 
 class EPanelWidget;
@@ -109,16 +110,22 @@ public:
     void refreshBreakpointMarks(CodePage* page);
     void showFrameSprite();
     void reconfigureEditors();
+    // A modified file asks Save / Discard / Cancel, and the last file closes the editor. Returns whether the tab
+    // closed.
+    bool closeFileTab(const QString& editorId, QTabWidget* tabs, int index);
 
 Q_SIGNALS:
     void currentEditorChanged(const QString& editorId);
     void currentFileChanged();
     void modifiedChanged();
+    void editorsChanged();
+    void saveAsRequested(ProjectFile* file);
     void issuesChanged();
     void debugStateChanged();
     void debugVariablesChanged();
 
 private:
+    QSet<QString> m_closedEditors;
     void createEditor(const EditorInfo& info);
     QWidget* createFilePage(const EditorInfo& info, const QString& filePath);
     void addFileTab(const EditorInfo& info, const QString& filePath);

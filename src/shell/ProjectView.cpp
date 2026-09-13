@@ -44,6 +44,7 @@
 #include <QFutureWatcher>
 #include <QHBoxLayout>
 #include <QMenu>
+#include <QMessageBox>
 #include <QPointer>
 #include <QScrollArea>
 #include <QScrollBar>
@@ -206,7 +207,9 @@ Engine* ProjectView::engine() const
 
 QStringList ProjectView::editorIds() const
 {
-    return m_project->editorIds();
+    QStringList ids = m_project->editorIds();
+    ids.removeIf([this](const QString& id) { return m_closedEditors.contains(id); });
+    return ids;
 }
 
 EditorInfo ProjectView::currentEditorInfo() const
@@ -229,6 +232,10 @@ void ProjectView::createEditor(const EditorInfo& info)
     tabs->setDocumentMode(true);
     tabs->setTabsClosable(true);
     tabs->setMovable(true);
+    // A single file shows no tab bar unless the last file may be closed (can_close_editor).
+    tabs->setTabBarAutoHide(!m_context.config().boolValue(QStringLiteral("can_close_editor"), true));
+    connect(tabs, &QTabWidget::tabCloseRequested, this,
+            [this, tabs, id = info.id](int index) { closeFileTab(id, tabs, index); });
     for (const QString& file : m_project->editorFiles(info.id)) {
         if (file.isEmpty())
             continue;
@@ -512,8 +519,63 @@ void ProjectView::refreshSnippets()
         page->setSnippets(names);
 }
 
+bool ProjectView::closeFileTab(const QString& editorId, QTabWidget* tabs, int index)
+{
+    QWidget* page = tabs->widget(index);
+    if (!page)
+        return false;
+    const QString path = page->property("filePath").toString();
+    // The Backgrounds editor's groups are parts of the definitions file, which stays open.
+    ProjectFile* file = editorId == QLatin1String("backgrounds") ? nullptr : m_project->file(path);
+    if (file && file->isModified()) {
+        const QString name = file->isUntitled() ? tabs->tabText(index).remove(QLatin1Char('*')) : file->fileName();
+        QMessageBox box(QMessageBox::Question, tr("Close file"),
+                        tr("The file '%1' has been modified. Do you want to save the changes?").arg(name),
+                        QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel, window());
+        box.setDefaultButton(QMessageBox::Save);
+        switch (box.exec()) {
+        case QMessageBox::Save: {
+            if (file->isUntitled()) {
+                Q_EMIT saveAsRequested(file);
+                if (file->isModified())
+                    return false;
+                break;
+            }
+            QString error;
+            if (!file->save(&error)) {
+                QMessageBox::warning(window(), tr("Close file"), error);
+                return false;
+            }
+            break;
+        }
+        case QMessageBox::Discard:
+            if (!file->isUntitled() && QFileInfo::exists(file->path())) {
+                QString error;
+                file->load(&error);
+            }
+            break;
+        default:
+            return false;
+        }
+    }
+    tabs->removeTab(index);
+    page->deleteLater();
+    if (tabs->count() == 0) {
+        m_closedEditors.insert(editorId);
+        const QStringList open = editorIds();
+        if (!open.isEmpty())
+            setCurrentEditor(open.first());
+        Q_EMIT editorsChanged();
+    }
+    Q_EMIT currentFileChanged();
+    return true;
+}
+
 void ProjectView::reconfigureEditors()
 {
+    const bool closable = m_context.config().boolValue(QStringLiteral("can_close_editor"), true);
+    for (QTabWidget* tabs : std::as_const(m_fileTabs))
+        tabs->setTabBarAutoHide(!closable);
     for (auto it = m_fileTabs.cbegin(); it != m_fileTabs.cend(); ++it) {
         for (int i = 0; i < it.value()->count(); ++i) {
             if (auto* sprites = qobject_cast<SpritePage*>(it.value()->widget(i)))

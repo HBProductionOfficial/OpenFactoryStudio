@@ -1668,9 +1668,8 @@ void MainWindow::updateProjectTab(ProjectView* view)
 {
     for (int i = 0; i < m_projectTabs->count(); ++i) {
         if (m_projectTabs->tabData(i).value<QObject*>() == view) {
-            const QString marker = view->project()->isModified() ? QStringLiteral("*") : QString();
-            if (m_projectTabs->tabText(i) != view->project()->name() + marker) {
-                m_projectTabs->setTabText(i, view->project()->name() + marker);
+            if (m_projectTabs->tabText(i) != view->project()->name()) {
+                m_projectTabs->setTabText(i, view->project()->name());
                 updateTaskbarTabs();
             }
             break;
@@ -2281,6 +2280,8 @@ void MainWindow::addProjectView(Project* project, const QString& editorId)
             refreshStatusBar();
     });
     connect(view, &ProjectView::modifiedChanged, this, [this, view] { updateProjectTab(view); });
+    connect(view, &ProjectView::editorsChanged, this, [this] { refreshForCurrent(); });
+    connect(view, &ProjectView::saveAsRequested, this, [this](ProjectFile* file) { saveFileAs(file); });
     connect(view, &ProjectView::debugStateChanged, this, [this, view] {
         if (view != currentProjectView())
             return;
