@@ -410,8 +410,9 @@
         </block>
         <block type="State>HitFallVel"/>
         <block type="State>HitOverride">
-            <param name="attr" type="hitattr" required="true"/>
-            <param name="stateno" type="expi" required="true"/>
+            <!-- An empty attr with time = 0 cancels the slot, and then no state is needed. -->
+            <param name="attr" type="hitattr" required="true" nil="true"/>
+            <param name="stateno" type="expi"/>
             <param name="slot" type="expi"/>
             <param name="time" type="expi"/>
             <param name="forceair" type="expb"/>
@@ -487,6 +488,9 @@
         </block>
         <block type="State>PosFreeze">
             <param name="value" type="expb"/>
+            <!-- Not documented, but Kung Fu Man 1.0 sets them and the engine accepts them. -->
+            <param name="x" type="expb"/>
+            <param name="y" type="expb"/>
         </block>
         <block type="State>PosSet:PosAdd"/>
         <block type="State>PowerAdd">
@@ -543,13 +547,16 @@
             <param name="ID" type="expi"/>
         </block>
         <block type="State>ReversalDef">
-            <param name="reversal.attr" type="hitattr" required="true"/>
+            <!-- An empty value reverses nothing. Kung Fu Man 1.0 stops its ReversalDef this way. -->
+            <param name="reversal.attr" type="hitattr" required="true" nil="true"/>
             <param name="pausetime" type="exp2i" optional="req,def"/>
             <param name="sparkno" type="expi" char="SF"/>
             <param name="sparkxy" type="exp2i" optional="req,def"/>
             <param name="hitsound" type="exp2i" optional="req,def" char="SF"/>
             <param name="p1stateno" type="expi" nil="true"/>
             <param name="p2stateno" type="expi" nil="true"/>
+            <param name="p1sprpriority" type="expi"/>
+            <param name="p2sprpriority" type="expi"/>
         </block>
         <block type="State>ScreenBound">
             <param name="value" type="expb"/>

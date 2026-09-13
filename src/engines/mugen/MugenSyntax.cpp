@@ -113,7 +113,8 @@ void MugenExpressionChecker::checkHitAttr(const QString& text, int offset, int l
 {
     const auto parts = ExpressionParser::splitTopLevel(text, offset);
     const QString states = parts.value(0).first.trimmed();
-    if (states.isEmpty()) {
+    // No state letters is fine when attack classes follow (", NA, NP" in Kung Fu Man 1.0).
+    if (states.isEmpty() && parts.size() < 2) {
         addIssue(issues, line, offset, int(text.size()), MugenSyntaxTexts::tr("Unknown hit attribute/flag"));
         return;
     }

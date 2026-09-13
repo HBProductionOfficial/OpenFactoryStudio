@@ -5,6 +5,7 @@
 #include "core/project/ProjectFile.h"
 #include "core/sounds/SoundFile.h"
 #include "core/sprites/SpriteFile.h"
+#include "core/syntax/Issue.h"
 
 #include <QDir>
 #include <QFile>
@@ -136,6 +137,36 @@ private Q_SLOTS:
                  QStringLiteral("motif"));
         for (const Issue& issue : engine.validate(*project, "definitions", select))
             QVERIFY2(issue.severity != Issue::Severity::Error, qPrintable(issue.message));
+    }
+
+    void kungFuMan10Lines()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("k.def"),
+                  "[Info]\nname = \"K\"\nmugenversion = 1.0\n[Files]\ncns = k.cns\nst = k.cns\n");
+        writeFile(dir.filePath("k.cns"), "[Data]\nlife = 1000\n");
+        MugenEngine engine;
+        QString error;
+        std::unique_ptr<Project> project(engine.openProject(dir.filePath("k.def"), &error));
+        QVERIFY2(project, qPrintable(error));
+        const QString cns = "[Statedef 1027]\ntype = S\n"
+                            "[State 1027, 1]\ntype = PosFreeze\ntrigger1 = 1\nx = 1\ny = 1\n"
+                            "[State 1027, 2]\ntype = Explod\ntrigger1 = Time = 0\nanim = F72\npos = 0, 0\n"
+                            "[State 1027, 3]\ntype = PlaySnd\ntrigger1 = Time = 0\nvalue = F7,0\n"
+                            "[State 1027, 4]\ntype = NotHitBy\ntrigger1 = 1\nvalue = , NA, NP\n"
+                            "[State 1027, 5]\ntype = ReversalDef\ntrigger1 = Time = 0\nreversal.attr = SA,AA\n"
+                            "p1stateno = 1310\np1sprpriority = 2\np2sprpriority = 1\n"
+                            "[State 1027, 6]\ntype = ReversalDef\ntrigger1 = Time = 4\nreversal.attr =\n"
+                            "[State 1027, 7]\ntype = HitOverride\ntrigger1 = Time = 4\nattr =\ntime = 0\n";
+        for (const Issue& issue : engine.validate(*project, "states", cns))
+            QVERIFY2(issue.severity != Issue::Severity::Error,
+                     qPrintable(QStringLiteral("%1: %2").arg(issue.line + 1).arg(issue.message)));
+        bool unknown = false;
+        for (const Issue& issue : engine.validate(*project, "states",
+                                                  "[Statedef 1]\n[State 1, 1]\ntype = PlaySnd\ntrigger1 = 1\n"
+                                                  "value = Q7,0\n"))
+            unknown = unknown || issue.message.contains("Q7");
+        QVERIFY(unknown);
     }
 
     void characterFiles()

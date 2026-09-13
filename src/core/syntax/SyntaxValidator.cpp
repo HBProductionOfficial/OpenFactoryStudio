@@ -126,6 +126,17 @@ void SyntaxValidator::checkValue(const SyntaxParam& param, const QString& value,
     if (type.startsWith(QLatin1String("exp")) || type == QLatin1String("hitattr") ||
         type == QLatin1String("hitflags") || type == QLatin1String("guardflags") || type == QLatin1String("keyseq")) {
         if (m_checker) {
+            // "F5,2" / "S10": a prefix letter picks the fight data's (F) or the player's own (S) sounds,
+            // animations and sparks. Only the number is checked.
+            QString checked = value;
+            if (!param.prefixes.isEmpty()) {
+                static const QRegularExpression prefixed(QStringLiteral("(?:^|,)\\s*([A-Za-z])(?=\\s*\\d)"));
+                for (auto it = prefixed.globalMatch(value); it.hasNext();) {
+                    const QRegularExpressionMatch m = it.next();
+                    if (param.prefixes.contains(m.captured(1), Qt::CaseInsensitive))
+                        checked[m.capturedStart(1)] = QLatin1Char(' ');
+                }
+            }
             ExpressionChecker::Context ctx;
             ctx.fileType = m_fileType;
             ctx.section = section;
@@ -134,7 +145,7 @@ void SyntaxValidator::checkValue(const SyntaxParam& param, const QString& value,
             ctx.version = m_version;
             ctx.list = param.list;
             ctx.line = line;
-            m_checker->check(value, offset, ctx, issues);
+            m_checker->check(checked, offset, ctx, issues);
         }
         return;
     }

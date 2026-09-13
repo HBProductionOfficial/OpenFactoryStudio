@@ -3,7 +3,7 @@
 type = HitOverride
 trigger1 =
 attr = SCA, AA                  ; state type, attack class
-stateno = 0                     ; state number
+;stateno = 0                    ; state number
 ;slot = 0                       ; 0-7
 ;time = 1                       ; duration in ticks
 ;forceair = 0                   ; 1 = treat as airborne

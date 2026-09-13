@@ -3,5 +3,7 @@
 type = PosFreeze
 trigger1 =
 ;value = 1                      ; 1 = freeze
+;x = 0                          ; x component
+;y = 0                          ; y component
 ;ignorehitpause = 0             ; 1 = also run during hit pauses
 ;persistent = 1                 ; 0 = once per state, n = every n-th time

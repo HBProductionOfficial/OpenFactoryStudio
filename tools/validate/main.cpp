@@ -54,8 +54,14 @@ QStringList corpusProjects()
     const QString mugen = qEnvironmentVariable("OFS_CORPUS_MUGEN");
     if (!mugen.isEmpty()) {
         const QDir root(mugen);
-        for (const char* folder : {"data", "data/kfm", "stages", "font"}) {
-            const QDir dir(root.filePath(QString::fromLatin1(folder)));
+        QStringList folders = {QStringLiteral("data"), QStringLiteral("data/kfm"), QStringLiteral("stages"),
+                               QStringLiteral("font")};
+        // Every character of the engine folder (chars/<name>/<name>.def).
+        const QDir chars(root.filePath(QStringLiteral("chars")));
+        for (const QString& name : chars.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name))
+            folders << QStringLiteral("chars/") + name;
+        for (const QString& folder : std::as_const(folders)) {
+            const QDir dir(root.filePath(folder));
             for (const QString& name : dir.entryList({QStringLiteral("*.def")}, QDir::Files, QDir::Name))
                 defs << dir.filePath(name);
         }
