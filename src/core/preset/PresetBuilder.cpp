@@ -20,17 +20,24 @@ PresetBuilder::PresetBuilder(const ControlRegistry& controls, const ActionRegist
 
 void PresetBuilder::buildPanel(const Preset::Layout& layout, QWidget* container, int defaultIconSize)
 {
+    // The old controls leave the panel now but are deleted later, because a signal of one of them
+    // may be running. Editors look up the new ones by name right after this.
+    auto discard = [](QWidget* w) {
+        w->hide();
+        w->setParent(nullptr);
+        w->deleteLater();
+    };
     if (QLayout* old = container->layout()) {
         while (QLayoutItem* item = old->takeAt(0)) {
             if (QWidget* w = item->widget())
-                w->deleteLater();
+                discard(w);
             delete item;
         }
         delete old;
     }
     const QList<QWidget*> children = container->findChildren<QWidget*>(Qt::FindDirectChildrenOnly);
     for (QWidget* child : children)
-        child->deleteLater();
+        discard(child);
 
     QLayout* built = buildLayout(layout, container, defaultIconSize);
     container->setLayout(built);

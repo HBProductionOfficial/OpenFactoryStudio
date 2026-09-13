@@ -3179,6 +3179,50 @@ private Q_SLOTS:
         QVERIFY(window.currentProjectView());
     }
 
+    void presetSwitchKeepsPanels()
+    {
+        QTemporaryDir dir;
+        SpriteDocument doc;
+        doc.palettes() << SpriteDocument::makePalette(1, 1, Formats::grayscalePalette(256));
+        for (int n = 0; n < 3; ++n) {
+            SpriteEntry entry;
+            entry.header.group = 9000;
+            entry.header.number = std::uint16_t(n);
+            entry.header.axisX = std::int16_t(10 + n);
+            entry.pixels = SpriteDocument::makePixels(Formats::Image::indexed(2, 2, std::vector<std::uint8_t>(4, 3)));
+            entry.palette = doc.palettes()[0];
+            doc.sprites() << entry;
+        }
+        const auto bytes = doc.toSff().write();
+        writeFile(dir.filePath("p.sff"),
+                  QByteArray(reinterpret_cast<const char*>(bytes.value().data()), qsizetype(bytes.value().size())));
+        writeFile(dir.filePath("p.def"), "[Info]\nname = \"P\"\nmugenversion = 1.0\n[Files]\nsprite = p.sff\n");
+        Config& config = m_context->config();
+        const QString preset = config.value("preset");
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("p.def")));
+        m_context->actions().action("editor_spr")->trigger();
+        ProjectView* view = window.currentProjectView();
+        view->findChild<SpritePage*>()->setCurrent(2);
+        for (const char* name : {"Classic", "Ultimate", "Clean", "Neo"}) {
+            config.setValue("preset", QString::fromLatin1(name));
+            window.applyInterface();
+            // The controls of the previous preset go away with the deferred deletions.
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+            auto* number = view->findChild<QSpinBox*>("spr_num");
+            auto* axis = view->findChild<QSpinBox*>("spr_xaxis");
+            QVERIFY2(number && axis, name);
+            QCOMPARE(number->value(), 2);
+            QCOMPARE(axis->value(), 12);
+            m_context->actions().action("spr_prev")->trigger();
+            QCOMPARE(number->value(), 1);
+            m_context->actions().action("spr_next")->trigger();
+        }
+        config.setValue("preset", preset);
+        window.applyInterface();
+    }
+
     void changeImageQuestions()
     {
         QTemporaryDir dir;
