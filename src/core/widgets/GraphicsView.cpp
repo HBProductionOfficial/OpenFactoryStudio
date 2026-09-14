@@ -606,7 +606,9 @@ void GraphicsView::mousePressEvent(QMouseEvent* event)
 void GraphicsView::mouseMoveEvent(QMouseEvent* event)
 {
     const QPointF pos = event->position();
-    Q_EMIT cursorMoved(toUnits(pos).toPoint());
+    // Rounded down like Fighter Factory, so -0.5 is unit -1.
+    const QPointF under = toUnits(pos);
+    Q_EMIT cursorMoved(QPoint(int(std::floor(under.x())), int(std::floor(under.y()))));
     switch (m_drag) {
     case Drag::None:
         switch (hitTest(pos.toPoint())) {

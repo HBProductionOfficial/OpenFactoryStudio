@@ -24,6 +24,7 @@
 #include <QScrollBar>
 #include <QSlider>
 #include <QSpinBox>
+#include <QTimer>
 
 #include <cmath>
 
@@ -260,6 +261,10 @@ void SoundsEditor::refresh()
     const int count = doc ? doc->count() : 0;
     const int current = m_page ? m_page->current() : 0;
     const bool has = count > 0 && current < count;
+    if (m_empty != (count == 0)) {
+        m_empty = count == 0;
+        QTimer::singleShot(0, this, &SoundsEditor::stateChanged);
+    }
     if (m_selector) {
         m_selector->setRange(0, std::max(0, count - 1));
         m_selector->setValue(current);

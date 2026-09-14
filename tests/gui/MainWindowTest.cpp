@@ -3219,6 +3219,65 @@ private Q_SLOTS:
         view->reconfigureEditors();
     }
 
+    void emptyListsDisableCommands()
+    {
+        QTemporaryDir dir;
+        SpriteDocument doc;
+        doc.palettes() << SpriteDocument::makePalette(1, 1, Formats::grayscalePalette(256));
+        SpriteEntry entry;
+        entry.pixels = SpriteDocument::makePixels(Formats::Image::indexed(2, 2, std::vector<std::uint8_t>(4, 3)));
+        entry.palette = doc.palettes()[0];
+        doc.sprites() << entry;
+        const auto bytes = doc.toSff().write();
+        writeFile(dir.filePath("e.sff"),
+                  QByteArray(reinterpret_cast<const char*>(bytes.value().data()), qsizetype(bytes.value().size())));
+        Formats::SndDocument snd;
+        snd.sounds.push_back(Formats::SndSound{
+            0, 0,
+            Formats::encodeAudio(Formats::SampleBuffer::fromInt16(std::vector<std::int16_t>(100, 5), 1, 11025))
+                .value()});
+        const auto sndBytes = snd.write();
+        writeFile(dir.filePath("e.snd"),
+                  QByteArray(reinterpret_cast<const char*>(sndBytes.data()), qsizetype(sndBytes.size())));
+        writeFile(dir.filePath("e.def"), "[Info]\nname = \"E\"\nmugenversion = 1.0\n"
+                                         "[Files]\nsprite = e.sff\nsound = e.snd\n");
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("e.def")));
+        ActionRegistry& actions = m_context->actions();
+        auto enabled = [&actions](const char* id) {
+            return actions.action(QString::fromLatin1(id))->isEnabled();
+        };
+
+        actions.action("editor_spr")->trigger();
+        SpriteFile* sprites = window.currentProjectView()->findChild<SpritePage*>()->file();
+        QVERIFY(enabled("spr_delete") && enabled("spr_export"));
+        SpriteDocument none = sprites->document();
+        none.sprites().clear();
+        sprites->apply("Delete", none);
+        QTRY_VERIFY(!enabled("spr_delete"));
+        for (const char* id : {"spr_duplicate", "spr_openimg", "spr_resize", "spr_crop", "spr_export"})
+            QVERIFY2(!enabled(id), id);
+        for (const char* id : {"spr_add", "spr_save", "spr_saveas", "spr_import", "spr_align", "spr_edit_img"})
+            QVERIFY2(enabled(id), id);
+        sprites->undoStack()->undo();
+        QTRY_VERIFY(enabled("spr_delete"));
+
+        actions.action("editor_snd")->trigger();
+        SoundFile* sounds = window.currentProjectView()->findChild<SoundPage*>()->file();
+        QVERIFY(enabled("snd_play"));
+        SoundDocument silent = sounds->document();
+        silent.sounds().clear();
+        sounds->apply("Delete", silent);
+        QTRY_VERIFY(!enabled("snd_play"));
+        for (const char* id : {"snd_play_loop", "snd_export", "snd_open_sample", "snd_save_sample", "snd_delete"})
+            QVERIFY2(!enabled(id), id);
+        for (const char* id : {"snd_add", "snd_save", "snd_saveas", "snd_import"})
+            QVERIFY2(enabled(id), id);
+        sounds->undoStack()->undo();
+        QTRY_VERIFY(enabled("snd_play"));
+    }
+
     // The quick find bar and the bottom dock move between projects and must survive closing the last one.
     void reopenAfterClosingLast()
     {

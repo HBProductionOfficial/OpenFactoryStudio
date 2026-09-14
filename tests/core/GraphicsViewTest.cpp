@@ -4,10 +4,12 @@
 
 #include <QApplication>
 #include <QFile>
+#include <QMouseEvent>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QWheelEvent>
+#include <cmath>
 
 using namespace OFS;
 
@@ -27,6 +29,26 @@ class GraphicsViewTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void cursorPositionRoundsDown()
+    {
+        GraphicsView view;
+        view.resize(200, 200);
+        view.setOrigin(QPoint(100, 100));
+        view.setZoomIndex(view.zoomIndex() + 2); // 4x: each unit is 4 pixels
+        QList<QPoint> seen;
+        connect(&view, &GraphicsView::cursorMoved, this, [&seen](const QPoint& p) { seen << p; });
+        for (const QPoint at : {QPoint(98, 103), QPoint(101, 97), QPoint(105, 105)}) {
+            QMouseEvent move(QEvent::MouseMove, QPointF(at), view.mapToGlobal(QPointF(at)), Qt::NoButton, Qt::NoButton,
+                             Qt::NoModifier);
+            QApplication::sendEvent(&view, &move);
+        }
+        const double zoom = view.zoom();
+        QCOMPARE(seen.value(0), QPoint(int(std::floor(-2 / zoom)), int(std::floor(3 / zoom))));
+        QCOMPARE(seen.value(0).x(), -1);
+        QCOMPARE(seen.value(1).y(), -1);
+        QCOMPARE(seen.value(2), QPoint(int(std::floor(5 / zoom)), int(std::floor(5 / zoom))));
+    }
+
     void rendererChoice()
     {
         QTemporaryDir dir;

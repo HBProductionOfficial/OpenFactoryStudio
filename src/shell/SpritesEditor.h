@@ -72,6 +72,7 @@ public:
 Q_SIGNALS:
     void imageModeChanged(bool on);
     void explorerChanged();
+    void emptyChanged();
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
@@ -103,6 +104,7 @@ private:
 
     AppContext& m_context;
     PalettesPanel* m_palettes;
+    bool m_empty = true;
     QPointer<SpritePage> m_page;
     QPointer<QScrollBar> m_selector;
     QPointer<QLabel> m_selectorLabel;

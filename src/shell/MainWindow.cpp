@@ -2308,6 +2308,10 @@ void MainWindow::addProjectView(Project* project, const QString& editorId)
             if (view == currentProjectView())
                 refreshActionStates();
         });
+        connect(sprites, &SpritesEditor::emptyChanged, this, [this, view] {
+            if (view == currentProjectView())
+                refreshActionStates();
+        });
     }
     if (BackgroundsEditor* backgrounds = view->backgroundsEditor()) {
         connect(backgrounds, &BackgroundsEditor::stateChanged, this, [this, view] {
@@ -2595,6 +2599,13 @@ void MainWindow::refreshActionStates()
               image);
     if (image)
         enable(QStringLiteral("spr_align"), false);
+    if (sprites && sprites->page() && sprites->page()->file()->document().spriteCount() == 0 && !image) {
+        enableAll({"spr_delete",   "spr_duplicate", "spr_openimg",    "spr_saveimgas",  "spr_saveimg_aligned",
+                   "spr_resize",   "spr_crop",      "spr_delete_grp", "spr_rename_grp", "spr_split_channels",
+                   "spr_export",   "spr_explorer",  "spr_prev",       "spr_next",       "spr_prev_grp",
+                   "spr_next_grp", "spr_pos_left",  "spr_pos_up",     "spr_pos_right",  "spr_pos_down"},
+                  false);
+    }
     if (sprites && sprites->palettes()->current() < 0)
         enable(QStringLiteral("pal_switch_count"), false);
     if (QAction* a = actions.action(QStringLiteral("spr_edit_img")))
@@ -2637,6 +2648,15 @@ void MainWindow::refreshActionStates()
                                                                             : "snd_tool_select";
         if (QAction* a = actions.action(QString::fromLatin1(toolId)); a && !a->isChecked())
             a->setChecked(true);
+        if (sounds->page()->file()->document().count() == 0) {
+            enableAll({"snd_play",         "snd_play_loop",       "snd_pause",       "snd_stop",
+                       "snd_export",       "snd_open_sample",     "snd_save_sample", "snd_remove_selected",
+                       "snd_save_changes", "snd_discard_changes", "snd_delete",      "snd_duplicate",
+                       "snd_resample",     "snd_delete_grp",      "snd_rename_grp",  "snd_fill_silence",
+                       "snd_fade_in",      "snd_fade_out",        "snd_prev",        "snd_next",
+                       "snd_prev_grp",     "snd_next_grp"},
+                      false);
+        }
     }
     AnimationsEditor* animations = view ? view->animationsEditor() : nullptr;
     AnimationPage* animationPage = animations ? animations->page() : nullptr;

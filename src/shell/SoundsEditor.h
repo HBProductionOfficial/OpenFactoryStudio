@@ -43,6 +43,7 @@ private:
     bool performFiles(const QString& id);
 
     AppContext& m_context;
+    bool m_empty = true;
     QPointer<SoundPage> m_page;
     QPointer<QScrollBar> m_selector;
     QPointer<QLabel> m_selectorLabel;

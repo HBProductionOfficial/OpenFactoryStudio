@@ -38,6 +38,7 @@
 #include <QScrollBar>
 #include <QSpinBox>
 #include <QStringListModel>
+#include <QTimer>
 #include <QToolButton>
 
 #include <cstring>
@@ -310,6 +311,10 @@ void SpritesEditor::refresh()
     const int count = doc ? doc->spriteCount() : 0;
     const int current = m_page ? m_page->current() : 0;
     const bool has = count > 0 && current >= 0 && current < count;
+    if (m_empty != (count == 0)) {
+        m_empty = count == 0;
+        QTimer::singleShot(0, this, &SpritesEditor::emptyChanged);
+    }
     if (m_selector) {
         m_selector->setRange(0, qMax(0, count - 1));
         m_selector->setValue(current);
