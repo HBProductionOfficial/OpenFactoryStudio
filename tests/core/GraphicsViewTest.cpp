@@ -73,6 +73,46 @@ private Q_SLOTS:
         QVERIFY(view.findChildren<QWidget*>().isEmpty());
     }
 
+    void graphicsOptions()
+    {
+        QImage onion(2, 1, QImage::Format_ARGB32);
+        onion.setPixelColor(0, 0, QColor(200, 100, 0));
+        onion.setPixelColor(1, 0, QColor(0, 0, 0, 0));
+        QCOMPARE(GraphicsView::onionEffect(onion, 0).pixelColor(0, 0), QColor(200, 100, 0));
+        const QColor gray = GraphicsView::onionEffect(onion, 1).pixelColor(0, 0);
+        QVERIFY(gray.red() == gray.green() && gray.green() == gray.blue());
+        QCOMPARE(GraphicsView::onionEffect(onion, 2).pixelColor(0, 0), QColor(227, 177, 127));
+        QCOMPARE(GraphicsView::onionEffect(onion, 3).pixelColor(0, 0), QColor(100, 50, 0));
+        QCOMPARE(GraphicsView::onionEffect(onion, 3).pixelColor(1, 0).alpha(), 0);
+
+        GraphicsView view;
+        view.resize(200, 200);
+        view.setOrigin(QPoint(100, 100));
+        view.setBackground(GraphicsView::Background::Color);
+        view.setMainCrossVisible(false);
+        const QPoint inside = view.toWidget(QPointF(10, 10)).toPoint();
+        const QColor back = view.grab().toImage().pixelColor(inside);
+        view.setBoxes({{QRect(-20, -20, 40, 40), QColor(0, 0, 255), false, true}});
+        view.setBoxOpacity(0.0);
+        QCOMPARE(view.grab().toImage().pixelColor(inside), back);
+        view.setBoxOpacity(1.0);
+        QCOMPARE(view.grab().toImage().pixelColor(inside), QColor(0, 0, 255));
+        view.setBoxes({});
+
+        view.setMainCrossVisible(true);
+        view.setMainCrossPosition(QPoint(0, 0));
+        QImage marker(5, 5, QImage::Format_ARGB32);
+        marker.fill(QColor(255, 0, 255));
+        view.setCrossStyle(GraphicsView::CrossStyle::Custom, marker);
+        const QImage custom = view.grab().toImage();
+        QCOMPARE(custom.pixelColor(view.toWidget(QPointF(0, 0)).toPoint()), QColor(255, 0, 255));
+        view.setCrossStyle(GraphicsView::CrossStyle::Default);
+        const QPoint arm = view.toWidget(QPointF(3, 0)).toPoint();
+        const QColor classic = view.grab().toImage().pixelColor(arm);
+        view.setCrossStyle(GraphicsView::CrossStyle::Modern);
+        QVERIFY(view.grab().toImage().pixelColor(arm) != classic);
+    }
+
     void boxesOverCrosses()
     {
         GraphicsView view;

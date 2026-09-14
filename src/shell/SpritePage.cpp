@@ -212,6 +212,8 @@ void SpritePage::applySettings(Config& config)
     m_view->setMainCrossVisible(config.boolValue(QStringLiteral("show_cross1"), true));
     m_view->setGuidesVisible(config.boolValue(QStringLiteral("show_guides"), false));
     m_view->setImagesOverGuides(config.boolValue(QStringLiteral("sprite_over_guides"), false));
+    m_view->applyGraphicsSettings(config);
+    m_onionEffect = config.intValue(QStringLiteral("onion_effect"), 2);
     if (!m_settingsApplied) {
         m_settingsApplied = true;
         m_view->setZoomIndex(config.intValue(QStringLiteral("zoom_level"), 2));
@@ -283,7 +285,13 @@ void SpritePage::refresh()
         return QPoint(-header.axisX, -header.axisY);
     };
     if (m_onion >= 0 && m_onion < doc.spriteCount() && m_onion != m_current)
-        images << GraphicsView::Image{spriteImage(m_onion), place(m_onion), m_onionOpacity, false, {}, {}, {}};
+        images << GraphicsView::Image{GraphicsView::onionEffect(spriteImage(m_onion), m_onionEffect),
+                                      place(m_onion),
+                                      m_onionOpacity,
+                                      false,
+                                      {},
+                                      {},
+                                      {}};
     if (m_current >= 0 && m_current < doc.spriteCount())
         images << GraphicsView::Image{
             spriteImage(m_current), place(m_current) + m_dragOffset, 1.0, !m_picker, {}, {}, {}};

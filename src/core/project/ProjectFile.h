@@ -34,6 +34,9 @@ public:
     void markUntitled() { m_untitled = true; }
 
     virtual bool load(QString* error) = 0;
+
+    static int undoLimit();
+    static void setUndoLimit(int steps);
     virtual bool save(QString* error);
     virtual bool saveAs(const QString& path, QString* error) = 0;
     // Big binary files save on another thread. done runs on this thread after saved().

@@ -459,8 +459,10 @@ void AnimationPage::refresh()
         if (!onion.frames.isEmpty()) {
             const AirFrame& of = onion.frames.at(std::clamp(m_onionFrame, 0, int(onion.frames.size()) - 1));
             if (spriteLayer(of, Placement{double(of.x), double(of.y), of.xScale, of.yScale, of.angle}, m_onionOpacity,
-                            false, &layer))
+                            false, &layer)) {
+                layer.image = GraphicsView::onionEffect(layer.image, m_onionEffect);
                 images << layer;
+            }
         }
     }
     if (f && spriteLayer(*f, placement(), 1.0, !isPlaying(), &layer))
@@ -555,6 +557,8 @@ void AnimationPage::applySettings(const Config& config, const Config* engine)
     m_defaultAttack = colorValue(engine, QStringLiteral("clsn_default_attack"), QColor(255, 128, 0));
     m_defaultCollision = colorValue(engine, QStringLiteral("clsn_default_collision"), QColor(0, 255, 255));
     m_onionOpacity = config.value(QStringLiteral("onion_opacity"), QStringLiteral("0.74")).toDouble();
+    m_onionEffect = config.intValue(QStringLiteral("onion_effect"), 2);
+    m_view->applyGraphicsSettings(config);
     if (!m_settingsApplied) {
         m_settingsApplied = true;
         m_view->setZoomIndex(4); // 3x

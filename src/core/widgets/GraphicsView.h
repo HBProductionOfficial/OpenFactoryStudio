@@ -134,6 +134,19 @@ public:
         m_imagesOverGuides = over;
         update();
     }
+    enum class CrossStyle
+    {
+        Default,
+        Modern,
+        Custom,
+    };
+    void setCrossStyle(CrossStyle style, const QImage& main = {}, const QImage& secondary = {},
+                       const QImage& extra = {});
+    void setBoxOpacity(double opacity);
+    void applyGraphicsSettings(const class Config& config);
+    // Onion skin effect: 0 none, 1 monochrome, 2 lighter, 3 darker.
+    static QImage onionEffect(const QImage& image, int effect);
+
     void setBoxesOverCrosses(bool over)
     {
         m_boxesOverCrosses = over;
@@ -183,7 +196,7 @@ private:
     };
     void zoomTo(int index, const QPointF& anchor);
     QPointF zoomAnchor() const;
-    void drawCross(QPainter& p, const QPointF& at, const QColor& fill, const QColor& outline);
+    void drawCross(QPainter& p, const QPointF& at, const QColor& fill, const QColor& outline, int which = 0);
     void drawBoxes(QPainter& p);
     QRectF boxRect(const QRect& units) const;
     QList<QRectF> handles(const QRect& units) const;
@@ -214,6 +227,9 @@ private:
     bool m_guides = false;
     bool m_imagesOverGuides = false;
     bool m_boxesOverCrosses = false;
+    CrossStyle m_crossStyle = CrossStyle::Default;
+    QImage m_crossImages[3];
+    double m_boxOpacity = 0.5;
     QWidget* m_surface = nullptr;
     QPoint m_guidePosition;
     Drag m_drag = Drag::None;

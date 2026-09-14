@@ -118,6 +118,7 @@ private:
     bool m_onion = false;
     int m_onionAnimation = 0;
     int m_onionFrame = 0;
+    int m_onionEffect = 2;
     double m_onionOpacity = 0.74;
     bool m_secondaryCross = true;
     bool m_showAttack = true;

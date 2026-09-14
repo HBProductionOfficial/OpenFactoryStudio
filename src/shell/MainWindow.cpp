@@ -1737,6 +1737,10 @@ void MainWindow::applyInterface()
         return v.isEmpty() ? QString::fromLatin1(fallback) : v;
     };
     theme.setIconSet(choose("iconset", model.iconset, "Nuvola"));
+    theme.setScale(
+        config.boolValue(QStringLiteral("dpi_auto"), false)
+            ? 1.0
+            : std::clamp(config.value(QStringLiteral("dpi_scale"), QStringLiteral("1")).toDouble(), 0.5, 4.0));
     if (theme.setStyle(choose("stylesheet", model.stylesheet, "Dark")))
         qApp->setStyleSheet(theme.styleSheet());
     theme.setColorSet(choose("colorset", model.colorset, "Dark"));

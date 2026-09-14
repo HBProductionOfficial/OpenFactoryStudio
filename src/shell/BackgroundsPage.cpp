@@ -360,6 +360,7 @@ void BackgroundsPage::applySettings(const Config& config)
     m_view->setMainCrossVisible(config.boolValue(QStringLiteral("show_cross1"), true) && isStage());
     m_view->setGuidesVisible(config.boolValue(QStringLiteral("show_guides"), false));
     m_view->setImagesOverGuides(config.boolValue(QStringLiteral("sprite_over_guides"), false));
+    m_view->applyGraphicsSettings(config);
     if (!m_settingsApplied) {
         // bg_zoom_level counts the levels from 1x.
         m_settingsApplied = true;

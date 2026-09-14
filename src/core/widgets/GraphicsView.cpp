@@ -1,5 +1,6 @@
 #include "core/widgets/GraphicsView.h"
 
+#include "core/settings/Config.h"
 #include "core/widgets/RenderSurface.h"
 
 #include <QKeyEvent>
@@ -298,8 +299,94 @@ void GraphicsView::drawGuides(QPainter& p, const QRect& area)
     p.fillRect(QRectF(area.left(), at.y(), area.width(), thickness), QColor(0, 255, 255));
 }
 
-void GraphicsView::drawCross(QPainter& p, const QPointF& at, const QColor& fill, const QColor& outlineColor)
+void GraphicsView::setCrossStyle(CrossStyle style, const QImage& main, const QImage& secondary, const QImage& extra)
 {
+    m_crossStyle = style;
+    m_crossImages[0] = main;
+    m_crossImages[1] = secondary;
+    m_crossImages[2] = extra;
+    update();
+}
+
+void GraphicsView::setBoxOpacity(double opacity)
+{
+    m_boxOpacity = std::clamp(opacity, 0.0, 1.0);
+    update();
+}
+
+void GraphicsView::applyGraphicsSettings(const Config& config)
+{
+    const int type = config.intValue(QStringLiteral("crosshair_type"), 0);
+    setCrossStyle(type == 1   ? CrossStyle::Modern
+                  : type == 2 ? CrossStyle::Custom
+                              : CrossStyle::Default,
+                  QImage(config.value(QStringLiteral("crosshair_main"))),
+                  QImage(config.value(QStringLiteral("crosshair_secondary"))),
+                  QImage(config.value(QStringLiteral("crosshair_extra"))));
+    setBoxOpacity(config.value(QStringLiteral("box_opacity"), QStringLiteral("0.5")).toDouble());
+}
+
+QImage GraphicsView::onionEffect(const QImage& image, int effect)
+{
+    if (effect <= 0 || image.isNull())
+        return image;
+    QImage out = image.convertToFormat(QImage::Format_ARGB32);
+    for (int y = 0; y < out.height(); ++y) {
+        auto* line = reinterpret_cast<QRgb*>(out.scanLine(y));
+        for (int x = 0; x < out.width(); ++x) {
+            const QRgb c = line[x];
+            const int a = qAlpha(c);
+            if (a == 0)
+                continue;
+            int r = qRed(c);
+            int g = qGreen(c);
+            int b = qBlue(c);
+            if (effect == 1) {
+                r = g = b = qGray(c);
+            } else if (effect == 2) {
+                r = (r + 255) / 2;
+                g = (g + 255) / 2;
+                b = (b + 255) / 2;
+            } else {
+                r /= 2;
+                g /= 2;
+                b /= 2;
+            }
+            line[x] = qRgba(r, g, b, a);
+        }
+    }
+    return out;
+}
+
+void GraphicsView::drawCross(QPainter& p, const QPointF& at, const QColor& fill, const QColor& outlineColor, int which)
+{
+    if (m_crossStyle == CrossStyle::Custom && !m_crossImages[which].isNull()) {
+        const QImage& picture = m_crossImages[which];
+        const QPointF centre = toWidget(at);
+        p.drawImage(
+            QPointF(std::round(centre.x() - picture.width() / 2.0), std::round(centre.y() - picture.height() / 2.0)),
+            picture);
+        return;
+    }
+    if (m_crossStyle == CrossStyle::Modern) {
+        const QPointF c = toWidget(at) + QPointF(zoom() / 2, zoom() / 2);
+        const double arm = 12;
+        const double gap = 3;
+        QColor line = outlineColor;
+        line.setAlpha(170);
+        p.save();
+        p.setRenderHint(QPainter::Antialiasing, false);
+        p.setPen(QPen(line, 1));
+        p.drawLine(QPointF(c.x() - arm, c.y()), QPointF(c.x() - gap, c.y()));
+        p.drawLine(QPointF(c.x() + gap, c.y()), QPointF(c.x() + arm, c.y()));
+        p.drawLine(QPointF(c.x(), c.y() - arm), QPointF(c.x(), c.y() - gap));
+        p.drawLine(QPointF(c.x(), c.y() + gap), QPointF(c.x(), c.y() + arm));
+        QColor dot = fill;
+        dot.setAlpha(200);
+        p.fillRect(QRectF(c.x() - 0.5, c.y() - 0.5, 1, 1), dot);
+        p.restore();
+        return;
+    }
     // Default cross: a 13 x 13 plus with a hollow centre and an outline, scaled with the zoom.
     auto cells = [this, at](double x, double y, double w, double h) {
         return QRectF(toWidget(QPointF(at.x() + x, at.y() + y)), QSizeF(w, h) * zoom());
@@ -321,7 +408,7 @@ void GraphicsView::drawBoxes(QPainter& p)
     auto draw = [&](const QRect& units, const QColor& color, bool selected) {
         const QRectF r = boxRect(units);
         QColor fill = color;
-        fill.setAlpha(64);
+        fill.setAlpha(int(std::lround(255 * m_boxOpacity)));
         p.fillRect(r, fill);
         if (selected)
             p.fillRect(r, QBrush(color, Qt::BDiagPattern));
@@ -470,11 +557,11 @@ void GraphicsView::paintContent(QPainter& p)
         drawFrames(p);
     }
     if (m_mainCross)
-        drawCross(p, QPointF(m_mainCrossPosition), Qt::black, Qt::white);
+        drawCross(p, QPointF(m_mainCrossPosition), Qt::black, Qt::white, 0);
     if (m_extraCross)
-        drawCross(p, QPointF(0, 0), Qt::white, QColor(0, 160, 0));
+        drawCross(p, QPointF(0, 0), Qt::white, QColor(0, 160, 0), 2);
     if (m_secondaryCross)
-        drawCross(p, QPointF(m_secondaryPosition), Qt::white, QColor(0, 0, 255));
+        drawCross(p, QPointF(m_secondaryPosition), Qt::white, QColor(0, 0, 255), 1);
     if (m_boxesOverCrosses) {
         drawBoxes(p);
         drawFrames(p);

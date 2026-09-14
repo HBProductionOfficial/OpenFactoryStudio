@@ -74,6 +74,7 @@ private:
     int m_current = 0;
     bool m_showTransparent = false;
     int m_onion = -1;
+    int m_onionEffect = 2;
     double m_onionOpacity = 0.74;
     QPoint m_dragOffset;
     bool m_settingsApplied = false;

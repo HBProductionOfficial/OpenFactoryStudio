@@ -54,6 +54,7 @@ SpriteFile::SpriteFile(const QString& path, const QString& editorId, QObject* pa
     : ProjectFile(path, editorId, parent)
     , m_undo(new QUndoStack(this))
 {
+    m_undo->setUndoLimit(undoLimit());
     connect(m_undo, &QUndoStack::cleanChanged, this, [this](bool clean) { Q_EMIT modifiedChanged(!clean); });
 }
 

@@ -215,6 +215,20 @@ QString CodeFile::detectEncoding(const QByteArray& data)
     return codec;
 }
 
+namespace {
+int g_undoLimit = 64;
+} // namespace
+
+int ProjectFile::undoLimit()
+{
+    return g_undoLimit;
+}
+
+void ProjectFile::setUndoLimit(int steps)
+{
+    g_undoLimit = std::max(0, steps);
+}
+
 QString CodeFile::fallbackEncoding()
 {
     return s_fallbackEncoding;

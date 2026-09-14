@@ -89,6 +89,7 @@ void AppContext::applySettings()
         engine->setLanguage(m_config->value(QStringLiteral("language"), QStringLiteral("en-us")));
     const QList<TextEncoding>& encodings = TextEncoding::all();
     const int codePage = m_config->intValue(QStringLiteral("default_codepage"), 0);
+    ProjectFile::setUndoLimit(m_config->intValue(QStringLiteral("undo_limit"), 64));
     CodeFile::setTabConversion(m_config->boolValue(QStringLiteral("open_tabToSpace")),
                                m_config->boolValue(QStringLiteral("save_spaceToTab")));
     CodeFile::setFallbackEncoding(codePage > 0 && codePage < int(encodings.size()) ? encodings[codePage].codecName()

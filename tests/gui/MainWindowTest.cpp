@@ -3319,6 +3319,18 @@ private Q_SLOTS:
         m_context->history().clear();
     }
 
+    void undoLimitOption()
+    {
+        const int before = ProjectFile::undoLimit();
+        m_context->config().setValue("undo_limit", 3);
+        m_context->applySettings();
+        QCOMPARE(ProjectFile::undoLimit(), 3);
+        SpriteFile sprites(m_dir.filePath("none.sff"), "sprites");
+        QCOMPARE(sprites.undoStack()->undoLimit(), 3);
+        m_context->config().setValue("undo_limit", before);
+        m_context->applySettings();
+    }
+
     // The quick find bar and the bottom dock move between projects and must survive closing the last one.
     void reopenAfterClosingLast()
     {
