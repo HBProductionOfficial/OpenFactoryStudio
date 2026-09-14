@@ -1,5 +1,7 @@
 #include "shell/AdvancedSearchPanel.h"
 
+#include "shell/FileDialogs.h"
+
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
 
@@ -202,7 +204,7 @@ QWidget* AdvancedSearchPanel::createForm()
     connect(m_searchButton, &QPushButton::clicked, this, [this] { search(false); });
     connect(m_replaceModeButton, &QPushButton::clicked, this, [this] { search(true); });
     connect(m_browse, &QPushButton::clicked, this, [this] {
-        const QString dir = QFileDialog::getExistingDirectory(this, tr("Directory"), m_directory->text());
+        const QString dir = FileDialogs::getExistingDirectory(this, tr("Directory"), m_directory->text());
         if (!dir.isEmpty())
             m_directory->setText(QDir::toNativeSeparators(dir));
     });

@@ -145,7 +145,17 @@ void WelcomePage::refresh()
         m_grid->addWidget(button, int(i / 2), int(i % 2));
         m_buttons << button;
     }
-    m_grid->setRowStretch(int((entries.size() + 1) / 2), 1);
+    if (entries.isEmpty()) {
+        auto* open = new QCommandLinkButton(tr("Open project..."),
+                                            tr("No recent projects. Open one now and start the fun!"), this);
+        open->setObjectName(QStringLiteral("welcomeOpenProject"));
+        open->setMinimumHeight(50);
+        connect(open, &QCommandLinkButton::clicked, this, &WelcomePage::openDialogRequested);
+        m_grid->addWidget(open, 0, 0, 1, 2);
+        m_buttons << open;
+    }
+    m_edit->setEnabled(!entries.isEmpty());
+    m_grid->setRowStretch(int((qMax<qsizetype>(entries.size(), 1) + 1) / 2), 1);
 }
 
 void WelcomePage::setEditing(bool editing)
@@ -166,6 +176,7 @@ void WelcomePage::removeSelected()
     }
     for (const QString& f : files)
         m_history.remove(f);
+    m_edit->setChecked(false);
 }
 
 } // namespace OFS

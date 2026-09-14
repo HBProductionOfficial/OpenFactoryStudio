@@ -56,6 +56,7 @@
 #include <QClipboard>
 #include <QColorDialog>
 #include <QComboBox>
+#include <QCommandLinkButton>
 #include <QContextMenuEvent>
 #include <QDesktopServices>
 #include <QDialog>
@@ -3276,6 +3277,46 @@ private Q_SLOTS:
             QVERIFY2(enabled(id), id);
         sounds->undoStack()->undo();
         QTRY_VERIFY(enabled("snd_play"));
+    }
+
+    // Without history the Welcome page offers "Open project...". Remove selected ends edit mode.
+    void welcomePageStates()
+    {
+        m_context->history().clear();
+        MainWindow window(*m_context);
+        window.show();
+        auto* open = window.findChild<QCommandLinkButton*>("welcomeOpenProject");
+        QVERIFY(open);
+        QCOMPARE(open->text(), QStringLiteral("Open project..."));
+        QCOMPARE(open->description(), QStringLiteral("No recent projects. Open one now and start the fun!"));
+        QStringList asked;
+        FileDialogs::setOpenPromptOverride([&asked](const QString& caption, const QString&, const QString&) {
+            asked << caption;
+            return QString();
+        });
+        open->click();
+        QCOMPARE(asked.size(), 1);
+        FileDialogs::setOpenPromptOverride({});
+
+        m_context->history().add("A", m_dir.filePath("fighter.def"));
+        m_context->history().add("B", m_dir.filePath("stage.def"));
+        QTRY_VERIFY(!window.findChild<QCommandLinkButton*>("welcomeOpenProject"));
+        auto* edit = window.findChild<QToolButton*>("welcomeEdit");
+        QVERIFY(edit && edit->isEnabled());
+        edit->setChecked(true);
+        auto* first = window.findChild<QCommandLinkButton*>("recentProject1");
+        QVERIFY(first && first->isCheckable());
+        first->setChecked(true);
+        QToolButton* remove = nullptr;
+        for (QToolButton* b : window.findChildren<QToolButton*>()) {
+            if (b->text() == QLatin1String("Remove selected"))
+                remove = b;
+        }
+        QVERIFY(remove);
+        remove->click();
+        QCOMPARE(m_context->history().entries().size(), 1);
+        QVERIFY(!edit->isChecked());
+        m_context->history().clear();
     }
 
     // The quick find bar and the bottom dock move between projects and must survive closing the last one.

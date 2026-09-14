@@ -1,5 +1,7 @@
 #include "shell/dialogs/OptionsDialog.h"
 
+#include "shell/FileDialogs.h"
+
 #include "core/actions/ActionRegistry.h"
 #include "core/app/AppContext.h"
 #include "core/app/Languages.h"
@@ -413,8 +415,8 @@ QPushButton* OptionsDialog::browseButton(QLineEdit* target, const QString& title
         const bool native =
             Config::decodeBool(currentValue(QStringLiteral("use_native_open"), QStringLiteral("true")), true);
         const QString file =
-            QFileDialog::getOpenFileName(this, title, QFileInfo(target->text()).absolutePath(),
-                                         tr("Images (*.png *.bmp *.gif *.jpg *.jpeg);;All files (*)"), nullptr,
+            FileDialogs::getOpenFileName(this, title, QFileInfo(target->text()).absolutePath(),
+                                         tr("Images (*.png *.bmp *.gif *.jpg *.jpeg);;All files (*)"),
                                          native ? QFileDialog::Options() : QFileDialog::DontUseNativeDialog);
         if (!file.isEmpty())
             target->setText(QDir::fromNativeSeparators(file));
@@ -1272,7 +1274,7 @@ bool OptionsDialog::importSettings(const QString& path, QString* error)
 void OptionsDialog::openClicked()
 {
     const QString filter = tr("Open Factory Studio settings (*.%1);;All files (*)").arg(SettingsBundle::fileSuffix());
-    const QString path = QFileDialog::getOpenFileName(this, tr("Open settings"), QDir::homePath(), filter);
+    const QString path = FileDialogs::getOpenFileName(this, tr("Open settings"), QDir::homePath(), filter);
     if (path.isEmpty())
         return;
     QString error;
@@ -1284,7 +1286,7 @@ void OptionsDialog::openClicked()
 void OptionsDialog::saveClicked()
 {
     const QString filter = tr("Open Factory Studio settings (*.%1)").arg(SettingsBundle::fileSuffix());
-    QString path = QFileDialog::getSaveFileName(this, tr("Save settings"), QDir::homePath(), filter);
+    QString path = FileDialogs::getSaveFileName(this, tr("Save settings"), QDir::homePath(), filter);
     if (path.isEmpty())
         return;
     if (QFileInfo(path).suffix().isEmpty())

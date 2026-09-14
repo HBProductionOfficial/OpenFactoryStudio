@@ -1,5 +1,7 @@
 #include "shell/dialogs/BreakpointDialog.h"
 
+#include "shell/FileDialogs.h"
+
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDialogButtonBox>
@@ -105,7 +107,7 @@ BreakpointDialog::BreakpointDialog(QWidget* parent)
     connect(m_line, &QSpinBox::valueChanged, this, &BreakpointDialog::updateFields);
     connect(m_browse, &QPushButton::clicked, this, [this] {
         const QString start = m_file->text().isEmpty() ? QString() : QFileInfo(m_file->text()).absolutePath();
-        const QString file = QFileDialog::getOpenFileName(this, tr("Choose file..."), start, tr("All files (*.*)"));
+        const QString file = FileDialogs::getOpenFileName(this, tr("Choose file..."), start, tr("All files (*.*)"));
         if (!file.isEmpty())
             m_file->setText(QDir::toNativeSeparators(file));
     });

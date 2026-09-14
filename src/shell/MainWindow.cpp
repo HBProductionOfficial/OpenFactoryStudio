@@ -407,6 +407,7 @@ void MainWindow::buildCentralArea()
         }
     });
     connect(m_welcome, &WelcomePage::openProjectRequested, this, &MainWindow::openRecentProject);
+    connect(m_welcome, &WelcomePage::openDialogRequested, this, &MainWindow::openProjectDialog);
     connect(m_welcome, &WelcomePage::contributeRequested, this,
             [] { QDesktopServices::openUrl(QUrl(QStringLiteral(OFS_HOMEPAGE))); });
 }
@@ -1788,8 +1789,8 @@ void MainWindow::openProjectDialog()
     if (!config.boolValue(QStringLiteral("use_native_open"), true))
         options |= QFileDialog::DontUseNativeDialog;
     const QString file =
-        QFileDialog::getOpenFileName(this, tr("Open project"), config.value(QStringLiteral("proj_open_path")),
-                                     filters.join(QStringLiteral(";;")), nullptr, options);
+        FileDialogs::getOpenFileName(this, tr("Open project"), config.value(QStringLiteral("proj_open_path")),
+                                     filters.join(QStringLiteral(";;")), options);
     if (file.isEmpty())
         return;
     config.setValue(QStringLiteral("proj_open_path"), QFileInfo(file).absolutePath());

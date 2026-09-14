@@ -1,5 +1,7 @@
 #include "shell/dialogs/ScriptEditorDialog.h"
 
+#include "shell/FileDialogs.h"
+
 #include "core/app/AppContext.h"
 #include "core/code/CodeEditor.h"
 #include "core/code/LuaHighlighter.h"
@@ -134,14 +136,14 @@ void ScriptEditorDialog::buildUi()
         if (!confirmDiscard())
             return;
         const QString start = m_file.isEmpty() ? selectedFolder() : QFileInfo(m_file).absolutePath();
-        const QString path = QFileDialog::getOpenFileName(this, tr("Open script"), start, tr("Lua Script (*.lua)"));
+        const QString path = FileDialogs::getOpenFileName(this, tr("Open script"), start, tr("Lua Script (*.lua)"));
         if (!path.isEmpty())
             openFile(path);
     });
     connect(m_save, &QAction::triggered, this, &ScriptEditorDialog::save);
     connect(m_saveAs, &QAction::triggered, this, [this] {
         QString path =
-            QFileDialog::getSaveFileName(this, tr("Save script"), selectedFolder(), tr("Lua Script (*.lua)"));
+            FileDialogs::getSaveFileName(this, tr("Save script"), selectedFolder(), tr("Lua Script (*.lua)"));
         if (path.isEmpty())
             return;
         if (QFileInfo(path).suffix().isEmpty())
@@ -221,7 +223,7 @@ bool ScriptEditorDialog::save()
 {
     if (m_file.isEmpty()) {
         QString path =
-            QFileDialog::getSaveFileName(this, tr("Save script"), selectedFolder(), tr("Lua Script (*.lua)"));
+            FileDialogs::getSaveFileName(this, tr("Save script"), selectedFolder(), tr("Lua Script (*.lua)"));
         if (path.isEmpty())
             return false;
         if (QFileInfo(path).suffix().isEmpty())

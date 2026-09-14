@@ -1,5 +1,7 @@
 #include "shell/dialogs/RunConfigDialog.h"
 
+#include "shell/FileDialogs.h"
+
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QDir>
@@ -121,14 +123,14 @@ void RunConfigDialog::browseExecutable()
     const QString filter = tr("MUGENext (mugen*)");
 #endif
     const QString file =
-        QFileDialog::getOpenFileName(this, tr("Executable"), QFileInfo(m_executable->text()).absolutePath(), filter);
+        FileDialogs::getOpenFileName(this, tr("Executable"), QFileInfo(m_executable->text()).absolutePath(), filter);
     if (!file.isEmpty())
         m_executable->setText(QDir::toNativeSeparators(file));
 }
 
 void RunConfigDialog::browseIcon()
 {
-    const QString file = QFileDialog::getOpenFileName(this, tr("Icon"), QFileInfo(m_icon->text()).absolutePath(),
+    const QString file = FileDialogs::getOpenFileName(this, tr("Icon"), QFileInfo(m_icon->text()).absolutePath(),
                                                       tr("Portable Network Graphic (*.png)"));
     if (!file.isEmpty())
         m_icon->setText(QDir::toNativeSeparators(file));

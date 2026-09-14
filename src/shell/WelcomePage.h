@@ -23,6 +23,7 @@ public:
 
 Q_SIGNALS:
     void openProjectRequested(const QString& filePath);
+    void openDialogRequested();
     void getStartedRequested();
     void contributeRequested();
 
