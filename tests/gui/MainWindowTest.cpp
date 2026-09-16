@@ -2296,6 +2296,15 @@ private Q_SLOTS:
         QTRY_COMPARE(page->state(), SoundPage::State::Stopped);
         QCOMPARE(page->view()->cursor(), 0);
         QVERIFY(actions.action("snd_stop")->isChecked());
+        auto* currentSample = window.findChild<QSpinBox*>("snd_curr_sample");
+        QVERIFY(currentSample);
+        currentSample->setValue(300);
+        QCOMPARE(page->view()->cursor(), 300);
+        QCOMPARE(page->state(), SoundPage::State::Paused);
+        QCOMPARE(status->section(2), QStringLiteral("Status: Paused"));
+        actions.action("snd_play")->trigger();
+        QCOMPARE(page->state(), SoundPage::State::Playing);
+        actions.action("snd_stop")->trigger();
 
         actions.action("snd_tool_zoom")->trigger();
         QCOMPARE(page->view()->tool(), WaveformView::Tool::Zoom);

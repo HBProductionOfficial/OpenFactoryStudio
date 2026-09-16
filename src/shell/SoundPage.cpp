@@ -266,6 +266,16 @@ void SoundPage::play(bool loop)
     setState(State::Playing);
 }
 
+void SoundPage::moveCursor(qint64 sample)
+{
+    // Moving the cursor stops playback and sets the status to Paused. Play then starts there.
+    m_player->stop();
+    m_playing.reset();
+    m_view->setPlayPosition(-1);
+    m_view->setCursor(sample);
+    setState(State::Paused);
+}
+
 void SoundPage::pause()
 {
     if (m_state != State::Playing)

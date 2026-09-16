@@ -57,6 +57,7 @@ public:
     bool looping() const { return m_looping; }
     void play(bool loop);
     void pause();
+    void moveCursor(qint64 sample);
     void stop();
     void setVolume(int percent);
 

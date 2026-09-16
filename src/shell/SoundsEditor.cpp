@@ -151,7 +151,7 @@ void SoundsEditor::bindPanel(QWidget* panel)
     if (m_cursor)
         connect(m_cursor, &QSpinBox::valueChanged, this, [this](int value) {
             if (!m_updating && m_page)
-                m_page->view()->setCursor(value);
+                m_page->moveCursor(value);
         });
     for (QSpinBox* box : {m_start.data(), m_end.data()}) {
         if (!box)
