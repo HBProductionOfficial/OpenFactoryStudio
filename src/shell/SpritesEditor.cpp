@@ -686,7 +686,9 @@ void SpritesEditor::addSprites(QWidget* parent, const QString& imageFolder)
     };
     options.askConflict = conflictPrompt(parent);
     // Same as Fighter Factory, "Ask to share identical sprites" shares them without asking.
-    options.askShare = [](const QString&, int) { return true; };
+    options.askShare = [](const QString&, int) {
+        return true;
+    };
 
     QList<ImageToAdd> images;
     for (const QString& path : std::as_const(files)) {
