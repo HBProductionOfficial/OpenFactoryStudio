@@ -15,6 +15,7 @@
 #include "shell/FileDialogs.h"
 #include "shell/MainWindow.h"
 #include "shell/ProjectView.h"
+#include "shell/dialogs/FirstRunDialog.h"
 
 #include <QAbstractButton>
 #include <QApplication>
@@ -23,6 +24,7 @@
 #include <QDialog>
 #include <QDir>
 #include <QDirIterator>
+#include <QElapsedTimer>
 #include <QEventLoop>
 #include <QFile>
 #include <QJsonArray>
@@ -37,6 +39,7 @@
 #include <QPlainTextEdit>
 #include <QPointer>
 #include <QScreen>
+#include <QTabBar>
 #include <QTabWidget>
 #include <QTemporaryDir>
 #include <QTimer>
@@ -79,8 +82,14 @@ public:
         QDir().mkpath(out);
     }
 
+    // Only the steps of these areas (all when empty); the others are skipped.
+    void setOnly(const QStringList& areas) { m_only = areas; }
+    bool wants(const QString& area) const { return m_only.isEmpty() || m_only.contains(area, Qt::CaseInsensitive); }
+
     void shot(QWidget* widget, const QString& area, const QString& title, bool ok = true, const QString& note = {})
     {
+        if (!wants(area))
+            return;
         wait(300);
         QString file;
         if (widget) {
@@ -97,6 +106,8 @@ public:
     // What the screen shows over the window (popups included).
     void screen(const QString& area, const QString& title, bool ok = true, const QString& note = {})
     {
+        if (!wants(area))
+            return;
         wait(400);
         const QString file = QStringLiteral("%1.png").arg(++m_count, 3, 10, QLatin1Char('0'));
         const QRect frame = m_window.frameGeometry();
@@ -132,6 +143,8 @@ public:
     bool modal(const QString& area, const QString& title, const std::function<void()>& start,
                const std::function<void(QWidget*)>& inside = {})
     {
+        if (!wants(area))
+            return false;
         QPointer<QWidget> before = QApplication::activeModalWidget();
         bool seen = false;
         int elapsed = 0;
@@ -178,6 +191,8 @@ public:
     // A window that isn't modal (Calculator, Clipboard container...), photographed and closed.
     bool topLevel(const QString& area, const QString& title, const std::function<void()>& start)
     {
+        if (!wants(area))
+            return false;
         const QList<QWidget*> before = QApplication::topLevelWidgets();
         start();
         wait(500);
@@ -211,8 +226,10 @@ public:
         }
     }
 
-    void menu(const QString& area, const QString& objectName)
+    void menu(const QString& area, const QString& objectName, const QString& prefix = {})
     {
+        if (!wants(area))
+            return;
         QMenu* menu = nullptr;
         for (QAction* a : m_window.menuBar()->actions()) {
             if (a->menu() && a->menu()->objectName() == objectName && a->isVisible())
@@ -224,7 +241,7 @@ public:
         }
         menu->popup(m_window.mapToGlobal(QPoint(40, 60)));
         wait(400);
-        shot(menu, area, QStringLiteral("Menu: ") + menu->title().remove(QLatin1Char('&')));
+        shot(menu, area, prefix + QStringLiteral("Menu: ") + menu->title().remove(QLatin1Char('&')));
         menu->hide();
         wait(100);
     }
@@ -279,8 +296,30 @@ private:
     AppContext& m_context;
     MainWindow& m_window;
     QString m_out;
+    QStringList m_only;
     QJsonArray m_entries;
     int m_count = 0;
+};
+
+// Counts the paint events of a widget and its children (frames drawn).
+class PaintCounter : public QObject
+{
+public:
+    explicit PaintCounter(QWidget* root)
+    {
+        root->installEventFilter(this);
+        for (QWidget* child : root->findChildren<QWidget*>())
+            child->installEventFilter(this);
+    }
+    int count = 0;
+
+protected:
+    bool eventFilter(QObject*, QEvent* event) override
+    {
+        if (event->type() == QEvent::Paint)
+            ++count;
+        return false;
+    }
 };
 
 // The panel's combo box `name` set to the item `text`.
@@ -316,6 +355,7 @@ int main(int argc, char** argv)
     parser.addOption({"mugen", "M.U.G.E.N folder to copy (chars/kfm, stages, data, font).", "folder"});
     parser.addOption({"sffv2", "A character with an SFF v2 sprite file (optional).", "folder"});
     parser.addOption({"out", "Folder for the screenshots and index.json.", "folder"});
+    parser.addOption({"only", "Only the steps of these areas (comma separated, e.g. Character,Sounds).", "areas"});
     parser.addHelpOption();
     parser.process(app);
     if (!parser.isSet("mugen") || !parser.isSet("out"))
@@ -352,6 +392,8 @@ int main(int argc, char** argv)
     window.show();
     wait(1500);
     Tour tour(context, window, parser.value("out"));
+    if (parser.isSet("only"))
+        tour.setOnly(parser.value("only").split(QLatin1Char(','), Qt::SkipEmptyParts));
 
     // File dialogs answer from the tour: an image or a sound when one is asked for, else nothing.
     const QString image = work.filePath("tour.png");
@@ -521,8 +563,20 @@ int main(int argc, char** argv)
         tour.window("Emulator", "Emulator editor");
         QWidget* panel = tour.view();
         const bool started = click(panel, "emul_start");
-        wait(4000);
-        tour.window("Emulator", "Kung Fu Man vs Kung Fu Man", started);
+        wait(1000);
+        // Frames drawn in five seconds of the match (60 a second when it keeps up).
+        QString speed;
+        if (auto* workspace = tour.view()->findChild<QWidget*>("workspace_emulator")) {
+            PaintCounter counter(workspace);
+            QElapsedTimer clock;
+            clock.start();
+            wait(5000);
+            speed = QStringLiteral("%1 frames in %2 s (%3 fps)")
+                        .arg(counter.count)
+                        .arg(clock.elapsed() / 1000.0, 0, 'f', 1)
+                        .arg(counter.count * 1000.0 / double(clock.elapsed()), 0, 'f', 1);
+        }
+        tour.window("Emulator", "Kung Fu Man vs Kung Fu Man", started, speed);
         click(panel, "emul_start"); // stop
         wait(500);
         chooseItem(panel, "emul_match_mode", "Training");
@@ -559,7 +613,59 @@ int main(int argc, char** argv)
         wait(800);
         tour.window("Themes", QStringLiteral("Icon set %1").arg(QString::fromLatin1(icons)));
     }
+
+    // Every first run theme over the editors, panels, docks, a menu and dialogs. The text must stay
+    // readable on each.
+    auto applyTheme = [&](const FirstRunDialog::Theme& theme) {
+        config.setValue("preset", theme.preset);
+        config.setValue("iconset", theme.iconset);
+        config.setValue("stylesheet", theme.stylesheet);
+        config.setValue("colorset", theme.colorset);
+        window.applyInterface();
+        wait(800);
+    };
+    for (const FirstRunDialog::Theme& theme : FirstRunDialog::themes()) {
+        if (!tour.wants("Theme"))
+            break;
+        applyTheme(theme);
+        const QString name = theme.name + QStringLiteral(": ");
+        for (const char* id : {"definitions", "sprites", "animations", "states", "commands", "sounds", "emulator"}) {
+            if (tour.editor(QString::fromLatin1(id)))
+                tour.window("Theme", name + QString::fromLatin1(id));
+        }
+        tour.editor("states");
+        for (const char* dock :
+             {"view_issues", "view_advanced_search", "view_engine_output", "view_debugger", "view_watch"}) {
+            tour.trigger(QString::fromLatin1(dock));
+            wait(300);
+            tour.window("Theme", name + QString::fromLatin1(dock));
+        }
+        if (auto* tabs = tour.view() ? tour.view()->findChild<QTabBar*>("leftPanelTabs") : nullptr) {
+            tabs->setCurrentIndex(1);
+            wait(300);
+            tour.window("Theme", name + "Project explorer");
+            tabs->setCurrentIndex(0);
+        }
+        tour.editor("sprites");
+        tour.trigger("view_organizer");
+        wait(300);
+        tour.window("Theme", name + "Organizer");
+        tour.trigger("view_organizer");
+        tour.menu("Theme", "menu_sprites", name);
+        tour.modal("Theme", name + "Options", [&] { tour.trigger("tools_options"); });
+        tour.modal("Theme", name + "Question", [&] {
+            QMessageBox::question(&window, QStringLiteral("Close"),
+                                  QStringLiteral("Do you really want to close Open Factory Studio?"));
+        });
+        tour.modal("Theme", name + "About", [&] { tour.trigger("help_about"); });
+    }
     tour.closeAll();
+    if (tour.wants("Theme")) {
+        for (const FirstRunDialog::Theme& theme : FirstRunDialog::themes()) {
+            applyTheme(theme);
+            tour.window("Theme", theme.name + QStringLiteral(": Welcome page"));
+        }
+    }
 
     // ---- A stage -----------------------------------------------------------------------------------
     if (window.openProject(engine + "/stages/stage0.def")) {
