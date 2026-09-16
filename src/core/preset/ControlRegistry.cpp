@@ -62,6 +62,9 @@ QWidget* ControlRegistry::create(const Preset::Control& control, QWidget* parent
 
     if (widget->objectName().isEmpty())
         widget->setObjectName(control.name);
+    // Same as Fighter Factory: the panel width is fixed and its controls shrink to fit, so eight
+    // tool buttons share a row and a long text is cut. The panel never scrolls sideways.
+    widget->setMinimumWidth(1);
     if (control.size.isValid()) {
         if (control.size.width() > 0)
             widget->setFixedWidth(control.size.width());

@@ -4,14 +4,19 @@
 
 #include <QCommandLinkButton>
 #include <QDir>
+#include <QEvent>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QStyleOptionButton>
+#include <QStylePainter>
 #include <QToolButton>
 #include <QVBoxLayout>
+
+#include <algorithm>
 
 namespace OFS {
 
@@ -34,6 +39,70 @@ QLabel* paragraph(const QString& text, QWidget* parent)
     label->setWordWrap(true);
     return label;
 }
+
+// Recent project button. QCommandLinkButton draws its text in a fixed dark blue under the Windows style, which is
+// unreadable on dark themes, so this one uses the theme's text colour.
+class RecentButton : public QCommandLinkButton
+{
+public:
+    using QCommandLinkButton::QCommandLinkButton;
+
+protected:
+    bool event(QEvent* event) override
+    {
+        const bool result = QCommandLinkButton::event(event);
+        // The Windows style marks the button when it polishes it, which makes QCommandLinkButton measure a larger
+        // title. The size follows the texts drawn below.
+        if (event->type() == QEvent::Polish || event->type() == QEvent::StyleChange) {
+            setProperty("_qt_usingVistaStyle", false);
+            updateGeometry();
+        }
+        return result;
+    }
+
+    void paintEvent(QPaintEvent*) override
+    {
+        constexpr int kLeftMargin = 7;
+        constexpr int kTopMargin = 10;
+        constexpr int kRightMargin = 4;
+        constexpr int kBottomMargin = 10;
+        constexpr int kIconGap = 6;
+
+        QStylePainter painter(this);
+        QStyleOptionButton option;
+        initStyleOption(&option);
+        option.text.clear();
+        option.icon = QIcon();
+        painter.drawControl(QStyle::CE_PushButton, option);
+
+        const int shiftX = isDown() ? style()->pixelMetric(QStyle::PM_ButtonShiftHorizontal, &option, this) : 0;
+        const int shiftY = isDown() ? style()->pixelMetric(QStyle::PM_ButtonShiftVertical, &option, this) : 0;
+        const QSize iconPixels = icon().actualSize(iconSize());
+        painter.drawPixmap(kLeftMargin + shiftX, kTopMargin + shiftY,
+                           icon().pixmap(iconPixels, devicePixelRatioF(), isEnabled() ? QIcon::Normal : QIcon::Disabled,
+                                         isChecked() ? QIcon::On : QIcon::Off));
+
+        // The style sheet's text colour. The Windows style only overrides the button text role.
+        QPalette colours = option.palette;
+        colours.setColor(QPalette::ButtonText, palette().color(QPalette::WindowText));
+        const int textLeft = kLeftMargin + iconPixels.width() + kIconGap;
+        QFont titleFont = font();
+        titleFont.setBold(true);
+        painter.setFont(titleFont);
+        const int titleHeight = QFontMetrics(titleFont).height();
+        QRect titleRect = rect().adjusted(textLeft, kTopMargin, -kRightMargin, 0).translated(shiftX, shiftY);
+        if (description().isEmpty())
+            titleRect.setTop(titleRect.top() + std::max(0, (iconPixels.height() - titleHeight) / 2));
+        painter.drawItemText(titleRect, Qt::AlignLeft | Qt::AlignTop | Qt::TextSingleLine, colours, isEnabled(), text(),
+                             QPalette::ButtonText);
+        painter.setFont(font());
+        const QRect descriptionRect = rect()
+                                          .adjusted(textLeft, kTopMargin + titleHeight, -kRightMargin, -kBottomMargin)
+                                          .translated(shiftX, shiftY);
+        painter.drawItemText(descriptionRect, Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, colours, isEnabled(),
+                             description(), QPalette::ButtonText);
+    }
+};
 
 } // namespace
 
@@ -132,7 +201,7 @@ void WelcomePage::refresh()
     const auto& entries = m_history.entries();
     for (qsizetype i = 0; i < entries.size(); ++i) {
         const History::Entry& e = entries[i];
-        auto* button = new QCommandLinkButton(e.name, QDir::toNativeSeparators(e.file), this);
+        auto* button = new RecentButton(e.name, QDir::toNativeSeparators(e.file), this);
         button->setObjectName(QStringLiteral("recentProject%1").arg(i + 1));
         button->setToolTip(QDir::toNativeSeparators(e.file));
         button->setCheckable(isEditing());
@@ -146,8 +215,8 @@ void WelcomePage::refresh()
         m_buttons << button;
     }
     if (entries.isEmpty()) {
-        auto* open = new QCommandLinkButton(tr("Open project..."),
-                                            tr("No recent projects. Open one now and start the fun!"), this);
+        auto* open =
+            new RecentButton(tr("Open project..."), tr("No recent projects. Open one now and start the fun!"), this);
         open->setObjectName(QStringLiteral("welcomeOpenProject"));
         open->setMinimumHeight(50);
         connect(open, &QCommandLinkButton::clicked, this, &WelcomePage::openDialogRequested);

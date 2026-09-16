@@ -1761,8 +1761,10 @@ void MainWindow::applyInterface()
         config.boolValue(QStringLiteral("dpi_auto"), false)
             ? 1.0
             : std::clamp(config.value(QStringLiteral("dpi_scale"), QStringLiteral("1")).toDouble(), 0.5, 4.0));
-    if (theme.setStyle(choose("stylesheet", model.stylesheet, "Dark")))
+    if (theme.setStyle(choose("stylesheet", model.stylesheet, "Dark"))) {
+        QApplication::setPalette(theme.palette());
         qApp->setStyleSheet(theme.styleSheet());
+    }
     theme.setColorSet(choose("colorset", model.colorset, "Dark"));
     m_context.actions().applyIcons(theme.iconSet());
     m_dock->setArrowIcons(theme.iconSet().icon(QStringLiteral("bottom_up")),

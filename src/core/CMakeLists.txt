@@ -123,6 +123,8 @@ add_library(ofscore SHARED
     widgets/GraphicsView.cpp
     widgets/RenderSurface.h
     widgets/RenderSurface.cpp
+    widgets/Rulers.h
+    widgets/Rulers.cpp
     tools/Calculator.h
     tools/Calculator.cpp
     script/LuaApi.h

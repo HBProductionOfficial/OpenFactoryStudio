@@ -23,6 +23,7 @@
 #include "core/theme/IconSet.h"
 #include "core/theme/ThemeManager.h"
 #include "core/widgets/EPanelWidget.h"
+#include "core/widgets/WaveformView.h"
 #include "shell/AnimationPage.h"
 #include "shell/AnimationsEditor.h"
 #include "shell/BackgroundsEditor.h"
@@ -409,6 +410,11 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
             file = m_project->soundFile(filePath, info.id, &error);
         if (file) {
             auto* page = new SoundPage(file);
+            const auto waveColor = [this, page] {
+                page->view()->setWaveColor(m_context.theme().colorSet().color(QStringLiteral("sound_wave")));
+            };
+            waveColor();
+            connect(&m_context.theme(), &ThemeManager::colorSetChanged, page, waveColor);
             page->setProperty("filePath", filePath);
             page->setProperty("editorId", info.id);
             auto updateIssues = [this, page, file] {
@@ -508,6 +514,11 @@ void ProjectView::configureCodeEditor(CodeEditor* editor, const QString& editorI
     const QString fileType = engine()->syntaxFileTypeForText(*m_project, editorId, editor->toPlainText());
     editor->setSyntax(engine()->syntax(), fileType);
     editor->setColorSet(m_context.theme().colorSet());
+    if (!editor->property("followsColorSet").toBool()) {
+        editor->setProperty("followsColorSet", true);
+        connect(&m_context.theme(), &ThemeManager::colorSetChanged, editor,
+                [this, editor] { editor->setColorSet(m_context.theme().colorSet()); });
+    }
     editor->setCompletionProvider(
         std::make_unique<SyntaxCompletionProvider>(engine()->syntax(), fileType, engine()->completion()));
 }

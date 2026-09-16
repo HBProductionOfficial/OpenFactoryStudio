@@ -109,9 +109,14 @@ QLayout* PresetBuilder::buildLayout(const Preset::Layout& layout, QWidget* paren
         }
 
         if (grid) {
-            if (widget)
+            if (widget) {
+                // Grid columns share the width evenly whatever the controls hold, same as Fighter
+                // Factory. A longer text is cut.
+                QSizePolicy policy = widget->sizePolicy();
+                policy.setHorizontalPolicy(QSizePolicy::Ignored);
+                widget->setSizePolicy(policy);
                 grid->addWidget(widget, item.row, item.column, item.rowSpan, item.columnSpan);
-            else if (child)
+            } else if (child)
                 grid->addLayout(child, item.row, item.column, item.rowSpan, item.columnSpan);
             else if (spacer)
                 grid->addItem(spacer, item.row, item.column, item.rowSpan, item.columnSpan);
@@ -123,6 +128,10 @@ QLayout* PresetBuilder::buildLayout(const Preset::Layout& layout, QWidget* paren
             else if (spacer)
                 box->addItem(spacer);
         }
+    }
+    if (grid) {
+        for (int column = 0; column < grid->columnCount(); ++column)
+            grid->setColumnStretch(column, 1);
     }
     return result;
 }

@@ -2,6 +2,7 @@
 
 #include "core/settings/Config.h"
 #include "core/widgets/RenderSurface.h"
+#include "core/widgets/Rulers.h"
 
 #include <QKeyEvent>
 #include <QLinearGradient>
@@ -20,12 +21,6 @@ namespace {
 constexpr int RulerSize = 20;
 constexpr int GuideGrab = 3;
 constexpr int HandleSize = 7;
-
-void rulerSteps(double zoom, int* minor, int* major)
-{
-    *major = std::max(5, int(std::floor(50.0 / zoom / 5.0)) * 5);
-    *minor = std::max(1, *major / 5);
-}
 
 } // namespace
 
@@ -456,52 +451,13 @@ void GraphicsView::drawRulers(QPainter& p)
 {
     if (!m_rulers)
         return;
-    const QColor band(38, 38, 38);
-    const QColor strip(70, 70, 70);
-    const QColor ink(200, 200, 200);
-    const int tickStrip = 6;
-    p.fillRect(QRect(0, 0, width(), RulerSize), band);
-    p.fillRect(QRect(0, 0, RulerSize, height()), band);
-    p.fillRect(QRect(RulerSize, RulerSize - tickStrip, width(), tickStrip), strip);
-    p.fillRect(QRect(RulerSize - tickStrip, RulerSize, tickStrip, height()), strip);
-    p.setPen(ink);
-    QFont font = p.font();
-    font.setPixelSize(9);
-    p.setFont(font);
     int minor = 10;
     int major = 50;
-    rulerSteps(zoom(), &minor, &major);
-    const QRect area = contentRect();
-    const int firstX = int(std::floor(toUnits(QPointF(area.left(), 0)).x() / minor)) * minor;
-    for (int u = firstX;; u += minor) {
-        const double x = toWidget(QPointF(u, 0)).x();
-        if (x > area.right())
-            break;
-        if (x < area.left())
-            continue;
-        const bool labelled = u % major == 0;
-        p.drawLine(QPointF(x, RulerSize - (labelled ? tickStrip : tickStrip / 2)), QPointF(x, RulerSize - 1));
-        if (labelled)
-            p.drawText(QRectF(x - 30, 0, 60, RulerSize - tickStrip), Qt::AlignCenter, QString::number(u));
-    }
-    const int firstY = int(std::floor(toUnits(QPointF(0, area.top())).y() / minor)) * minor;
-    for (int u = firstY;; u += minor) {
-        const double y = toWidget(QPointF(0, u)).y();
-        if (y > area.bottom())
-            break;
-        if (y < area.top())
-            continue;
-        const bool labelled = u % major == 0;
-        p.drawLine(QPointF(RulerSize - (labelled ? tickStrip : tickStrip / 2), y), QPointF(RulerSize - 1, y));
-        if (labelled) {
-            p.save();
-            p.translate(0, y);
-            p.rotate(-90);
-            p.drawText(QRectF(-30, 0, 60, RulerSize - tickStrip), Qt::AlignCenter, QString::number(u));
-            p.restore();
-        }
-    }
-    p.fillRect(QRect(0, 0, RulerSize, RulerSize), band);
+    Rulers::steps(zoom(), &minor, &major);
+    const QPointF zero = toWidget(QPointF(0, 0));
+    const QPointF one = toWidget(QPointF(1, 1));
+    Rulers::draw(p, rect(), contentRect(), {zero.x(), one.x() - zero.x()}, {zero.y(), one.y() - zero.y()}, minor, major,
+                 Rulers::Colours::from(palette()), {RulerSize});
 }
 
 void GraphicsView::paintEvent(QPaintEvent* event)

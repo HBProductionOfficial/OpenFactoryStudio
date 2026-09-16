@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Open Factory Studio - colours of the "Dark" interface style for the widgets that draw
+    themselves (rulers, timelines, waveforms, previews); stylesheet.css colours the others.
+    One <color role="..." value="r,g,b"/> per QPalette role, for every colour group unless
+    group="active", "inactive" or "disabled" names one.
+-->
+<palette>
+    <color role="Window" value="51,51,51"/>
+    <color role="WindowText" value="204,204,204"/>
+    <color role="Base" value="34,34,34"/>
+    <color role="AlternateBase" value="42,42,42"/>
+    <color role="Text" value="204,204,204"/>
+    <color role="Button" value="70,70,70"/>
+    <color role="ButtonText" value="204,204,204"/>
+    <color role="BrightText" value="255,255,255"/>
+    <color role="Light" value="92,92,92"/>
+    <color role="Midlight" value="70,70,70"/>
+    <color role="Mid" value="42,42,42"/>
+    <color role="Dark" value="26,26,26"/>
+    <color role="Shadow" value="10,10,10"/>
+    <color role="Highlight" value="68,68,68"/>
+    <color role="HighlightedText" value="255,255,255"/>
+    <color role="ToolTipBase" value="34,34,34"/>
+    <color role="ToolTipText" value="221,221,221"/>
+    <color role="PlaceholderText" value="136,136,136"/>
+    <color role="Link" value="110,170,230"/>
+    <color role="LinkVisited" value="170,140,220"/>
+    <color role="WindowText" group="disabled" value="136,136,136"/>
+    <color role="Text" group="disabled" value="136,136,136"/>
+    <color role="ButtonText" group="disabled" value="136,136,136"/>
+</palette>

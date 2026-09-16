@@ -49,6 +49,9 @@ public:
     Formats::SampleRange selection() const { return m_selection; }
     void setSelection(Formats::SampleRange range);
     void setPlayPosition(qint64 frame);
+    // The colour set's sound_wave. An invalid colour restores the default.
+    void setWaveColor(const QColor& color);
+    QColor waveColor() const { return m_waveColor; }
     qint64 playPosition() const { return m_play; }
 
     qint64 frameAt(int x) const;
@@ -87,6 +90,7 @@ private:
     qint64 m_cursor = 0;
     Formats::SampleRange m_selection;
     qint64 m_play = -1;
+    QColor m_waveColor{230, 200, 40};
     bool m_dragging = false;
     QPoint m_pressPos;
     qint64 m_anchor = 0;

@@ -3,9 +3,12 @@
 #include "core/theme/StyleSheet.h"
 #include "core/theme/ThemeManager.h"
 
+#include <QApplication>
 #include <QDir>
 #include <QFile>
 #include <QImage>
+#include <QPalette>
+#include <QStyle>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -158,6 +161,30 @@ private Q_SLOTS:
         QVERIFY(theme.iconSet().contains("st_state"));
         QVERIFY(!theme.setIconSet("Missing"));
         QCOMPARE(theme.iconSetName(), QStringLiteral("Flat"));
+    }
+
+    void stylePalette()
+    {
+        QTemporaryDir dir;
+        writeText(dir.filePath("styles/Night/stylesheet.css"), "QWidget { color: #cccccc; }");
+        writeText(dir.filePath("styles/Night/palette.xml"),
+                  "<palette><color role=\"Window\" value=\"51,51,51\"/>"
+                  "<color role=\"WindowText\" value=\"204, 204, 204\"/>"
+                  "<color role=\"WindowText\" group=\"disabled\" value=\"136,136,136\"/>"
+                  "<color role=\"NoSuchRole\" value=\"1,2,3\"/><color role=\"Base\" value=\"oops\"/></palette>");
+        writeText(dir.filePath("styles/Plain/stylesheet.css"), "QWidget { color: black; }");
+        ThemeManager theme;
+        theme.setSearchDirs({dir.path()});
+        QVERIFY(theme.setStyle("Night"));
+        const QPalette night = theme.palette();
+        QCOMPARE(night.color(QPalette::Active, QPalette::Window), QColor(51, 51, 51));
+        QCOMPARE(night.color(QPalette::Inactive, QPalette::WindowText), QColor(204, 204, 204));
+        QCOMPARE(night.color(QPalette::Disabled, QPalette::WindowText), QColor(136, 136, 136));
+        QCOMPARE(night.color(QPalette::Base), QApplication::style()->standardPalette().color(QPalette::Base));
+        QVERIFY(theme.setStyle("Plain"));
+        QCOMPARE(theme.palette().color(QPalette::Window),
+                 QApplication::style()->standardPalette().color(QPalette::Window));
+        QVERIFY(!ThemeManager::loadPalette(dir.filePath("missing.xml"), QPalette()));
     }
 };
 

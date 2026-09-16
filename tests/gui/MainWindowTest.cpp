@@ -17,6 +17,7 @@
 #include "core/sprites/PaletteEdits.h"
 #include "core/sprites/SpriteDocument.h"
 #include "core/sprites/SpriteFile.h"
+#include "core/theme/ThemeManager.h"
 #include "core/widgets/EPanelWidget.h"
 #include "core/widgets/GraphicsView.h"
 #include "core/widgets/ImageCanvas.h"
@@ -45,6 +46,7 @@
 #include "shell/SpritePage.h"
 #include "shell/SpritesEditor.h"
 #include "shell/StatusBar.h"
+#include "shell/dialogs/FirstRunDialog.h"
 #include "shell/dialogs/PaletteDialogs.h"
 #include "shell/dialogs/ScriptEditorDialog.h"
 #include "shell/dialogs/SnippetEditorDialog.h"
@@ -67,6 +69,7 @@
 #include <QFile>
 #include <QInputDialog>
 #include <QLabel>
+#include <QLayout>
 #include <QLineEdit>
 #include <QListView>
 #include <QListWidget>
@@ -76,10 +79,12 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QScrollArea>
 #include <QScrollBar>
 #include <QSlider>
 #include <QSpinBox>
 #include <QStandardItemModel>
+#include <QStyleFactory>
 #include <QTabWidget>
 #include <QTableView>
 #include <QTemporaryDir>
@@ -3288,6 +3293,140 @@ private Q_SLOTS:
         QTRY_VERIFY(enabled("snd_play"));
     }
 
+    void codeColorsFollowTheme()
+    {
+        Config& config = m_context->config();
+        const QStringList keys{"preset", "iconset", "stylesheet", "colorset"};
+        QStringList before;
+        for (const QString& key : keys)
+            before << config.value(key);
+        auto apply = [&](const FirstRunDialog::Theme& theme, MainWindow& window) {
+            config.setValue("preset", theme.preset);
+            config.setValue("iconset", theme.iconset);
+            config.setValue("stylesheet", theme.stylesheet);
+            config.setValue("colorset", theme.colorset);
+            window.applyInterface();
+        };
+        const QList<FirstRunDialog::Theme> themes = FirstRunDialog::themes();
+        MainWindow window(*m_context);
+        window.resize(1000, 700);
+        apply(themes.first(), window);
+        window.show();
+        QVERIFY(window.openProject(m_dir.filePath("fighter.def")));
+        m_context->actions().action("editor_st")->trigger();
+        CodeEditor* editor = nullptr;
+        for (CodeEditor* e : window.currentProjectView()->findChildren<CodeEditor*>()) {
+            if (e->isVisible())
+                editor = e;
+        }
+        QVERIFY(editor);
+        for (const FirstRunDialog::Theme& theme : themes) {
+            apply(theme, window);
+            const QColor expected = m_context->theme().colorSet().color(QStringLiteral("background"));
+            QVERIFY2(expected.isValid(), qPrintable(theme.name));
+            QWidget* area = editor->viewport();
+            const QImage shown = window.grab(QRect(area->mapTo(&window, QPoint(0, 0)), area->size())).toImage();
+            const QColor painted = shown.pixelColor(shown.width() - 20, shown.height() - 10).toRgb();
+            QVERIFY2(
+                painted == expected,
+                qPrintable(QStringLiteral("%1: %2 instead of %3").arg(theme.name, painted.name(), expected.name())));
+            QCOMPARE(editor->palette().color(QPalette::Text),
+                     m_context->theme().colorSet().color(QStringLiteral("foreground")));
+            // The widgets that draw themselves (rulers, timelines) get the style's colours.
+            const bool darkStyle = theme.stylesheet == QLatin1String("Dark");
+            QVERIFY2((QApplication::palette().color(QPalette::Window).lightness() < 128) == darkStyle,
+                     qPrintable(theme.name));
+            QVERIFY2((QApplication::palette().color(QPalette::WindowText).lightness() < 128) == !darkStyle,
+                     qPrintable(theme.name));
+        }
+        m_context->actions().action("file_close")->trigger();
+        for (int i = 0; i < keys.size(); ++i)
+            config.setValue(keys[i], before[i]);
+        window.applyInterface();
+    }
+
+    void welcomeTextReadable()
+    {
+        m_context->history().clear();
+        m_context->history().add("Kung Fu Man", m_dir.filePath("fighter.def"));
+        Config& config = m_context->config();
+        const QStringList keys{"preset", "iconset", "stylesheet", "colorset"};
+        QStringList before;
+        for (const QString& key : keys)
+            before << config.value(key);
+        // main.cpp uses this style on Windows, and it colours command links on its own.
+        const QString style = QApplication::style()->name();
+        const bool vista = QStyleFactory::keys().contains(QStringLiteral("windowsvista"), Qt::CaseInsensitive);
+        if (vista)
+            QApplication::setStyle(QStringLiteral("windowsvista"));
+        MainWindow window(*m_context);
+        window.resize(1000, 700);
+        window.show();
+        // WCAG contrast ratio of two colours.
+        auto ratioOf = [](QRgb a, QRgb b) {
+            auto luminance = [](QRgb rgb) {
+                auto channel = [](int v) {
+                    const double c = v / 255.0;
+                    return c <= 0.03928 ? c / 12.92 : std::pow((c + 0.055) / 1.055, 2.4);
+                };
+                return 0.2126 * channel(qRed(rgb)) + 0.7152 * channel(qGreen(rgb)) + 0.0722 * channel(qBlue(rgb));
+            };
+            const double la = luminance(a);
+            const double lb = luminance(b);
+            return (std::max(la, lb) + 0.05) / (std::min(la, lb) + 0.05);
+        };
+        // Contrast of the most common colour (the background) against the farthest one (the text).
+        auto contrast = [&ratioOf](const QImage& image) {
+            QHash<QRgb, int> counts;
+            for (int y = 2; y < image.height() - 2; ++y) {
+                for (int x = 2; x < image.width() - 2; ++x)
+                    ++counts[image.pixel(x, y) | 0xff000000];
+            }
+            QRgb back = 0;
+            int most = 0;
+            for (auto it = counts.cbegin(); it != counts.cend(); ++it) {
+                if (it.value() > most) {
+                    most = it.value();
+                    back = it.key();
+                }
+            }
+            double best = 1.0;
+            for (auto it = counts.cbegin(); it != counts.cend(); ++it) {
+                if (it.value() >= 3) // not a stray anti-aliasing pixel
+                    best = std::max(best, ratioOf(back, it.key()));
+            }
+            return best;
+        };
+        for (const FirstRunDialog::Theme& theme : FirstRunDialog::themes()) {
+            config.setValue("preset", theme.preset);
+            config.setValue("iconset", theme.iconset);
+            config.setValue("stylesheet", theme.stylesheet);
+            config.setValue("colorset", theme.colorset);
+            window.applyInterface();
+            auto* button = window.findChild<QCommandLinkButton*>("recentProject1");
+            QVERIFY2(button, qPrintable(theme.name));
+            // Measure the title alone. The path below uses the palette's colour anyway.
+            const QString description = button->description();
+            const QIcon icon = button->icon();
+            button->setDescription(QString());
+            button->setIcon(QIcon());
+            double ratio = contrast(window.grab(QRect(button->mapTo(&window, QPoint(0, 0)), button->size())).toImage());
+            // Classic and Ultimate paint nothing on the test platform, so compare the palette colours there.
+            if (ratio == 1.0)
+                ratio = ratioOf(button->palette().color(QPalette::ButtonText).rgb(),
+                                button->palette().color(QPalette::Window).rgb());
+            button->setDescription(description);
+            button->setIcon(icon);
+            QVERIFY2(ratio >= 4.5, qPrintable(QStringLiteral("%1: contrast %2").arg(theme.name).arg(ratio)));
+        }
+        for (int i = 0; i < keys.size(); ++i)
+            config.setValue(keys[i], before[i]);
+        window.applyInterface();
+        m_context->history().clear();
+        if (vista)
+            QApplication::setStyle(style);
+    }
+
     // Without history the Welcome page offers "Open project...". Remove selected ends edit mode.
     void welcomePageStates()
     {
@@ -3405,6 +3544,100 @@ private Q_SLOTS:
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         QVERIFY(window.openProject(m_dir.filePath("fighter.def")));
         QVERIFY(window.currentProjectView());
+    }
+
+    void panelsFitWidth()
+    {
+        QTemporaryDir dir;
+        SpriteDocument doc;
+        doc.palettes() << SpriteDocument::makePalette(1, 1, Formats::grayscalePalette(256));
+        for (int n = 0; n < 2; ++n) {
+            SpriteEntry entry;
+            entry.header.group = 0;
+            entry.header.number = std::uint16_t(n);
+            entry.pixels = SpriteDocument::makePixels(Formats::Image::indexed(2, 2, std::vector<std::uint8_t>(4, 3)));
+            entry.palette = doc.palettes()[0];
+            doc.sprites() << entry;
+        }
+        auto toBytes = [](const Formats::Bytes& bytes) {
+            return QByteArray(reinterpret_cast<const char*>(bytes.data()), qsizetype(bytes.size()));
+        };
+        writeFile(dir.filePath("p.sff"), toBytes(doc.toSff().write().value()));
+        Formats::SndDocument snd;
+        const auto wav =
+            Formats::encodeAudio(Formats::SampleBuffer::fromInt16(std::vector<std::int16_t>(100, 0), 1, 11025));
+        snd.sounds.push_back(Formats::SndSound{0, 0, wav.value()});
+        writeFile(dir.filePath("p.snd"), toBytes(snd.write()));
+        writeFile(dir.filePath("p.air"), "[Begin Action 0]\n0,0, 0,0, 10\n0,1, 0,0, 10\n");
+        writeFile(dir.filePath("p.cmd"), "[Command]\nname = \"x\"\ncommand = x\n");
+        writeFile(dir.filePath("p.cns"),
+                  "[Data]\nlife = 1000\n[Statedef 0]\n[State 0, 1]\ntype = Null\ntrigger1 = 1\n");
+        writeFile(dir.filePath("p.def"), "[Info]\nname = \"P\"\nmugenversion = 1.0\n[Files]\ncmd = p.cmd\ncns = p.cns\n"
+                                         "st = p.cns\nsprite = p.sff\nanim = p.air\nsound = p.snd\n");
+        writeFile(dir.filePath("st.def"), "[Info]\nname = \"St\"\n[Camera]\nstartx = 0\n"
+                                          "[BGdef]\nspr = p.sff\n[BG 1]\ntype = normal\nspriteno = 0, 0\n");
+
+        Config& config = m_context->config();
+        const QString preset = config.value("preset");
+        MainWindow window(*m_context);
+        window.resize(1400, 900);
+        window.show();
+        QStringList problems;
+        for (const QString& path : {dir.filePath("p.def"), dir.filePath("st.def")}) {
+            QVERIFY(window.openProject(path));
+            ProjectView* view = window.currentProjectView();
+            for (const char* name : {"Classic", "Ultimate", "Clean", "Neo"}) {
+                config.setValue("preset", QString::fromLatin1(name));
+                window.applyInterface();
+                QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+                for (const QString& id : view->editorIds()) {
+                    view->setCurrentEditor(id);
+                    auto* scroll = view->findChild<QScrollArea*>("panel_" + id);
+                    if (!scroll || !scroll->widget())
+                        continue;
+                    QWidget* content = scroll->widget();
+                    if (content->layout())
+                        content->layout()->activate();
+                    // Leave room for the vertical scroll bar shown when the panel is too short.
+                    const int available = scroll->width() - scroll->verticalScrollBar()->sizeHint().width();
+                    const int needed = content->minimumSizeHint().width();
+                    QCOMPARE(scroll->horizontalScrollBar()->maximum(), 0);
+                    // A narrow spin box keeps room for its value beside the arrow buttons.
+                    for (QAbstractSpinBox* spin : content->findChildren<QAbstractSpinBox*>()) {
+                        if (auto* edit = spin->findChild<QLineEdit*>(); edit && spin->isVisibleTo(content))
+                            QVERIFY2(edit->width() >= spin->width() - 30, qPrintable(spin->objectName()));
+                    }
+                    auto* source = content->findChild<QWidget*>("anim_frame_transsrc");
+                    auto* dest = content->findChild<QWidget*>("anim_frame_transdst");
+                    if (source && dest)
+                        QCOMPARE(source->width(), dest->width());
+                    if (needed <= available)
+                        continue;
+                    content->resize(needed, content->height());
+                    content->layout()->activate();
+                    QStringList wide;
+                    for (QWidget* child : content->findChildren<QWidget*>()) {
+                        if (!child->isVisibleTo(content) || child->objectName().isEmpty())
+                            continue;
+                        const int right = child->mapTo(content, QPoint(child->width(), 0)).x();
+                        if (right > available)
+                            wide << QStringLiteral("%1(w%2 min%3)")
+                                        .arg(child->objectName())
+                                        .arg(child->width())
+                                        .arg(child->minimumSizeHint().width());
+                    }
+                    problems << QStringLiteral("%1 %2: needs %3, has %4: %5")
+                                    .arg(QString::fromLatin1(name), id)
+                                    .arg(needed)
+                                    .arg(available)
+                                    .arg(wide.join(QStringLiteral(", ")));
+                }
+            }
+            m_context->actions().action("file_close")->trigger();
+        }
+        config.setValue("preset", preset);
+        window.applyInterface();
+        QVERIFY2(problems.isEmpty(), qPrintable(problems.join(QLatin1Char('\n'))));
     }
 
     void presetSwitchKeepsPanels()

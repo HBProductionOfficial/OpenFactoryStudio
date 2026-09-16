@@ -1,5 +1,7 @@
 #include "core/widgets/TimelineWidget.h"
 
+#include "core/widgets/Rulers.h"
+
 #include <QMouseEvent>
 #include <QPainter>
 
@@ -95,11 +97,12 @@ void TimelineWidget::paintEvent(QPaintEvent* event)
 {
     Q_UNUSED(event);
     QPainter p(this);
-    p.fillRect(rect(), QColor(40, 40, 40));
+    const Rulers::Colours colours = Rulers::Colours::from(palette());
+    p.fillRect(rect(), palette().color(QPalette::Base));
     const double unit = tickWidth();
     const int left = trackLeft();
-    p.fillRect(QRect(0, 0, width(), RulerHeight), QColor(30, 30, 30));
-    p.setPen(QColor(190, 190, 190));
+    p.fillRect(QRect(0, 0, width(), RulerHeight), colours.band);
+    p.setPen(colours.ink);
     int step = 5;
     while (step * unit < 24)
         step += 5;

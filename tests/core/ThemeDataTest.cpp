@@ -15,6 +15,7 @@
 #include <QJsonObject>
 #include <QLabel>
 #include <QMainWindow>
+#include <QPalette>
 #include <QRegularExpression>
 #include <QSpinBox>
 #include <QTabBar>
@@ -270,6 +271,21 @@ private Q_SLOTS:
         }
         qInstallMessageHandler(previous);
         QVERIFY2(g_warnings.isEmpty(), qPrintable(g_warnings.join(u'\n')));
+    }
+
+    void shippedStylePalettes()
+    {
+        const QString data = QStringLiteral(OFS_SOURCE_DATA_DIR);
+        for (const char* name : {"Dark", "Light"}) {
+            const auto palette =
+                ThemeManager::loadPalette(data + "/styles/" + QLatin1String(name) + "/palette.xml", QPalette());
+            QVERIFY2(palette, name);
+            const bool dark = QLatin1String(name) == QLatin1String("Dark");
+            QCOMPARE(palette->color(QPalette::Window).lightness() < 128, dark);
+            QCOMPARE(palette->color(QPalette::Base).lightness() < 128, dark);
+            QCOMPARE(palette->color(QPalette::WindowText).lightness() < 128, !dark);
+            QCOMPARE(palette->color(QPalette::Text).lightness() < 128, !dark);
+        }
     }
 };
 

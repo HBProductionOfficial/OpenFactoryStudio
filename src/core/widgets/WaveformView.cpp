@@ -1,5 +1,7 @@
 #include "core/widgets/WaveformView.h"
 
+#include "core/widgets/Rulers.h"
+
 #include <QMouseEvent>
 #include <QPainter>
 #include <QScrollBar>
@@ -17,13 +19,11 @@ constexpr int RulerHeight = 20;
 constexpr double MinimumFramesPerPixel = 1.0 / 16.0;
 constexpr double TicksPerSecond = 60.0;
 
-const QColor Background(24, 24, 24);
 const QColor CentreLine(150, 150, 150);
 const QColor Wave(230, 200, 40);
 const QColor SelectionFill(240, 140, 30);
 const QColor WaveInSelection(60, 40, 10);
 const QColor CursorColor(40, 120, 255);
-const QColor PlayColor(255, 255, 255);
 
 } // namespace
 
@@ -151,6 +151,12 @@ void WaveformView::setSelection(SampleRange range)
     Q_EMIT selectionChanged(m_selection);
 }
 
+void WaveformView::setWaveColor(const QColor& color)
+{
+    m_waveColor = color.isValid() ? color : Wave;
+    update();
+}
+
 void WaveformView::setPlayPosition(qint64 frame)
 {
     if (frame == m_play)
@@ -164,9 +170,10 @@ void WaveformView::paintEvent(QPaintEvent* event)
     Q_UNUSED(event);
     QPainter p(this);
     const QRect area = waveArea();
-    p.fillRect(rect(), Background);
-    p.fillRect(QRect(0, 0, width(), RulerHeight), QColor(40, 40, 40));
-    p.setPen(QColor(200, 200, 200));
+    const Rulers::Colours colours = Rulers::Colours::from(palette());
+    p.fillRect(rect(), palette().color(QPalette::Base));
+    p.fillRect(QRect(0, 0, width(), RulerHeight), colours.band);
+    p.setPen(colours.ink);
     const double rate = std::max<std::uint32_t>(1, m_buffer.sampleRate());
     const double framesPerTick = rate / TicksPerSecond;
     const double pixelsPerTick = framesPerTick / m_framesPerPixel;
@@ -206,7 +213,7 @@ void WaveformView::paintEvent(QPaintEvent* event)
         for (int x = 0; x < width() && x < soundEnd; ++x) {
             const PeakPair& peak = columns[std::size_t(x)];
             const bool selected = !m_selection.empty() && x >= selectionLeft && x < selectionRight;
-            p.setPen(selected ? WaveInSelection : Wave);
+            p.setPen(selected ? WaveInSelection : m_waveColor);
             p.drawLine(QPointF(x + 0.5, middle - peak.max * half), QPointF(x + 0.5, middle - peak.min * half));
         }
         if (band > 8 && c > 0) {
@@ -221,7 +228,7 @@ void WaveformView::paintEvent(QPaintEvent* event)
     p.setPen(QPen(CursorColor, 1));
     p.drawLine(QPointF(xAt(double(m_cursor)), area.top()), QPointF(xAt(double(m_cursor)), area.bottom()));
     if (m_play >= 0) {
-        p.setPen(QPen(PlayColor, 1));
+        p.setPen(QPen(palette().color(QPalette::Text), 1));
         p.drawLine(QPointF(xAt(double(m_play)), area.top()), QPointF(xAt(double(m_play)), area.bottom()));
     }
 }

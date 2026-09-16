@@ -5,7 +5,10 @@
 #include "core/theme/IconSet.h"
 
 #include <QObject>
+#include <QPalette>
 #include <QStringList>
+
+#include <optional>
 
 namespace OFS {
 
@@ -43,6 +46,11 @@ public:
     const IconSet& iconSet() const { return m_iconSet; }
     const ColorSet& colorSet() const { return m_colorSet; }
     const QString& styleSheet() const { return m_styleSheet; }
+    // For widgets that draw themselves: the style's palette.xml, else the standard palette.
+    QPalette palette() const;
+    // palette.xml has <color role="Window" value="r,g,b"/> per QPalette role, for every colour
+    // group or only the one named by group="active|inactive|disabled".
+    static std::optional<QPalette> loadPalette(const QString& path, const QPalette& base);
 
     void setScale(double scale) { m_scale = scale; }
     double scale() const { return m_scale; }
@@ -61,6 +69,7 @@ private:
     ColorSet m_colorSet;
     QString m_styleName;
     QString m_styleSheet;
+    std::optional<QPalette> m_stylePalette;
     double m_scale = 1.0;
 };
 

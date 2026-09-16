@@ -1,6 +1,7 @@
 #include "core/widgets/GraphicsView.h"
 #include "core/settings/Config.h"
 #include "core/widgets/RenderSurface.h"
+#include "core/widgets/Rulers.h"
 
 #include <QApplication>
 #include <QFile>
@@ -111,6 +112,25 @@ private Q_SLOTS:
         const QColor classic = view.grab().toImage().pixelColor(arm);
         view.setCrossStyle(GraphicsView::CrossStyle::Modern);
         QVERIFY(view.grab().toImage().pixelColor(arm) != classic);
+    }
+
+    void rulersFollowPalette()
+    {
+        GraphicsView view;
+        view.resize(200, 200);
+        view.setOrigin(QPoint(100, 100));
+        view.setBackground(GraphicsView::Background::Color);
+        for (const QColor& window : {QColor(51, 51, 51), QColor(221, 221, 221)}) {
+            QPalette palette = view.palette();
+            palette.setColor(QPalette::Window, window);
+            palette.setColor(QPalette::WindowText, window.lightness() < 128 ? QColor(204, 204, 204) : Qt::black);
+            view.setPalette(palette);
+            const QImage shown = view.grab().toImage();
+            const QColor band = shown.pixelColor(125, 3);
+            QCOMPARE(band.lightness() < 128, window.lightness() < 128);
+            QCOMPARE(band.rgb(), Rulers::Colours::from(palette).band.rgb());
+            QCOMPARE(shown.pixelColor(3, 125), band);
+        }
     }
 
     void boxesOverCrosses()

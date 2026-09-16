@@ -2,8 +2,13 @@
 
 #include "core/theme/StyleSheet.h"
 
+#include <QApplication>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
+#include <QMetaEnum>
+#include <QStyle>
+#include <QXmlStreamReader>
 
 namespace OFS {
 
@@ -126,8 +131,55 @@ bool ThemeManager::setStyle(const QString& name)
         return false;
     m_styleName = name;
     m_styleSheet = StyleSheet::load(dir, m_scale);
+    const QPalette standard = QApplication::style() ? QApplication::style()->standardPalette() : QPalette();
+    m_stylePalette = loadPalette(dir + QStringLiteral("/palette.xml"), standard);
     Q_EMIT styleChanged();
     return true;
+}
+
+QPalette ThemeManager::palette() const
+{
+    if (m_stylePalette)
+        return *m_stylePalette;
+    return QApplication::style() ? QApplication::style()->standardPalette() : QPalette();
+}
+
+std::optional<QPalette> ThemeManager::loadPalette(const QString& path, const QPalette& base)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly))
+        return std::nullopt;
+    const QMetaEnum roles = QMetaEnum::fromType<QPalette::ColorRole>();
+    QPalette palette = base;
+    QXmlStreamReader xml(&file);
+    while (xml.readNextStartElement()) {
+        if (xml.name() == QLatin1String("palette"))
+            continue;
+        if (xml.name() != QLatin1String("color")) {
+            xml.skipCurrentElement();
+            continue;
+        }
+        const QXmlStreamAttributes attributes = xml.attributes();
+        bool known = false;
+        const int role = roles.keyToValue(attributes.value(QLatin1String("role")).toLatin1().constData(), &known);
+        const QStringList rgb = attributes.value(QLatin1String("value")).toString().split(QLatin1Char(','));
+        xml.skipCurrentElement();
+        if (!known || rgb.size() != 3)
+            continue;
+        const QColor colour(rgb[0].trimmed().toInt(), rgb[1].trimmed().toInt(), rgb[2].trimmed().toInt());
+        const QString group = attributes.value(QLatin1String("group")).toString().toLower();
+        if (group.isEmpty())
+            palette.setColor(QPalette::ColorRole(role), colour);
+        else if (group == QLatin1String("active"))
+            palette.setColor(QPalette::Active, QPalette::ColorRole(role), colour);
+        else if (group == QLatin1String("inactive"))
+            palette.setColor(QPalette::Inactive, QPalette::ColorRole(role), colour);
+        else if (group == QLatin1String("disabled"))
+            palette.setColor(QPalette::Disabled, QPalette::ColorRole(role), colour);
+    }
+    if (xml.hasError())
+        return std::nullopt;
+    return palette;
 }
 
 bool ThemeManager::setColorSet(const QString& name)

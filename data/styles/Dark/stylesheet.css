@@ -486,11 +486,6 @@ QScrollArea, QScrollArea > QWidget > QWidget
     border: none;
 }
 
-QAbstractSpinBox
-{
-    padding-right: [17]px;
-}
-
 QAbstractSpinBox::up-button, QAbstractSpinBox::down-button
 {
     subcontrol-origin: border;
@@ -728,23 +723,24 @@ QMessageBox QPushButton, QDialogButtonBox QPushButton
 
 QCommandLinkButton
 {
-    background: transparent;
-    color: #cccccc;
-    border: [1]px solid transparent;
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #5c5c5c, stop: 0.5 #464646, stop: 1 #3a3a3a);
+    color: #dddddd;
+    border: [1]px solid #151515;
     border-radius: [4]px;
     padding: [4]px;
 }
 
 QCommandLinkButton:hover
 {
-    background: #3c3c3c;
-    border-color: #555555;
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #6c6c6c, stop: 0.5 #545454, stop: 1 #464646);
+    color: #ffffff;
 }
 
 QCommandLinkButton:checked, QCommandLinkButton:pressed
 {
-    background: #444444;
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 #2e2e2e, stop: 1 #3c3c3c);
     border-color: #888888;
+    color: #ffffff;
 }
 
 /* ---- Group boxes --------------------------------------------------------------------------------- */

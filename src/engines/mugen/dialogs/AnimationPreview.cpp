@@ -1,5 +1,7 @@
 #include "engines/mugen/dialogs/AnimationPreview.h"
 
+#include "core/widgets/Rulers.h"
+
 #include <QLinearGradient>
 #include <QPainter>
 
@@ -111,39 +113,8 @@ void AnimationPreview::paintEvent(QPaintEvent* event)
     }
     p.restore();
 
-    const QColor rulerBack = palette().color(QPalette::Window).darker(115);
-    const QColor rulerText = palette().color(QPalette::WindowText);
-    p.fillRect(QRect(0, 0, width(), RulerSize), rulerBack);
-    p.fillRect(QRect(0, 0, RulerSize, height()), rulerBack);
-    QFont font = p.font();
-    font.setPixelSize(10);
-    p.setFont(font);
-    p.setPen(rulerText);
-    const int fromX = int(std::floor((view.left() - zero.x()) / TickStep)) * TickStep;
-    for (int unit = fromX; zero.x() + unit <= view.right(); unit += TickStep) {
-        const double x = zero.x() + unit;
-        if (x < view.left())
-            continue;
-        const bool labelled = unit % LabelStep == 0;
-        p.drawLine(QPointF(x, RulerSize - (labelled ? 8 : 4)), QPointF(x, RulerSize - 1));
-        if (labelled)
-            p.drawText(QRectF(x - 20, 0, 40, RulerSize - 8), Qt::AlignCenter, QString::number(unit));
-    }
-    const int fromY = int(std::floor((view.top() - zero.y()) / TickStep)) * TickStep;
-    for (int unit = fromY; zero.y() + unit <= view.bottom(); unit += TickStep) {
-        const double y = zero.y() + unit;
-        if (y < view.top())
-            continue;
-        const bool labelled = unit % LabelStep == 0;
-        p.drawLine(QPointF(RulerSize - (labelled ? 8 : 4), y), QPointF(RulerSize - 1, y));
-        if (labelled) {
-            p.save();
-            p.translate(RulerSize - 10, y);
-            p.rotate(-90);
-            p.drawText(QRectF(-20, -10, 40, 10), Qt::AlignCenter, QString::number(unit));
-            p.restore();
-        }
-    }
+    Rulers::draw(p, rect(), view, {zero.x(), 1}, {zero.y(), 1}, TickStep, LabelStep, Rulers::Colours::from(palette()),
+                 {RulerSize, 8, 10});
 }
 
 } // namespace OFS::Mugen

@@ -130,10 +130,19 @@ void CodeEditor::setColorSet(const ColorSet& colors)
 {
     m_colors = colors;
     QPalette p = palette();
-    if (colors.contains(QStringLiteral("background")))
+    QStringList rules;
+    if (colors.contains(QStringLiteral("background"))) {
         p.setColor(QPalette::Base, colors.color(QStringLiteral("background")));
-    if (colors.contains(QStringLiteral("foreground")))
+        rules << QStringLiteral("background-color: %1;").arg(colors.color(QStringLiteral("background")).name());
+    }
+    if (colors.contains(QStringLiteral("foreground"))) {
         p.setColor(QPalette::Text, colors.color(QStringLiteral("foreground")));
+        rules << QStringLiteral("color: %1;").arg(colors.color(QStringLiteral("foreground")).name());
+    }
+    // The interface style colours text boxes too; the code colours (Options > Colors) take
+    // precedence in the code editor, whatever style is chosen later.
+    setStyleSheet(rules.isEmpty() ? QString()
+                                  : QStringLiteral("QPlainTextEdit { %1 }").arg(rules.join(QLatin1Char(' '))));
     setPalette(p);
     if (m_highlighter)
         m_highlighter->setColorSet(colors);
