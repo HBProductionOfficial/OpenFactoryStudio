@@ -103,6 +103,7 @@ private:
     void onCurrentTabChanged(int index);
     void refreshForCurrent();
     void updateTaskbarTabs();
+    void ensureEditor(ProjectView* view, const QString& editorId);
     void refreshToolBars();
     void refreshActionStates();
     void refreshTitle();

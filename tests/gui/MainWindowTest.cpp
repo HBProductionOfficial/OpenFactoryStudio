@@ -3361,6 +3361,22 @@ private Q_SLOTS:
         FileDialogs::setSavePromptOverride({});
     }
 
+    void editorActionsSwitchEditor()
+    {
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(m_dir.filePath("fighter.def")));
+        ProjectView* view = window.currentProjectView();
+        view->setCurrentEditor("definitions");
+        m_context->actions().action("spr_next")->trigger();
+        QCOMPARE(view->currentEditor(), QStringLiteral("sprites"));
+        view->setCurrentEditor("commands");
+        m_context->actions().action("pal_next")->trigger(); // the Palettes panel belongs to the Sprites editor
+        QCOMPARE(view->currentEditor(), QStringLiteral("sprites"));
+        m_context->actions().action("anim_next_frame")->trigger();
+        QCOMPARE(view->currentEditor(), QStringLiteral("animations"));
+    }
+
     // The quick find bar and the bottom dock move between projects and must survive closing the last one.
     void reopenAfterClosingLast()
     {

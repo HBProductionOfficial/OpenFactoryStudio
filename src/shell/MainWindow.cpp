@@ -876,6 +876,7 @@ void MainWindow::connectEditActions()
             }
             if (view && action.startsWith(QLatin1String("org_")) && view->performOrganizer(action))
                 return;
+            ensureEditor(view, QStringLiteral("sprites"));
             const bool done = view && view->spritesEditor() && view->spritesEditor()->perform(action);
             if (!done && action == QLatin1String("spr_edit_img"))
                 refreshActionStates(); // nothing to edit: the action unchecks again
@@ -889,6 +890,7 @@ void MainWindow::connectEditActions()
         const QString action = QString::fromLatin1(id);
         on(id, [this, action] {
             ProjectView* view = currentProjectView();
+            ensureEditor(view, QStringLiteral("sprites"));
             if (view && view->spritesEditor())
                 view->spritesEditor()->palettes()->perform(action);
         });
@@ -899,6 +901,7 @@ void MainWindow::connectEditActions()
         const QString action = QString::fromLatin1(id);
         on(id, [this, action] {
             ProjectView* view = currentProjectView();
+            ensureEditor(view, QStringLiteral("backgrounds"));
             if (view && view->backgroundsEditor())
                 view->backgroundsEditor()->perform(action);
             refreshActionStates();
@@ -916,6 +919,7 @@ void MainWindow::connectEditActions()
         const QString action = QString::fromLatin1(id);
         on(id, [this, action] {
             ProjectView* view = currentProjectView();
+            ensureEditor(view, QStringLiteral("sounds"));
             if (view && view->soundsEditor())
                 view->soundsEditor()->perform(action);
             refreshActionStates();
@@ -953,6 +957,7 @@ void MainWindow::connectEditActions()
         const QString action = QString::fromLatin1(id);
         on(id, [this, action] {
             ProjectView* view = currentProjectView();
+            ensureEditor(view, QStringLiteral("animations"));
             if (view && view->animationsEditor())
                 view->animationsEditor()->perform(action);
             refreshActionStates();
@@ -2472,6 +2477,13 @@ void MainWindow::onCurrentTabChanged(int)
 
 // ---------------------------------------------------------------------------------------------
 // Refreshing the interface for the current project and editor
+
+void MainWindow::ensureEditor(ProjectView* view, const QString& editorId)
+{
+    // Using an editor's action from elsewhere, like a toolbar or another panel, switches to that editor first.
+    if (view && view->currentEditor() != editorId && view->editorIds().contains(editorId))
+        view->setCurrentEditor(editorId);
+}
 
 void MainWindow::updateTaskbarTabs()
 {
