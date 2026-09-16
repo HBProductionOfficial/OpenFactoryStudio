@@ -1176,7 +1176,7 @@ private Q_SLOTS:
         });
         actions.action("st_save")->trigger();
         QCOMPARE(prompts.size(), 1);
-        QCOMPARE(prompts[0], QStringLiteral("Save as|untitled1.cns|States (*.cns *.st);;All files (*)"));
+        QCOMPARE(prompts[0], QStringLiteral("Save states as...|untitled1.cns|States (*.cns *.st);;All files (*)"));
         QVERIFY(created->isUntitled());
         answer = dir.filePath("brand.cns");
         actions.action("st_save")->trigger();
@@ -3331,6 +3331,36 @@ private Q_SLOTS:
         m_context->applySettings();
     }
 
+    void saveAsOutsideProject()
+    {
+        QTemporaryDir dir;
+        QTemporaryDir outside;
+        writeFile(dir.filePath("x.def"), "[Info]\nname = \"X\"\nmugenversion = 1.0\n[Files]\nanim = x.air\n");
+        writeFile(dir.filePath("x.air"), "[Begin Action 0]\n0,0, 0,0, 10\n");
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("x.def")));
+        m_context->actions().action("editor_anim")->trigger();
+        ProjectFile* air = window.currentProjectView()->project()->file(dir.filePath("x.air"));
+        QVERIFY(air);
+        QStringList captions;
+        FileDialogs::setSavePromptOverride([&](const QString& caption, const QString&, const QString&) {
+            captions << caption;
+            return outside.filePath("copy.air");
+        });
+        QStringList texts;
+        answerBoxes({QMessageBox::No}, &texts);
+        m_context->actions().action("anim_saveas")->trigger();
+        QCOMPARE(captions, QStringList{"Save animations as..."});
+        QCOMPARE(texts.size(), 1);
+        QVERIFY(!QFile::exists(outside.filePath("copy.air")));
+        answerBoxes({QMessageBox::Yes}, &texts);
+        m_context->actions().action("anim_saveas")->trigger();
+        QVERIFY(QFile::exists(outside.filePath("copy.air")));
+        QCOMPARE(air->path(), dir.filePath("x.air"));
+        FileDialogs::setSavePromptOverride({});
+    }
+
     // The quick find bar and the bottom dock move between projects and must survive closing the last one.
     void reopenAfterClosingLast()
     {
@@ -4101,7 +4131,7 @@ private Q_SLOTS:
             return QString();
         });
         actions.action("file_save")->trigger();
-        QCOMPARE(asked, QStringList{"Save as|" + dir.path() + "/fighter.cmd"});
+        QCOMPARE(asked, QStringList{"Save commands as...|" + dir.path() + "/fighter.cmd"});
         QVERIFY(view->currentFile()->isModified());
         QCOMPARE(Zip::read(archive, "fighter/fighter.cmd"), commandsText);
         FileDialogs::setSavePromptOverride([&](const QString&, const QString& path, const QString&) { return path; });

@@ -119,8 +119,9 @@ void DebuggerPanels::updateActions()
         a->setEnabled(b && !b->enabled);
     if (QAction* a = m_actions.action(QStringLiteral("breakpoint_disable")))
         a->setEnabled(b && b->enabled);
+    // Same as Fighter Factory, Remove all breakpoints stays enabled when there are none.
     if (QAction* a = m_actions.action(QStringLiteral("breakpoint_remove_all")))
-        a->setEnabled(!m_breakpoints.isEmpty());
+        a->setEnabled(true);
 }
 
 void DebuggerPanels::showBreakpointMenu(const QPoint& pos)

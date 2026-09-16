@@ -685,14 +685,8 @@ void SpritesEditor::addSprites(QWidget* parent, const QString& imageFolder)
         return ok ? group : 7777;
     };
     options.askConflict = conflictPrompt(parent);
-    options.askShare = [parent, file](const QString& fileName, int existing) {
-        const SpriteEntry& other = file->document().sprites()[existing];
-        return QMessageBox::question(parent, tr("Share"),
-                                     tr("The image of '%1' is identical to the sprite %2, %3. Do you want to share it?")
-                                         .arg(QFileInfo(fileName).fileName())
-                                         .arg(other.group())
-                                         .arg(other.number())) == QMessageBox::Yes;
-    };
+    // Same as Fighter Factory, "Ask to share identical sprites" shares them without asking.
+    options.askShare = [](const QString&, int) { return true; };
 
     QList<ImageToAdd> images;
     for (const QString& path : std::as_const(files)) {

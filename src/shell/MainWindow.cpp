@@ -1652,11 +1652,26 @@ bool MainWindow::saveFileAs(ProjectFile* file)
         return written;
     }
     const EditorInfo info = project->engine()->editor(file->editorId());
-    const QString title = file->isNameless() ? tr("Save %1 as...").arg(info.title.toLower()) : tr("Save as");
+    const QString title = tr("Save %1 as...").arg(info.title.toLower());
     const QString target = FileDialogs::getSaveFileName(this, title, project->suggestedPath(file), info.fileFilter);
     if (target.isEmpty())
         return false;
     QString error;
+    const QString folder = QDir(project->directory()).absolutePath() + QLatin1Char('/');
+    if (!file->isUntitled() && !project->isMemoryOnly() && project->archivePath().isEmpty() &&
+        !QFileInfo(target).absoluteFilePath().startsWith(folder, Qt::CaseInsensitive)) {
+        if (QMessageBox::question(this, tr("External file!"),
+                                  tr("This file isn't a child of the project directory, so will be ignored on "
+                                     "'Run in engine', 'Backup' and 'Save as' functions. Do you want to save it as "
+                                     "copy?"),
+                                  QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes)
+            return false;
+        if (!file->writeCopy(target, &error)) {
+            QMessageBox::warning(this, title, error);
+            return false;
+        }
+        return true;
+    }
     if (!file->saveAs(target, &error)) {
         QMessageBox::warning(this, title, error);
         return false;
@@ -2866,8 +2881,8 @@ void MainWindow::populateRecentProjects(QMenu* menu, QAction* before, QList<QAct
     menu->insertAction(before, sep);
     created << sep;
 
+    // Enabled even with no history, same as Fighter Factory.
     auto* openAll = new QAction(tr("Open all"), menu);
-    openAll->setEnabled(!entries.isEmpty());
     connect(openAll, &QAction::triggered, this, [this] {
         const auto list = m_context.history().entries();
         for (auto it = list.crbegin(); it != list.crend(); ++it)
