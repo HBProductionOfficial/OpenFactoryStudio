@@ -377,8 +377,26 @@ void MainWindow::buildCentralArea()
     m_actionListDock = new QDockWidget(tr("Action list"), this);
     m_actionListDock->setObjectName(QStringLiteral("actionListDock"));
     m_actionListDock->setWidget(m_actionList);
-    addDockWidget(Qt::RightDockWidgetArea, m_actionListDock);
+    {
+        const int stored = m_context.config().intValue(QStringLiteral("action_list_area"), Qt::RightDockWidgetArea);
+        const auto area = Qt::DockWidgetArea(stored);
+        const bool valid = area == Qt::LeftDockWidgetArea || area == Qt::RightDockWidgetArea ||
+                           area == Qt::TopDockWidgetArea || area == Qt::BottomDockWidgetArea;
+        addDockWidget(valid ? area : Qt::RightDockWidgetArea, m_actionListDock);
+    }
     m_actionListDock->hide();
+    connect(m_actionListDock, &QDockWidget::dockLocationChanged, this, [this](Qt::DockWidgetArea area) {
+        if (area != Qt::NoDockWidgetArea)
+            m_context.config().setValue(QStringLiteral("action_list_area"), int(area));
+    });
+    connect(m_actionListDock, &QDockWidget::visibilityChanged, this, [this](bool visible) {
+        if (!visible || m_actionListDock->property("widthRestored").toBool())
+            return;
+        m_actionListDock->setProperty("widthRestored", true);
+        const int width = m_context.config().intValue(QStringLiteral("action_list_width"), 162);
+        if (width > 0 && !m_actionListDock->isFloating())
+            resizeDocks({m_actionListDock}, {width}, Qt::Horizontal);
+    });
     connect(m_actionList, &QListWidget::itemClicked, this, [this](QListWidgetItem* item) {
         if (QAction* a = m_context.actions().action(item->data(Qt::UserRole).toString()))
             a->trigger();
@@ -2947,6 +2965,8 @@ void MainWindow::saveWindowGeometry()
     config.setValue(QStringLiteral("window_width"), normal.width());
     config.setValue(QStringLiteral("window_height"), normal.height());
     config.setValue(QStringLiteral("window_state"), int(windowState() & Qt::WindowMaximized) | int(Qt::WindowActive));
+    if (m_actionListDock->property("widthRestored").toBool() && !m_actionListDock->isFloating())
+        config.setValue(QStringLiteral("action_list_width"), m_actionListDock->width());
     config.setValue(QStringLiteral("main_toolbar"), int(toolBarArea(m_mainBar)));
     config.setValue(QStringLiteral("extra_toolbar"), int(toolBarArea(m_extraBar)));
     config.setValue(QStringLiteral("toolbar_break"), toolBarBreak(m_extraBar) || toolBarBreak(m_mainBar));

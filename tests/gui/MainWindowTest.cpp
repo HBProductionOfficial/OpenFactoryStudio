@@ -65,6 +65,7 @@
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDir>
+#include <QDockWidget>
 #include <QDoubleSpinBox>
 #include <QDropEvent>
 #include <QFile>
@@ -3452,6 +3453,35 @@ private Q_SLOTS:
         QVERIFY(own.save(m_dir.filePath("own.png")));
         plain.icon = m_dir.filePath("own.png");
         QCOMPARE(pixels(plain.displayIcon()).pixelColor(8, 8), QColor(255, 0, 255));
+    }
+
+    void actionListPlace()
+    {
+        Config& config = m_context->config();
+        const QString area = config.value("action_list_area");
+        const QString width = config.value("action_list_width");
+        config.setValue("action_list_area", int(Qt::LeftDockWidgetArea));
+        config.setValue("action_list_width", 230);
+        {
+            MainWindow window(*m_context);
+            window.resize(1200, 800);
+            window.show();
+            auto* dock = window.findChild<QDockWidget*>("actionListDock");
+            QVERIFY(dock);
+            QCOMPARE(window.dockWidgetArea(dock), Qt::LeftDockWidgetArea);
+            m_context->actions().action("view_actions")->trigger();
+            QTRY_VERIFY(dock->isVisible());
+            QTRY_VERIFY(std::abs(dock->width() - 230) <= 2);
+            window.addDockWidget(Qt::RightDockWidgetArea, dock);
+            QCOMPARE(config.intValue("action_list_area"), int(Qt::RightDockWidgetArea));
+            window.resizeDocks({dock}, {190}, Qt::Horizontal);
+            QTRY_VERIFY(std::abs(dock->width() - 190) <= 2);
+            window.close();
+            QVERIFY(std::abs(config.intValue("action_list_width") - 190) <= 2);
+            m_context->actions().action("view_actions")->trigger();
+        }
+        config.setValue("action_list_area", area);
+        config.setValue("action_list_width", width);
     }
 
     void welcomeTextReadable()
