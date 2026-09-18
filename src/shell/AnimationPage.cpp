@@ -1,5 +1,6 @@
 #include "shell/AnimationPage.h"
 
+#include "core/GameTime.h"
 #include "core/code/CodeEditor.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
@@ -71,7 +72,7 @@ AnimationPage::AnimationPage(CodeFile* file, CodePage* code, Project* project, Q
     layout->addWidget(m_stack);
     m_view->setZoomIndex(4); // 3x
     m_timer->setTimerType(Qt::PreciseTimer);
-    m_timer->setInterval(1000 / 60);
+    m_timer->setInterval(TickIntervalMs);
     connect(m_timer, &QTimer::timeout, this, &AnimationPage::advance);
 
     connect(m_file->document(), &QTextDocument::contentsChanged, this, &AnimationPage::reparse);

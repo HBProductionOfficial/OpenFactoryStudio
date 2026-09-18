@@ -36,6 +36,12 @@ QList<double> GraphicsView::smallZoomRange()
 
 QImage GraphicsView::defaultBackground()
 {
+    static const QImage backdrop = makeDefaultBackground();
+    return backdrop;
+}
+
+QImage GraphicsView::makeDefaultBackground()
+{
     // 852 x 560: sky down to the floor line at 416, then floor. Grid lines every 32.
     QImage image(852, 560, QImage::Format_RGB32);
     QPainter p(&image);

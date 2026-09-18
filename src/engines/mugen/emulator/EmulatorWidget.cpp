@@ -1,5 +1,6 @@
 #include "engines/mugen/emulator/EmulatorWidget.h"
 
+#include "core/GameTime.h"
 #include "core/widgets/RenderSurface.h"
 
 #include "core/app/AppContext.h"
@@ -26,8 +27,6 @@ namespace OFS::Mugen {
 using namespace Runtime;
 
 namespace {
-
-constexpr int TicksPerSecond = 60;
 
 const char* const EngineKey = "emul_engine";
 

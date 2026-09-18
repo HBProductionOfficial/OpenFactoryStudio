@@ -1,5 +1,6 @@
 #include "core/widgets/WaveformView.h"
 
+#include "core/GameTime.h"
 #include "core/widgets/Rulers.h"
 
 #include <QMouseEvent>
@@ -17,7 +18,6 @@ namespace {
 
 constexpr int RulerHeight = 20;
 constexpr double MinimumFramesPerPixel = 1.0 / 16.0;
-constexpr double TicksPerSecond = 60.0;
 
 const QColor CentreLine(150, 150, 150);
 const QColor Wave(230, 200, 40);
@@ -175,7 +175,7 @@ void WaveformView::paintEvent(QPaintEvent* event)
     p.fillRect(QRect(0, 0, width(), RulerHeight), colours.band);
     p.setPen(colours.ink);
     const double rate = std::max<std::uint32_t>(1, m_buffer.sampleRate());
-    const double framesPerTick = rate / TicksPerSecond;
+    const double framesPerTick = rate / double(TicksPerSecond);
     const double pixelsPerTick = framesPerTick / m_framesPerPixel;
     int step = 1;
     for (int candidate : {1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000}) {

@@ -1,5 +1,6 @@
 #include "shell/SoundsEditor.h"
 
+#include "core/GameTime.h"
 #include "core/actions/ActionRegistry.h"
 #include "core/app/AppContext.h"
 #include "core/project/Project.h"
@@ -291,7 +292,7 @@ void SoundsEditor::refresh()
                                 .arg(samples.sampleRate())
                                 .arg(m_page->bitsPerSample())
                                 .arg(seconds(duration))
-                                .arg(qint64(std::floor(duration * 60.0 + 1e-9))));
+                                .arg(qint64(std::floor(duration * TicksPerSecond + 1e-9))));
         }
         const int frames = int(std::min<std::size_t>(samples.frameCount(), 2147483647));
         if (m_cursor) {

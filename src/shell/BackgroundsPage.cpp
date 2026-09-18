@@ -1,5 +1,6 @@
 #include "shell/BackgroundsPage.h"
 
+#include "core/GameTime.h"
 #include "core/anims/AirEdits.h"
 #include "core/bg/BgEdits.h"
 #include "core/project/Project.h"
@@ -40,7 +41,7 @@ BackgroundsPage::BackgroundsPage(CodeFile* file, Project* project, QWidget* pare
     layout->addWidget(m_view, 1);
     layout->addWidget(m_timeline);
 
-    m_timer->setInterval(1000 / 60);
+    m_timer->setInterval(TickIntervalMs);
     connect(m_timer, &QTimer::timeout, this, [this] {
         ++m_tick;
         refresh();

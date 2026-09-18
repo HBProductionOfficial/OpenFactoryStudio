@@ -1,5 +1,6 @@
 #include "engines/mugen/MugenHtmlExport.h"
 
+#include "core/GameTime.h"
 #include "core/anims/AirDocument.h"
 #include "core/anims/AirGif.h"
 #include "core/bg/BgDocument.h"
@@ -466,13 +467,13 @@ bool exportHtml(Project& project, const HtmlExportOptions& options, const QStrin
                                  .scaled(options.staticSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
         if (still.save(images.filePath(QStringLiteral("stage.png")), "PNG"))
             values.insert(QStringLiteral("stage"), imageTag(QStringLiteral("stage.png")));
-        const int rate = qBound(1, options.frameRate, 60);
+        const int rate = qBound(1, options.frameRate, TicksPerSecond);
         const int count = qMax(1, options.duration * rate);
         QList<QImage> frames;
         QList<int> delays;
         int shown = 0; // hundredths of a second already given
         for (int i = 0; i < count; ++i) {
-            const int tick = options.frameStart + int(std::lround(i * 60.0 / rate));
+            const int tick = options.frameStart + int(std::lround(i * double(TicksPerSecond) / rate));
             const QImage frame = renderStage(bg, sprites, air, screen, tick, options.background)
                                      .scaled(options.gifSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
             const int end = int(std::lround((i + 1) * 100.0 / rate));

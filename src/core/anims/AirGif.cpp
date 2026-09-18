@@ -1,5 +1,6 @@
 #include "core/anims/AirGif.h"
 
+#include "core/GameTime.h"
 #include "core/sprites/SpriteDocument.h"
 #include "formats/codecs/Gif.h"
 #include "formats/image/Quantize.h"
@@ -28,7 +29,7 @@ QList<int> gifDelays(const QList<int>& times, double velocity)
         }
         total += time;
         // Rounded down. The epsilon absorbs the binary error of velocities like 0.1.
-        const qint64 end = qint64(std::floor(double(total) * 100.0 / (60.0 * velocity) + 1e-7));
+        const qint64 end = qint64(std::floor(double(total) * 100.0 / (TicksPerSecond * velocity) + 1e-7));
         delays << int(end - shown);
         shown = end;
     }

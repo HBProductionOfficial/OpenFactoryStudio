@@ -1,5 +1,6 @@
 #include "engines/mugen/dialogs/PalFXDialog.h"
 
+#include "core/GameTime.h"
 #include "core/sprites/SpriteFile.h"
 
 #include <QCheckBox>
@@ -207,7 +208,7 @@ PalFXDialog::PalFXDialog(SpriteFile* sprites, int sprite, const QString& templat
             m_insert(text);
     });
     // sinadd's sine moves at 60 ticks per second.
-    m_timer->setInterval(1000 / 60);
+    m_timer->setInterval(TickIntervalMs);
     connect(m_timer, &QTimer::timeout, this, [this] {
         ++m_tick;
         if (values().sin[0] || values().sin[1] || values().sin[2])

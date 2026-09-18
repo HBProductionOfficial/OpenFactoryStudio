@@ -187,6 +187,7 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
 
 private:
+    static QImage makeDefaultBackground();
     enum class Drag
     {
         None,
