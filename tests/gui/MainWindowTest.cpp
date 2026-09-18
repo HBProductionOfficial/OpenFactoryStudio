@@ -3434,6 +3434,26 @@ private Q_SLOTS:
         actions.action("file_close")->trigger();
     }
 
+    void runConfigurationIcons()
+    {
+        MainWindow window(*m_context); // loads the icon set
+        auto pixels = [](const QIcon& icon) {
+            return icon.pixmap(16, 16).toImage();
+        };
+        const QImage run = pixels(m_context->theme().iconSet().icon(QStringLiteral("file_run")));
+        QVERIFY(!run.isNull());
+        RunConfiguration plain;
+        plain.name = QStringLiteral("Plain");
+        QCOMPARE(pixels(plain.displayIcon()), run);
+        plain.icon = m_dir.filePath("missing.png");
+        QCOMPARE(pixels(plain.displayIcon()), run);
+        QImage own(16, 16, QImage::Format_ARGB32);
+        own.fill(QColor(255, 0, 255));
+        QVERIFY(own.save(m_dir.filePath("own.png")));
+        plain.icon = m_dir.filePath("own.png");
+        QCOMPARE(pixels(plain.displayIcon()).pixelColor(8, 8), QColor(255, 0, 255));
+    }
+
     void welcomeTextReadable()
     {
         m_context->history().clear();

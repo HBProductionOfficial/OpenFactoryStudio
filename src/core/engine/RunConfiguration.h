@@ -2,6 +2,7 @@
 
 #include "core/CoreExport.h"
 
+#include <QIcon>
 #include <QList>
 #include <QPair>
 #include <QString>
@@ -28,6 +29,8 @@ struct OFS_CORE_EXPORT RunConfiguration
     QString parameters; // %0 = name of the project's run copy
 
     bool operator==(const RunConfiguration&) const = default;
+
+    QIcon displayIcon() const;
 
     static QList<RunConfiguration> load(const Config& config);
     static void save(Config& config, const QList<RunConfiguration>& list);

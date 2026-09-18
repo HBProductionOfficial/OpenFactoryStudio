@@ -26,8 +26,7 @@ RunChooserDialog::RunChooserDialog(const QList<RunConfiguration>& configurations
     m_list->setIconSize(QSize(48, 48));
     m_list->setGridSize(QSize(96, 88));
     for (const RunConfiguration& run : configurations) {
-        const QIcon icon = !run.icon.isEmpty() && QFileInfo::exists(run.icon) ? QIcon(run.icon) : qApp->windowIcon();
-        m_list->addItem(new QListWidgetItem(icon, run.name));
+        m_list->addItem(new QListWidgetItem(run.displayIcon(), run.name));
     }
     m_list->setCurrentRow(qBound(0, current, int(configurations.size()) - 1));
 

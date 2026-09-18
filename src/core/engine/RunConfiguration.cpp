@@ -1,11 +1,14 @@
 #include "core/engine/RunConfiguration.h"
 
+#include "core/app/AppContext.h"
 #include "core/settings/Config.h"
+#include "core/theme/ThemeManager.h"
 
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QGuiApplication>
 #include <QSaveFile>
 #include <QXmlStreamReader>
 
@@ -26,6 +29,18 @@ QString key(int index, const char* field)
 }
 
 } // namespace
+
+QIcon RunConfiguration::displayIcon() const
+{
+    if (!icon.isEmpty() && QFileInfo::exists(icon))
+        return QIcon(icon);
+    if (const AppContext* context = AppContext::instance()) {
+        const QIcon run = context->theme().iconSet().icon(QStringLiteral("file_run"));
+        if (!run.isNull())
+            return run;
+    }
+    return QGuiApplication::windowIcon();
+}
 
 QList<RunConfiguration> RunConfiguration::load(const Config& config)
 {

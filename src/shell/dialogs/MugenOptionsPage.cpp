@@ -345,8 +345,7 @@ void MugenOptionsPage::refreshRunList(int select)
     for (const RunConfiguration& run : std::as_const(m_runs)) {
         auto* item = new QListWidgetItem(run.name, m_runList);
         item->setToolTip(run.executable);
-        if (!run.icon.isEmpty() && QFileInfo::exists(run.icon))
-            item->setIcon(QIcon(run.icon));
+        item->setIcon(run.displayIcon());
     }
     m_runList->setCurrentRow(select);
     updateRunButtons();
