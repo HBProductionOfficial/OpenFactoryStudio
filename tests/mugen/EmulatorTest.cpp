@@ -16,6 +16,7 @@
 #include <QComboBox>
 #include <QCoreApplication>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QTemporaryDir>
 #include <QTest>
@@ -175,6 +176,45 @@ private Q_SLOTS:
         QVERIFY(litPixels(frame) > 0);
         EmulatorSession idle;
         QCOMPARE(litPixels(renderer.render(idle)), 0);
+    }
+
+    // A tick and a drawn frame must leave room for 60 frames a second.
+    void kungFuManFrameCost()
+    {
+        const QString folder = qEnvironmentVariable("OFS_CORPUS_MUGEN");
+        if (folder.isEmpty() || !QFileInfo::exists(QDir(folder).filePath("chars/kfm/kfm.def")))
+            QSKIP("OFS_CORPUS_MUGEN is not set to a M.U.G.E.N folder with chars/kfm");
+        MugenEngine mugen;
+        QString error;
+        std::unique_ptr<Project> project(mugen.openProject(QDir(folder).filePath("chars/kfm/kfm.def"), &error));
+        QVERIFY2(project, qPrintable(error));
+        EmulatorSession session;
+        EmulatorSession::Options options;
+        options.engineDir = folder;
+        QVERIFY2(session.start(*project, options, &error), qPrintable(error));
+        EmulatorRenderer renderer;
+        for (int i = 0; i < 200 && session.match().roundState() < 2; ++i)
+            session.tick({}, {});
+        qint64 tickNs = 0;
+        qint64 renderNs = 0;
+        QElapsedTimer clock;
+        const int frames = 300;
+        for (int i = 0; i < frames; ++i) {
+            Runtime::InputState p1;
+            p1.right = i % 60 < 30;
+            p1.x = i % 20 == 0;
+            clock.start();
+            session.tick(p1, {});
+            tickNs += clock.nsecsElapsed();
+            clock.start();
+            const QImage frame = renderer.render(session);
+            renderNs += clock.nsecsElapsed();
+            QVERIFY(!frame.isNull());
+        }
+        const double tickMs = tickNs / 1e6 / frames;
+        const double renderMs = renderNs / 1e6 / frames;
+        qInfo("a tick %.3f ms, a frame %.3f ms (%d frames)", tickMs, renderMs, frames);
+        QVERIFY2(tickMs + renderMs < 1000.0 / 60, "a frame and its tick take longer than 1/60 s");
     }
 
     void unsavedEdits()
