@@ -16,6 +16,7 @@
 #include <QCompleter>
 #include <QDir>
 #include <QFile>
+#include <QMenu>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTextBlock>
@@ -84,6 +85,27 @@ class CodeTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void contextMenu()
+    {
+        CodeEditor editor;
+        QMenu code(QStringLiteral("Code"));
+        QAction* comment = code.addAction(QStringLiteral("Comment/Uncomment selection"));
+        comment->setShortcut(QKeySequence(QStringLiteral("Ctrl+;")));
+        editor.setCodeMenu(&code);
+        QMenu* menu = editor.createContextMenu(QPoint(0, 0));
+        QStringList texts;
+        for (QAction* action : menu->actions()) {
+            if (action->isSeparator())
+                continue;
+            texts << QString(action->text()).remove(QLatin1Char('&'));
+            QVERIFY2(!action->text().contains(QLatin1Char('\t')), qPrintable(action->text()));
+        }
+        QCOMPARE(texts, (QStringList{"Undo", "Redo", "Cut", "Copy", "Paste", "Delete", "Select All", "Code"}));
+        editor.releaseContextMenu(menu);
+        QCOMPARE(code.actions().size(), 1);
+        QCOMPARE(comment->shortcut(), QKeySequence(QStringLiteral("Ctrl+;")));
+    }
+
     void syntaxDatabase()
     {
         SyntaxDatabase db;

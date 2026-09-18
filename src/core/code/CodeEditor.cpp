@@ -558,17 +558,30 @@ void CodeEditor::setCodeMenu(QMenu* menu)
     m_codeMenu = menu;
 }
 
-void CodeEditor::contextMenuEvent(QContextMenuEvent* event)
+QMenu* CodeEditor::createContextMenu(const QPoint& position)
 {
-    QMenu* menu = createStandardContextMenu(event->pos());
+    QMenu* menu = createStandardContextMenu(position);
+    for (QAction* action : menu->actions())
+        action->setText(action->text().section(QLatin1Char('\t'), 0, 0));
     if (m_codeMenu) {
         menu->addSeparator();
         menu->addMenu(m_codeMenu); // shared with Edit > Code: added without taking ownership
     }
-    menu->exec(event->globalPos());
+    return menu;
+}
+
+void CodeEditor::releaseContextMenu(QMenu* menu)
+{
     if (m_codeMenu)
         menu->removeAction(m_codeMenu->menuAction());
     delete menu;
+}
+
+void CodeEditor::contextMenuEvent(QContextMenuEvent* event)
+{
+    QMenu* menu = createContextMenu(event->pos());
+    menu->exec(event->globalPos());
+    releaseContextMenu(menu);
 }
 
 void CodeEditor::mouseReleaseEvent(QMouseEvent* event)

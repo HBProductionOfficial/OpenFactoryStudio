@@ -92,6 +92,10 @@ public:
     void revealPosition(int position);
 
     void setCodeMenu(QMenu* menu);
+    // The caller owns the menu and must call releaseContextMenu() before deleting it, because the
+    // Code submenu is shared.
+    QMenu* createContextMenu(const QPoint& position);
+    void releaseContextMenu(QMenu* menu);
     void toggleComment();
     void autoIndentSelection();
     void autoFormatSelection();
