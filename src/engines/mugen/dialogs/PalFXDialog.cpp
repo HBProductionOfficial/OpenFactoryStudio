@@ -28,15 +28,17 @@ namespace OFS::Mugen {
 
 QRgb PalFX::apply(QRgb rgb, int tick) const
 {
+    // Same order as the engine: colour level toward grey, invert, then (colour + add + sinadd's wave) *
+    // mul / 256. A negative mul counts as 0.
     double c[3] = {double(qRed(rgb)), double(qGreen(rgb)), double(qBlue(rgb))};
-    const double gray = (c[0] + c[1] + c[2]) / 3.0;
+    const double grey = 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
     const double wave = period > 0 ? std::sin(2.0 * std::numbers::pi * tick / period) : 0.0;
     int out[3];
     for (int i = 0; i < 3; ++i) {
-        double v = gray + (c[i] - gray) * color / 256.0;
+        double v = grey + (c[i] - grey) * color / 256.0;
         if (invert)
             v = 255.0 - v;
-        v = v * mul[i] / 256.0 + add[i] + sin[i] * wave;
+        v = (v + add[i] + sin[i] * wave) * std::max(0, mul[i]) / 256.0;
         out[i] = std::clamp(int(std::lround(v)), 0, 255);
     }
     return qRgba(out[0], out[1], out[2], qAlpha(rgb));

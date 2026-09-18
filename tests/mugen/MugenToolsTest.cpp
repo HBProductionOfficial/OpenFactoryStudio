@@ -584,6 +584,7 @@ private Q_SLOTS:
         QCOMPARE(fire.period, 8);
         QCOMPARE(fire.color, 256);
         QVERIFY(!fire.invert);
+        // MUGEN's PalFX: the weighted grey, then (colour + add) * mul / 256.
         const PalFX none;
         QCOMPARE(none.apply(qRgb(10, 100, 200), 0), qRgb(10, 100, 200));
         PalFX inverted;
@@ -591,7 +592,12 @@ private Q_SLOTS:
         QCOMPARE(inverted.apply(qRgb(10, 100, 200), 0), qRgb(245, 155, 55));
         PalFX gray;
         gray.color = 0;
-        QCOMPARE(gray.apply(qRgb(30, 60, 90), 0), qRgb(60, 60, 60));
+        QCOMPARE(gray.apply(qRgb(30, 60, 90), 0), qRgb(54, 54, 54));
+        PalFX added;
+        added.add[0] = 10;
+        added.mul[0] = 128;
+        added.mul[1] = -50; // counts as 0
+        QCOMPARE(added.apply(qRgb(100, 100, 100), 0), qRgb(55, 0, 100));
         PalFX values;
         values.add[0] = 240;
         values.add[1] = 50;
