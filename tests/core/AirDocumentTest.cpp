@@ -393,6 +393,17 @@ private Q_SLOTS:
         QCOMPARE(gif.value().frames.at(0).delay, 5);
         QCOMPARE(gif.value().frames.at(1).left, 20); // the flipped frame: units 8..12, from -2 at scale 2
         QVERIFY(!gif.value().globalPalette.empty());
+
+        const AirDocument endless =
+            AirDocument::parse(QStringList{"[Begin Action 0]", "0,0, 0,0, 3", "0,0, 0,0, -1", "0,0, 10,0, 3"});
+        const QByteArray once = animationGif(endless.animations().first(), sprites, 1.0, 1.0, &error);
+        const auto held = Formats::readGif(
+            Formats::ByteSpan(reinterpret_cast<const std::byte*>(once.constData()), std::size_t(once.size())));
+        QVERIFY(held.ok());
+        QCOMPARE(held.value().loopCount, -1);
+        QVERIFY(!once.contains("NETSCAPE2.0"));
+        QCOMPARE(held.value().frames.size(), std::size_t(2));
+        QCOMPARE(held.value().frames.at(1).delay, 65535);
     }
 
     void documentChanges()

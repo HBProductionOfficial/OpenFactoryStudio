@@ -1,5 +1,6 @@
 #include "shell/SpritesEditor.h"
 
+#include "core/actions/ActionRegistry.h"
 #include "core/app/AppContext.h"
 #include "core/app/Messages.h"
 #include "core/editors/Organize.h"
@@ -671,6 +672,8 @@ void SpritesEditor::addSprites(QWidget* parent, const QString& imageFolder)
     options.axisY = axis.y();
     if (config.boolValue(QStringLiteral("show_addsprite_dialog"), true)) {
         AddSpritesDialog dialog(axis, parent);
+        dialog.setWindowIcon(
+            m_context.actions().action(QStringLiteral("spr_add"))->icon());
         if (dialog.exec() != QDialog::Accepted)
             return;
         options = dialog.options();
@@ -721,6 +724,7 @@ bool SpritesEditor::performDialog(const QString& id)
 
     if (id == QLatin1String("spr_crop")) {
         RangeDialog range(currentGroup, parent);
+        range.setWindowIcon(m_context.actions().action(id)->icon());
         if (range.exec() != QDialog::Accepted)
             return true;
         SpriteDocument edited = doc;
@@ -829,6 +833,7 @@ bool SpritesEditor::performDialog(const QString& id)
             QMessageBox::warning(parent, tr("Save image..."), error);
     } else if (id == QLatin1String("spr_saveimg_aligned")) {
         RangeDialog range(currentGroup, parent);
+        range.setWindowIcon(m_context.actions().action(id)->icon());
         if (range.exec() != QDialog::Accepted)
             return true;
         const QList<int> sprites = range.sprites(doc, current);

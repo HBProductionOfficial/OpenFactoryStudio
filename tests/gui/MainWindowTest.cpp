@@ -3391,6 +3391,49 @@ private Q_SLOTS:
         window.applyInterface();
     }
 
+    void spriteDialogIcons()
+    {
+        QTemporaryDir dir;
+        SpriteDocument doc;
+        doc.palettes() << SpriteDocument::makePalette(1, 1, Formats::grayscalePalette(256));
+        SpriteEntry entry;
+        entry.pixels = SpriteDocument::makePixels(Formats::Image::indexed(2, 2, std::vector<std::uint8_t>(4, 3)));
+        entry.palette = doc.palettes()[0];
+        doc.sprites() << entry;
+        const auto bytes = doc.toSff().write();
+        writeFile(dir.filePath("i.sff"),
+                  QByteArray(reinterpret_cast<const char*>(bytes.value().data()), qsizetype(bytes.value().size())));
+        writeFile(dir.filePath("i.def"), "[Info]\nname = \"I\"\nmugenversion = 1.0\n[Files]\nsprite = i.sff\n");
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("i.def")));
+        ActionRegistry& actions = m_context->actions();
+        actions.action("editor_spr")->trigger();
+        for (const char* id : {"spr_crop", "spr_saveimg_aligned"}) {
+            qint64 shown = 0;
+            whenModal<QDialog>([&shown](QDialog* dialog) {
+                shown = dialog->windowIcon().cacheKey();
+                dialog->reject();
+            });
+            actions.action(id)->trigger();
+            QCOMPARE(shown, actions.action(id)->icon().cacheKey());
+        }
+        const bool askAdd = m_context->config().boolValue("show_addsprite_dialog", true);
+        m_context->config().setValue("show_addsprite_dialog", true);
+        FileDialogs::setOpenPromptOverride(
+            [&dir](const QString&, const QString&, const QString&) { return dir.filePath("i.sff"); });
+        qint64 added = 0;
+        whenModal<QDialog>([&added](QDialog* dialog) {
+            added = dialog->windowIcon().cacheKey();
+            dialog->reject();
+        });
+        actions.action("spr_add")->trigger();
+        QCOMPARE(added, actions.action("spr_add")->icon().cacheKey());
+        FileDialogs::setOpenPromptOverride({});
+        m_context->config().setValue("show_addsprite_dialog", askAdd);
+        actions.action("file_close")->trigger();
+    }
+
     void welcomeTextReadable()
     {
         m_context->history().clear();
