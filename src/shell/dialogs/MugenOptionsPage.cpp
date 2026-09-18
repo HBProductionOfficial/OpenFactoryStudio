@@ -106,7 +106,8 @@ MugenOptionsPage::MugenOptionsPage(Config& config, QWidget* parent)
     banner->setObjectName(QStringLiteral("eng_msg_lb"));
     banner->setAlignment(Qt::AlignCenter);
     banner->setMinimumHeight(27);
-    banner->setStyleSheet(QStringLiteral("QLabel#engineMessage { background-color: #fff9a0; color: #000000; }"));
+    // A warning note: the same yellow with black text on every theme.
+    banner->setStyleSheet(QStringLiteral("QLabel#eng_msg_lb { background-color: #fff9a0; color: #000000; }"));
 
     auto* controls = new QHBoxLayout;
     controls->addWidget(createControlsGroup(1));

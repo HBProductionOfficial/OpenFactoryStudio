@@ -65,6 +65,11 @@ EmulatorWidget::EmulatorWidget(Project& project, AppContext& context, QWidget* p
     setMouseTracking(true);
     m_surface = Rendering::attachSurface(this, [this](QPainter& p) { paintScreen(p); });
     setAttribute(Qt::WA_OpaquePaintEvent);
+    connect(&m_context.engineConfig(QStringLiteral("mugen")), &Config::changed, this, [this] {
+        m_keyCodes.reset();
+        m_renderOptions.reset();
+    });
+    connect(&m_context.config(), &Config::changed, this, [this] { m_renderOptions.reset(); });
     m_timer.setTimerType(Qt::PreciseTimer);
     m_timer.setInterval(1000 / TicksPerSecond / 2);
     connect(&m_timer, &QTimer::timeout, this, &EmulatorWidget::advance);
@@ -543,26 +548,42 @@ void EmulatorWidget::step()
     m_frame = m_renderer.render(*m_session, renderOptions());
 }
 
+namespace {
+
+constexpr const char* kButtons[] = {"up", "down", "left", "right", "a", "b", "c", "x", "y", "z", "start"};
+
+} // namespace
+
 InputState EmulatorWidget::inputOf(int player) const
 {
-    const Config& config = m_context.engineConfig(QStringLiteral("mugen"));
-    auto held = [&](const char* button) {
-        const QString key = QStringLiteral("p%1_%2").arg(player).arg(QLatin1String(button));
-        const QKeySequence sequence = QKeySequence::fromString(config.value(key, defaultKeys().value(key)));
-        return !sequence.isEmpty() && m_keys.contains(sequence[0].key());
+    if (!m_keyCodes) {
+        const Config& config = m_context.engineConfig(QStringLiteral("mugen"));
+        KeyCodes codes{};
+        for (int p = 0; p < 2; ++p) {
+            for (std::size_t b = 0; b < std::size(kButtons); ++b) {
+                const QString key = QStringLiteral("p%1_%2").arg(p + 1).arg(QLatin1String(kButtons[b]));
+                const QKeySequence sequence = QKeySequence::fromString(config.value(key, defaultKeys().value(key)));
+                codes[std::size_t(p)][b] = sequence.isEmpty() ? 0 : int(sequence[0].key());
+            }
+        }
+        m_keyCodes = codes;
+    }
+    const auto& codes = (*m_keyCodes)[std::size_t(std::clamp(player, 1, 2) - 1)];
+    auto held = [&](std::size_t button) {
+        return codes[button] != 0 && m_keys.contains(codes[button]);
     };
     InputState in;
-    in.up = held("up");
-    in.down = held("down");
-    in.left = held("left");
-    in.right = held("right");
-    in.a = held("a");
-    in.b = held("b");
-    in.c = held("c");
-    in.x = held("x");
-    in.y = held("y");
-    in.z = held("z");
-    in.s = held("start");
+    in.up = held(0);
+    in.down = held(1);
+    in.left = held(2);
+    in.right = held(3);
+    in.a = held(4);
+    in.b = held(5);
+    in.c = held(6);
+    in.x = held(7);
+    in.y = held(8);
+    in.z = held(9);
+    in.s = held(10);
     return in;
 }
 
@@ -583,17 +604,26 @@ void EmulatorWidget::wheelEvent(QWheelEvent* event)
 {
     const int fitted = std::max(1, screenRect().width() / EmulatorRenderer::Screen.width());
     const int current = m_zoom > 0 ? m_zoom : fitted;
-    if (event->angleDelta().y() > 0)
-        setZoom(current + 1);
-    else if (event->angleDelta().y() < 0)
-        setZoom(current > 1 ? current - 1 : 0);
+    const int steps = m_wheel.take(event); // parts of notches add up (touchpads)
+    if (steps > 0)
+        setZoom(current + steps);
+    else if (steps < 0)
+        setZoom(current + steps >= 1 ? current + steps : 0);
     event->accept();
 }
 
 EmulatorRenderer::Options EmulatorWidget::renderOptions() const
 {
-    EmulatorRenderer::Options options;
+    if (!m_renderOptions)
+        m_renderOptions = readRenderOptions();
+    EmulatorRenderer::Options options = *m_renderOptions;
     options.debugInfo = m_debugInfo && m_debugInfo->isChecked();
+    return options;
+}
+
+EmulatorRenderer::Options EmulatorWidget::readRenderOptions() const
+{
+    EmulatorRenderer::Options options;
     const Config& config = m_context.config();
     options.attackBoxes = config.boolValue(QStringLiteral("show_attack_box"), true);
     options.collisionBoxes = config.boolValue(QStringLiteral("show_collision_box"), true);
@@ -667,7 +697,7 @@ void EmulatorWidget::mouseMoveEvent(QMouseEvent* event)
 QStringList EmulatorWidget::statusSections() const
 {
     return {tr("Position: %1, %2").arg(m_mouse.x()).arg(m_mouse.y()), QString(),
-            tr("Renderer: %1").arg(QStringLiteral("OpenGL"))};
+            tr("Renderer: %1").arg(Rendering::backendName())};
 }
 
 bool EmulatorWidget::perform(const QString& actionId)

@@ -322,7 +322,7 @@ void WaveformView::mouseReleaseEvent(QMouseEvent* event)
 
 void WaveformView::wheelEvent(QWheelEvent* event)
 {
-    const int steps = event->angleDelta().y() / 120;
+    const int steps = m_wheel.take(event);
     if (steps == 0)
         return;
     setFramesPerPixel(m_framesPerPixel * std::pow(0.5, steps));

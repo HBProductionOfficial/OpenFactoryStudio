@@ -1,3 +1,4 @@
+#include "core/GameTime.h"
 #include "engines/mugen/runtime/Character.h"
 #include "engines/mugen/runtime/CharacterDetail.h"
 
@@ -137,7 +138,7 @@ Value Character::trigger(const TriggerCall& call)
     case Trigger::PalNo:
         return Value::integer(1);
     case Trigger::TicksPerSecond:
-        return Value::integer(60);
+        return Value::integer(TicksPerSecond);
     case Trigger::HitShakeOver:
         return Value::boolean(m_ghv.hitShakeTime <= 0);
     case Trigger::HitOver:

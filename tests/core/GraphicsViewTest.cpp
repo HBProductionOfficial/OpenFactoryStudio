@@ -114,6 +114,25 @@ private Q_SLOTS:
         QVERIFY(view.grab().toImage().pixelColor(arm) != classic);
     }
 
+    void touchpadZoom()
+    {
+        GraphicsView view;
+        view.resize(200, 200);
+        const int start = view.zoomIndex();
+        auto scroll = [&view](int delta) {
+            QWheelEvent event(QPointF(100, 100), QPointF(100, 100), QPoint(), QPoint(0, delta), Qt::NoButton,
+                              Qt::NoModifier, Qt::NoScrollPhase, false);
+            QCoreApplication::sendEvent(&view, &event);
+        };
+        scroll(40);
+        scroll(40);
+        QCOMPARE(view.zoomIndex(), start);
+        scroll(40);
+        QCOMPARE(view.zoomIndex(), start + 1);
+        scroll(-120);
+        QCOMPARE(view.zoomIndex(), start);
+    }
+
     void workspaceGradient()
     {
         GraphicsView view;

@@ -796,7 +796,7 @@ void GraphicsView::keyPressEvent(QKeyEvent* event)
 
 void GraphicsView::wheelEvent(QWheelEvent* event)
 {
-    const int steps = event->angleDelta().y() / 120;
+    const int steps = m_wheel.take(event);
     if (steps == 0)
         return;
     zoomTo(m_zoomIndex + steps, zoomAnchor());

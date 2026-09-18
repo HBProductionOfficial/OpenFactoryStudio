@@ -125,6 +125,7 @@ add_library(ofscore SHARED
     widgets/RenderSurface.cpp
     GameTime.h
     widgets/Rulers.h
+    widgets/WheelSteps.h
     widgets/Rulers.cpp
     tools/Calculator.h
     tools/Calculator.cpp

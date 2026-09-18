@@ -57,6 +57,7 @@ public:
 
     QStringList editorIds() const;
     QString currentEditor() const { return m_currentEditor; }
+    QTabWidget* fileTabs(const QString& editorId) const { return m_fileTabs.value(editorId); }
     EditorInfo currentEditorInfo() const;
     void setCurrentEditor(const QString& id);
 

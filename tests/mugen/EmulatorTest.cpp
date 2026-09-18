@@ -4,6 +4,7 @@
 #include "core/project/ProjectFile.h"
 #include "core/settings/Config.h"
 #include "core/sprites/SpriteEdits.h"
+#include "core/widgets/RenderSurface.h"
 #include "engines/mugen/MugenEngine.h"
 #include "engines/mugen/emulator/EmulatorRenderer.h"
 #include "engines/mugen/emulator/EmulatorSession.h"
@@ -219,7 +220,7 @@ private Q_SLOTS:
         for (int i = 0; i < 10; ++i)
             emulator.step();
         QCOMPARE(emulator.frame().size(), QSize(320, 240));
-        QCOMPARE(emulator.statusSections().value(2), QStringLiteral("Renderer: OpenGL"));
+        QCOMPARE(emulator.statusSections().value(2), QStringLiteral("Renderer: ") + Rendering::backendName());
         context.config().setValue(QStringLiteral("show_attack_box"), false);
         context.engineConfig(QStringLiteral("mugen"))
             .setValue(QStringLiteral("clsn_default_collision"), QStringLiteral("1,2,3"));

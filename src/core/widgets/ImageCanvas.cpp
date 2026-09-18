@@ -250,7 +250,7 @@ void ImageCanvas::mouseReleaseEvent(QMouseEvent* event)
 
 void ImageCanvas::wheelEvent(QWheelEvent* event)
 {
-    const int steps = event->angleDelta().y() / 120;
+    const int steps = m_wheel.take(event);
     if (steps == 0)
         return;
     setZoom(m_zoom * std::pow(2.0, steps));

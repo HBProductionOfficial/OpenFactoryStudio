@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/CoreExport.h"
+#include "core/widgets/WheelSteps.h"
 #include "formats/audio/SampleBuffer.h"
 #include "formats/audio/WaveformPeaks.h"
 
@@ -77,6 +78,7 @@ protected:
     void wheelEvent(QWheelEvent* event) override;
 
 private:
+    WheelSteps m_wheel;
     QRect waveArea() const;
     void updateScrollBar();
     double fitFramesPerPixel() const;

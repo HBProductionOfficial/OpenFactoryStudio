@@ -2,6 +2,7 @@
 
 #include "core/CoreExport.h"
 #include "core/sprites/ImageDocument.h"
+#include "core/widgets/WheelSteps.h"
 
 #include <QImage>
 #include <QWidget>
@@ -63,6 +64,7 @@ public:
     }
 
 private:
+    WheelSteps m_wheel;
     QColor m_workspaceTop{58, 58, 58};
     QColor m_workspaceBottom{30, 30, 30};
     QWidget* m_surface = nullptr;

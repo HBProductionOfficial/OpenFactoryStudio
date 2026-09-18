@@ -3,6 +3,7 @@
 #include "shell/DebuggerPanels.h"
 #include "shell/dialogs/BreakpointDialog.h"
 
+#include "core/GameTime.h"
 #include "core/Version.h"
 #include "core/actions/ActionRegistry.h"
 #include "core/actions/MenuSpec.h"
@@ -640,8 +641,7 @@ void MainWindow::connectEditActions()
     // Undo and Redo also act on the sprite file shown in the Sprites editor.
     auto spriteUndo = [this]() -> QUndoStack* {
         ProjectView* view = currentProjectView();
-        QTabWidget* tabs =
-            view ? view->findChild<QTabWidget*>(QStringLiteral("fileTabs_") + view->currentEditor()) : nullptr;
+        QTabWidget* tabs = view ? view->fileTabs(view->currentEditor()) : nullptr;
         if (auto* sounds = tabs ? qobject_cast<SoundPage*>(tabs->currentWidget()) : nullptr)
             return sounds->file() ? sounds->file()->undoStack() : nullptr;
         auto* page = tabs ? qobject_cast<SpritePage*>(tabs->currentWidget()) : nullptr;
@@ -652,15 +652,13 @@ void MainWindow::connectEditActions()
     // The Animations editor's graphic mode edits the text, so it uses the text's history.
     auto animationPage = [this]() -> AnimationPage* {
         ProjectView* view = currentProjectView();
-        QTabWidget* tabs =
-            view ? view->findChild<QTabWidget*>(QStringLiteral("fileTabs_") + view->currentEditor()) : nullptr;
+        QTabWidget* tabs = view ? view->fileTabs(view->currentEditor()) : nullptr;
         return tabs ? qobject_cast<AnimationPage*>(tabs->currentWidget()) : nullptr;
     };
     // Same for the Backgrounds editor and its definitions text.
     auto backgroundsPage = [this]() -> BackgroundsPage* {
         ProjectView* view = currentProjectView();
-        QTabWidget* tabs =
-            view ? view->findChild<QTabWidget*>(QStringLiteral("fileTabs_") + view->currentEditor()) : nullptr;
+        QTabWidget* tabs = view ? view->fileTabs(view->currentEditor()) : nullptr;
         return tabs ? qobject_cast<BackgroundsPage*>(tabs->currentWidget()) : nullptr;
     };
     auto undoRedo = [textTarget, spriteUndo, animationPage, backgroundsPage](bool redo) {
@@ -1136,8 +1134,7 @@ void MainWindow::connectEditActions()
     });
     auto currentWorkspace = [this]() -> SpritePage* {
         ProjectView* view = currentProjectView();
-        QTabWidget* tabs =
-            view ? view->findChild<QTabWidget*>(QStringLiteral("fileTabs_") + view->currentEditor()) : nullptr;
+        QTabWidget* tabs = view ? view->fileTabs(view->currentEditor()) : nullptr;
         return tabs ? qobject_cast<SpritePage*>(tabs->currentWidget()) : nullptr;
     };
     auto zoom = [this, currentWorkspace, animationPage](void (GraphicsView::*graphic)(), void (ImageCanvas::*image)(),
@@ -2751,7 +2748,7 @@ void MainWindow::refreshStatusBar()
         return;
     }
     const EditorInfo info = view->currentEditorInfo();
-    QTabWidget* fileTabs = view->findChild<QTabWidget*>(QStringLiteral("fileTabs_") + view->currentEditor());
+    QTabWidget* fileTabs = view->fileTabs(view->currentEditor());
     auto* animation = fileTabs ? qobject_cast<AnimationPage*>(fileTabs->currentWidget()) : nullptr;
     const WorkspaceType workspace = animation && animation->textMode() ? WorkspaceType::Code : info.workspace;
     switch (workspace) {
@@ -2798,7 +2795,7 @@ void MainWindow::refreshStatusBar()
             const QPoint guides = page->view()->guides();
             m_status->setSection(
                 0, page->mode() == BackgroundsPage::Mode::Playing
-                       ? tr("%1 FPS").arg(60)
+                       ? tr("%1 FPS").arg(TicksPerSecond)
                        : tr("Position: %1, %2").arg(page->cursorPosition().x()).arg(page->cursorPosition().y()));
             m_status->setSection(1, tr("Horizontal guide: %1, Vertical guide: %2").arg(guides.y()).arg(guides.x()));
             m_status->setSection(2, tr("Renderer: %1").arg(Rendering::backendName()));

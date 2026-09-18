@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/CoreExport.h"
+#include "core/widgets/WheelSteps.h"
 
 #include <QColor>
 #include <QImage>
@@ -187,6 +188,7 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
 
 private:
+    WheelSteps m_wheel;
     static QImage makeDefaultBackground();
     enum class Drag
     {

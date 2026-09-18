@@ -2,6 +2,7 @@
 
 #include "core/audio/AudioMixer.h"
 #include "core/engine/EngineWorkspace.h"
+#include "core/widgets/WheelSteps.h"
 #include "engines/mugen/emulator/EmulatorDebugger.h"
 #include "engines/mugen/emulator/EmulatorRenderer.h"
 #include "engines/mugen/emulator/EmulatorSession.h"
@@ -14,7 +15,9 @@
 #include <QSet>
 #include <QTimer>
 
+#include <array>
 #include <memory>
+#include <optional>
 
 class QAbstractButton;
 class QEventLoop;
@@ -99,6 +102,7 @@ private:
     void updateTraining();
     TrainingOptions trainingOptions() const;
     Runtime::InputState inputOf(int player) const;
+    EmulatorRenderer::Options readRenderOptions() const;
     QRect screenRect() const;
 
     Project& m_project;
@@ -127,6 +131,10 @@ private:
     qint64 m_ticksRun = 0;
     float m_slowBudget = 0;
     QSet<int> m_keys;
+    using KeyCodes = std::array<std::array<int, 11>, 2>;
+    mutable std::optional<KeyCodes> m_keyCodes;
+    mutable std::optional<EmulatorRenderer::Options> m_renderOptions;
+    WheelSteps m_wheel;
     QPoint m_mouse;
     QString m_error;
     QString m_engineDir;
