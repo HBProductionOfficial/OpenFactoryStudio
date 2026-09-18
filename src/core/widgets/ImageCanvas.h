@@ -54,7 +54,17 @@ protected:
     void wheelEvent(QWheelEvent* event) override;
     void leaveEvent(QEvent* event) override;
 
+public:
+    void setWorkspaceColors(const QColor& top, const QColor& bottom)
+    {
+        m_workspaceTop = top;
+        m_workspaceBottom = bottom;
+        update();
+    }
+
 private:
+    QColor m_workspaceTop{58, 58, 58};
+    QColor m_workspaceBottom{30, 30, 30};
     QWidget* m_surface = nullptr;
     QRectF canvasArea() const;
     QRectF editArea() const;

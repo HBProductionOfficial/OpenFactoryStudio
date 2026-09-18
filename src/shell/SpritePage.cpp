@@ -216,9 +216,9 @@ void SpritePage::applySettings(Config& config)
     m_onionEffect = config.intValue(QStringLiteral("onion_effect"), 2);
     if (!m_settingsApplied) {
         m_settingsApplied = true;
-        m_view->setZoomIndex(config.intValue(QStringLiteral("zoom_level"), 2));
+        m_view->setZoomIndex(config.intValue(QStringLiteral("zoom_level"), 6));
         m_view->setOrigin(
-            QPoint(config.intValue(QStringLiteral("origin_x"), 320), config.intValue(QStringLiteral("origin_y"), 360)));
+            QPoint(config.intValue(QStringLiteral("origin_x"), 570), config.intValue(QStringLiteral("origin_y"), 622)));
         connect(m_view, &GraphicsView::zoomChanged, this,
                 [&config](int index) { config.setValue(QStringLiteral("zoom_level"), index); });
         connect(m_view, &GraphicsView::originChanged, this, [&config](const QPoint& origin) {

@@ -88,6 +88,7 @@ void ScriptEditorDialog::buildUi()
     m_editor = new CodeEditor(this);
     m_highlighter = new LuaHighlighter(m_editor->document());
     m_highlighter->setColorSet(theme.colorSet());
+    m_editor->setColorSet(theme.colorSet());
     m_messages = new QStringListModel(this);
     m_messageView = new QListView(this);
     m_messageView->setModel(m_messages);

@@ -23,6 +23,7 @@
 #include "core/theme/IconSet.h"
 #include "core/theme/ThemeManager.h"
 #include "core/widgets/EPanelWidget.h"
+#include "core/widgets/ImageCanvas.h"
 #include "core/widgets/WaveformView.h"
 #include "shell/AnimationPage.h"
 #include "shell/AnimationsEditor.h"
@@ -32,6 +33,7 @@
 #include "shell/CodePage.h"
 #include "shell/ControllerTemplatesWidget.h"
 #include "shell/DocumentationPopup.h"
+#include "shell/ImageEditor.h"
 #include "shell/OrganizerBinding.h"
 #include "shell/SoundPage.h"
 #include "shell/SoundsEditor.h"
@@ -391,6 +393,7 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
             animationPage->setProperty("filePath", filePath);
             animationPage->setProperty("editorId", info.id);
             animationPage->applySettings(m_context.config(), &m_context.engineConfig(engine()->name()));
+            applyWorkspaceColors(animationPage);
             connect(file, &ProjectFile::pathChanged, this, [this, animationPage, file](const QString& oldPath) {
                 fileRenamed(animationPage, oldPath, file->path());
             });
@@ -460,6 +463,7 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
         if (file) {
             auto* page = new SpritePage(file);
             page->applySettings(m_context.config());
+            applyWorkspaceColors(page);
             page->setProperty("filePath", filePath);
             auto updateIssues = [this, page, file] {
                 IssueList issues = SpriteEdits::identifierIssues(file->document());
@@ -580,6 +584,26 @@ bool ProjectView::closeFileTab(const QString& editorId, QTabWidget* tabs, int in
     }
     Q_EMIT currentFileChanged();
     return true;
+}
+
+void ProjectView::applyWorkspaceColors(QWidget* page)
+{
+    const ColorSet& colors = m_context.theme().colorSet();
+    const QColor top = colors.color(QStringLiteral("back_start"), QColor(64, 64, 64));
+    const QColor bottom = colors.color(QStringLiteral("back_end"), top);
+    if (auto* sprites = qobject_cast<SpritePage*>(page)) {
+        sprites->view()->setBackgroundGradient(top, bottom);
+        if (sprites->imageEditor())
+            sprites->imageEditor()->canvas()->setWorkspaceColors(top, bottom);
+    } else if (auto* animation = qobject_cast<AnimationPage*>(page)) {
+        animation->view()->setBackgroundGradient(top, bottom);
+    } else {
+        return;
+    }
+    if (!page->property("followsColorSet").toBool()) {
+        page->setProperty("followsColorSet", true);
+        connect(&m_context.theme(), &ThemeManager::colorSetChanged, page, [this, page] { applyWorkspaceColors(page); });
+    }
 }
 
 void ProjectView::reconfigureEditors()

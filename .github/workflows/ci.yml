@@ -28,6 +28,8 @@ jobs:
           git ls-files '*.cpp' '*.h' '*.hpp' | xargs clang-format --dry-run --Werror
       - name: Third-party notices
         run: python tools/check_third_party.py
+      - name: Settings defaults
+        run: python tools/check_config_defaults.py
       - name: Theme data
         run: |
           python tools/iconsets/check_iconsets.py --all

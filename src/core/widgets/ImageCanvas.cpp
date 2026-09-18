@@ -182,8 +182,8 @@ void ImageCanvas::paintEvent(QPaintEvent* event)
 void ImageCanvas::paintContent(QPainter& p)
 {
     QLinearGradient back(0, 0, 0, height());
-    back.setColorAt(0, QColor(58, 58, 58));
-    back.setColorAt(1, QColor(30, 30, 30));
+    back.setColorAt(0, m_workspaceTop);
+    back.setColorAt(1, m_workspaceBottom);
     p.fillRect(rect(), back);
     if (!m_document)
         return;

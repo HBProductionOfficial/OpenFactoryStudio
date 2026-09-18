@@ -17,6 +17,7 @@
 #include "core/sprites/PaletteEdits.h"
 #include "core/sprites/SpriteDocument.h"
 #include "core/sprites/SpriteFile.h"
+#include "core/theme/ColorSet.h"
 #include "core/theme/ThemeManager.h"
 #include "core/widgets/EPanelWidget.h"
 #include "core/widgets/GraphicsView.h"
@@ -3338,6 +3339,51 @@ private Q_SLOTS:
                      qPrintable(theme.name));
             QVERIFY2((QApplication::palette().color(QPalette::WindowText).lightness() < 128) == !darkStyle,
                      qPrintable(theme.name));
+        }
+        m_context->actions().action("file_close")->trigger();
+        for (int i = 0; i < keys.size(); ++i)
+            config.setValue(keys[i], before[i]);
+        window.applyInterface();
+    }
+
+    void workspaceColorsFollowTheme()
+    {
+        QTemporaryDir dir;
+        SpriteDocument doc;
+        doc.palettes() << SpriteDocument::makePalette(1, 1, Formats::grayscalePalette(256));
+        SpriteEntry entry;
+        entry.pixels = SpriteDocument::makePixels(Formats::Image::indexed(2, 2, std::vector<std::uint8_t>(4, 3)));
+        entry.palette = doc.palettes()[0];
+        doc.sprites() << entry;
+        const auto bytes = doc.toSff().write();
+        writeFile(dir.filePath("w.sff"),
+                  QByteArray(reinterpret_cast<const char*>(bytes.value().data()), qsizetype(bytes.value().size())));
+        writeFile(dir.filePath("w.air"), "[Begin Action 0]\n0,0, 0,0, 10\n");
+        writeFile(dir.filePath("w.def"),
+                  "[Info]\nname = \"W\"\nmugenversion = 1.0\n[Files]\nsprite = w.sff\nanim = w.air\n");
+        Config& config = m_context->config();
+        const QStringList keys{"preset", "iconset", "stylesheet", "colorset"};
+        QStringList before;
+        for (const QString& key : keys)
+            before << config.value(key);
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("w.def")));
+        m_context->actions().action("editor_anim")->trigger();
+        auto* sprites = window.currentProjectView()->findChild<SpritePage*>();
+        auto* animations = window.currentProjectView()->findChild<AnimationPage*>();
+        QVERIFY(sprites && animations);
+        for (const FirstRunDialog::Theme& theme : FirstRunDialog::themes()) {
+            config.setValue("preset", theme.preset);
+            config.setValue("iconset", theme.iconset);
+            config.setValue("stylesheet", theme.stylesheet);
+            config.setValue("colorset", theme.colorset);
+            window.applyInterface();
+            const ColorSet& colors = m_context->theme().colorSet();
+            for (GraphicsView* view : {sprites->view(), animations->view()}) {
+                QCOMPARE(view->backgroundColor(), colors.color(QStringLiteral("back_start")));
+                QCOMPARE(view->backgroundEnd(), colors.color(QStringLiteral("back_end")));
+            }
         }
         m_context->actions().action("file_close")->trigger();
         for (int i = 0; i < keys.size(); ++i)

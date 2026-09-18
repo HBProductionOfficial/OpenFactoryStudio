@@ -131,6 +131,7 @@ private:
     void addFileTab(const EditorInfo& info, const QString& filePath);
     void fileRenamed(QWidget* page, const QString& oldPath, const QString& newPath);
     void configureCodeEditor(CodeEditor* editor, const QString& editorId);
+    void applyWorkspaceColors(QWidget* page);
     void setDebugging(bool debugging);
     void showDebugLine(const QString& file, int line);
     struct Analysis

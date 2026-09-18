@@ -263,7 +263,7 @@ void GraphicsView::drawBackground(QPainter& p, const QRect& area)
 {
     switch (m_background) {
     case Background::Color:
-        p.fillRect(area, m_backgroundColor);
+        fillWorkspace(p, area);
         break;
     case Background::Checker: {
         const int cell = 8;
@@ -275,13 +275,25 @@ void GraphicsView::drawBackground(QPainter& p, const QRect& area)
         break;
     }
     case Background::Picture:
-        p.fillRect(area, m_backgroundColor);
+        fillWorkspace(p, area);
         if (!m_backgroundPicture.isNull()) {
             const QPointF at = toWidget(m_backgroundOffset);
             p.drawImage(QRectF(at, QSizeF(m_backgroundPicture.size()) * zoom()), m_backgroundPicture);
         }
         break;
     }
+}
+
+void GraphicsView::fillWorkspace(QPainter& p, const QRect& area) const
+{
+    if (m_backgroundColor == m_backgroundEnd) {
+        p.fillRect(area, m_backgroundColor);
+        return;
+    }
+    QLinearGradient gradient(area.topLeft(), area.bottomLeft());
+    gradient.setColorAt(0, m_backgroundColor);
+    gradient.setColorAt(1, m_backgroundEnd);
+    p.fillRect(area, gradient);
 }
 
 void GraphicsView::drawGuides(QPainter& p, const QRect& area)

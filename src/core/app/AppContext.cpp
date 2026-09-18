@@ -72,7 +72,7 @@ void AppContext::loadSettings()
     const QString user = Paths::userDir();
     m_config->load(data + QStringLiteral("/config.xml"), user + QStringLiteral("/config.xml"));
     m_shortcuts->load(data + QStringLiteral("/shortcuts.xml"), user + QStringLiteral("/shortcuts.xml"));
-    m_history->setMaxEntries(m_config->intValue(QStringLiteral("max_history"), 10));
+    m_history->setMaxEntries(m_config->intValue(QStringLiteral("max_history"), 32));
     m_history->load(user + QStringLiteral("/history.xml"));
     m_theme->setSearchDirs({user, data});
     for (auto it = m_engineConfigs.cbegin(); it != m_engineConfigs.cend(); ++it)

@@ -103,11 +103,15 @@ public:
         m_background = background;
         update();
     }
-    void setBackgroundColor(const QColor& color)
+    void setBackgroundColor(const QColor& color) { setBackgroundGradient(color, color); }
+    void setBackgroundGradient(const QColor& top, const QColor& bottom)
     {
-        m_backgroundColor = color;
+        m_backgroundColor = top;
+        m_backgroundEnd = bottom;
         update();
     }
+    QColor backgroundColor() const { return m_backgroundColor; }
+    QColor backgroundEnd() const { return m_backgroundEnd; }
     void setBackgroundPicture(const QImage& picture, const QPoint& offset);
 
     void setRulersVisible(bool visible)
@@ -208,6 +212,7 @@ private:
     void drawGuides(QPainter& p, const QRect& area);
     void drawImages(QPainter& p);
     void drawRulers(QPainter& p);
+    void fillWorkspace(QPainter& p, const QRect& area) const;
     Drag hitTest(const QPoint& pos, int* box = nullptr, int* handle = nullptr, int* imageIndex = nullptr) const;
     void drawFrames(QPainter& p);
 
@@ -218,6 +223,7 @@ private:
     QPoint m_origin{320, 360};
     Background m_background = Background::Color;
     QColor m_backgroundColor{64, 64, 64};
+    QColor m_backgroundEnd{64, 64, 64};
     QImage m_backgroundPicture;
     QPoint m_backgroundOffset;
     bool m_rulers = true;

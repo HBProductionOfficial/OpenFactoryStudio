@@ -1,8 +1,10 @@
 // Tools > Script editor.
 #include "core/app/AppContext.h"
+#include "core/app/Paths.h"
 #include "core/code/CodeEditor.h"
 #include "core/engine/EngineManager.h"
 #include "core/settings/Config.h"
+#include "core/theme/ThemeManager.h"
 #include "engines/mugen/MugenEngine.h"
 #include "shell/dialogs/ScriptEditorDialog.h"
 
@@ -85,7 +87,12 @@ private Q_SLOTS:
 
     void window()
     {
+        m_context.theme().setSearchDirs({Paths::dataDir()});
+        QVERIFY(m_context.theme().setColorSet(QStringLiteral("Light")));
         ScriptEditorDialog dialog(m_context, m_environment, m_data.path());
+        const ColorSet& colors = m_context.theme().colorSet();
+        QCOMPARE(dialog.editor()->palette().color(QPalette::Base), colors.color(QStringLiteral("background")));
+        QCOMPARE(dialog.editor()->palette().color(QPalette::Text), colors.color(QStringLiteral("foreground")));
         QCOMPARE(dialog.objectName(), QStringLiteral("ScriptEd"));
         QVERIFY(dialog.windowTitle().startsWith("Script Editor"));
         QStringList tips;

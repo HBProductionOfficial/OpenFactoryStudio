@@ -365,10 +365,10 @@ void BackgroundsPage::applySettings(const Config& config)
         // bg_zoom_level counts the levels from 1x.
         m_settingsApplied = true;
         const int one = int(GraphicsView::largeZoomRange().indexOf(1.0));
-        m_view->setZoomIndex(one + config.intValue(QStringLiteral("bg_zoom_level"), 0));
+        m_view->setZoomIndex(one + config.intValue(QStringLiteral("bg_zoom_level"), 2));
         if (config.contains(QStringLiteral("bg_x")))
             m_view->setOrigin(
-                QPoint(config.intValue(QStringLiteral("bg_x"), 320), config.intValue(QStringLiteral("bg_y"), 40)));
+                QPoint(config.intValue(QStringLiteral("bg_x"), 452), config.intValue(QStringLiteral("bg_y"), 51)));
     }
     m_secondaryCross = config.boolValue(QStringLiteral("show_cross2"), true);
     refresh();

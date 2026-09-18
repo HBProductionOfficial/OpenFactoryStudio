@@ -114,6 +114,21 @@ private Q_SLOTS:
         QVERIFY(view.grab().toImage().pixelColor(arm) != classic);
     }
 
+    void workspaceGradient()
+    {
+        GraphicsView view;
+        view.resize(200, 200);
+        view.setRulersVisible(false);
+        view.setMainCrossVisible(false);
+        view.setBackground(GraphicsView::Background::Color);
+        view.setBackgroundGradient(QColor(192, 192, 192), QColor(160, 160, 160));
+        const QImage shown = view.grab().toImage();
+        QVERIFY(std::abs(shown.pixelColor(100, 0).red() - 192) <= 1);
+        QVERIFY(std::abs(shown.pixelColor(100, 199).red() - 160) <= 1);
+        view.setBackgroundColor(QColor(10, 20, 30));
+        QCOMPARE(view.grab().toImage().pixelColor(100, 199), QColor(10, 20, 30));
+    }
+
     void rulersFollowPalette()
     {
         GraphicsView view;

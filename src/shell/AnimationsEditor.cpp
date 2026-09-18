@@ -569,7 +569,7 @@ bool AnimationsEditor::perform(const QString& id)
     } else if (id == QLatin1String("anim_frame_delete")) {
         if (!page->frame())
             return true;
-        if (m_context.config().boolValue(QStringLiteral("confirm_delete"), false)) {
+        if (m_context.config().boolValue(QStringLiteral("confirm_delete"), true)) {
             QMessageBox box(QMessageBox::Question, tr("Delete frame"), tr("Do you really want to delete the frame?"),
                             QMessageBox::Yes | QMessageBox::No, page->window());
             box.setDefaultButton(QMessageBox::Yes);
@@ -666,7 +666,7 @@ bool AnimationsEditor::performDialog(const QString& id)
     } else if (id == QLatin1String("anim_delete")) {
         if (!page->animation())
             return true;
-        if (m_context.config().boolValue(QStringLiteral("confirm_delete"), false)) {
+        if (m_context.config().boolValue(QStringLiteral("confirm_delete"), true)) {
             QMessageBox box(QMessageBox::Question, tr("Delete"), tr("Do you really want to delete the animation?"),
                             QMessageBox::Yes | QMessageBox::No, parent);
             box.setDefaultButton(QMessageBox::Yes);
