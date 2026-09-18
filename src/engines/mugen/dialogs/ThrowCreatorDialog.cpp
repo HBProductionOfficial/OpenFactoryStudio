@@ -418,7 +418,15 @@ void ThrowCreatorDialog::editFrame()
     frame.group = m_group->value();
     frame.index = m_index->value();
     frame.flip = QString::fromLatin1(flips[qBound(0, m_flip->currentIndex(), 3)]);
-    AirEdits::setFrame(m_air->document(), frame);
+    // Group/Index typing undoes like typing text in Fighter Factory: the first keystroke is one step and
+    // later keystrokes in the same box join the second one.
+    QTextDocument* document = m_air->document();
+    QSpinBox* typing = m_group->hasFocus() ? m_group : (m_index->hasFocus() ? m_index : nullptr);
+    const bool sameRun = typing && typing == m_typingIn && document->availableUndoSteps() == m_typingSteps;
+    m_typedInRun = sameRun ? m_typedInRun + 1 : (typing ? 1 : 0);
+    AirEdits::setFrame(document, frame, m_typedInRun > 2);
+    m_typingIn = typing;
+    m_typingSteps = document->availableUndoSteps();
     reloadAnimations();
 }
 

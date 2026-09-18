@@ -87,6 +87,9 @@ private:
     QToolButton* m_addAnim;
     QSpinBox* m_group;
     QSpinBox* m_index;
+    QSpinBox* m_typingIn = nullptr;
+    int m_typingSteps = -1;
+    int m_typedInRun = 0;
     QComboBox* m_flip;
     QToolButton* m_insertFrame;
     QToolButton* m_deleteFrame;

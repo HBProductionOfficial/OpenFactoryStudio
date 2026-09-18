@@ -377,6 +377,21 @@ private Q_SLOTS:
         QVERIFY(file->isModified());
         text->undo();
         QVERIFY(text->toPlainText().contains("\n5010,0, 4,0, 5, V\n"));
+        // After select all and 5, 0, 1, 2, undo goes 5012 -> 5 -> 5010.
+        dialog.show();
+        dialog.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&dialog));
+        group->setFocus();
+        QTRY_VERIFY(group->hasFocus());
+        group->selectAll();
+        QTest::keyClicks(group, "5012");
+        QCOMPARE(group->value(), 5012);
+        QVERIFY(text->toPlainText().contains("\n5012,0, 4,0, 5, V\n"));
+        text->undo();
+        QVERIFY(text->toPlainText().contains("\n5,0, 4,0, 5, V\n"));
+        text->undo();
+        QVERIFY(text->toPlainText().contains("\n5010,0, 4,0, 5, V\n"));
+        group->clearFocus();
         slider->setValue(1);
         child<QToolButton>(&dialog, "insFrame")->click();
         QVERIFY(text->toPlainText().contains("[Begin Action 820]\n5000,0, 0,0, 3\n-1,0, 0,0, 2\n5010,0"));

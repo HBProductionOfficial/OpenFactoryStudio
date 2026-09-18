@@ -10,7 +10,8 @@ namespace OFS::Mugen::AirEdits {
 
 // Throw creator edits to an AIR document. Each one is a single undo step.
 
-void setFrame(QTextDocument* document, const AirFrame& frame);
+// With `joinPrevious` the change joins the previous undo step (digits typed in a row).
+void setFrame(QTextDocument* document, const AirFrame& frame, bool joinPrevious = false);
 
 // Splits the element at `tick`. A blank element "-1,0, 0,0, T" gets the rest of its time.
 bool splitFrame(QTextDocument* document, const AirAction& action, qint64 tick);

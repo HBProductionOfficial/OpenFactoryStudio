@@ -52,10 +52,13 @@ bool isBoxLine(const QString& text)
 
 } // namespace
 
-void setFrame(QTextDocument* document, const AirFrame& frame)
+void setFrame(QTextDocument* document, const AirFrame& frame, bool joinPrevious)
 {
     QTextCursor cursor(document);
-    cursor.beginEditBlock();
+    if (joinPrevious)
+        cursor.joinPreviousEditBlock();
+    else
+        cursor.beginEditBlock();
     replaceLine(cursor, frame.line, frame.text());
     cursor.endEditBlock();
 }
