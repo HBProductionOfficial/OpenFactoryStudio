@@ -48,6 +48,7 @@ public:
     const QString& styleSheet() const { return m_styleSheet; }
     // For widgets that draw themselves: the style's palette.xml, else the standard palette.
     QPalette palette() const;
+    QPalette paletteOf(const QString& styleName) const;
     // palette.xml has <color role="Window" value="r,g,b"/> per QPalette role, for every colour
     // group or only the one named by group="active|inactive|disabled".
     static std::optional<QPalette> loadPalette(const QString& path, const QPalette& base);

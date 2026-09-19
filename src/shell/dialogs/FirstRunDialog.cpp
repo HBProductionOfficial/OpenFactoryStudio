@@ -29,14 +29,15 @@ QPixmap previewFor(const FirstRunDialog::Theme& theme, const ThemeManager& theme
     const QString path = themes.colorSetPath(theme.colorset);
     if (!path.isEmpty())
         colors.load(path);
-    const bool dark = theme.stylesheet.contains(QLatin1String("Dark")) || theme.stylesheet == QLatin1String("Ultimate");
-    const QColor window = dark ? QColor(52, 52, 52) : QColor(236, 236, 236);
-    const QColor panel = dark ? QColor(36, 36, 36) : QColor(250, 250, 250);
-    const QColor code = colors.color(QStringLiteral("background"), dark ? QColor(34, 34, 34) : QColor(255, 255, 255));
-    const QColor accent = colors.color(QStringLiteral("block"), QColor(0, 200, 0));
-    const QColor text = colors.color(QStringLiteral("foreground"), dark ? QColor(204, 204, 204) : QColor(30, 30, 30));
+    const QPalette style = themes.paletteOf(theme.stylesheet);
+    const QColor window = style.color(QPalette::Window);
+    const bool dark = window.lightness() < 128;
+    const QColor panel = style.color(QPalette::Base);
+    const QColor code = colors.color(QStringLiteral("background"));
+    const QColor accent = colors.color(QStringLiteral("block"));
+    const QColor text = colors.color(QStringLiteral("foreground"));
 
-    const QSize size(160, 104);
+    const QSize size = FirstRunDialog::previewSize();
     QPixmap pixmap(size * dpr);
     pixmap.setDevicePixelRatio(dpr);
     pixmap.fill(window);
@@ -94,7 +95,7 @@ FirstRunDialog::FirstRunDialog(AppContext& context, QWidget* parent)
         button->setObjectName(QStringLiteral("theme%1").arg(i));
         button->setCheckable(true);
         button->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-        button->setIconSize(QSize(160, 104));
+        button->setIconSize(FirstRunDialog::previewSize());
         button->setIcon(QIcon(previewFor(list[i], context.theme(), devicePixelRatioF())));
         button->setText(list[i].name);
         button->setAutoRaise(true);

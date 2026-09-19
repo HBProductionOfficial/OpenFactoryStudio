@@ -4,6 +4,8 @@
 
 #include <QAbstractButton>
 #include <QFile>
+#include <QIcon>
+#include <QImage>
 #include <QTest>
 
 using namespace OFS;
@@ -24,6 +26,16 @@ private Q_SLOTS:
         FirstRunDialog dialog(context);
         QCOMPARE(dialog.selectedTheme(), 0);
         QVERIFY(dialog.findChild<QAbstractButton*>(QStringLiteral("theme5")));
+        const QList<FirstRunDialog::Theme> themes = FirstRunDialog::themes();
+        for (int i = 0; i < themes.size(); ++i) {
+            auto* button = dialog.findChild<QAbstractButton*>(QStringLiteral("theme%1").arg(i));
+            QVERIFY(button);
+            const QImage picture = button->icon().pixmap(FirstRunDialog::previewSize()).toImage();
+            const bool darkStyle = themes[i].stylesheet == QLatin1String("Dark");
+            // A corner outside the sketch's panels shows the window colour.
+            const QColor window = picture.pixelColor(picture.width() - 2, picture.height() - 2);
+            QVERIFY2((window.lightness() < 128) == darkStyle, qPrintable(themes[i].name));
+        }
         dialog.selectTheme(4);
         QCOMPARE(dialog.selectedTheme(), 4);
         dialog.applySelection();

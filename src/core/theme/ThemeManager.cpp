@@ -137,6 +137,15 @@ bool ThemeManager::setStyle(const QString& name)
     return true;
 }
 
+QPalette ThemeManager::paletteOf(const QString& styleName) const
+{
+    const QPalette standard = QApplication::style() ? QApplication::style()->standardPalette() : QPalette();
+    const QString dir = findDir(QStringLiteral("styles"), styleName, QStringLiteral("stylesheet.css"));
+    if (dir.isEmpty())
+        return standard;
+    return loadPalette(dir + QStringLiteral("/palette.xml"), standard).value_or(standard);
+}
+
 QPalette ThemeManager::palette() const
 {
     if (m_stylePalette)

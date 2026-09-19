@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QDialog>
+#include <QSize>
 
 class QButtonGroup;
 
@@ -23,6 +24,7 @@ public:
         QString colorset;
     };
     static QList<Theme> themes();
+    static QSize previewSize() { return {160, 104}; }
 
     explicit FirstRunDialog(AppContext& context, QWidget* parent = nullptr);
 
