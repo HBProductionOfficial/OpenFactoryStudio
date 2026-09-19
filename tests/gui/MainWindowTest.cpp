@@ -3536,8 +3536,9 @@ private Q_SLOTS:
         window.resize(1200, 800);
         window.show();
         window.activateWindow();
-        QVERIFY(QTest::qWaitForWindowActive(&window));
         QVERIFY(window.openProject(dir.filePath("k.def")));
+        window.activateWindow(); // the test platform does not hand activation back after the loading window
+        QVERIFY(QTest::qWaitForWindowActive(&window));
         ActionRegistry& actions = m_context->actions();
         ProjectView* view = window.currentProjectView();
 
@@ -3594,8 +3595,9 @@ private Q_SLOTS:
         window.resize(1200, 800);
         window.show();
         window.activateWindow();
-        QVERIFY(QTest::qWaitForWindowActive(&window));
         QVERIFY(window.openProject(m_dir.filePath("fighter.def")));
+        window.activateWindow(); // the test platform does not hand activation back after the loading window
+        QVERIFY(QTest::qWaitForWindowActive(&window));
         ActionRegistry& actions = m_context->actions();
         ProjectView* view = window.currentProjectView();
         actions.action("editor_cmd")->trigger();
@@ -3624,6 +3626,37 @@ private Q_SLOTS:
         QTRY_VERIFY(states->editor()->hasFocus());
         states->editor()->document()->undo();
         actions.action("file_close")->trigger();
+    }
+
+    void busyWindows()
+    {
+        QStringList seen;
+        auto watch = [&seen] {
+            QTimer::singleShot(0, qApp, [&seen] {
+                for (QWidget* w : QApplication::topLevelWidgets()) {
+                    if (w->objectName() == QLatin1String("busyWindow") && w->isVisible())
+                        seen << w->windowTitle();
+                }
+            });
+        };
+        MainWindow window(*m_context);
+        window.show();
+        watch();
+        QVERIFY(window.openProject(m_dir.filePath("fighter.def")));
+        QCOMPARE(seen, QStringList{"Loading project..."});
+        ProjectView* view = window.currentProjectView();
+        auto* cns = qobject_cast<CodeFile*>(view->project()->file(m_dir.filePath("fighter.cns")));
+        QVERIFY(cns);
+        const QString text = cns->document()->toPlainText();
+        QTextCursor cursor(cns->document());
+        cursor.insertText("; touched\n");
+        seen.clear();
+        watch();
+        m_context->actions().action("file_save")->trigger();
+        QCOMPARE(seen, QStringList{"Saving..."});
+        cns->document()->setPlainText(text);
+        m_context->actions().action("file_save")->trigger();
+        m_context->actions().action("file_close")->trigger();
     }
 
     void welcomeTextReadable()

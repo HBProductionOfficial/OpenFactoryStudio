@@ -18,6 +18,8 @@ add_library(ofsshell STATIC
     CodePage.cpp
     ControllerTemplatesWidget.h
     ControllerTemplatesWidget.cpp
+    BusyWindow.h
+    BusyWindow.cpp
     FileDialogs.h
     FileFilters.h
     FileDialogs.cpp

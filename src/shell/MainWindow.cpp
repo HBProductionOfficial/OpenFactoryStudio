@@ -47,6 +47,7 @@
 #include "shell/BackgroundsEditor.h"
 #include "shell/BackgroundsPage.h"
 #include "shell/BottomDock.h"
+#include "shell/BusyWindow.h"
 #include "shell/CodePage.h"
 #include "shell/ControllerTemplatesWidget.h"
 #include "shell/FileDialogs.h"
@@ -1165,6 +1166,11 @@ void MainWindow::connectEditActions()
         ProjectView* view = currentProjectView();
         if (!view)
             return;
+        const QList<ProjectFile*> files = view->project()->files();
+        const bool modified = std::any_of(files.cbegin(), files.cend(), [](ProjectFile* f) { return f->isModified(); });
+        std::unique_ptr<BusyWindow> busy;
+        if (modified)
+            busy = std::make_unique<BusyWindow>(tr("Saving..."), this);
         for (ProjectFile* file : view->project()->files()) {
             if (file->isUntitled() && file->isModified() && !saveFileAs(file))
                 return;
@@ -1864,7 +1870,9 @@ bool MainWindow::openProject(const QString& filePath)
         return false;
     }
     QString error;
+    auto busy = std::make_unique<BusyWindow>(tr("Loading project..."), this);
     Project* project = engine->openProject(path, &error);
+    busy.reset();
     if (!project) {
         QMessageBox::warning(this, tr("Open project"), error);
         m_context.history().remove(path);
