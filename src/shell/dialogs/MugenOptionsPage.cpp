@@ -59,26 +59,6 @@ const QHash<QString, QString>& builtinDefaults()
     return values;
 }
 
-QColor parseColor(const QString& text, const QColor& fallback)
-{
-    const QStringList parts = text.split(QLatin1Char(','));
-    if (parts.size() != 3)
-        return fallback;
-    int v[3] = {0, 0, 0};
-    for (int i = 0; i < 3; ++i) {
-        bool ok = false;
-        v[i] = parts[i].trimmed().toInt(&ok);
-        if (!ok || v[i] < 0 || v[i] > 255)
-            return fallback;
-    }
-    return QColor(v[0], v[1], v[2]);
-}
-
-QString formatColor(const QColor& color)
-{
-    return QStringLiteral("%1,%2,%3").arg(color.red()).arg(color.green()).arg(color.blue());
-}
-
 QString controlCaption(const QString& name)
 {
     if (name == QLatin1String("left"))
@@ -401,14 +381,14 @@ void MugenOptionsPage::clearClicked()
 QColor MugenOptionsPage::clsnColor(bool attack) const
 {
     const QString& key = attack ? kAttackKey : kCollisionKey;
-    return parseColor(m_config.value(key, defaultValue(key)), parseColor(defaultValue(key), Qt::white));
+    return m_config.colorValue(key, Config::decodeColor(defaultValue(key), QColor(Qt::white)));
 }
 
 void MugenOptionsPage::setClsnColor(bool attack, const QColor& color)
 {
     if (!color.isValid())
         return;
-    store(attack ? kAttackKey : kCollisionKey, formatColor(color));
+    store(attack ? kAttackKey : kCollisionKey, Config::encodeColor(color));
     updateClsnLabels();
 }
 

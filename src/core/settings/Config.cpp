@@ -122,6 +122,36 @@ QRect Config::rectValue(const QString& key, const QRect& fallback) const
     return decodeRect(value(key), fallback);
 }
 
+QColor Config::colorValue(const QString& key, const QColor& fallback) const
+{
+    return decodeColor(value(key), fallback);
+}
+
+void Config::setColorValue(const QString& key, const QColor& value)
+{
+    setValue(key, encodeColor(value));
+}
+
+QString Config::encodeColor(const QColor& color)
+{
+    return QStringLiteral("%1,%2,%3").arg(color.red()).arg(color.green()).arg(color.blue());
+}
+
+QColor Config::decodeColor(const QString& text, const QColor& fallback)
+{
+    const QStringList parts = text.split(QLatin1Char(','));
+    if (parts.size() != 3)
+        return fallback;
+    int v[3] = {0, 0, 0};
+    for (int i = 0; i < 3; ++i) {
+        bool ok = false;
+        v[i] = parts[i].trimmed().toInt(&ok);
+        if (!ok || v[i] < 0 || v[i] > 255)
+            return fallback;
+    }
+    return QColor(v[0], v[1], v[2]);
+}
+
 QString Config::defaultValue(const QString& key) const
 {
     return m_defaults.value(key);

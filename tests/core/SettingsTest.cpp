@@ -120,6 +120,10 @@ private Q_SLOTS:
         QCOMPARE(Config::decodeBool(QStringLiteral("garbage"), true), true);
         QCOMPARE(Config::encodeRect(QRect(-5, 3, 100, 50)), QStringLiteral("-5,3,100,50"));
         QCOMPARE(Config::decodeRect(QStringLiteral("1,2,3"), QRect(9, 9, 9, 9)), QRect(9, 9, 9, 9));
+        QCOMPARE(Config::encodeColor(QColor(255, 128, 0)), QStringLiteral("255,128,0"));
+        QCOMPARE(Config::decodeColor(QStringLiteral(" 0, 255 ,255"), QColor()), QColor(0, 255, 255));
+        QCOMPARE(Config::decodeColor(QStringLiteral("1,2"), QColor(Qt::red)), QColor(Qt::red));
+        QCOMPARE(Config::decodeColor(QStringLiteral("1,2,300"), QColor(Qt::red)), QColor(Qt::red));
         Config config;
         config.setValue("d", 1.25);
         QCOMPARE(config.value("d"), QStringLiteral("1.25"));

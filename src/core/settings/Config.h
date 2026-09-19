@@ -2,6 +2,7 @@
 
 #include "core/CoreExport.h"
 
+#include <QColor>
 #include <QMap>
 #include <QObject>
 #include <QRect>
@@ -38,6 +39,7 @@ public:
     int intValue(const QString& key, int fallback = 0) const;
     double doubleValue(const QString& key, double fallback = 0.0) const;
     QRect rectValue(const QString& key, const QRect& fallback = {}) const;
+    QColor colorValue(const QString& key, const QColor& fallback = {}) const;
     QString defaultValue(const QString& key) const;
 
     void setValue(const QString& key, const QString& value);
@@ -46,6 +48,8 @@ public:
     void setValue(const QString& key, int value);
     void setValue(const QString& key, double value);
     void setValue(const QString& key, const QRect& value);
+    // Not an overload of setValue because Qt::GlobalColor would convert to int.
+    void setColorValue(const QString& key, const QColor& value);
 
     void reset(const QString& key);
     void resetAll();
@@ -59,6 +63,8 @@ public:
     static QString encodeRect(const QRect& rect);
     static bool decodeBool(const QString& text, bool fallback);
     static QRect decodeRect(const QString& text, const QRect& fallback);
+    static QString encodeColor(const QColor& color);
+    static QColor decodeColor(const QString& text, const QColor& fallback);
 
 Q_SIGNALS:
     void changed(const QString& key);

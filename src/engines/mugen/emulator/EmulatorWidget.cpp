@@ -30,24 +30,6 @@ namespace {
 
 const char* const EngineKey = "emul_engine";
 
-const QHash<QString, QString>& defaultKeys()
-{
-    static const QHash<QString, QString> keys = {
-        {QStringLiteral("p1_left"), QStringLiteral("A")},      {QStringLiteral("p1_right"), QStringLiteral("D")},
-        {QStringLiteral("p1_up"), QStringLiteral("W")},        {QStringLiteral("p1_down"), QStringLiteral("S")},
-        {QStringLiteral("p1_a"), QStringLiteral("F")},         {QStringLiteral("p1_b"), QStringLiteral("G")},
-        {QStringLiteral("p1_c"), QStringLiteral("H")},         {QStringLiteral("p1_x"), QStringLiteral("R")},
-        {QStringLiteral("p1_y"), QStringLiteral("T")},         {QStringLiteral("p1_z"), QStringLiteral("Y")},
-        {QStringLiteral("p1_start"), QStringLiteral("U")},     {QStringLiteral("p2_left"), QStringLiteral("Left")},
-        {QStringLiteral("p2_right"), QStringLiteral("Right")}, {QStringLiteral("p2_up"), QStringLiteral("Up")},
-        {QStringLiteral("p2_down"), QStringLiteral("Down")},   {QStringLiteral("p2_a"), QStringLiteral("4")},
-        {QStringLiteral("p2_b"), QStringLiteral("5")},         {QStringLiteral("p2_c"), QStringLiteral("6")},
-        {QStringLiteral("p2_x"), QStringLiteral("7")},         {QStringLiteral("p2_y"), QStringLiteral("8")},
-        {QStringLiteral("p2_z"), QStringLiteral("9")},         {QStringLiteral("p2_start"), QStringLiteral("0")},
-    };
-    return keys;
-}
-
 void fill(QComboBox* combo, const QStringList& items)
 {
     if (combo && combo->count() == 0)
@@ -562,7 +544,7 @@ InputState EmulatorWidget::inputOf(int player) const
         for (int p = 0; p < 2; ++p) {
             for (std::size_t b = 0; b < std::size(kButtons); ++b) {
                 const QString key = QStringLiteral("p%1_%2").arg(p + 1).arg(QLatin1String(kButtons[b]));
-                const QKeySequence sequence = QKeySequence::fromString(config.value(key, defaultKeys().value(key)));
+                const QKeySequence sequence = QKeySequence::fromString(config.value(key));
                 codes[std::size_t(p)][b] = sequence.isEmpty() ? 0 : int(sequence[0].key());
             }
         }
@@ -628,14 +610,8 @@ EmulatorRenderer::Options EmulatorWidget::readRenderOptions() const
     options.attackBoxes = config.boolValue(QStringLiteral("show_attack_box"), true);
     options.collisionBoxes = config.boolValue(QStringLiteral("show_collision_box"), true);
     const Config& engine = m_context.engineConfig(QStringLiteral("mugen"));
-    auto color = [&engine](const char* key, const QColor& fallback) {
-        const QStringList parts = engine.value(QLatin1String(key)).split(QLatin1Char(','));
-        if (parts.size() != 3)
-            return fallback;
-        return QColor(parts[0].trimmed().toInt(), parts[1].trimmed().toInt(), parts[2].trimmed().toInt());
-    };
-    options.attackColor = color("clsn_default_attack", options.attackColor);
-    options.collisionColor = color("clsn_default_collision", options.collisionColor);
+    options.attackColor = engine.colorValue(QStringLiteral("clsn_default_attack"), options.attackColor);
+    options.collisionColor = engine.colorValue(QStringLiteral("clsn_default_collision"), options.collisionColor);
     return options;
 }
 

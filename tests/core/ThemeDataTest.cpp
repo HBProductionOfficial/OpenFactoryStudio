@@ -1,3 +1,4 @@
+#include "core/settings/Config.h"
 #include "core/theme/ColorSet.h"
 #include "core/theme/IconSet.h"
 #include "core/theme/StyleSheet.h"
@@ -286,6 +287,21 @@ private Q_SLOTS:
             QCOMPARE(palette->color(QPalette::WindowText).lightness() < 128, !dark);
             QCOMPARE(palette->color(QPalette::Text).lightness() < 128, !dark);
         }
+    }
+
+    // The code has no copy of these keys, so the shipped settings must hold them all.
+    void engineSettingsDefaults()
+    {
+        Config engine;
+        engine.load(QStringLiteral(OFS_SOURCE_DATA_DIR) + "/engines/mugen/config.xml", QString());
+        for (int player = 1; player <= 2; ++player) {
+            for (const char* button : {"up", "down", "left", "right", "a", "b", "c", "x", "y", "z", "start"}) {
+                const QString key = QStringLiteral("p%1_%2").arg(player).arg(QLatin1String(button));
+                QVERIFY2(engine.hasDefault(key) && !engine.defaultValue(key).isEmpty(), qPrintable(key));
+            }
+        }
+        QVERIFY(engine.colorValue("clsn_default_attack").isValid());
+        QVERIFY(engine.colorValue("clsn_default_collision").isValid());
     }
 };
 

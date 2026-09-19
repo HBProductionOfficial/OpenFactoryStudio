@@ -35,16 +35,6 @@ AirBox fromRect(const QRect& rect)
     return AirBox{r.left(), r.top(), r.right(), r.bottom(), 0, -1};
 }
 
-QColor colorValue(const Config* config, const QString& key, const QColor& fallback)
-{
-    if (!config)
-        return fallback;
-    const QStringList parts = config->value(key).split(QLatin1Char(','));
-    if (parts.size() != 3)
-        return fallback;
-    return QColor(parts[0].trimmed().toInt(), parts[1].trimmed().toInt(), parts[2].trimmed().toInt());
-}
-
 } // namespace
 
 AnimationPage::AnimationPage(CodeFile* file, CodePage* code, Project* project, QWidget* parent)
@@ -555,8 +545,10 @@ void AnimationPage::applySettings(const Config& config, const Config* engine)
     m_secondaryCross = config.boolValue(QStringLiteral("show_cross2"), true);
     m_showAttack = config.boolValue(QStringLiteral("show_attack_box"), true);
     m_showCollision = config.boolValue(QStringLiteral("show_collision_box"), true);
-    m_defaultAttack = colorValue(engine, QStringLiteral("clsn_default_attack"), QColor(255, 128, 0));
-    m_defaultCollision = colorValue(engine, QStringLiteral("clsn_default_collision"), QColor(0, 255, 255));
+    if (engine) {
+        m_defaultAttack = engine->colorValue(QStringLiteral("clsn_default_attack"), m_defaultAttack);
+        m_defaultCollision = engine->colorValue(QStringLiteral("clsn_default_collision"), m_defaultCollision);
+    }
     m_onionOpacity = config.value(QStringLiteral("onion_opacity"), QStringLiteral("0.74")).toDouble();
     m_onionEffect = config.intValue(QStringLiteral("onion_effect"), 2);
     m_view->applyGraphicsSettings(config);
