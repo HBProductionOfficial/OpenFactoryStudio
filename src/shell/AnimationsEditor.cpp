@@ -569,18 +569,9 @@ bool AnimationsEditor::perform(const QString& id)
     } else if (id == QLatin1String("anim_frame_delete")) {
         if (!page->frame())
             return true;
-        if (m_context.config().boolValue(QStringLiteral("confirm_delete"), true)) {
-            QMessageBox box(QMessageBox::Question, tr("Delete frame"), tr("Do you really want to delete the frame?"),
-                            QMessageBox::Yes | QMessageBox::No, page->window());
-            box.setDefaultButton(QMessageBox::Yes);
-            auto* dontAsk = new QCheckBox(tr("Don't show this again"), &box);
-            box.setCheckBox(dontAsk);
-            const bool yes = box.exec() == QMessageBox::Yes;
-            if (dontAsk->isChecked())
-                m_context.config().setValue(QStringLiteral("confirm_delete"), false);
-            if (!yes)
-                return true;
-        }
+        if (!confirmDelete(page->window(), m_context.config(), tr("Delete frame"),
+                           tr("Do you really want to delete the frame?")))
+            return true;
         page->edit([a, f](QStringList& lines) { AirEdits::deleteFrame(lines, a, f); });
     } else if (id.startsWith(QLatin1String("anim_frameall_"))) {
         const QString field = id.mid(14);
@@ -666,18 +657,8 @@ bool AnimationsEditor::performDialog(const QString& id)
     } else if (id == QLatin1String("anim_delete")) {
         if (!page->animation())
             return true;
-        if (m_context.config().boolValue(QStringLiteral("confirm_delete"), true)) {
-            QMessageBox box(QMessageBox::Question, tr("Delete"), tr("Do you really want to delete the animation?"),
-                            QMessageBox::Yes | QMessageBox::No, parent);
-            box.setDefaultButton(QMessageBox::Yes);
-            auto* dontAsk = new QCheckBox(tr("Don't show this again"), &box);
-            box.setCheckBox(dontAsk);
-            const bool yes = box.exec() == QMessageBox::Yes;
-            if (dontAsk->isChecked())
-                m_context.config().setValue(QStringLiteral("confirm_delete"), false);
-            if (!yes)
-                return true;
-        }
+        if (!confirmDelete(parent, m_context.config(), tr("Delete"), tr("Do you really want to delete the animation?")))
+            return true;
         page->edit([a](QStringList& lines) { AirEdits::deleteAnimation(lines, a); });
     } else if (id == QLatin1String("anim_duplicate")) {
         const AirAnimation* animation = page->animation();

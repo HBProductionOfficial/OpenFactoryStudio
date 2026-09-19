@@ -3,6 +3,7 @@
 #include "core/GameTime.h"
 #include "core/actions/ActionRegistry.h"
 #include "core/app/AppContext.h"
+#include "core/app/Messages.h"
 #include "core/project/Project.h"
 #include "core/settings/Config.h"
 #include "core/sounds/SoundFile.h"
@@ -428,18 +429,8 @@ bool SoundsEditor::performFiles(const QString& id)
     } else if (id == QLatin1String("snd_delete")) {
         if (current >= count)
             return true;
-        if (config.boolValue(QStringLiteral("confirm_delete"), true)) {
-            QMessageBox box(QMessageBox::Question, tr("Delete"), tr("Do you really want to delete the sound?"),
-                            QMessageBox::Yes | QMessageBox::No, parent);
-            box.setDefaultButton(QMessageBox::Yes);
-            auto* dontAsk = new QCheckBox(tr("Don't show this again"), &box);
-            box.setCheckBox(dontAsk);
-            const bool yes = box.exec() == QMessageBox::Yes;
-            if (dontAsk->isChecked())
-                config.setValue(QStringLiteral("confirm_delete"), false);
-            if (!yes)
-                return true;
-        }
+        if (!confirmDelete(parent, config, tr("Delete"), tr("Do you really want to delete the sound?")))
+            return true;
         SoundDocument edited = doc;
         SoundEdits::remove(edited, {current});
         file->apply(tr("Delete sound"), edited);

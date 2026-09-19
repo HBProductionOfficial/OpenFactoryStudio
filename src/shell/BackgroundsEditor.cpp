@@ -1,6 +1,7 @@
 #include "shell/BackgroundsEditor.h"
 
 #include "core/app/AppContext.h"
+#include "core/app/Messages.h"
 #include "core/bg/BgEdits.h"
 #include "core/editors/Organize.h"
 #include "core/project/Project.h"
@@ -1070,18 +1071,7 @@ void BackgroundsEditor::changeControllerType(int type)
 
 bool BackgroundsEditor::confirm(const QString& title, const QString& text)
 {
-    Config& config = m_context.config();
-    if (!config.boolValue(QStringLiteral("confirm_delete"), true))
-        return true;
-    QMessageBox box(QMessageBox::Question, title, text, QMessageBox::Yes | QMessageBox::No,
-                    m_page ? m_page->window() : nullptr);
-    box.setDefaultButton(QMessageBox::Yes);
-    auto* dontAsk = new QCheckBox(tr("Don't show this again"), &box);
-    box.setCheckBox(dontAsk);
-    const bool yes = box.exec() == QMessageBox::Yes;
-    if (dontAsk->isChecked())
-        config.setValue(QStringLiteral("confirm_delete"), false);
-    return yes;
+    return confirmDelete(m_page ? m_page->window() : nullptr, m_context.config(), title, text);
 }
 
 bool BackgroundsEditor::perform(const QString& id)

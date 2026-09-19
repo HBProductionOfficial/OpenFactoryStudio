@@ -37,4 +37,19 @@ bool askQuestion(QWidget* parent, Config& config, const QString& key, const QStr
     return yes;
 }
 
+bool confirmDelete(QWidget* parent, Config& config, const QString& title, const QString& text)
+{
+    const QString key = QStringLiteral("confirm_delete");
+    if (!config.boolValue(key, true))
+        return true;
+    QMessageBox box(QMessageBox::Question, title, text, QMessageBox::Yes | QMessageBox::No, parent);
+    box.setDefaultButton(QMessageBox::Yes);
+    auto* dontAsk = new QCheckBox(QCoreApplication::translate("OFS::Messages", "Don't show this again"), &box);
+    box.setCheckBox(dontAsk);
+    const bool yes = box.exec() == QMessageBox::Yes;
+    if (dontAsk->isChecked())
+        config.setValue(key, false);
+    return yes;
+}
+
 } // namespace OFS

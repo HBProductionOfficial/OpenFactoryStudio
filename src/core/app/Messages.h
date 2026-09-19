@@ -24,4 +24,7 @@ OFS_CORE_EXPORT bool askQuestion(QWidget* parent, Config& config, const QString&
 OFS_CORE_EXPORT bool askQuestion(QWidget* parent, Config& config, const QString& key, const QString& title,
                                  const QString& text);
 
+// Asks unless Options > General > Request confirmation on delete is off. True when the delete goes ahead.
+OFS_CORE_EXPORT bool confirmDelete(QWidget* parent, Config& config, const QString& title, const QString& text);
+
 } // namespace OFS

@@ -544,17 +544,9 @@ void PalettesPanel::deletePalette()
         if (QMessageBox::question(parent, tr("Delete"), text, QMessageBox::Yes | QMessageBox::No, QMessageBox::No) !=
             QMessageBox::Yes)
             return;
-    } else if (m_context.config().boolValue(QStringLiteral("confirm_delete"), true)) {
-        QMessageBox box(QMessageBox::Question, tr("Delete"), tr("Do you really want to delete the palette?"),
-                        QMessageBox::Yes | QMessageBox::No, parent);
-        box.setDefaultButton(QMessageBox::Yes);
-        auto* dontAsk = new QCheckBox(tr("Don't show this again"), &box);
-        box.setCheckBox(dontAsk);
-        const bool yes = box.exec() == QMessageBox::Yes;
-        if (dontAsk->isChecked())
-            m_context.config().setValue(QStringLiteral("confirm_delete"), false);
-        if (!yes)
-            return;
+    } else if (!confirmDelete(parent, m_context.config(), tr("Delete"),
+                              tr("Do you really want to delete the palette?"))) {
+        return;
     }
     SpriteDocument edited = doc;
     PaletteEdits::remove(edited, index, replacement);

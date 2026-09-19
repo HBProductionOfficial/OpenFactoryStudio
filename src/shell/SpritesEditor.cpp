@@ -479,18 +479,8 @@ bool SpritesEditor::perform(const QString& id)
     } else if (id == QLatin1String("spr_delete")) {
         if (current >= count)
             return true;
-        if (m_context.config().boolValue(QStringLiteral("confirm_delete"), true)) {
-            QMessageBox box(QMessageBox::Question, tr("Delete"), tr("Do you really want to delete the sprite?"),
-                            QMessageBox::Yes | QMessageBox::No, m_page);
-            box.setDefaultButton(QMessageBox::Yes);
-            auto* dontAsk = new QCheckBox(tr("Don't show this again"), &box);
-            box.setCheckBox(dontAsk);
-            const bool yes = box.exec() == QMessageBox::Yes;
-            if (dontAsk->isChecked())
-                m_context.config().setValue(QStringLiteral("confirm_delete"), false);
-            if (!yes)
-                return true;
-        }
+        if (!confirmDelete(m_page, m_context.config(), tr("Delete"), tr("Do you really want to delete the sprite?")))
+            return true;
         SpriteDocument edited = doc;
         SpriteEdits::remove(edited, {current});
         file->apply(tr("Delete sprite"), edited);

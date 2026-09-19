@@ -3460,6 +3460,8 @@ private Q_SLOTS:
         Config& config = m_context->config();
         const QString area = config.value("action_list_area");
         const QString width = config.value("action_list_width");
+        const QString shown = config.value("show_action_list");
+        config.setValue("show_action_list", false);
         config.setValue("action_list_area", int(Qt::LeftDockWidgetArea));
         config.setValue("action_list_width", 230);
         {
@@ -3469,7 +3471,9 @@ private Q_SLOTS:
             auto* dock = window.findChild<QDockWidget*>("actionListDock");
             QVERIFY(dock);
             QCOMPARE(window.dockWidgetArea(dock), Qt::LeftDockWidgetArea);
-            m_context->actions().action("view_actions")->trigger();
+            QAction* view = m_context->actions().action("view_actions");
+            if (!view->isChecked())
+                view->trigger();
             QTRY_VERIFY(dock->isVisible());
             QTRY_VERIFY(std::abs(dock->width() - 230) <= 2);
             window.addDockWidget(Qt::RightDockWidgetArea, dock);
@@ -3478,8 +3482,10 @@ private Q_SLOTS:
             QTRY_VERIFY(std::abs(dock->width() - 190) <= 2);
             window.close();
             QVERIFY(std::abs(config.intValue("action_list_width") - 190) <= 2);
-            m_context->actions().action("view_actions")->trigger();
+            if (view->isChecked())
+                view->trigger();
         }
+        config.setValue("show_action_list", shown);
         config.setValue("action_list_area", area);
         config.setValue("action_list_width", width);
     }
