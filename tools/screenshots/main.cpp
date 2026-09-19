@@ -505,15 +505,22 @@ int main(int argc, char** argv)
 
     // The code editor: completion while typing and the documentation of a controller.
     if (CodeEditor* code = tour.view() ? tour.view()->currentCodeEditor() : nullptr) {
+        // The window active again after the dialogs, so the completion list may show.
+        window.raise();
+        window.activateWindow();
+        wait(400);
         code->setFocus();
         QTextCursor cursor = code->textCursor();
         cursor.movePosition(QTextCursor::End);
-        cursor.insertText("\n[State 9999, tour]\ntype = ");
+        cursor.insertText("\n[State 9999, tour]\n");
         code->setTextCursor(cursor);
-        for (const QChar c : QStringLiteral("Chan")) {
+        // Typed as a user does: "=" opens the list of controllers, the letters go to the word.
+        for (const QChar c : QStringLiteral("type = Chan")) {
             QKeyEvent press(QEvent::KeyPress, 0, Qt::NoModifier, QString(c));
             QApplication::sendEvent(code, &press);
         }
+        for (int i = 0; i < 20 && !code->isCompleting(); ++i)
+            wait(50);
         tour.screen("Code", "Completion while typing", code->isCompleting());
         QKeyEvent escape(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
         QApplication::sendEvent(code, &escape);
