@@ -14,6 +14,7 @@
 #include "core/sprites/SpriteTransfer.h"
 #include "shell/AnimationPage.h"
 #include "shell/FileDialogs.h"
+#include "shell/FileFilters.h"
 #include "shell/OrganizerBinding.h"
 #include "shell/dialogs/AnimationDialogs.h"
 #include "shell/dialogs/ProjectDialogs.h"
@@ -727,10 +728,9 @@ bool AnimationsEditor::performDialog(const QString& id)
             project && !files.isEmpty() ? project->spriteFile(files.first(), QStringLiteral("sprites")) : nullptr;
         if (sprites.isEmpty() || !spriteFile)
             return true;
-        const QString path = FileDialogs::getSaveFileName(
-            parent, tr("Save sprites"), m_context.config().value(QStringLiteral("spr_path")),
-            tr("Portable Network Graphic (*.png);;Graphics Interchange Format (*.gif);;Personal Computer eXchange "
-               "(*.pcx);;Bitmap (*.bmp)"));
+        const QString path = FileDialogs::getSaveFileName(parent, tr("Save sprites"),
+                                                          m_context.config().value(QStringLiteral("spr_path")),
+                                                          FileFilters::saveImages());
         if (path.isEmpty())
             return true;
         const QFileInfo info(path);

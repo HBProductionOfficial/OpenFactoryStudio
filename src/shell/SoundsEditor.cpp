@@ -11,6 +11,7 @@
 #include "core/widgets/WaveformView.h"
 #include "formats/audio/Resampler.h"
 #include "shell/FileDialogs.h"
+#include "shell/FileFilters.h"
 #include "shell/OrganizerBinding.h"
 #include "shell/SoundPage.h"
 #include "shell/dialogs/ProjectDialogs.h"
@@ -41,10 +42,6 @@ T* control(QWidget* panel, const char* name)
 {
     return panel ? panel->findChild<T*>(QLatin1String(name)) : nullptr;
 }
-
-const char* const AudioFilters = "All supported (*.wav *.ogg *.flac *.mp3);;WAVEform audio format (*.wav);;"
-                                 "Ogg Vorbis (*.ogg);;Free Lossless Audio Codec (*.flac);;"
-                                 "MPEG-1/2 Audio Layer 3 (*.mp3)";
 
 QStringList soundCaptions(const SoundDocument& doc)
 {
@@ -402,7 +399,7 @@ bool SoundsEditor::performFiles(const QString& id)
     Config& config = m_context.config();
     const QString folder = config.value(QStringLiteral("snd_path"), QFileInfo(file->path()).absolutePath());
     if (id == QLatin1String("snd_add")) {
-        QStringList files = FileDialogs::getOpenFileNames(parent, tr("Add"), folder, QString::fromLatin1(AudioFilters));
+        QStringList files = FileDialogs::getOpenFileNames(parent, tr("Add"), folder, FileFilters::openAudio());
         if (files.isEmpty())
             return true;
         config.setValue(QStringLiteral("snd_path"), QFileInfo(files.first()).absolutePath());
@@ -445,7 +442,7 @@ bool SoundsEditor::performFiles(const QString& id)
         if (current >= count)
             return true;
         const QString path =
-            FileDialogs::getOpenFileName(parent, tr("Change sound..."), folder, QString::fromLatin1(AudioFilters));
+            FileDialogs::getOpenFileName(parent, tr("Change sound..."), folder, FileFilters::openAudio());
         if (path.isEmpty())
             return true;
         config.setValue(QStringLiteral("snd_path"), QFileInfo(path).absolutePath());
@@ -533,7 +530,8 @@ bool SoundsEditor::performFiles(const QString& id)
                 sounds << i;
         }
         QString path = FileDialogs::getSaveFileName(parent, tr("Export..."), folder,
-                                                    tr("Fighter Factory Export (*.ffe);;Elecbyte SndMaker (*.txt)"));
+                                                    FileFilters::fighterFactoryExport() + QStringLiteral(";;") +
+                                                        tr("Elecbyte SndMaker (*.txt)"));
         if (path.isEmpty())
             return true;
         if (QFileInfo(path).suffix().isEmpty())
@@ -547,7 +545,7 @@ bool SoundsEditor::performFiles(const QString& id)
             QMessageBox::warning(parent, tr("Export..."), error);
     } else if (id == QLatin1String("snd_import")) {
         const QString path =
-            FileDialogs::getOpenFileName(parent, tr("Import..."), folder, tr("Fighter Factory Export (*.ffe)"));
+            FileDialogs::getOpenFileName(parent, tr("Import..."), folder, FileFilters::fighterFactoryExport());
         if (path.isEmpty() || !page->confirmDiscard())
             return true;
         config.setValue(QStringLiteral("snd_path"), QFileInfo(path).absolutePath());

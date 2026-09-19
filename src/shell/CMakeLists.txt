@@ -19,6 +19,7 @@ add_library(ofsshell STATIC
     ControllerTemplatesWidget.h
     ControllerTemplatesWidget.cpp
     FileDialogs.h
+    FileFilters.h
     FileDialogs.cpp
     ImageEditor.h
     ImageEditor.cpp

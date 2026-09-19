@@ -15,6 +15,7 @@
 #include "formats/image/Quantize.h"
 #include "formats/palette/PaletteFormats.h"
 #include "shell/FileDialogs.h"
+#include "shell/FileFilters.h"
 #include "shell/dialogs/PaletteDialogs.h"
 #include "shell/dialogs/SoundDialogs.h"
 
@@ -48,12 +49,6 @@ namespace OFS {
 using namespace Formats;
 
 namespace {
-
-const char* const OpenImageFilters = "All supported (*.pcx *.png *.gif *.bmp);;Personal Computer eXchange (*.pcx);;"
-                                     "Portable Network Graphic (*.png);;Graphics Interchange Format (*.gif);;"
-                                     "Bitmap (*.bmp)";
-const char* const SaveImageFilters = "Portable Network Graphic (*.png);;Graphics Interchange Format (*.gif);;"
-                                     "Personal Computer eXchange (*.pcx);;Bitmap (*.bmp)";
 
 // Shows a column's image zoomed over a checkerboard and reports clicked pixels.
 class ImageView : public QWidget
@@ -727,7 +722,7 @@ void AdvancedPaletteEditor::run(const QString& function)
         change(which, tr("Open palette"), after);
     } else if (function == QLatin1String("savePal")) {
         const QString path =
-            FileDialogs::getSaveFileName(this, tr("Save palette"), folder(), tr("Adobe Color Table (*.act)"));
+            FileDialogs::getSaveFileName(this, tr("Save palette"), folder(), FileFilters::adobeColorTable());
         if (path.isEmpty())
             return;
         QString error;
@@ -754,8 +749,7 @@ void AdvancedPaletteEditor::run(const QString& function)
     } else if (function == QLatin1String("saveImg")) {
         if (after.image.isNull())
             return;
-        const QString path =
-            FileDialogs::getSaveFileName(this, tr("Save image"), folder(), QString::fromLatin1(SaveImageFilters));
+        const QString path = FileDialogs::getSaveFileName(this, tr("Save image"), folder(), FileFilters::saveImages());
         if (path.isEmpty())
             return;
         Image image = after.image;
@@ -780,7 +774,7 @@ void AdvancedPaletteEditor::run(const QString& function)
             QMessageBox::warning(this, tr("Save image"), error);
     } else if (function == QLatin1String("genPal")) {
         const QStringList files =
-            FileDialogs::getOpenFileNames(this, tr("Open image"), folder(), QString::fromLatin1(OpenImageFilters));
+            FileDialogs::getOpenFileNames(this, tr("Open image"), folder(), FileFilters::openImages());
         if (files.isEmpty())
             return;
         QList<Image> images;
@@ -795,7 +789,7 @@ void AdvancedPaletteEditor::run(const QString& function)
         change(which, tr("Generate palette from images"), after);
     } else if (function == QLatin1String("insPal")) {
         const QStringList files =
-            FileDialogs::getOpenFileNames(this, tr("Open image"), folder(), QString::fromLatin1(OpenImageFilters));
+            FileDialogs::getOpenFileNames(this, tr("Open image"), folder(), FileFilters::openImages());
         if (files.isEmpty())
             return;
         if (QMessageBox::question(this, tr("Insert the current palette in the images"),
@@ -901,8 +895,7 @@ void AdvancedPaletteEditor::run(const QString& function)
 void AdvancedPaletteEditor::openImage()
 {
     const int which = checkedColumn();
-    const QString path =
-        FileDialogs::getOpenFileName(this, tr("Open image"), folder(), QString::fromLatin1(OpenImageFilters));
+    const QString path = FileDialogs::getOpenFileName(this, tr("Open image"), folder(), FileFilters::openImages());
     if (path.isEmpty())
         return;
     auto image = readImage(path);

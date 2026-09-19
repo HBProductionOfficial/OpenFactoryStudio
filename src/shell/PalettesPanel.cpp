@@ -11,6 +11,7 @@
 #include "core/sprites/SpriteImages.h"
 #include "core/widgets/PaletteWidget.h"
 #include "shell/FileDialogs.h"
+#include "shell/FileFilters.h"
 #include "shell/ImageEditor.h"
 #include "shell/SpritePage.h"
 #include "shell/dialogs/SoundDialogs.h"
@@ -392,7 +393,7 @@ bool PalettesPanel::perform(const QString& id)
         if (items.exec() != QDialog::Accepted || items.selection().isEmpty())
             return true;
         const QString path =
-            FileDialogs::getSaveFileName(parent, tr("Save palette"), projectFolder(), tr("Adobe Color Table (*.act)"));
+            FileDialogs::getSaveFileName(parent, tr("Save palette"), projectFolder(), FileFilters::adobeColorTable());
         if (path.isEmpty())
             return true;
         QString error;

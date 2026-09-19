@@ -15,6 +15,7 @@
 #include "core/widgets/GraphicsView.h"
 #include "formats/image/ImageOps.h"
 #include "shell/FileDialogs.h"
+#include "shell/FileFilters.h"
 #include "shell/ImageEditor.h"
 #include "shell/OrganizerBinding.h"
 #include "shell/PalettesPanel.h"
@@ -539,12 +540,6 @@ bool SpritesEditor::perform(const QString& id)
 
 namespace {
 
-const char* const ImageFilters =
-    "All supported (*.pcx *.png *.gif *.bmp);;Personal Computer eXchange (*.pcx);;"
-    "Portable Network Graphic (*.png);;Graphics Interchange Format (*.gif);;Bitmap (*.bmp)";
-const char* const SaveImageFilters = "Portable Network Graphic (*.png);;Graphics Interchange Format (*.gif);;"
-                                     "Personal Computer eXchange (*.pcx);;Bitmap (*.bmp)";
-
 bool samePixels(const SpriteDocument& a, const SpriteDocument& b)
 {
     if (a.spriteCount() != b.spriteCount())
@@ -644,8 +639,7 @@ void SpritesEditor::addSprites(QWidget* parent, const QString& imageFolder)
 {
     SpriteFile* file = m_page->file();
     Config& config = m_context.config();
-    QStringList files =
-        FileDialogs::getOpenFileNames(parent, tr("Add"), imageFolder, QString::fromLatin1(ImageFilters));
+    QStringList files = FileDialogs::getOpenFileNames(parent, tr("Add"), imageFolder, FileFilters::openImages());
     if (files.isEmpty())
         return;
     config.setValue(QStringLiteral("spr_path"), QFileInfo(files.first()).absolutePath());
@@ -767,7 +761,7 @@ bool SpritesEditor::performDialog(const QString& id)
         if (current >= count)
             return true;
         const QString path =
-            FileDialogs::getOpenFileName(parent, tr("Change image..."), imageFolder, QString::fromLatin1(ImageFilters));
+            FileDialogs::getOpenFileName(parent, tr("Change image..."), imageFolder, FileFilters::openImages());
         if (path.isEmpty())
             return true;
         config.setValue(QStringLiteral("spr_path"), QFileInfo(path).absolutePath());
@@ -809,8 +803,8 @@ bool SpritesEditor::performDialog(const QString& id)
         }
         file->apply(tr("Change image"), edited);
     } else if (id == QLatin1String("spr_saveimgas")) {
-        const QString path = FileDialogs::getSaveFileName(parent, tr("Save image..."), imageFolder,
-                                                          QString::fromLatin1(SaveImageFilters));
+        const QString path =
+            FileDialogs::getSaveFileName(parent, tr("Save image..."), imageFolder, FileFilters::saveImages());
         if (path.isEmpty())
             return true;
         ItemsDialog items(doc, current, parent);
@@ -829,8 +823,8 @@ bool SpritesEditor::performDialog(const QString& id)
         const QList<int> sprites = range.sprites(doc, current);
         if (sprites.isEmpty())
             return true;
-        const QString path = FileDialogs::getSaveFileName(parent, tr("Save image (aligned)..."), imageFolder,
-                                                          QString::fromLatin1(SaveImageFilters));
+        const QString path =
+            FileDialogs::getSaveFileName(parent, tr("Save image (aligned)..."), imageFolder, FileFilters::saveImages());
         if (path.isEmpty())
             return true;
         config.setValue(QStringLiteral("spr_path"), QFileInfo(path).absolutePath());
@@ -862,7 +856,8 @@ bool SpritesEditor::performDialog(const QString& id)
                 sprites << i;
         }
         QString path = FileDialogs::getSaveFileName(parent, tr("Export..."), imageFolder,
-                                                    tr("Fighter Factory Export (*.ffe);;Elecbyte SprMaker 2 (*.def)"));
+                                                    FileFilters::fighterFactoryExport() + QStringLiteral(";;") +
+                                                        tr("Elecbyte SprMaker 2 (*.def)"));
         if (path.isEmpty())
             return true;
         if (QFileInfo(path).suffix().isEmpty())
@@ -876,7 +871,7 @@ bool SpritesEditor::performDialog(const QString& id)
             QMessageBox::warning(parent, tr("Export..."), error);
     } else if (id == QLatin1String("spr_import")) {
         const QString path =
-            FileDialogs::getOpenFileName(parent, tr("Import..."), imageFolder, tr("Fighter Factory Export (*.ffe)"));
+            FileDialogs::getOpenFileName(parent, tr("Import..."), imageFolder, FileFilters::fighterFactoryExport());
         if (path.isEmpty())
             return true;
         config.setValue(QStringLiteral("spr_path"), QFileInfo(path).absolutePath());
