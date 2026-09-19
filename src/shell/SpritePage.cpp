@@ -189,29 +189,6 @@ void SpritePage::applyFromImage(const QString& text, const SpriteDocument& doc, 
 
 void SpritePage::applySettings(Config& config)
 {
-    m_view->setZoomLevels(config.intValue(QStringLiteral("zoom_mode"), 1) == 0 ? GraphicsView::smallZoomRange()
-                                                                               : GraphicsView::largeZoomRange());
-    m_view->setZoomCenter(config.intValue(QStringLiteral("zoom_center"), 0) == 1 ? GraphicsView::ZoomCenter::Workspace
-                                                                                 : GraphicsView::ZoomCenter::Axis);
-    const QPoint offset(config.intValue(QStringLiteral("background_x"), -426),
-                        config.intValue(QStringLiteral("background_y"), -416));
-    switch (config.intValue(QStringLiteral("background_type"), 1)) {
-    case 0:
-        m_view->setBackground(GraphicsView::Background::Color);
-        break;
-    case 2:
-        m_view->setBackgroundPicture(QImage(config.value(QStringLiteral("background_file"))), offset);
-        m_view->setBackground(GraphicsView::Background::Picture);
-        break;
-    default:
-        m_view->setBackgroundPicture(GraphicsView::defaultBackground(), offset);
-        m_view->setBackground(GraphicsView::Background::Picture);
-        break;
-    }
-    m_view->setRulersVisible(config.boolValue(QStringLiteral("show_rulers"), true));
-    m_view->setMainCrossVisible(config.boolValue(QStringLiteral("show_cross1"), true));
-    m_view->setGuidesVisible(config.boolValue(QStringLiteral("show_guides"), false));
-    m_view->setImagesOverGuides(config.boolValue(QStringLiteral("sprite_over_guides"), false));
     m_view->applyGraphicsSettings(config);
     m_onionEffect = config.intValue(QStringLiteral("onion_effect"), 2);
     if (!m_settingsApplied) {

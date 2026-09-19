@@ -5,6 +5,9 @@
 #include "core/widgets/RenderSurface.h"
 #include "core/widgets/Rulers.h"
 
+#include <QDateTime>
+#include <QFileInfo>
+#include <QHash>
 #include <QKeyEvent>
 #include <QLinearGradient>
 #include <QMouseEvent>
@@ -325,15 +328,55 @@ void GraphicsView::setBoxOpacity(double opacity)
     update();
 }
 
+namespace {
+
+// Settings picture (background, crosshair), reloaded only when it changes.
+QImage pictureFile(const QString& path)
+{
+    if (path.isEmpty())
+        return {};
+    static QHash<QString, QPair<QDateTime, QImage>> cache;
+    const QDateTime modified = QFileInfo(path).lastModified();
+    auto found = cache.constFind(path);
+    if (found != cache.cend() && found->first == modified)
+        return found->second;
+    const QImage image(path);
+    cache.insert(path, {modified, image});
+    return image;
+}
+
+} // namespace
+
 void GraphicsView::applyGraphicsSettings(const Config& config)
 {
+    setZoomLevels(config.intValue(QStringLiteral("zoom_mode"), 1) == 0 ? smallZoomRange() : largeZoomRange());
+    setZoomCenter(config.intValue(QStringLiteral("zoom_center"), 0) == 1 ? ZoomCenter::Workspace : ZoomCenter::Axis);
+    const QPoint offset(config.intValue(QStringLiteral("background_x"), -426),
+                        config.intValue(QStringLiteral("background_y"), -416));
+    switch (config.intValue(QStringLiteral("background_type"), 1)) {
+    case 0:
+        setBackground(Background::Color);
+        break;
+    case 2:
+        setBackgroundPicture(pictureFile(config.value(QStringLiteral("background_file"))), offset);
+        setBackground(Background::Picture);
+        break;
+    default:
+        setBackgroundPicture(defaultBackground(), offset);
+        setBackground(Background::Picture);
+        break;
+    }
+    setRulersVisible(config.boolValue(QStringLiteral("show_rulers"), true));
+    setMainCrossVisible(config.boolValue(QStringLiteral("show_cross1"), true));
+    setGuidesVisible(config.boolValue(QStringLiteral("show_guides"), false));
+    setImagesOverGuides(config.boolValue(QStringLiteral("sprite_over_guides"), false));
     const int type = config.intValue(QStringLiteral("crosshair_type"), 0);
     setCrossStyle(type == 1   ? CrossStyle::Modern
                   : type == 2 ? CrossStyle::Custom
                               : CrossStyle::Default,
-                  QImage(config.value(QStringLiteral("crosshair_main"))),
-                  QImage(config.value(QStringLiteral("crosshair_secondary"))),
-                  QImage(config.value(QStringLiteral("crosshair_extra"))));
+                  pictureFile(config.value(QStringLiteral("crosshair_main"))),
+                  pictureFile(config.value(QStringLiteral("crosshair_secondary"))),
+                  pictureFile(config.value(QStringLiteral("crosshair_extra"))));
     setBoxOpacity(config.value(QStringLiteral("box_opacity"), QStringLiteral("0.5")).toDouble());
 }
 
