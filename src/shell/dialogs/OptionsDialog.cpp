@@ -6,6 +6,7 @@
 #include "core/app/AppContext.h"
 #include "core/app/Languages.h"
 #include "core/app/Paths.h"
+#include "core/code/CodeEditor.h"
 #include "core/engine/Engine.h"
 #include "core/engine/EngineManager.h"
 #include "core/options/OptionsPage.h"
@@ -307,7 +308,7 @@ QWidget* OptionsDialog::createInterfaceTab()
     bindCheck(dpiAuto, QStringLiteral("dpi_auto"), false);
     m_dpiScale = new QDoubleSpinBox(dpi);
     m_dpiScale->setObjectName(QStringLiteral("dpi_scale"));
-    m_dpiScale->setRange(0.2, 10.0);
+    m_dpiScale->setRange(ThemeManager::MinScale, ThemeManager::MaxScale);
     m_dpiScale->setDecimals(2);
     m_dpiScale->setSingleStep(0.05);
     bindDoubleSpin(m_dpiScale, QStringLiteral("dpi_scale"), 1.0);
@@ -650,7 +651,7 @@ QWidget* OptionsDialog::createCodeTab()
     m_fontName->setObjectName(QStringLiteral("font_name"));
     // Keep the stored family unless the user picks another, so a font missing here is not replaced on Apply.
     bind(
-        QStringLiteral("font_name"), QStringLiteral("Courier New"),
+        QStringLiteral("font_name"), CodeEditor::defaultFontFamily(),
         [this](const QString& family) {
             m_loadedFont = family;
             m_fontTouched = false;
@@ -664,7 +665,7 @@ QWidget* OptionsDialog::createCodeTab()
     size->setObjectName(QStringLiteral("font_size"));
     size->setRange(0, 99);
     size->setFixedWidth(100);
-    bindSpin(size, QStringLiteral("font_size"), 10);
+    bindSpin(size, QStringLiteral("font_size"), CodeEditor::DefaultFontSize);
     font->addWidget(size, 1, 1);
     right->addLayout(font);
 

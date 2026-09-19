@@ -2,6 +2,7 @@
 
 #include "core/settings/Config.h"
 #include "core/settings/XmlRecordFile.h"
+#include "core/theme/ColorRoles.h"
 
 #include <QFileInfo>
 
@@ -88,7 +89,12 @@ void ColorSet::setRecords(const QList<XmlRecord>& records)
 QColor ColorSet::color(const QString& role, const QColor& fallback) const
 {
     auto it = m_entries.constFind(role);
-    return it != m_entries.cend() ? it->color : fallback;
+    if (it != m_entries.cend())
+        return it->color;
+    if (fallback.isValid())
+        return fallback;
+    const ColorRole* known = ColorRole::find(role);
+    return known ? known->fallback : QColor();
 }
 
 } // namespace OFS

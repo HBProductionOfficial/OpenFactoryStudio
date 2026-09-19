@@ -495,10 +495,7 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
 void ProjectView::configureCodeEditor(CodeEditor* editor, const QString& editorId)
 {
     const Config& config = m_context.config();
-    QFont font(config.value(QStringLiteral("font_name"), QStringLiteral("Courier New")),
-               config.intValue(QStringLiteral("font_size"), 10));
-    font.setStyleHint(QFont::Monospace);
-    editor->setFont(font);
+    editor->setFont(CodeEditor::configuredFont(&config));
     editor->setTabStopDistance(editor->fontMetrics().horizontalAdvance(QLatin1Char(' ')) * 4);
     CodeEditor::Options options;
     options.lineNumbers = config.boolValue(QStringLiteral("code_line_numbers"), true);
@@ -589,8 +586,8 @@ bool ProjectView::closeFileTab(const QString& editorId, QTabWidget* tabs, int in
 void ProjectView::applyWorkspaceColors(QWidget* page)
 {
     const ColorSet& colors = m_context.theme().colorSet();
-    const QColor top = colors.color(QStringLiteral("back_start"), QColor(64, 64, 64));
-    const QColor bottom = colors.color(QStringLiteral("back_end"), top);
+    const QColor top = colors.color(QStringLiteral("back_start"));
+    const QColor bottom = colors.color(QStringLiteral("back_end"));
     if (auto* sprites = qobject_cast<SpritePage*>(page)) {
         sprites->view()->setBackgroundGradient(top, bottom);
         if (sprites->imageEditor())

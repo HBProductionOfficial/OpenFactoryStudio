@@ -1,5 +1,7 @@
 #include "core/code/CodeEditor.h"
 
+#include "core/settings/Config.h"
+
 #include "core/code/CodeBlockData.h"
 #include "core/code/CodeCompletion.h"
 #include "core/code/CodeFormatter.h"
@@ -81,10 +83,8 @@ CodeEditor::CodeEditor(QWidget* parent)
     setObjectName(QStringLiteral("codeEditor"));
     setLineWrapMode(QPlainTextEdit::NoWrap);
     setWordWrapMode(QTextOption::NoWrap);
-    QFont f(QStringLiteral("Courier New"), 10);
-    f.setStyleHint(QFont::Monospace);
-    setFont(f);
-    m_baseFontSize = 10;
+    setFont(configuredFont(nullptr));
+    m_baseFontSize = DefaultFontSize;
     setTabStopDistance(fontMetrics().horizontalAdvance(QLatin1Char(' ')) * 4);
 
     // Sections are recognised (for folding) even without a syntax database.
@@ -558,6 +558,14 @@ void CodeEditor::setCodeMenu(QMenu* menu)
     m_codeMenu = menu;
 }
 
+QFont CodeEditor::configuredFont(const Config* config)
+{
+    QFont font(config ? config->value(QStringLiteral("font_name"), defaultFontFamily()) : defaultFontFamily(),
+               config ? config->intValue(QStringLiteral("font_size"), DefaultFontSize) : DefaultFontSize);
+    font.setStyleHint(QFont::Monospace);
+    return font;
+}
+
 QMenu* CodeEditor::createContextMenu(const QPoint& position)
 {
     QMenu* menu = createStandardContextMenu(position);
@@ -795,7 +803,7 @@ void CodeEditor::updateExtraSelections()
                     break;
                 }
             }
-            const QColor parenColor = m_colors.color(QStringLiteral("paren"), QColor(Qt::yellow));
+            const QColor parenColor = m_colors.color(QStringLiteral("paren"));
             for (int p : {at, other}) {
                 if (p < 0)
                     continue;

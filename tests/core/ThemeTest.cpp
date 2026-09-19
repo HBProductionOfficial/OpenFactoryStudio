@@ -1,3 +1,4 @@
+#include "core/theme/ColorRoles.h"
 #include "core/theme/ColorSet.h"
 #include "core/theme/IconSet.h"
 #include "core/theme/StyleSheet.h"
@@ -97,6 +98,15 @@ private Q_SLOTS:
         ColorSet reloaded;
         QVERIFY(reloaded.load(copy));
         QVERIFY(reloaded == set);
+    }
+
+    void colorFallbacks()
+    {
+        ColorSet empty;
+        QCOMPARE(empty.color("paren"), ColorRole::find("paren")->fallback);
+        QCOMPARE(empty.color("back_start"), ColorRole::find("back_start")->fallback);
+        QCOMPARE(empty.color("background", QColor(1, 2, 3)), QColor(1, 2, 3));
+        QVERIFY(!empty.color("no_such_role").isValid());
     }
 
     void iconSetWithOverlay()

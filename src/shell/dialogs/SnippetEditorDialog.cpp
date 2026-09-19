@@ -1,5 +1,7 @@
 #include "shell/dialogs/SnippetEditorDialog.h"
 
+#include "core/app/AppContext.h"
+#include "core/code/CodeEditor.h"
 #include "core/code/CodeHighlighter.h"
 #include "shell/FileDialogs.h"
 #include "shell/dialogs/SnippetFieldsDialog.h"
@@ -151,9 +153,8 @@ SnippetEditorDialog::SnippetEditorDialog(const Snippet& snippet, const QString& 
 
     m_code->setObjectName(QStringLiteral("snipEdit"));
     m_code->setLineWrapMode(QPlainTextEdit::NoWrap);
-    QFont mono(QStringLiteral("Courier New"));
-    mono.setStyleHint(QFont::Monospace);
-    m_code->setFont(mono);
+    const AppContext* context = AppContext::instance();
+    m_code->setFont(CodeEditor::configuredFont(context ? &context->config() : nullptr));
     (new CodeHighlighter(m_code->document(), syntax, QStringLiteral("state")))->setParent(m_code);
     m_fields->setObjectName(QStringLiteral("snipFields"));
     m_fields->setFixedWidth(128);

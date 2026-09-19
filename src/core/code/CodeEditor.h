@@ -19,6 +19,8 @@ class QStringListModel;
 
 namespace OFS {
 
+class Config;
+
 class CompletionProvider;
 class SyntaxDatabase;
 
@@ -90,6 +92,10 @@ Q_SIGNALS:
 
 public:
     void revealPosition(int position);
+
+    static QFont configuredFont(const Config* config);
+    static QString defaultFontFamily() { return QStringLiteral("Courier New"); }
+    static constexpr int DefaultFontSize = 10;
 
     void setCodeMenu(QMenu* menu);
     // The caller owns the menu and must call releaseContextMenu() before deleting it, because the

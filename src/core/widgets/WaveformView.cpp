@@ -217,7 +217,10 @@ void WaveformView::paintEvent(QPaintEvent* event)
             p.drawLine(QPointF(x + 0.5, middle - peak.max * half), QPointF(x + 0.5, middle - peak.min * half));
         }
         if (band > 8 && c > 0) {
-            p.setPen(QColor(60, 60, 60));
+            const QColor base = palette().color(QPalette::Base);
+            const QColor ink = palette().color(QPalette::Text);
+            p.setPen(QColor((base.red() * 2 + ink.red()) / 3, (base.green() * 2 + ink.green()) / 3,
+                            (base.blue() * 2 + ink.blue()) / 3));
             p.drawLine(QPointF(0, area.top() + band * c), QPointF(width(), area.top() + band * c));
         }
     }

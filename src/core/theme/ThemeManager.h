@@ -52,6 +52,8 @@ public:
     // group or only the one named by group="active|inactive|disabled".
     static std::optional<QPalette> loadPalette(const QString& path, const QPalette& base);
 
+    static constexpr double MinScale = 0.2;
+    static constexpr double MaxScale = 10.0;
     void setScale(double scale) { m_scale = scale; }
     double scale() const { return m_scale; }
 
