@@ -8,6 +8,8 @@
 #include <QString>
 #include <QStringList>
 
+#include <functional>
+
 namespace OFS {
 
 // PNG, GIF, PCX or BMP by suffix. GIF and PCX hold indexed images only.
@@ -24,7 +26,8 @@ struct OFS_CORE_EXPORT AlignedImages
 OFS_CORE_EXPORT AlignedImages alignSprites(const SpriteDocument& doc, const QList<int>& sprites);
 OFS_CORE_EXPORT QStringList saveAlignedImages(const SpriteDocument& doc, const QList<int>& sprites,
                                               const AlignedImages& aligned, const QString& path, const QString& suffix,
-                                              QString* error = nullptr);
+                                              QString* error = nullptr,
+                                              const std::function<bool(int written)>& progress = {});
 // axis.txt: "X axis: 18" CR LF "Y axis: 91".
 OFS_CORE_EXPORT QByteArray axisFileText(const QPoint& axis);
 

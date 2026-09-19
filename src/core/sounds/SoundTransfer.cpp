@@ -60,8 +60,9 @@ QString soundFileName(const SoundEntry& sound)
 } // namespace
 
 bool exportSounds(const SoundDocument& doc, const QList<int>& sounds, const QString& listPath, SoundListFormat format,
-                  QString* error)
+                  QString* error, const std::function<bool(int written)>& progress)
 {
+    int written = 0;
     const QFileInfo list(listPath);
     const QDir dir = list.dir();
     QByteArray text;
@@ -82,6 +83,8 @@ bool exportSounds(const SoundDocument& doc, const QList<int>& sounds, const QStr
                         .toUtf8();
         else
             text += QStringLiteral("%1\n%2\n%3\n").arg(file).arg(sound.group).arg(sound.number).toUtf8();
+        if (progress && !progress(++written))
+            return false;
     }
     return writeFile(listPath, text, error);
 }

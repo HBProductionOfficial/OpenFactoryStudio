@@ -125,6 +125,13 @@ private Q_SLOTS:
         snd.sounds.push_back(SndSound{900, 1, wav(20, 2)});
         const SoundDocument doc = SoundDocument::fromSnd(snd);
         QVERIFY(exportSounds(doc, {0, 1}, dir.filePath("list.ffe"), SoundListFormat::Ffe));
+        QList<int> told;
+        QVERIFY(!exportSounds(doc, {0, 1}, dir.filePath("cut.ffe"), SoundListFormat::Ffe, nullptr, [&told](int count) {
+            told << count;
+            return false;
+        }));
+        QCOMPARE(told, QList<int>{1});
+        QVERIFY(!QFile::exists(dir.filePath("cut.ffe")));
         QFile ffe(dir.filePath("list.ffe"));
         QVERIFY(ffe.open(QIODevice::ReadOnly));
         QCOMPARE(ffe.readAll(), QByteArray("\n[SoundDef]\ngroup = 0\nsample = 0\nfile = 0-0.wav\n"

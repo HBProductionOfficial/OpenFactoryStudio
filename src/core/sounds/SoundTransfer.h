@@ -19,7 +19,8 @@ enum class SoundListFormat
 
 // Writes each sound as "<group>-<index>.wav" beside the list file, then the list.
 OFS_CORE_EXPORT bool exportSounds(const SoundDocument& doc, const QList<int>& sounds, const QString& listPath,
-                                  SoundListFormat format, QString* error = nullptr);
+                                  SoundListFormat format, QString* error = nullptr,
+                                  const std::function<bool(int written)>& progress = {});
 
 enum class SoundConflict
 {

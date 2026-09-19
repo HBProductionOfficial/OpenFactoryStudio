@@ -148,7 +148,8 @@ AlignedImages alignSprites(const SpriteDocument& doc, const QList<int>& sprites)
 }
 
 QStringList saveAlignedImages(const SpriteDocument& doc, const QList<int>& sprites, const AlignedImages& aligned,
-                              const QString& path, const QString& suffix, QString* error)
+                              const QString& path, const QString& suffix, QString* error,
+                              const std::function<bool(int written)>& progress)
 {
     QStringList written;
     int n = 0;
@@ -160,6 +161,8 @@ QStringList saveAlignedImages(const SpriteDocument& doc, const QList<int>& sprit
         if (!writeImageFile(target, aligned.images[n++], error))
             return written;
         written << target;
+        if (progress && !progress(int(written.size())))
+            return written;
     }
     return written;
 }

@@ -38,6 +38,7 @@
 #include <QListView>
 #include <QMessageBox>
 #include <QMimeData>
+#include <QProgressDialog>
 #include <QScrollBar>
 #include <QSpinBox>
 #include <QStringListModel>
@@ -832,7 +833,19 @@ bool SpritesEditor::performDialog(const QString& id)
         const QString suffix = QFileInfo(path).suffix().isEmpty() ? QStringLiteral("png") : QFileInfo(path).suffix();
         const AlignedImages aligned = alignSprites(doc, sprites);
         QString error;
-        if (saveAlignedImages(doc, sprites, aligned, path, suffix, &error).size() != sprites.size()) {
+        QProgressDialog progress(tr("Saving images..."), tr("Cancel"), 0, int(sprites.size()), parent);
+        progress.setWindowTitle(tr("Saving images..."));
+        progress.setWindowModality(Qt::WindowModal);
+        progress.setMinimumDuration(500);
+        const auto step = [&progress](int written) {
+            progress.setValue(written);
+            return !progress.wasCanceled();
+        };
+        const qsizetype saved = saveAlignedImages(doc, sprites, aligned, path, suffix, &error, step).size();
+        progress.reset();
+        if (progress.wasCanceled())
+            return true;
+        if (saved != sprites.size()) {
             QMessageBox::warning(parent, tr("Save image (aligned)..."), error);
             return true;
         }

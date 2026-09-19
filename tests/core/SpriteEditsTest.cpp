@@ -185,6 +185,14 @@ private Q_SLOTS:
         written = saveAlignedImages(group, {0, 1, 2}, aligned, dir.filePath("al.png"), "png", &error);
         QCOMPARE(written.size(), 3);
         QCOMPARE(QFileInfo(written[2]).fileName(), QStringLiteral("al_11-2.png"));
+        QList<int> told;
+        written =
+            saveAlignedImages(group, {0, 1, 2}, aligned, dir.filePath("cut.png"), "png", &error, [&told](int count) {
+                told << count;
+                return count < 2;
+            });
+        QCOMPARE(told, (QList<int>{1, 2}));
+        QCOMPARE(written.size(), 2);
     }
 
     void duplicates()

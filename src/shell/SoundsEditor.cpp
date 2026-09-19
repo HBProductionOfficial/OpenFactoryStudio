@@ -23,6 +23,7 @@
 #include <QFileInfo>
 #include <QLabel>
 #include <QMessageBox>
+#include <QProgressDialog>
 #include <QPushButton>
 #include <QScrollBar>
 #include <QSlider>
@@ -542,7 +543,18 @@ bool SoundsEditor::performFiles(const QString& id)
                                            ? SoundListFormat::SndMaker
                                            : SoundListFormat::Ffe;
         QString error;
-        if (!exportSounds(doc, sounds, path, format, &error))
+        QProgressDialog progress(tr("Exporting sounds..."), tr("Cancel"), 0, int(sounds.size()), parent);
+        progress.setWindowTitle(tr("Exporting sounds..."));
+        progress.setWindowModality(Qt::WindowModal);
+        progress.setMinimumDuration(500);
+        const auto step = [&progress](int written) {
+            progress.setValue(written);
+            return !progress.wasCanceled();
+        };
+        const bool exported = exportSounds(doc, sounds, path, format, &error, step);
+        const bool canceled = progress.wasCanceled();
+        progress.reset();
+        if (!exported && !canceled)
             QMessageBox::warning(parent, tr("Export..."), error);
     } else if (id == QLatin1String("snd_import")) {
         const QString path =
