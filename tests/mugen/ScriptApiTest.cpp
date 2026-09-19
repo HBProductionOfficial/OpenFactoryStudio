@@ -217,6 +217,34 @@ private Q_SLOTS:
         QVERIFY(cns->document()->toPlainText().endsWith("; added\n"));
     }
 
+    void parentProject()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("q.cns"), "[Statedef 0]\ntype = S\n");
+        writeFile(dir.filePath("q.def"), "[Info]\nname = \"Q\"\nmugenversion = 1.0\n[Files]\nst = q.cns\n");
+        QTemporaryDir copy;
+        const QString def = QDir::fromNativeSeparators(dir.filePath("q.def"));
+        const QString copied = QDir::fromNativeSeparators(copy.filePath("r.def"));
+        const Script::RunResult result =
+            Script::runScript(QStringLiteral("local p = FF.projectFromFile('%1', false)\n"
+                                             "assert(p.parent:saveAs('%2'))\n"
+                                             "local b = p.parent:backup()\n"
+                                             "assert(type(b) == 'string' and #b > 0)\n"
+                                             "local cns = p:fileByType(FF.FileType.Scripts):asSourceCode()\n"
+                                             "cns:insertCode('; changed\\n')\n"
+                                             "p:saveAll()\n"
+                                             "assert(p.parent:restoreBackup(b))\n")
+                                  .arg(def, copied),
+                              QString(), m_environment);
+        QVERIFY2(result.ok, qPrintable(result.error));
+        QVERIFY(QFile::exists(copied));
+        QVERIFY(QFile::exists(copy.filePath("q.cns")));
+        Project* project = m_open.back().get();
+        auto* cns = qobject_cast<CodeFile*>(project->file(dir.filePath("q.cns")));
+        QVERIFY(cns);
+        QVERIFY(!cns->document()->toPlainText().contains("; changed"));
+    }
+
     void archives()
     {
         QTemporaryDir dir;

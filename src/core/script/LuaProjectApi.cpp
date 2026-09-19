@@ -1,11 +1,13 @@
 #include "core/anims/AirDocument.h"
 #include "core/engine/Engine.h"
 #include "core/project/Project.h"
+#include "core/project/ProjectBackup.h"
 #include "core/project/ProjectFile.h"
 #include "core/script/LuaApi.h"
 #include "core/sounds/SoundFile.h"
 #include "core/sprites/SpriteFile.h"
 
+#include <QDateTime>
 #include <QFile>
 #include <QFileInfo>
 #include <QTextBlock>
@@ -393,9 +395,33 @@ void registerProjectApi(sol::state& lua, sol::table api, Session& session)
             return archive;
         }),
         "save", [](ParentRef& r) { return r.project && r.project->save(); }, //
-        "saveAs", [](ParentRef&) { fail("ParentProject:saveAs is not available"); }, "backup",
-        [](ParentRef&) { fail("ParentProject:backup is not available"); }, "restoreBackup",
-        [](ParentRef&) { fail("ParentProject:restoreBackup is not available"); }, "openedProjects",
+        // Project > Save as: writes a copy beside `fileName`. The open project stays as it is.
+        "saveAs",
+        [](ParentRef& r, const std::string& fileName) {
+            QString error;
+            if (!r.project || !r.project->writeCopyTo(QString::fromStdString(fileName), &error))
+                fail((error.isEmpty() ? std::string("ParentProject:saveAs: no project") : toStd(error)).c_str());
+            return true;
+        },
+        "backup",
+        [](ParentRef& r) {
+            QString error;
+            const QString path =
+                r.project ? Backup::create(*r.project, QDateTime::currentDateTime(), false, &error) : QString();
+            if (path.isEmpty())
+                fail((error.isEmpty() ? std::string("ParentProject:backup: no project") : toStd(error)).c_str());
+            return toStd(path);
+        },
+        "restoreBackup",
+        [](ParentRef& r, const std::string& fileName) {
+            QString error;
+            if (!r.project || !Backup::restore(*r.project, QString::fromStdString(fileName), &error))
+                fail((error.isEmpty() ? std::string("ParentProject:restoreBackup: no project") : toStd(error)).c_str());
+            for (ProjectFile* file : r.project->files())
+                file->load(nullptr);
+            return true;
+        },
+        "openedProjects",
         [](ParentRef& r, sol::this_state state) {
             return listOf(state, r.project ? QList<Project*>{r.project.data()} : QList<Project*>());
         });
