@@ -43,6 +43,14 @@ public:
 
     bool goToIssue(bool forward, bool deprecations);
 
+Q_SIGNALS:
+    void snippetChosen(const QString& name);
+    // A snippet chosen with the keyboard is inserted at once. A mouse pick only selects it.
+    void snippetInsertRequested();
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
 private:
     QWidget* m_toolBar;
     QComboBox* m_snippets;
@@ -50,6 +58,7 @@ private:
     CodeEditor* m_editor;
     QWidget* m_sidePanel = nullptr;
     IssueList m_issues;
+    bool m_snippetByKeyboard = false;
 };
 
 } // namespace OFS

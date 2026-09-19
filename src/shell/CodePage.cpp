@@ -5,8 +5,10 @@
 #include "core/code/Snippet.h"
 #include "core/theme/IconSet.h"
 
+#include <QAbstractItemView>
 #include <QAction>
 #include <QComboBox>
+#include <QEvent>
 #include <QHBoxLayout>
 #include <QTextBlock>
 #include <QToolButton>
@@ -25,6 +27,15 @@ CodePage::CodePage(ActionRegistry& actions, QWidget* parent)
     m_toolBar->setObjectName(QStringLiteral("codeToolBar"));
     m_snippets->setObjectName(QStringLiteral("codeSnippets"));
     m_snippets->setMinimumWidth(200);
+    m_snippets->setMaxVisibleItems(10);
+    m_snippets->installEventFilter(this);
+    m_snippets->view()->installEventFilter(this);
+    m_snippets->view()->viewport()->installEventFilter(this);
+    connect(m_snippets, &QComboBox::activated, this, [this](int index) {
+        Q_EMIT snippetChosen(m_snippets->itemText(index));
+        if (m_snippetByKeyboard)
+            Q_EMIT snippetInsertRequested();
+    });
     m_navigator->setObjectName(QStringLiteral("codeIssues"));
 
     auto* bar = new QHBoxLayout(m_toolBar);
@@ -101,6 +112,15 @@ void CodePage::setIssues(const IssueList& issues, const IconSet& icons)
         markers << m;
     }
     m_editor->setMarkers(markers);
+}
+
+bool CodePage::eventFilter(QObject* watched, QEvent* event)
+{
+    if (event->type() == QEvent::KeyPress)
+        m_snippetByKeyboard = true;
+    else if (event->type() == QEvent::MouseButtonPress || event->type() == QEvent::MouseButtonRelease)
+        m_snippetByKeyboard = false;
+    return QWidget::eventFilter(watched, event);
 }
 
 void CodePage::setSnippets(const QStringList& names)

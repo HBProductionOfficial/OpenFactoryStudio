@@ -3570,6 +3570,45 @@ private Q_SLOTS:
         actions.action("file_close")->trigger();
     }
 
+    // A keyboard choice in the snippet combo inserts the snippet. A mouse pick only selects.
+    void snippetCombo()
+    {
+        MainWindow window(*m_context);
+        window.resize(1200, 800);
+        window.show();
+        window.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&window));
+        QVERIFY(window.openProject(m_dir.filePath("fighter.def")));
+        ActionRegistry& actions = m_context->actions();
+        ProjectView* view = window.currentProjectView();
+        actions.action("editor_cmd")->trigger();
+        CodePage* commands = view->currentCodePage();
+        actions.action("editor_st")->trigger();
+        CodePage* states = view->currentCodePage();
+        QVERIFY(commands && states && commands != states);
+        auto* combo = states->findChild<QComboBox*>("codeSnippets");
+        QVERIFY(combo);
+        const int arcade = combo->findText("Arcade");
+        const int remap = combo->findText("Button remapping");
+        QVERIFY(arcade >= 0 && remap == arcade + 1);
+
+        Q_EMIT combo->activated(arcade); // as a mouse click does
+        combo->setCurrentIndex(arcade);
+        QCOMPARE(commands->currentSnippet(), QStringLiteral("Arcade"));
+        const QString before = states->editor()->toPlainText();
+
+        combo->setFocus();
+        QTRY_VERIFY(combo->hasFocus());
+        QTest::keyClick(combo, Qt::Key_Down);
+        QCOMPARE(states->currentSnippet(), QStringLiteral("Button remapping"));
+        QCOMPARE(commands->currentSnippet(), QStringLiteral("Button remapping"));
+        QVERIFY(states->editor()->toPlainText() != before);
+        QVERIFY(states->editor()->toPlainText().contains("[Remap]"));
+        QTRY_VERIFY(states->editor()->hasFocus());
+        states->editor()->document()->undo();
+        actions.action("file_close")->trigger();
+    }
+
     void welcomeTextReadable()
     {
         m_context->history().clear();

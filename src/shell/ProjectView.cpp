@@ -363,6 +363,20 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
         }
         page->setToolBarVisible(m_context.config().boolValue(QStringLiteral("show_code_bar"), true));
         page->setSnippets(engine()->snippets().names());
+        // The code editors share the chosen snippet.
+        if (const QList<CodePage*> others = codePages(); !others.isEmpty())
+            page->setCurrentSnippet(others.first()->currentSnippet());
+        connect(page, &CodePage::snippetChosen, this, [this](const QString& name) {
+            for (CodePage* other : codePages()) {
+                const QSignalBlocker blocker(other);
+                other->setCurrentSnippet(name);
+            }
+        });
+        connect(page, &CodePage::snippetInsertRequested, this, [this, page] {
+            if (QAction* insert = m_context.actions().action(QStringLiteral("code_snippet_insert")))
+                insert->trigger();
+            page->editor()->setFocus();
+        });
         const QStringList templateDirs = engine()->codeTemplateDirs(info.id);
         if (!templateDirs.isEmpty()) {
             auto* templates = new ControllerTemplatesWidget(m_context.actions(), templateDirs);
