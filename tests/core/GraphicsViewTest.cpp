@@ -133,6 +133,20 @@ private Q_SLOTS:
         QCOMPARE(view.zoomIndex(), start);
     }
 
+    void checkerBackground()
+    {
+        GraphicsView view;
+        view.resize(200, 200);
+        view.setRulersVisible(false);
+        view.setMainCrossVisible(false);
+        view.setBackground(GraphicsView::Background::Checker);
+        const QImage shown = view.grab().toImage();
+        QCOMPARE(shown.pixelColor(1, 1), QColor(240, 240, 240));
+        QCOMPARE(shown.pixelColor(9, 1), QColor(204, 204, 204));
+        QCOMPARE(shown.pixelColor(9, 9), QColor(240, 240, 240));
+        QCOMPARE(shown.pixelColor(1, 9), QColor(204, 204, 204));
+    }
+
     void workspaceGradient()
     {
         GraphicsView view;

@@ -9,6 +9,7 @@
 #include "core/sprites/SpriteExport.h"
 #include "core/sprites/SpriteFile.h"
 #include "core/theme/ThemeManager.h"
+#include "core/widgets/Checkerboard.h"
 #include "core/widgets/PaletteWidget.h"
 #include "formats/codecs/Png.h"
 #include "formats/image/ImageFile.h"
@@ -72,11 +73,7 @@ protected:
     void paintEvent(QPaintEvent*) override
     {
         QPainter painter(this);
-        const QColor gray(160, 160, 164);
-        for (int y = 0; y < height(); y += 8) {
-            for (int x = 0; x < width(); x += 8)
-                painter.fillRect(QRect(x, y, 8, 8), ((x / 8 + y / 8) % 2) ? gray : QColor(Qt::white));
-        }
+        painter.fillRect(rect(), checkerboard(8, Qt::white, QColor(160, 160, 164)));
         if (!m_image.isNull())
             painter.drawImage(QRectF(0, 0, m_image.width() * m_zoom, m_image.height() * m_zoom), m_image);
     }

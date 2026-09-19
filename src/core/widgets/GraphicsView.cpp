@@ -1,6 +1,7 @@
 #include "core/widgets/GraphicsView.h"
 
 #include "core/settings/Config.h"
+#include "core/widgets/Checkerboard.h"
 #include "core/widgets/RenderSurface.h"
 #include "core/widgets/Rulers.h"
 
@@ -271,15 +272,12 @@ void GraphicsView::drawBackground(QPainter& p, const QRect& area)
     case Background::Color:
         fillWorkspace(p, area);
         break;
-    case Background::Checker: {
-        const int cell = 8;
-        p.fillRect(area, QColor(204, 204, 204));
-        for (int y = area.top(); y <= area.bottom(); y += cell) {
-            for (int x = area.left() + (((y - area.top()) / cell) % 2) * cell; x <= area.right(); x += 2 * cell)
-                p.fillRect(QRect(x, y, cell, cell).intersected(area), QColor(240, 240, 240));
-        }
+    case Background::Checker:
+        p.save();
+        p.setBrushOrigin(area.topLeft());
+        p.fillRect(area, checkerboard(8, QColor(240, 240, 240), QColor(204, 204, 204)));
+        p.restore();
         break;
-    }
     case Background::Picture:
         fillWorkspace(p, area);
         if (!m_backgroundPicture.isNull()) {

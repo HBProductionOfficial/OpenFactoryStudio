@@ -1,4 +1,5 @@
 #include "core/widgets/ImageCanvas.h"
+#include "core/widgets/Checkerboard.h"
 
 #include "core/widgets/RenderSurface.h"
 
@@ -155,12 +156,10 @@ void ImageCanvas::drawCanvas(QPainter& p, const QRectF& target) const
     const double cell = 8 * target.width() / m_document->width;
     p.save();
     p.setClipRect(target);
-    p.fillRect(target, Qt::white);
-    for (int cy = 0; cy * 8 < m_document->height; ++cy)
-        for (int cx = 0; cx * 8 < m_document->width; ++cx)
-            if ((cx + cy) % 2 == 0)
-                p.fillRect(QRectF(target.left() + cx * cell, target.top() + cy * cell, cell, cell),
-                           QColor(192, 192, 192));
+    QBrush board = checkerboard(8, QColor(192, 192, 192), Qt::white);
+    board.setTransform(QTransform::fromScale(cell / 8, cell / 8));
+    p.setBrushOrigin(target.topLeft());
+    p.fillRect(target, board);
     p.setRenderHint(QPainter::SmoothPixmapTransform, false);
     p.drawImage(target, m_dimmed.isNull() ? m_composite : m_dimmed);
     p.restore();
