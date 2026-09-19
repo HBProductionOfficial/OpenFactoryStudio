@@ -206,9 +206,11 @@ void GraphicsView::zoomReset()
 
 void GraphicsView::zoomFit()
 {
-    QRect bounds;
-    for (const Image& image : std::as_const(m_images))
-        bounds |= image.transform.mapRect(QRect(image.topLeft, image.image.size()));
+    QRectF bounds = m_fitArea;
+    if (bounds.isEmpty()) {
+        for (const Image& image : std::as_const(m_images))
+            bounds |= QRectF(image.transform.mapRect(QRect(image.topLeft, image.image.size())));
+    }
     if (bounds.isEmpty())
         return;
     const QRect area = contentRect().adjusted(8, 8, -8, -8);
@@ -218,7 +220,7 @@ void GraphicsView::zoomFit()
             best = i;
     }
     m_zoomIndex = best;
-    const QPointF centre = QRectF(bounds).center() * zoom();
+    const QPointF centre = bounds.center() * zoom();
     setOrigin((QPointF(area.center()) - centre).toPoint());
     update();
     Q_EMIT zoomChanged(m_zoomIndex);

@@ -147,6 +147,29 @@ private Q_SLOTS:
         QCOMPARE(shown.pixelColor(1, 9), QColor(204, 204, 204));
     }
 
+    void fitArea()
+    {
+        GraphicsView view;
+        view.resize(400, 300);
+        view.setRulersVisible(false);
+        QImage near(320, 240, QImage::Format_ARGB32);
+        near.fill(Qt::red);
+        QImage far(10, 10, QImage::Format_ARGB32);
+        far.fill(Qt::blue);
+        GraphicsView::Image screen;
+        screen.image = near;
+        screen.topLeft = QPoint(-160, 0);
+        GraphicsView::Image away;
+        away.image = far;
+        away.topLeft = QPoint(-7000, 0);
+        view.setImages({screen, away});
+        view.setFitArea(QRectF(-160, 0, 320, 240));
+        view.zoomFit();
+        const QPointF centre = view.toWidget(QPointF(0, 120));
+        QVERIFY(std::abs(centre.x() - 200) <= 2 && std::abs(centre.y() - 150) <= 2);
+        QVERIFY(view.zoom() >= 1.0);
+    }
+
     void workspaceGradient()
     {
         GraphicsView view;

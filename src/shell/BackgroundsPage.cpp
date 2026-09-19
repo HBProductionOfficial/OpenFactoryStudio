@@ -381,6 +381,7 @@ void BackgroundsPage::refresh()
     const QSizeF screen = screenSize();
     const double halfWidth = screen.width() / 2;
     const QRectF screenRect(-halfWidth, 0, screen.width(), screen.height());
+    m_view->setFitArea(screenRect);
     const bool editing = m_mode == Mode::Stopped;
     QList<GraphicsView::Image> images;
     QList<GraphicsView::Frame> frames;

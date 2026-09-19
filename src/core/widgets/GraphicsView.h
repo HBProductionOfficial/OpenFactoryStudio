@@ -91,6 +91,7 @@ public:
     void zoomOut();
     void zoomReset();
     void zoomFit();
+    void setFitArea(const QRectF& area) { m_fitArea = area; }
     void setZoomCenter(ZoomCenter center) { m_zoomCenter = center; }
     ZoomCenter zoomCenter() const { return m_zoomCenter; }
 
@@ -226,6 +227,7 @@ private:
     QPoint m_origin{320, 360};
     Background m_background = Background::Color;
     QColor m_backgroundColor{64, 64, 64};
+    QRectF m_fitArea;
     QColor m_backgroundEnd{64, 64, 64};
     QImage m_backgroundPicture;
     QPoint m_backgroundOffset;
