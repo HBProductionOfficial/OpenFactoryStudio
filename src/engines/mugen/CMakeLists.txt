@@ -74,6 +74,8 @@ add_library(ofs_mugen_runtime STATIC
     runtime/IniText.cpp
     runtime/CharacterData.h
     runtime/CharacterData.cpp
+    runtime/Files.h
+    runtime/Files.cpp
     runtime/AnimPlayer.h
     runtime/AnimPlayer.cpp
     runtime/Character.h

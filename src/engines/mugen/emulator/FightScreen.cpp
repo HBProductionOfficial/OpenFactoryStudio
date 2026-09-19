@@ -3,6 +3,7 @@
 #include "core/project/ProjectFile.h"
 #include "core/sprites/QtImages.h"
 #include "engines/mugen/runtime/Character.h"
+#include "engines/mugen/runtime/Files.h"
 #include "engines/mugen/runtime/IniText.h"
 #include "formats/sff/SffDocument.h"
 #include "formats/snd/SndDocument.h"
@@ -27,27 +28,6 @@ namespace {
 constexpr int CallFightTime = 60;
 // It shows the KO call this long after the round ends.
 constexpr int KoDelay = 10;
-
-QString readText(const QString& path)
-{
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly))
-        return QString();
-    QString encoding;
-    QByteArray bom;
-    return CodeFile::decode(file.readAll(), &encoding, &bom).replace(QLatin1String("\r\n"), QLatin1String("\n"));
-}
-
-QByteArray readBytes(const QString& path)
-{
-    QFile file(path);
-    return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
-}
-
-Formats::ByteSpan span(const QByteArray& data)
-{
-    return Formats::ByteSpan(reinterpret_cast<const std::byte*>(data.constData()), std::size_t(data.size()));
-}
 
 QList<double> numbers(const QString& value)
 {

@@ -4,6 +4,7 @@
 #include "core/project/ProjectFile.h"
 #include "core/sounds/SoundFile.h"
 #include "core/sprites/SpriteFile.h"
+#include "engines/mugen/runtime/Files.h"
 #include "engines/mugen/runtime/IniText.h"
 #include "formats/palette/PaletteFormats.h"
 #include "formats/sff/SffDocument.h"
@@ -22,29 +23,6 @@ namespace OFS::Mugen {
 using namespace Runtime;
 
 namespace {
-
-QString readText(const QString& path)
-{
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly))
-        return QString();
-    QString encoding;
-    QByteArray bom;
-    return CodeFile::decode(file.readAll(), &encoding, &bom).replace(QLatin1String("\r\n"), QLatin1String("\n"));
-}
-
-std::shared_ptr<SpriteDocument> loadSprites(const QString& path)
-{
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly))
-        return nullptr;
-    const QByteArray data = file.readAll();
-    auto sff = Formats::SffDocument::read(
-        Formats::ByteSpan(reinterpret_cast<const std::byte*>(data.constData()), std::size_t(data.size())));
-    if (!sff)
-        return nullptr;
-    return std::make_shared<SpriteDocument>(SpriteDocument::fromSff(sff.value()));
-}
 
 std::shared_ptr<SoundDocument> loadSounds(const QString& path)
 {
@@ -165,7 +143,7 @@ bool EmulatorSession::loadStage(const QString& path, const QString& engineDir, Q
             m_stage.sprites =
                 std::shared_ptr<const SpriteDocument>(std::shared_ptr<const SpriteDocument>(), &file->document());
         else if (!sff.isEmpty())
-            m_stage.sprites = loadSprites(sff);
+            m_stage.sprites = readSprites(sff);
     }
     const int group = m_stage.bg.indexOf(QStringLiteral("BG"));
     if (group >= 0)
@@ -182,7 +160,7 @@ void EmulatorSession::loadFightFx(const QString& engineDir)
         return;
     m_fightFx = std::make_shared<CharacterData>();
     m_fightFx->setAnimations(readText(air));
-    m_fightFxSprites = loadSprites(sff);
+    m_fightFxSprites = readSprites(sff);
 }
 
 void EmulatorSession::loadCommonSounds(const QString& engineDir)
@@ -272,7 +250,7 @@ bool EmulatorSession::start(Project& project, const Options& options, QString* e
     p1.name = data->displayName();
     if (auto* sprites = qobject_cast<SpriteFile*>(project.file(data->spriteFile())))
         p1.sprites = &sprites->document();
-    else if ((p1.ownSprites = loadSprites(data->spriteFile())))
+    else if ((p1.ownSprites = readSprites(data->spriteFile())))
         p1.sprites = p1.ownSprites.get();
     if (auto* sounds = qobject_cast<SoundFile*>(project.file(data->soundFile())))
         p1.sounds = &sounds->document();
@@ -301,7 +279,7 @@ bool EmulatorSession::start(Project& project, const Options& options, QString* e
             const QString pick = defs[int(options.seed % std::uint32_t(defs.size()))];
             if (other->load(pick, engineDir)) {
                 p2.data = other;
-                p2.ownSprites = loadSprites(other->spriteFile());
+                p2.ownSprites = readSprites(other->spriteFile());
                 p2.sprites = p2.ownSprites.get();
                 p2.ownSounds = loadSounds(other->soundFile());
                 p2.sounds = p2.ownSounds.get();

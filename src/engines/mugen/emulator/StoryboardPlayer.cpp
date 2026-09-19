@@ -5,6 +5,7 @@
 #include "core/project/ProjectFile.h"
 #include "core/sounds/SoundFile.h"
 #include "core/sprites/SpriteFile.h"
+#include "engines/mugen/runtime/Files.h"
 #include "engines/mugen/runtime/IniText.h"
 #include "formats/audio/AudioCodec.h"
 #include "formats/sff/SffDocument.h"
@@ -40,17 +41,6 @@ QColor colorOf(const QString& value)
     const QList<double> v = numbers(value);
     return QColor(std::clamp(int(v.value(0)), 0, 255), std::clamp(int(v.value(1)), 0, 255),
                   std::clamp(int(v.value(2)), 0, 255));
-}
-
-QByteArray readBytes(const QString& path)
-{
-    QFile file(path);
-    return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
-}
-
-Formats::ByteSpan span(const QByteArray& data)
-{
-    return Formats::ByteSpan(reinterpret_cast<const std::byte*>(data.constData()), std::size_t(data.size()));
 }
 
 } // namespace

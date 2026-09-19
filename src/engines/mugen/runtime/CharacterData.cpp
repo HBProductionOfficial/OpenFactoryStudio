@@ -1,6 +1,7 @@
 #include "engines/mugen/runtime/CharacterData.h"
 
 #include "core/project/ProjectFile.h"
+#include "engines/mugen/runtime/Files.h"
 #include "engines/mugen/runtime/IniText.h"
 
 #include <QDir>
@@ -111,24 +112,7 @@ CharacterData::CharacterData()
         m_constants.insert(QString::fromLatin1(name), value);
 }
 
-namespace {
-
-QString readText(const QString& path, bool* ok = nullptr)
-{
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly)) {
-        if (ok)
-            *ok = false;
-        return {};
-    }
-    if (ok)
-        *ok = true;
-    QString encoding;
-    QByteArray bom;
-    return CodeFile::decode(file.readAll(), &encoding, &bom).replace(QLatin1String("\r\n"), QLatin1String("\n"));
-}
-
-} // namespace
+namespace {} // namespace
 
 bool CharacterData::isMugen11() const
 {

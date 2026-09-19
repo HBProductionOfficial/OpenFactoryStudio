@@ -6,6 +6,7 @@
 #include "core/sounds/SoundFile.h"
 #include "core/sprites/SpriteFile.h"
 #include "engines/mugen/emulator/EmulatorSession.h"
+#include "engines/mugen/runtime/Files.h"
 #include "engines/mugen/runtime/IniText.h"
 #include "formats/sff/SffDocument.h"
 #include "formats/snd/SndDocument.h"
@@ -62,28 +63,13 @@ int intOf(const IniSection* section, const QString& key, int fallback)
     return int(numbers(section->value(key)).value(0));
 }
 
-QByteArray readBytes(const QString& path)
-{
-    QFile file(path);
-    return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
-}
-
-Formats::ByteSpan span(const QByteArray& data)
-{
-    return Formats::ByteSpan(reinterpret_cast<const std::byte*>(data.constData()), std::size_t(data.size()));
-}
-
 std::shared_ptr<const SpriteDocument> spritesFrom(Project* project, const QString& path)
 {
     if (project) {
         if (auto* file = qobject_cast<SpriteFile*>(project->file(path)))
             return std::shared_ptr<const SpriteDocument>(std::shared_ptr<const SpriteDocument>(), &file->document());
     }
-    const QByteArray data = readBytes(path);
-    if (data.isEmpty())
-        return nullptr;
-    auto doc = Formats::SffDocument::read(span(data));
-    return doc ? std::make_shared<const SpriteDocument>(SpriteDocument::fromSff(doc.value())) : nullptr;
+    return readSprites(path);
 }
 
 } // namespace
