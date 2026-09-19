@@ -279,6 +279,7 @@ void BackgroundsPage::play()
     m_timer->start();
     refresh();
     Q_EMIT modeChanged();
+    m_view->setFocus();
 }
 
 void BackgroundsPage::pause()

@@ -7,6 +7,8 @@
 
 #include <QWidget>
 
+#include <optional>
+
 class QScrollBar;
 
 namespace OFS {
@@ -62,6 +64,7 @@ public:
 
 Q_SIGNALS:
     void cursorChanged(qint64 frame);
+    void cursorStepped(qint64 frame);
     void selectionChanged(Formats::SampleRange range);
     void zoomChanged(double framesPerPixel);
     // Tool results, sent on release. `start` counts in the sound without the moved frames.
@@ -76,6 +79,8 @@ protected:
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
+    void keyReleaseEvent(QKeyEvent* event) override;
 
 private:
     WheelSteps m_wheel;
@@ -91,6 +96,7 @@ private:
     double m_firstFrame = 0.0;
     qint64 m_cursor = 0;
     Formats::SampleRange m_selection;
+    std::optional<Tool> m_toolBeforeCtrl; // tool to restore when Ctrl is released
     qint64 m_play = -1;
     QColor m_waveColor{230, 200, 40};
     bool m_dragging = false;

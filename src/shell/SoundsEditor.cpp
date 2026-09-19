@@ -381,6 +381,7 @@ bool SoundsEditor::perform(const QString& id)
                               : tool == QLatin1String("hresize") ? WaveformView::Tool::HorizontalResize
                               : tool == QLatin1String("vresize") ? WaveformView::Tool::VerticalResize
                                                                  : WaveformView::Tool::Select);
+        page->view()->setFocus();
     } else if (!performFiles(id)) {
         return false;
     }

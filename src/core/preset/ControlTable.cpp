@@ -63,6 +63,11 @@ QWidget* createControlWidget(const ControlDef& def, QWidget* parent)
     case ControlKind::Selector: {
         auto* s = new QScrollBar(Qt::Horizontal, parent);
         s->setRange(0, hasRange ? def.maximum : 0);
+        // Same as Fighter Factory: a click or Tab gives it the keyboard. The arrows step the items
+        // and PgUp/PgDn step by 10. A scroll bar takes no focus by default.
+        s->setFocusPolicy(Qt::StrongFocus);
+        // Right/Up and PgUp step forward, as on a slider (Qt inverts a scroll bar's keys).
+        s->setInvertedControls(false);
         w = s;
         break;
     }

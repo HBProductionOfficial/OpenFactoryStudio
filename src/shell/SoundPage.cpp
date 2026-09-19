@@ -39,6 +39,7 @@ SoundPage::SoundPage(SoundFile* file, QWidget* parent)
     layout->addWidget(m_view);
     m_player->setVolume(0.55f);
     connect(m_view, &WaveformView::cursorChanged, this, &SoundPage::statusChanged);
+    connect(m_view, &WaveformView::cursorStepped, this, &SoundPage::moveCursor);
     connect(m_view, &WaveformView::selectionChanged, this, &SoundPage::statusChanged);
     connect(m_view, &WaveformView::moveRequested, this, [this](SampleRange range, qint64 start) {
         setPending(moveRange(samples(), range, std::size_t(start)), SampleRange{std::size_t(start), range.count});

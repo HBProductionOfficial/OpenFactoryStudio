@@ -373,8 +373,10 @@ bool SpritesEditor::performImage(const QString& id)
     }
     for (const ToolAction& t : ToolActions) {
         if (id == QLatin1String(t.id)) {
-            if (imageMode())
+            if (imageMode()) {
                 m_page->imageEditor()->setTool(t.tool);
+                m_page->imageEditor()->canvas()->setFocus();
+            }
             return true;
         }
     }

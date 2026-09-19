@@ -268,6 +268,7 @@ void EmulatorWidget::startTimer()
     m_ticksRun = 0;
     m_clock.start();
     m_timer.start();
+    setFocus();
 }
 
 void EmulatorWidget::stop()

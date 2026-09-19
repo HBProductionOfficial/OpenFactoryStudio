@@ -3490,6 +3490,86 @@ private Q_SLOTS:
         config.setValue("action_list_width", width);
     }
 
+    void keyboardFocusParity()
+    {
+        QTemporaryDir dir;
+        SpriteDocument doc;
+        doc.palettes() << SpriteDocument::makePalette(1, 1, Formats::grayscalePalette(256));
+        for (int n = 0; n < 4; ++n) {
+            SpriteEntry entry;
+            entry.header.number = std::uint16_t(n);
+            entry.pixels = SpriteDocument::makePixels(Formats::Image::indexed(2, 2, std::vector<std::uint8_t>(4, 3)));
+            entry.palette = doc.palettes()[0];
+            doc.sprites() << entry;
+        }
+        auto toBytes = [](const Formats::Bytes& bytes) {
+            return QByteArray(reinterpret_cast<const char*>(bytes.data()), qsizetype(bytes.size()));
+        };
+        writeFile(dir.filePath("k.sff"), toBytes(doc.toSff().write().value()));
+        Formats::SndDocument snd;
+        const auto wav =
+            Formats::encodeAudio(Formats::SampleBuffer::fromInt16(std::vector<std::int16_t>(500, 100), 1, 11025));
+        snd.sounds.push_back(Formats::SndSound{0, 0, wav.value()});
+        writeFile(dir.filePath("k.snd"), toBytes(snd.write()));
+        writeFile(dir.filePath("k.cns"),
+                  "[Data]\nlife = 1000\n[Statedef 0]\n[State 0, 1]\ntype = Null\ntrigger1 = 1\n");
+        writeFile(dir.filePath("k.def"), "[Info]\nname = \"K\"\nmugenversion = 1.0\n[Files]\nsprite = k.sff\n"
+                                         "sound = k.snd\ncns = k.cns\nst = k.cns\n");
+        MainWindow window(*m_context);
+        window.resize(1200, 800);
+        window.show();
+        window.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&window));
+        QVERIFY(window.openProject(dir.filePath("k.def")));
+        ActionRegistry& actions = m_context->actions();
+        ProjectView* view = window.currentProjectView();
+
+        actions.action("editor_spr")->trigger();
+        auto* sprites = view->findChild<SpritePage*>();
+        auto* selector = view->findChild<QScrollBar*>("spr_sel");
+        QVERIFY(sprites && selector);
+        QCOMPARE(selector->focusPolicy(), Qt::StrongFocus);
+        selector->setFocus(Qt::MouseFocusReason);
+        QTRY_VERIFY(selector->hasFocus());
+        sprites->setCurrent(0);
+        QTest::keyClick(selector, Qt::Key_Right);
+        QCOMPARE(sprites->current(), 1);
+        QTest::keyClick(selector, Qt::Key_End);
+        QCOMPARE(sprites->current(), 3);
+        QTest::keyClick(selector, Qt::Key_Left);
+        QCOMPARE(sprites->current(), 2);
+        QTest::keyClick(selector, Qt::Key_Home);
+        QCOMPARE(sprites->current(), 0);
+        QTest::keyClick(selector, Qt::Key_Up);
+        QCOMPARE(sprites->current(), 1);
+        QTest::keyClick(selector, Qt::Key_Down);
+        QCOMPARE(sprites->current(), 0);
+        QTest::keyClick(selector, Qt::Key_PageUp); // 10 forward, the last at most
+        QCOMPARE(sprites->current(), 3);
+        QTest::keyClick(selector, Qt::Key_PageDown);
+        QCOMPARE(sprites->current(), 0);
+
+        actions.action("editor_snd")->trigger();
+        auto* sounds = view->findChild<SoundPage*>();
+        QVERIFY(sounds);
+        actions.action("snd_tool_select")->trigger();
+        WaveformView* wave = sounds->view();
+        QTRY_VERIFY(wave->hasFocus());
+        QTest::keyClick(wave, Qt::Key_Right);
+        QCOMPARE(wave->cursor(), 1);
+        QCOMPARE(sounds->state(), SoundPage::State::Paused);
+        QTest::keyClick(wave, Qt::Key_Right, Qt::ShiftModifier);
+        QCOMPARE(wave->selection().end(), std::size_t(1));
+        QTest::keyPress(wave, Qt::Key_Control);
+        QCOMPARE(wave->tool(), WaveformView::Tool::MoveView);
+        QTest::keyRelease(wave, Qt::Key_Control);
+        QCOMPARE(wave->tool(), WaveformView::Tool::Select);
+
+        actions.action("editor_st")->trigger();
+        QTRY_VERIFY(qobject_cast<CodeEditor*>(QApplication::focusWidget()));
+        actions.action("file_close")->trigger();
+    }
+
     void welcomeTextReadable()
     {
         m_context->history().clear();

@@ -25,6 +25,7 @@ TimelineWidget::TimelineWidget(QWidget* parent)
     : QWidget(parent)
 {
     setObjectName(QStringLiteral("timeline"));
+    setFocusPolicy(Qt::StrongFocus); // a click takes the keyboard from the panel, like Fighter Factory
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     setFixedHeight(60);
 }

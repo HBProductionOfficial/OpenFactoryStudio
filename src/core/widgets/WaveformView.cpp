@@ -3,11 +3,13 @@
 #include "core/GameTime.h"
 #include "core/widgets/Rulers.h"
 
+#include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QScrollBar>
 #include <QWheelEvent>
 
+#include <algorithm>
 #include <cmath>
 
 namespace OFS {
@@ -321,6 +323,41 @@ void WaveformView::mouseReleaseEvent(QMouseEvent* event)
     default:
         break;
     }
+}
+
+void WaveformView::keyPressEvent(QKeyEvent* event)
+{
+    // Same as Fighter Factory: Left/Right step the cursor (Shift moves the selection end), and
+    // holding Ctrl switches to the Move view offset tool until it is released.
+    if (event->key() == Qt::Key_Control && !event->isAutoRepeat() && !m_toolBeforeCtrl) {
+        m_toolBeforeCtrl = m_tool;
+        m_tool = Tool::MoveView;
+        return;
+    }
+    const bool left = event->key() == Qt::Key_Left;
+    if ((left || event->key() == Qt::Key_Right) && !(event->modifiers() & Qt::ControlModifier)) {
+        const qint64 frames = qint64(m_buffer.frameCount());
+        if (event->modifiers() & Qt::ShiftModifier) {
+            const qint64 end =
+                std::clamp(qint64(m_selection.end()) + (left ? -1 : 1), qint64(m_selection.start), frames);
+            setSelection(SampleRange{m_selection.start, std::size_t(end - qint64(m_selection.start))});
+        } else {
+            Q_EMIT cursorStepped(std::clamp(m_cursor + (left ? -1 : 1), qint64(0), frames));
+        }
+        event->accept();
+        return;
+    }
+    QWidget::keyPressEvent(event);
+}
+
+void WaveformView::keyReleaseEvent(QKeyEvent* event)
+{
+    if (event->key() == Qt::Key_Control && !event->isAutoRepeat() && m_toolBeforeCtrl) {
+        m_tool = *m_toolBeforeCtrl;
+        m_toolBeforeCtrl.reset();
+        return;
+    }
+    QWidget::keyReleaseEvent(event);
 }
 
 void WaveformView::wheelEvent(QWheelEvent* event)

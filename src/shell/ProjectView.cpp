@@ -867,7 +867,7 @@ void ProjectView::updateOutline(CodePage* page)
         tree->setModel(model);
         tree->setHeaderHidden(true);
         tree->setEditTriggers(QAbstractItemView::NoEditTriggers);
-        connect(tree, &QTreeView::clicked, this, [this, editorId, tree](const QModelIndex& index) {
+        const auto goToEntry = [this, editorId, tree](const QModelIndex& index) {
             const int line = index.data(Qt::UserRole).toInt();
             QTabWidget* fileTabs = m_fileTabs.value(editorId);
             auto* current = fileTabs ? qobject_cast<CodePage*>(fileTabs->currentWidget()) : nullptr;
@@ -878,7 +878,9 @@ void ProjectView::updateOutline(CodePage* page)
             else
                 current->editor()->goToLine(line + 1);
             current->editor()->setFocus();
-        });
+        };
+        connect(tree, &QTreeView::clicked, this, goToEntry);
+        connect(tree, &QTreeView::activated, this, goToEntry);
     }
     const QString shown = tree->property("outlineMode").toString();
     const QString mode = showsVariables(page) ? QStringLiteral("variables") : QStringLiteral("code");
@@ -1325,6 +1327,15 @@ void ProjectView::setCurrentEditor(const QString& id)
     m_center->setCurrentWidget(m_fileTabs.value(id));
     updateRightPanel();
     if (changed) {
+        // A code editor, the Backgrounds canvas and the Emulator take the keyboard focus when their editor is chosen.
+        if (QTabWidget* tabs = m_fileTabs.value(id)) {
+            if (CodePage* code = codePageOf(tabs->currentWidget()))
+                code->editor()->setFocus();
+            else if (auto* backgrounds = qobject_cast<BackgroundsPage*>(tabs->currentWidget()))
+                backgrounds->view()->setFocus();
+            else if (EngineWorkspace* workspace = m_workspaces.value(id))
+                workspace->setFocus();
+        }
         Q_EMIT currentEditorChanged(id);
         Q_EMIT currentFileChanged();
     }
