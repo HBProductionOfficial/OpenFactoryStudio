@@ -74,14 +74,13 @@ bool Character::execute(const Controller& c)
     }
     if (type == QLatin1String("poweradd") || type == QLatin1String("powerset")) {
         const int value = intParam(c, QStringLiteral("value"), 0);
-        const int max = int(m_data.constant(QStringLiteral("data.power"), 3000));
+        const int max = int(m_data.powerMax());
         int& power = powerOwner()->m_power;
         power = std::clamp(type == QLatin1String("poweradd") ? power + value : value, 0, max);
         return false;
     }
     if (type == QLatin1String("lifeset")) {
-        m_life = std::clamp(intParam(c, QStringLiteral("value"), m_life), 0,
-                            int(m_data.constant(QStringLiteral("data.life"), 1000)));
+        m_life = std::clamp(intParam(c, QStringLiteral("value"), m_life), 0, int(m_data.lifeMax()));
         return false;
     }
     if (type == QLatin1String("sprpriority")) {
@@ -89,7 +88,7 @@ bool Character::execute(const Controller& c)
         return false;
     }
     if (type == QLatin1String("gravity")) {
-        m_vel.y += m_data.constant(QStringLiteral("movement.yaccel"), 0.44f);
+        m_vel.y += m_data.yAccel();
         return false;
     }
     if (type == QLatin1String("varset") || type == QLatin1String("varadd") || type == QLatin1String("parentvarset") ||
@@ -224,20 +223,18 @@ bool Character::execute(const Controller& c)
                     break;
                 double damage = -value;
                 if (!absolute)
-                    damage /= std::max(0.01, t->m_data.constant(QStringLiteral("data.defence"), 100) / 100.0);
+                    damage /= std::max(0.01, t->m_data.defence() / 100.0);
                 if (damage > 0 && damage < 1)
                     damage = 1;
                 damage = std::min(damage, double(t->m_life));
                 if (!kill && damage >= t->m_life && t->m_life > 0)
                     damage = t->m_life - 1;
-                t->m_life = std::clamp(t->m_life - int(std::lround(damage)), 0,
-                                       int(t->m_data.constant(QStringLiteral("data.life"), 1000)));
+                t->m_life = std::clamp(t->m_life - int(std::lround(damage)), 0, int(t->m_data.lifeMax()));
             }
         } else if (type == QLatin1String("targetpoweradd")) {
             const int value = intParam(c, QStringLiteral("value"), 0);
             for (Character* t : targets)
-                t->powerOwner()->m_power = std::clamp(t->powerOwner()->m_power + value, 0,
-                                                      int(t->m_data.constant(QStringLiteral("data.power"), 3000)));
+                t->powerOwner()->m_power = std::clamp(t->powerOwner()->m_power + value, 0, int(t->m_data.powerMax()));
         } else if (type == QLatin1String("targetstate")) {
             const int state = intParam(c, QStringLiteral("value"), 0);
             for (Character* t : targets) {
@@ -300,7 +297,7 @@ bool Character::execute(const Controller& c)
         return false;
     }
     if (type == QLatin1String("lifeadd")) {
-        const int max = int(m_data.constant(QStringLiteral("data.life"), 1000));
+        const int max = int(m_data.lifeMax());
         int life = m_life + intParam(c, QStringLiteral("value"), 0);
         if (intParam(c, QStringLiteral("kill"), 1) == 0)
             life = std::max(life, std::min(1, m_life));

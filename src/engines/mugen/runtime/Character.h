@@ -328,6 +328,8 @@ public:
     int team() const { return m_team; }
     bool isPlayerType() const { return !m_isHelper || m_helperPlayerType; }
     float constant(const QString& name, float fallback) const;
+    float lifeMax() const { return constant(QStringLiteral("data.life"), m_data.lifeMax()); }
+    float powerMax() const { return constant(QStringLiteral("data.power"), m_data.powerMax()); }
     void setLife(int life);
     void setPower(int power);
     bool explodRules11() const;

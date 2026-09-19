@@ -95,6 +95,10 @@ public:
     void addStates(const QString& text, const QString& file = QString(), bool replace = true);
 
     float constant(const QString& name, float fallback = 0) const;
+    float lifeMax() const { return constant(QStringLiteral("data.life")); }
+    float powerMax() const { return constant(QStringLiteral("data.power")); }
+    float defence() const { return constant(QStringLiteral("data.defence")); }
+    float yAccel() const { return constant(QStringLiteral("movement.yaccel")); }
     bool hasConstant(const QString& name) const;
     void setConstant(const QString& name, float value);
 

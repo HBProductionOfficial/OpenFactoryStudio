@@ -286,18 +286,17 @@ bool Character::deliverHit(Character& target, const HitDef& hd, int facing, int 
     const QChar type = target.m_stateType;
     const bool guarded = !override && target.canGuard(hd) && !m_asserted.contains(QStringLiteral("unguardable"));
     const float attackMul = m_data.constant(QStringLiteral("data.attack"), 100) / 100.0f * m_attackMul;
-    const float defence = target.m_data.constant(QStringLiteral("data.defence"), 100) / 100.0f * target.m_defenceMul *
-                          target.m_superDefenceMul;
+    const float defence = target.m_data.defence() / 100.0f * target.m_defenceMul * target.m_superDefenceMul;
     int damage = int(std::lround((guarded ? hd.guardDamage : hd.hitDamage) * attackMul / std::max(0.01f, defence)));
     const bool kill = guarded ? hd.guardKill : hd.kill;
     if (!kill && damage >= target.m_life)
         damage = std::max(0, target.m_life - 1);
     if (!override)
         target.m_life = std::max(0, target.m_life - damage);
-    const int maxPower = int(m_data.constant(QStringLiteral("data.power"), 3000));
+    const int maxPower = int(m_data.powerMax());
     powerOwner()->m_power =
         std::clamp(powerOwner()->m_power + (guarded ? hd.guardGetPower : hd.hitGetPower), 0, maxPower);
-    const int targetMaxPower = int(target.m_data.constant(QStringLiteral("data.power"), 3000));
+    const int targetMaxPower = int(target.m_data.powerMax());
     target.powerOwner()->m_power =
         std::clamp(target.powerOwner()->m_power + (guarded ? hd.guardGivePower : hd.hitGivePower), 0, targetMaxPower);
 

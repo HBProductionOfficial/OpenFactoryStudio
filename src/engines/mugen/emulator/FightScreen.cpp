@@ -571,9 +571,9 @@ void FightScreen::step(const Match& match, const std::array<Side, 2>& sides)
         const Character* c = sides[std::size_t(side)].character;
         if (!c)
             continue;
-        const float lifeMax = std::max(1.0f, c->constant(QStringLiteral("data.life"), 1000));
+        const float lifeMax = std::max(1.0f, c->lifeMax());
         stepBar(m_life[side], float(c->life()) / lifeMax, c->moveType() == QLatin1Char('H'), true);
-        const float powerMax = std::max(1.0f, c->constant(QStringLiteral("data.power"), 3000));
+        const float powerMax = std::max(1.0f, c->powerMax());
         Bar& power = m_power[side];
         stepBar(power, float(c->power()) / powerMax, false, false);
         const int level = c->power() / 1000;

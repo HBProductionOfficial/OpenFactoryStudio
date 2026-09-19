@@ -358,8 +358,8 @@ bool Character::executeEffect(const Controller& c)
             return true;
         }
         m_match->requestPause(true, m_id, time, pauseBg, intParam(c, QStringLiteral("darken"), 1) != 0);
-        powerOwner()->m_power = std::clamp(powerOwner()->m_power + intParam(c, QStringLiteral("poweradd"), 0), 0,
-                                           int(m_data.constant(QStringLiteral("data.power"), 3000)));
+        powerOwner()->m_power =
+            std::clamp(powerOwner()->m_power + intParam(c, QStringLiteral("poweradd"), 0), 0, int(m_data.powerMax()));
         // Out of reach for the pause. It starts next tick, so one tick more.
         if (intParam(c, QStringLiteral("unhittable"), 1) != 0)
             m_unhittableTime = time + (time > 0 ? 1 : 0);

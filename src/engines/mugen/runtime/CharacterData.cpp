@@ -112,8 +112,6 @@ CharacterData::CharacterData()
         m_constants.insert(QString::fromLatin1(name), value);
 }
 
-namespace {} // namespace
-
 bool CharacterData::isMugen11() const
 {
     // "1.0", "1.1b1"...: a major and minor version, or -1 for an old engine's date (year or month first).

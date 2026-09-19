@@ -83,7 +83,7 @@ Character* Match::spawnHelper(Character& parent)
     h->m_parent = &parent;
     h->m_root = player;
     h->m_team = parent.m_team;
-    h->m_life = int(parent.m_data.constant(QStringLiteral("data.life"), 1000));
+    h->m_life = int(parent.m_data.lifeMax());
     m_helpers.push_back(std::move(helper));
     return h;
 }
@@ -237,7 +237,7 @@ bool Match::decideRound()
     for (const Character* c : std::as_const(m_characters)) {
         if (c->m_isHelper || c->m_team < 0 || c->m_team > 1)
             continue;
-        const int max = int(c->m_data.constant(QStringLiteral("data.life"), 1000));
+        const int max = int(c->m_data.lifeMax());
         if (c->alive())
             down[c->m_team] = false;
         life[c->m_team] += max > 0 ? double(std::max(0, c->m_life)) / max : 0;

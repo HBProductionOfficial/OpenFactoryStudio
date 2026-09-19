@@ -34,7 +34,7 @@ Character::Character(const CharacterData& data, Match* match)
     , m_match(match)
     , m_id(s_nextId++)
 {
-    m_life = int(data.constant(QStringLiteral("data.life"), 1000));
+    m_life = int(data.lifeMax());
     m_commands = data.commands();
     if (match)
         match->add(this);
@@ -66,12 +66,12 @@ bool Character::explodRules11() const
 
 void Character::setLife(int life)
 {
-    m_life = std::clamp(life, 0, int(m_data.constant(QStringLiteral("data.life"), 1000)));
+    m_life = std::clamp(life, 0, int(m_data.lifeMax()));
 }
 
 void Character::setPower(int power)
 {
-    powerOwner()->m_power = std::clamp(power, 0, int(m_data.constant(QStringLiteral("data.power"), 3000)));
+    powerOwner()->m_power = std::clamp(power, 0, int(m_data.powerMax()));
 }
 
 void Character::resetForRound(Vec2 pos, int facing, bool firstRound)
@@ -79,7 +79,7 @@ void Character::resetForRound(Vec2 pos, int facing, bool firstRound)
     m_pos = pos;
     m_vel = Vec2();
     m_facing = facing;
-    m_life = int(m_data.constant(QStringLiteral("data.life"), 1000));
+    m_life = int(m_data.lifeMax());
     m_ko = false;
     m_posed = false;
     m_ctrl = false;
@@ -220,8 +220,7 @@ void Character::enterState()
     if (const Param* ctrl = def->param(QStringLiteral("ctrl")); ctrl && ctrl->isExpression())
         m_ctrl = eval(ctrl).toBool();
     if (const Param* power = def->param(QStringLiteral("poweradd")); power && power->isExpression())
-        powerOwner()->m_power = std::clamp(powerOwner()->m_power + eval(power).toInt(), 0,
-                                           int(m_data.constant(QStringLiteral("data.power"), 3000)));
+        powerOwner()->m_power = std::clamp(powerOwner()->m_power + eval(power).toInt(), 0, int(m_data.powerMax()));
     if (const Param* priority = def->param(QStringLiteral("sprpriority")); priority && priority->isExpression())
         m_sprPriority = eval(priority).toInt();
     auto keep = [this, def](const char* name) {
@@ -627,7 +626,7 @@ void Character::updatePosition()
     } else if (m_physics == QLatin1Char('C')) {
         m_vel.x *= m_data.constant(QStringLiteral("movement.crouch.friction"), 0.82f);
     } else if (m_physics == QLatin1Char('A')) {
-        m_vel.y += m_data.constant(QStringLiteral("movement.yaccel"), 0.44f);
+        m_vel.y += m_data.yAccel();
     }
 }
 

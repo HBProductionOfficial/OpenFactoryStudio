@@ -153,8 +153,8 @@ void Training::refill(const Match& match, Character& player, int side)
 {
     if (side < 0 || side > 1)
         return;
-    const int lifeMax = int(player.constant(QStringLiteral("data.life"), 1000));
-    const int powerMax = int(player.constant(QStringLiteral("data.power"), 3000));
+    const int lifeMax = int(player.lifeMax());
+    const int powerMax = int(player.powerMax());
     if (match.roundState() == 0) {
         player.setPower(powerMax);
         m_lifeTimer[side] = m_powerTimer[side] = 0;

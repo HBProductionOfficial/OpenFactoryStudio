@@ -113,11 +113,11 @@ Value Character::trigger(const TriggerCall& call)
     case Trigger::Life:
         return Value::integer(m_life);
     case Trigger::LifeMax:
-        return Value::integer(int(m_data.constant(QStringLiteral("data.life"), 1000)));
+        return Value::integer(int(m_data.lifeMax()));
     case Trigger::Power:
         return Value::integer(powerOwner()->m_power);
     case Trigger::PowerMax:
-        return Value::integer(int(m_data.constant(QStringLiteral("data.power"), 3000)));
+        return Value::integer(int(m_data.powerMax()));
     case Trigger::Alive:
         return Value::boolean(!m_ko);
     case Trigger::GameTime:
