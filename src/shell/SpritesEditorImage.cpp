@@ -1,5 +1,6 @@
 // Image editor mode of the Sprites editor: its panel controls, layers list, colour swatches and actions.
 
+#include "core/sprites/QtImages.h"
 #include "shell/SpritesEditor.h"
 
 #include "core/actions/ActionRegistry.h"
@@ -86,7 +87,7 @@ QImage toQImage(const Formats::Image& image, const Formats::Palette& palette)
         rgba.setPalette(palette);
         rgba = rgba.toRgba(false);
     }
-    return QImage(rgba.pixels().data(), rgba.width(), rgba.height(), rgba.width() * 4, QImage::Format_RGBA8888).copy();
+    return OFS::toQImage(rgba);
 }
 
 Formats::Image fromQImage(const QImage& image)

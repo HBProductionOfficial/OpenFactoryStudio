@@ -1,4 +1,5 @@
 #include "core/widgets/ImageCanvas.h"
+#include "core/sprites/QtImages.h"
 #include "core/widgets/Checkerboard.h"
 
 #include "core/widgets/RenderSurface.h"
@@ -42,8 +43,7 @@ void ImageCanvas::refresh()
             rgba.setPalette(m_document->palette);
             rgba = rgba.toRgba(true);
         }
-        m_composite =
-            QImage(rgba.pixels().data(), rgba.width(), rgba.height(), rgba.width() * 4, QImage::Format_RGBA8888).copy();
+        m_composite = toQImage(rgba);
         // Unselected pixels are drawn darker (about 61 %).
         if (m_document->hasSelection()) {
             m_dimmed = m_composite.convertToFormat(QImage::Format_ARGB32);

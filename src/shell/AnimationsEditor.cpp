@@ -9,6 +9,7 @@
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
 #include "core/settings/Config.h"
+#include "core/sprites/QtImages.h"
 #include "core/sprites/SpriteExport.h"
 #include "core/sprites/SpriteFile.h"
 #include "core/sprites/SpriteTransfer.h"
@@ -936,9 +937,8 @@ void AnimationsEditor::refreshExplorer()
             const Formats::Image rgba = doc.imageRgba(i);
             QPixmap thumbnail;
             if (!rgba.pixelBuffer().empty())
-                thumbnail = QPixmap::fromImage(
-                    QImage(rgba.pixels().data(), rgba.width(), rgba.height(), rgba.width() * 4, QImage::Format_RGBA8888)
-                        .scaled(size, size, Qt::KeepAspectRatio, Qt::FastTransformation));
+                thumbnail =
+                    QPixmap::fromImage(toQImage(rgba).scaled(size, size, Qt::KeepAspectRatio, Qt::FastTransformation));
             auto* item = new QStandardItem(QIcon(thumbnail), QString::number(doc.sprites().at(i).number()));
             item->setData(i, Qt::UserRole);
             m_explorerModel->appendRow(item);

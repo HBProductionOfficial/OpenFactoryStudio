@@ -1,6 +1,7 @@
 #include "core/bg/BgRenderer.h"
 
 #include "core/anims/AirDocument.h"
+#include "core/sprites/QtImages.h"
 #include "core/sprites/SpriteDocument.h"
 
 #include <cmath>
@@ -55,9 +56,7 @@ QImage BgRenderer::sprite(int group, int number, bool masked, QPoint* axis)
         if (index >= 0) {
             const Formats::Image rgba = m_sprites->imageRgba(index, nullptr, !masked);
             if (!rgba.pixelBuffer().empty()) {
-                entry.first =
-                    QImage(rgba.pixels().data(), rgba.width(), rgba.height(), rgba.width() * 4, QImage::Format_RGBA8888)
-                        .convertToFormat(QImage::Format_ARGB32_Premultiplied);
+                entry.first = toQImage(rgba, QImage::Format_ARGB32_Premultiplied);
             }
             const auto& header = m_sprites->sprites()[index].header;
             entry.second = QPoint(header.axisX, header.axisY);

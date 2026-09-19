@@ -5,6 +5,7 @@
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
 #include "core/settings/Config.h"
+#include "core/sprites/QtImages.h"
 #include "core/sprites/SpriteFile.h"
 #include "core/widgets/TimelineWidget.h"
 #include "shell/CodePage.h"
@@ -181,8 +182,7 @@ QImage AnimationPage::spriteImage(int index) const
     if (SpriteFile* s = sprites()) {
         const Formats::Image rgba = s->document().imageRgba(index);
         if (!rgba.pixelBuffer().empty())
-            image = QImage(rgba.pixels().data(), rgba.width(), rgba.height(), rgba.width() * 4, QImage::Format_RGBA8888)
-                        .copy();
+            image = toQImage(rgba);
     }
     m_spriteCache.insert(index, image);
     return image;

@@ -1,6 +1,7 @@
 #include "engines/mugen/dialogs/PalFXDialog.h"
 
 #include "core/GameTime.h"
+#include "core/sprites/QtImages.h"
 #include "core/sprites/SpriteFile.h"
 
 #include <QCheckBox>
@@ -263,8 +264,7 @@ QImage PalFXDialog::preview() const
     const Formats::Image rgba = m_sprites->document().imageRgba(m_selector->value());
     if (rgba.pixelBuffer().empty())
         return {};
-    QImage image = QImage(rgba.pixels().data(), rgba.width(), rgba.height(), rgba.width() * 4, QImage::Format_RGBA8888)
-                       .convertToFormat(QImage::Format_ARGB32);
+    QImage image = toQImage(rgba, QImage::Format_ARGB32);
     const PalFX palfx = values();
     for (int y = 0; y < image.height(); ++y) {
         auto* line = reinterpret_cast<QRgb*>(image.scanLine(y));

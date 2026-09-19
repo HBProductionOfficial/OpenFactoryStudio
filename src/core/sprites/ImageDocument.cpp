@@ -1,5 +1,6 @@
 #include "core/sprites/ImageDocument.h"
 
+#include "core/sprites/QtImages.h"
 #include "formats/image/ImageOps.h"
 #include "formats/image/Quantize.h"
 #include "formats/image/Resize.h"
@@ -134,11 +135,6 @@ std::vector<std::uint8_t> region(const ImageDocument& doc, QPoint at, bool conti
         }
     }
     return mask;
-}
-
-QImage toQImage(const Image& rgba)
-{
-    return QImage(rgba.pixels().data(), rgba.width(), rgba.height(), rgba.width() * 4, QImage::Format_RGBA8888).copy();
 }
 
 Image fromQImage(const QImage& image)

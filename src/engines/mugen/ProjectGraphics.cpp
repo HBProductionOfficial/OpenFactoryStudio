@@ -2,6 +2,7 @@
 
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
+#include "core/sprites/QtImages.h"
 #include "engines/mugen/DefFile.h"
 #include "formats/sff/SffDocument.h"
 
@@ -71,9 +72,7 @@ QImage ProjectGraphics::sprite(int group, int index, QPoint* axis) const
             const Formats::SffSprite& info = m_sprites->sprites.at(*found);
             if (const auto image = m_sprites->decodeSpriteRgba(*found)) {
                 const Formats::Image& rgba = image.value();
-                cached.image =
-                    QImage(rgba.pixels().data(), rgba.width(), rgba.height(), rgba.width() * 4, QImage::Format_RGBA8888)
-                        .copy();
+                cached.image = toQImage(rgba);
                 cached.axis = QPoint(info.axisX, info.axisY);
             }
         }

@@ -1,4 +1,5 @@
 #include "engines/mugen/MugenEngine.h"
+#include "core/sprites/QtImages.h"
 #include "engines/mugen/emulator/EmulatorWidget.h"
 
 #include "core/anims/AirDocument.h"
@@ -393,7 +394,7 @@ QImage MugenEngine::portrait(Project& project) const
     const Formats::Image rgba = doc.image(index).toRgba(true);
     if (rgba.pixelBuffer().empty())
         return {};
-    return QImage(rgba.pixels().data(), rgba.width(), rgba.height(), rgba.width() * 4, QImage::Format_RGBA8888).copy();
+    return toQImage(rgba);
 }
 
 QStringList MugenEngine::documentationVariants(const Project& project) const

@@ -1,6 +1,7 @@
 #include "engines/mugen/emulator/EmulatorRenderer.h"
 
 #include "core/bg/BgRenderer.h"
+#include "core/sprites/QtImages.h"
 #include "engines/mugen/emulator/EmulatorSession.h"
 
 #include <QPainter>
@@ -233,9 +234,7 @@ const EmulatorRenderer::Sprite* EmulatorRenderer::sprite(const SpriteDocument* s
         if (index >= 0) {
             const Formats::Image rgba = sprites->imageRgba(index, palette);
             if (!rgba.pixelBuffer().empty())
-                entry.image =
-                    QImage(rgba.pixels().data(), rgba.width(), rgba.height(), rgba.width() * 4, QImage::Format_RGBA8888)
-                        .convertToFormat(QImage::Format_ARGB32_Premultiplied);
+                entry.image = toQImage(rgba, QImage::Format_ARGB32_Premultiplied);
             const auto& header = sprites->sprites()[index].header;
             entry.axis = QPoint(header.axisX, header.axisY);
         }

@@ -5,6 +5,7 @@
 #include "core/project/Project.h"
 #include "core/settings/Config.h"
 #include "core/sprites/PaletteEdits.h"
+#include "core/sprites/QtImages.h"
 #include "core/sprites/SpriteEdits.h"
 #include "core/sprites/SpriteExport.h"
 #include "core/sprites/SpriteFile.h"
@@ -556,7 +557,7 @@ QImage AdvancedPaletteEditor::render(int which) const
             pixels[i * 4 + 3] = 255;
         }
     }
-    return QImage(rgba.pixels().data(), rgba.width(), rgba.height(), rgba.width() * 4, QImage::Format_RGBA8888).copy();
+    return toQImage(rgba);
 }
 
 void AdvancedPaletteEditor::refreshColumn(int which)

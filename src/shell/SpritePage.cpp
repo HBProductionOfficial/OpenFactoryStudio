@@ -2,6 +2,7 @@
 
 #include "core/settings/Config.h"
 #include "core/sprites/PaletteEdits.h"
+#include "core/sprites/QtImages.h"
 #include "core/sprites/SpriteEdits.h"
 #include "core/sprites/SpriteFile.h"
 #include "core/widgets/GraphicsView.h"
@@ -250,7 +251,7 @@ QImage SpritePage::spriteImage(int index) const
         doc.imageRgba(index, display ? &m_displayPalette->palette.colors : nullptr, m_showTransparent);
     if (rgba.pixelBuffer().empty())
         return {};
-    return QImage(rgba.pixels().data(), rgba.width(), rgba.height(), rgba.width() * 4, QImage::Format_RGBA8888).copy();
+    return toQImage(rgba);
 }
 
 void SpritePage::refresh()

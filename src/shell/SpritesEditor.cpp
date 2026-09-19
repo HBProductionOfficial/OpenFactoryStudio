@@ -7,6 +7,7 @@
 #include "core/engine/Engine.h"
 #include "core/project/Project.h"
 #include "core/settings/Config.h"
+#include "core/sprites/QtImages.h"
 #include "core/sprites/SpriteEdits.h"
 #include "core/sprites/SpriteExport.h"
 #include "core/sprites/SpriteFile.h"
@@ -969,9 +970,7 @@ void SpritesEditor::copySprite()
     const Formats::Image rgba = doc.imageRgba(current);
     auto* data = new QMimeData;
     if (!rgba.pixelBuffer().empty())
-        data->setImageData(
-            QImage(rgba.pixels().data(), rgba.width(), rgba.height(), rgba.width() * 4, QImage::Format_RGBA8888)
-                .copy());
+        data->setImageData(toQImage(rgba));
     data->setData(SpriteMimeType, QByteArray("1"));
     QApplication::clipboard()->setMimeData(data);
 }

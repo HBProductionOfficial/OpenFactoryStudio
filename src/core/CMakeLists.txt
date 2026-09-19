@@ -175,6 +175,8 @@ add_library(ofscore SHARED
     palettes/PaletteOps.cpp
     sprites/PaletteEdits.h
     sprites/PaletteEdits.cpp
+    sprites/QtImages.h
+    sprites/QtImages.cpp
     sprites/SpriteDocument.h
     sprites/SpriteDocument.cpp
     sprites/SpriteEdits.h

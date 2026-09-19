@@ -1,6 +1,7 @@
 #include "engines/mugen/emulator/FightScreen.h"
 
 #include "core/project/ProjectFile.h"
+#include "core/sprites/QtImages.h"
 #include "engines/mugen/runtime/Character.h"
 #include "engines/mugen/runtime/IniText.h"
 #include "formats/sff/SffDocument.h"
@@ -248,9 +249,7 @@ void FightScreen::Font::draw(QPainter& painter, const QImage& glyphImage, QPoint
                 bankPalette >= 0 ? &sprites->palettes()[bankPalette]->palette.colors : nullptr;
             const Formats::Image rgba = sprites->imageRgba(index, palette);
             if (!rgba.pixelBuffer().empty()) {
-                const QImage glyph =
-                    QImage(rgba.pixels().data(), rgba.width(), rgba.height(), rgba.width() * 4, QImage::Format_RGBA8888)
-                        .convertToFormat(QImage::Format_ARGB32_Premultiplied);
+                const QImage glyph = toQImage(rgba, QImage::Format_ARGB32_Premultiplied);
                 painter.drawImage(QRectF(x - entry.header.axisX * sx, y - entry.header.axisY * sy, glyph.width() * sx,
                                          glyph.height() * sy),
                                   glyph);
