@@ -1429,6 +1429,23 @@ private Q_SLOTS:
         QCOMPARE(layers->model()->index(0, 0).data().toString(), QStringLiteral("0,0"));
         QVERIFY(!blend->isEnabled()); // 8-bit canvas
 
+        auto* paletteGrid = window.findChild<PaletteWidget*>();
+        QVERIFY(paletteGrid);
+        actions.action("spr_tool_pen")->trigger();
+        Q_EMIT paletteGrid->slotPressed(5, Qt::LeftButton);
+        QCOMPARE(editor->foreground().index, 5);
+        Q_EMIT paletteGrid->slotPressed(6, Qt::RightButton);
+        QCOMPARE(editor->background().index, 6);
+        actions.action("spr_tool_remap_pen")->trigger();
+        Q_EMIT paletteGrid->slotPressed(9, Qt::LeftButton);
+        Q_EMIT paletteGrid->slotPressed(10, Qt::RightButton);
+        const ImageEditor::RemapSlot& slot = editor->remapSlots()[std::size_t(editor->currentSlot())];
+        QVERIFY(slot.source && slot.replacement);
+        QCOMPARE(slot.source->index, 9);
+        QCOMPARE(slot.replacement->index, 10);
+        QCOMPARE(editor->foreground().index, 5);
+        QCOMPARE(editor->background().index, 6);
+
         QVERIFY(QTest::qWaitForWindowExposed(&window));
         actions.action("spr_tool_pen")->trigger();
         QCOMPARE(editor->tool(), ImageEditor::Tool::Pen);

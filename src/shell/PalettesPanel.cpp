@@ -288,15 +288,22 @@ void PalettesPanel::editSlot(int slot)
 
 void PalettesPanel::slotPressed(int slot, Qt::MouseButton button)
 {
+    // Image editor mode: left click picks the foreground color and right click the background. With the Remap pen they
+    // pick the current slot's source and replacement.
     if (!m_imageMode || !m_page || !m_grid)
         return;
     const Palette& colors = m_grid->colors();
     const Rgba rgba = slot < int(colors.size()) ? colors[std::size_t(slot)] : Rgba{0, 0, 0, 255};
     const PaintColor color{slot, Rgba{rgba.r, rgba.g, rgba.b, std::uint8_t(slot == 0 ? 0 : 255)}};
-    if (button == Qt::LeftButton)
-        m_page->imageEditor()->setForeground(color);
-    else if (button == Qt::RightButton)
-        m_page->imageEditor()->setBackground(color);
+    ImageEditor* editor = m_page->imageEditor();
+    if (button != Qt::LeftButton && button != Qt::RightButton)
+        return;
+    if (editor->tool() == ImageEditor::Tool::RemapPen)
+        editor->setSlotColor(button == Qt::RightButton, color);
+    else if (button == Qt::LeftButton)
+        editor->setForeground(color);
+    else
+        editor->setBackground(color);
 }
 
 QWidget* PalettesPanel::dialogParent() const
