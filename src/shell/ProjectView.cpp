@@ -8,6 +8,7 @@
 #include "core/code/CodeOutline.h"
 #include "core/code/Snippet.h"
 #include "core/debug/Breakpoints.h"
+#include "core/editors/EditorInfo.h"
 #include "core/editors/Organize.h"
 #include "core/engine/Engine.h"
 #include "core/engine/EngineWorkspace.h"
@@ -247,24 +248,24 @@ void ProjectView::createEditor(const EditorInfo& info)
         const int index = tabs->addTab(createFilePage(info, file), tabCaption(file));
         tabs->setTabToolTip(index, tabToolTip(file));
     }
-    if (info.id == QLatin1String("sprites")) {
+    if (info.id == EditorId::Sprites) {
         m_sprites = new SpritesEditor(m_context, this);
         m_sprites->setPage(qobject_cast<SpritePage*>(tabs->currentWidget()));
         connect(m_sprites, &SpritesEditor::explorerChanged, this, &ProjectView::updateRightPanel);
     }
-    if (info.id == QLatin1String("animations")) {
+    if (info.id == EditorId::Animations) {
         m_animations = new AnimationsEditor(m_context, this);
         m_animations->setPage(qobject_cast<AnimationPage*>(tabs->currentWidget()));
     }
-    if (info.id == QLatin1String("sounds")) {
+    if (info.id == EditorId::Sounds) {
         m_sounds = new SoundsEditor(m_context, this);
         m_sounds->setPage(qobject_cast<SoundPage*>(tabs->currentWidget()));
     }
-    if (info.id == QLatin1String("backgrounds")) {
+    if (info.id == EditorId::Backgrounds) {
         m_backgrounds = new BackgroundsEditor(m_context, this);
         m_backgrounds->setPage(qobject_cast<BackgroundsPage*>(tabs->currentWidget()));
     }
-    if (info.id == QLatin1String("commands"))
+    if (info.id == EditorId::Commands)
         createCommandsOrganizer();
     connect(tabs, &QTabWidget::currentChanged, this, [this, tabs] {
         if (auto* page = qobject_cast<CodePage*>(tabs->currentWidget()))
@@ -320,11 +321,11 @@ void ProjectView::createEditor(const EditorInfo& info)
 
 QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& filePath)
 {
-    if (info.id == QLatin1String("backgrounds")) {
+    if (info.id == EditorId::Backgrounds) {
         QString error;
         auto* file = qobject_cast<CodeFile*>(m_project->file(filePath));
         if (!file && QFileInfo::exists(filePath))
-            file = m_project->codeFile(filePath, QStringLiteral("definitions"), &error);
+            file = m_project->codeFile(filePath, EditorId::Definitions, &error);
         if (file) {
             auto* page = new BackgroundsPage(file, m_project);
             page->setProperty("filePath", filePath);
@@ -339,7 +340,7 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
             return page;
         }
     }
-    const bool animations = info.id == QLatin1String("animations");
+    const bool animations = info.id == EditorId::Animations;
     if (info.workspace == WorkspaceType::Code || animations) {
         QString error;
         auto* file = qobject_cast<CodeFile*>(m_project->file(filePath));
@@ -422,7 +423,7 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
         }
         return page;
     }
-    if (info.id == QLatin1String("sounds")) {
+    if (info.id == EditorId::Sounds) {
         QString error;
         auto* file = qobject_cast<SoundFile*>(m_project->file(filePath));
         if (!file && QFileInfo::exists(filePath))
@@ -471,7 +472,7 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
             return page;
         }
     }
-    if (info.id == QLatin1String("sprites")) {
+    if (info.id == EditorId::Sprites) {
         QString error;
         auto* file = qobject_cast<SpriteFile*>(m_project->file(filePath));
         if (!file && QFileInfo::exists(filePath))
@@ -554,7 +555,7 @@ bool ProjectView::closeFileTab(const QString& editorId, QTabWidget* tabs, int in
         return false;
     const QString path = page->property("filePath").toString();
     // The Backgrounds editor's groups are parts of the definitions file, which stays open.
-    ProjectFile* file = editorId == QLatin1String("backgrounds") ? nullptr : m_project->file(path);
+    ProjectFile* file = editorId == EditorId::Backgrounds ? nullptr : m_project->file(path);
     if (file && file->isModified()) {
         const QString name = file->isUntitled() ? tabs->tabText(index).remove(QLatin1Char('*')) : file->fileName();
         QMessageBox box(QMessageBox::Question, tr("Close file"),
@@ -935,20 +936,20 @@ void ProjectView::validateAll()
 
 bool ProjectView::performOrganizer(const QString& actionId)
 {
-    if (m_currentEditor == QLatin1String("backgrounds") && m_backgrounds)
+    if (m_currentEditor == EditorId::Backgrounds && m_backgrounds)
         return m_backgrounds->perform(actionId);
-    if (m_currentEditor == QLatin1String("animations") && m_animations)
+    if (m_currentEditor == EditorId::Animations && m_animations)
         return m_animations->organizer()->perform(actionId);
-    if (m_currentEditor == QLatin1String("sounds") && m_sounds)
+    if (m_currentEditor == EditorId::Sounds && m_sounds)
         return m_sounds->organizer()->perform(actionId);
-    if (m_currentEditor == QLatin1String("commands") && m_commandsOrganizer)
+    if (m_currentEditor == EditorId::Commands && m_commandsOrganizer)
         return m_commandsOrganizer->perform(actionId);
     return false;
 }
 
 CodeFile* ProjectView::commandsFile() const
 {
-    QTabWidget* tabs = m_fileTabs.value(QStringLiteral("commands"));
+    QTabWidget* tabs = m_fileTabs.value(EditorId::Commands);
     QWidget* page = tabs ? tabs->currentWidget() : nullptr;
     return page ? qobject_cast<CodeFile*>(m_project->file(page->property("filePath").toString())) : nullptr;
 }
@@ -1009,11 +1010,11 @@ void ProjectView::createCommandsOrganizer()
     timer->setInterval(TypingPauseMs);
     connect(timer, &QTimer::timeout, m_commandsOrganizer, &OrganizerBinding::refresh);
     for (ProjectFile* f : m_project->files()) {
-        if (auto* code = qobject_cast<CodeFile*>(f); code && code->editorId() == QLatin1String("commands"))
+        if (auto* code = qobject_cast<CodeFile*>(f); code && code->editorId() == EditorId::Commands)
             connect(code->document(), &QTextDocument::contentsChanged, timer, qOverload<>(&QTimer::start));
     }
     connect(m_project, &Project::fileAdded, this, [timer](ProjectFile* f) {
-        if (auto* code = qobject_cast<CodeFile*>(f); code && code->editorId() == QLatin1String("commands"))
+        if (auto* code = qobject_cast<CodeFile*>(f); code && code->editorId() == EditorId::Commands)
             connect(code->document(), &QTextDocument::contentsChanged, timer, qOverload<>(&QTimer::start));
     });
 }
@@ -1050,10 +1051,10 @@ bool ProjectView::showFileLine(const QString& filePath, int line)
 ProjectFile* ProjectView::newFile(const QString& editorId)
 {
     const EditorInfo info = engine()->editor(editorId);
-    const bool sprites = editorId == QLatin1String("sprites");
-    const bool sounds = editorId == QLatin1String("sounds");
+    const bool sprites = editorId == EditorId::Sprites;
+    const bool sounds = editorId == EditorId::Sounds;
     if (info.id.isEmpty() ||
-        (info.workspace != WorkspaceType::Code && !sprites && !sounds && editorId != QLatin1String("animations")))
+        (info.workspace != WorkspaceType::Code && !sprites && !sounds && editorId != EditorId::Animations))
         return nullptr;
     const QDir dir(m_project->directory());
     QString path;
@@ -1083,11 +1084,10 @@ bool ProjectView::openFile(const QString& editorId, const QString& path, QString
 {
     const EditorInfo info = engine()->editor(editorId);
     QTabWidget* tabs = m_fileTabs.value(editorId);
-    const bool sprites = editorId == QLatin1String("sprites");
-    const bool sounds = editorId == QLatin1String("sounds");
+    const bool sprites = editorId == EditorId::Sprites;
+    const bool sounds = editorId == EditorId::Sounds;
     if (info.id.isEmpty() ||
-        (info.workspace != WorkspaceType::Code && !sprites && !sounds && editorId != QLatin1String("animations")) ||
-        !tabs)
+        (info.workspace != WorkspaceType::Code && !sprites && !sounds && editorId != EditorId::Animations) || !tabs)
         return false;
     const QString target = QDir::fromNativeSeparators(QFileInfo(path).absoluteFilePath());
     for (int i = 0; i < tabs->count(); ++i) {
@@ -1202,7 +1202,7 @@ void ProjectView::showDebugLine(const QString& file, int line)
         return;
     // A file of the match without a tab (the engine's common states) opens in the States editor.
     if (!showFileLine(file, line)) {
-        const QString states = QStringLiteral("states");
+        const QString states = EditorId::States;
         if (!editorIds().contains(states) || !openFile(states, file) || !showFileLine(file, line))
             return;
     }
@@ -1328,11 +1328,11 @@ void ProjectView::setCurrentEditor(const QString& id)
 {
     if (!m_editorPanels.contains(id))
         return;
-    if (m_currentEditor == QLatin1String("sprites") && id != m_currentEditor && m_sprites && !m_sprites->confirmLeave())
+    if (m_currentEditor == EditorId::Sprites && id != m_currentEditor && m_sprites && !m_sprites->confirmLeave())
         return;
-    if (m_currentEditor == QLatin1String("sounds") && id != m_currentEditor && m_sounds && !m_sounds->confirmLeave())
+    if (m_currentEditor == EditorId::Sounds && id != m_currentEditor && m_sounds && !m_sounds->confirmLeave())
         return;
-    if (m_currentEditor == QLatin1String("animations") && id == QLatin1String("sprites"))
+    if (m_currentEditor == EditorId::Animations && id == EditorId::Sprites)
         showFrameSprite();
     const bool changed = m_currentEditor != id;
     m_currentEditor = id;
@@ -1411,20 +1411,20 @@ void ProjectView::applyPreset(const Preset::Model& model)
             if (panel != model.extraPanels.cend() && panel->layout)
                 builder.buildPanel(*panel->layout, thumbnails->widget(), 22);
         }
-        m_sprites->bindPanel(m_editorPanels.value(QStringLiteral("sprites"))->widget());
+        m_sprites->bindPanel(m_editorPanels.value(EditorId::Sprites)->widget());
         m_sprites->bindOrganizer(m_extraPanels.value(QStringLiteral("organizer"))->widget());
         if (QScrollArea* palettes = m_extraPanels.value(QStringLiteral("palettes")))
             m_sprites->bindPalettes(palettes->widget());
         m_sprites->bindExplorer(m_extraPanels.value(QStringLiteral("thumbnails"))->widget());
     }
     if (m_sounds)
-        m_sounds->bindPanel(m_editorPanels.value(QStringLiteral("sounds"))->widget());
+        m_sounds->bindPanel(m_editorPanels.value(EditorId::Sounds)->widget());
     for (auto it = m_workspaces.cbegin(); it != m_workspaces.cend(); ++it) {
         if (it.value() && m_editorPanels.contains(it.key()))
             it.value()->bindPanel(m_editorPanels.value(it.key())->widget());
     }
     if (m_backgrounds) {
-        m_backgrounds->bindPanel(m_editorPanels.value(QStringLiteral("backgrounds"))->widget());
+        m_backgrounds->bindPanel(m_editorPanels.value(EditorId::Backgrounds)->widget());
         if (QScrollArea* controllers = m_extraPanels.value(QStringLiteral("controllers")))
             m_backgrounds->bindControllers(controllers->widget());
         m_backgrounds->bindOrganizer(m_extraPanels.value(QStringLiteral("organizer"))->widget());
@@ -1436,7 +1436,7 @@ void ProjectView::applyPreset(const Preset::Model& model)
         m_commandsOrganizer->bind(organizerPanel);
     if (m_animations) {
         m_animations->organizer()->bind(organizerPanel);
-        m_animations->bindPanel(m_editorPanels.value(QStringLiteral("animations"))->widget());
+        m_animations->bindPanel(m_editorPanels.value(EditorId::Animations)->widget());
         if (QScrollArea* thumbnails = m_extraPanels.value(QStringLiteral("thumbnails")))
             m_animations->bindExplorer(thumbnails->widget());
     }
@@ -1480,9 +1480,8 @@ QString ProjectView::extraPanelTitle(const QString& name)
 
 void ProjectView::updateRightPanel()
 {
-    static const QStringList organizerEditors = {QStringLiteral("sprites"), QStringLiteral("animations"),
-                                                 QStringLiteral("sounds"), QStringLiteral("commands"),
-                                                 QStringLiteral("backgrounds")};
+    static const QStringList organizerEditors = {EditorId::Sprites, EditorId::Animations, EditorId::Sounds,
+                                                 EditorId::Commands, EditorId::Backgrounds};
     QString name = currentEditorInfo().extraPanel;
     if (m_organizerVisible && organizerEditors.contains(m_currentEditor))
         name = QStringLiteral("organizer");
@@ -1492,10 +1491,10 @@ void ProjectView::updateRightPanel()
         name = QStringLiteral("debug");
     // The organizer lists the items of the editor shown, or the sprites in other editors.
     const bool organizer = name == QLatin1String("organizer");
-    const bool backgroundsOrganizer = organizer && m_currentEditor == QLatin1String("backgrounds") && m_backgrounds;
-    const bool animationsOrganizer = organizer && m_currentEditor == QLatin1String("animations") && m_animations;
-    const bool soundsOrganizer = organizer && m_currentEditor == QLatin1String("sounds") && m_sounds;
-    const bool commandsOrganizer = organizer && m_currentEditor == QLatin1String("commands") && m_commandsOrganizer;
+    const bool backgroundsOrganizer = organizer && m_currentEditor == EditorId::Backgrounds && m_backgrounds;
+    const bool animationsOrganizer = organizer && m_currentEditor == EditorId::Animations && m_animations;
+    const bool soundsOrganizer = organizer && m_currentEditor == EditorId::Sounds && m_sounds;
+    const bool commandsOrganizer = organizer && m_currentEditor == EditorId::Commands && m_commandsOrganizer;
     const bool spritesOrganizer =
         !backgroundsOrganizer && !animationsOrganizer && !soundsOrganizer && !commandsOrganizer;
     if (m_sprites && !spritesOrganizer)
@@ -1518,14 +1517,14 @@ void ProjectView::updateRightPanel()
         m_sounds->organizer()->setActive(true);
     if (commandsOrganizer)
         m_commandsOrganizer->setActive(true);
-    const bool spriteExplorer = m_currentEditor == QLatin1String("sprites") && m_sprites && m_sprites->explorerShown();
+    const bool spriteExplorer = m_currentEditor == EditorId::Sprites && m_sprites && m_sprites->explorerShown();
     if (spriteExplorer)
         name = QStringLiteral("thumbnails");
     if (m_sprites)
         m_sprites->setExplorerActive(spriteExplorer && m_rightPanelVisible);
     if (m_animations)
         m_animations->setExplorerActive(name == QLatin1String("thumbnails") &&
-                                        m_currentEditor == QLatin1String("animations") && m_rightPanelVisible);
+                                        m_currentEditor == EditorId::Animations && m_rightPanelVisible);
     QScrollArea* panel = m_extraPanels.value(name);
     if (panel && name == QLatin1String("thumbnails")) {
         static const char* const spriteCaptions[] = {

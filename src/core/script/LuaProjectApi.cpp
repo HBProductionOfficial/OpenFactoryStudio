@@ -1,4 +1,5 @@
 #include "core/anims/AirDocument.h"
+#include "core/editors/EditorInfo.h"
 #include "core/engine/Engine.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectBackup.h"
@@ -116,15 +117,15 @@ QString editorOfType(int type)
 {
     switch (type) {
     case 0:
-        return QStringLiteral("definitions");
+        return EditorId::Definitions;
     case 1:
-        return QStringLiteral("sprites");
+        return EditorId::Sprites;
     case 2:
-        return QStringLiteral("sounds");
+        return EditorId::Sounds;
     case 3:
-        return QStringLiteral("animations");
+        return EditorId::Animations;
     case 4:
-        return QStringLiteral("states");
+        return EditorId::States;
     default:
         return QString();
     }
@@ -135,9 +136,9 @@ ProjectFile* loadFile(Project& project, const QString& editorId, const QString& 
     if (ProjectFile* open = project.file(path))
         return open;
     QString error;
-    if (editorId == QLatin1String("sprites"))
+    if (editorId == EditorId::Sprites)
         return project.spriteFile(path, editorId, &error);
-    if (editorId == QLatin1String("sounds"))
+    if (editorId == EditorId::Sounds)
         return project.soundFile(path, editorId, &error);
     return project.codeFile(path, editorId, &error);
 }
@@ -458,7 +459,7 @@ void registerProjectApi(sol::state& lua, sol::table api, Session& session)
         "asAnimations",
         [](ProjectFile& f) -> sol::optional<AnimationsRef> {
             auto* code = qobject_cast<CodeFile*>(&f);
-            if (code && f.editorId() == QLatin1String("animations"))
+            if (code && f.editorId() == EditorId::Animations)
                 return AnimationsRef{code};
             return sol::nullopt;
         },

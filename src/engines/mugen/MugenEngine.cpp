@@ -4,6 +4,7 @@
 #include "core/app/AppContext.h"
 #include "core/code/CompletionModels.h"
 #include "core/code/VariableUsage.h"
+#include "core/editors/EditorInfo.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
 #include "core/script/ScriptFolders.h"
@@ -104,21 +105,21 @@ QList<EditorInfo> MugenEngine::editors() const
     };
     const QString all = tr("All files (*)");
     return {
-        editor(QStringLiteral("definitions"), tr("Definitions"), "editor_def", WorkspaceType::Code, "", "def",
+        editor(EditorId::Definitions, tr("Definitions"), "editor_def", WorkspaceType::Code, "", "def",
                tr("Definitions (*.def)") + QStringLiteral(";;") + all, "def"),
-        editor(QStringLiteral("sprites"), tr("Sprites"), "editor_spr", WorkspaceType::Graphics, "palettes", "spr",
+        editor(EditorId::Sprites, tr("Sprites"), "editor_spr", WorkspaceType::Graphics, "palettes", "spr",
                tr("Sprites (*.sff)"), "sff"),
-        editor(QStringLiteral("animations"), tr("Animations"), "editor_anim", WorkspaceType::Graphics, "thumbnails",
-               "anim", tr("Animations (*.air)") + QStringLiteral(";;") + all, "air"),
-        editor(QStringLiteral("backgrounds"), tr("Backgrounds"), "editor_bg", WorkspaceType::Graphics, "controllers",
-               "", {}, ""),
-        editor(QStringLiteral("commands"), tr("Commands"), "editor_cmd", WorkspaceType::Code, "", "cmd",
+        editor(EditorId::Animations, tr("Animations"), "editor_anim", WorkspaceType::Graphics, "thumbnails", "anim",
+               tr("Animations (*.air)") + QStringLiteral(";;") + all, "air"),
+        editor(EditorId::Backgrounds, tr("Backgrounds"), "editor_bg", WorkspaceType::Graphics, "controllers", "", {},
+               ""),
+        editor(EditorId::Commands, tr("Commands"), "editor_cmd", WorkspaceType::Code, "", "cmd",
                tr("Commands (*.cmd)") + QStringLiteral(";;") + all, "cmd"),
-        editor(QStringLiteral("states"), tr("States"), "editor_st", WorkspaceType::Code, "", "st",
+        editor(EditorId::States, tr("States"), "editor_st", WorkspaceType::Code, "", "st",
                tr("States (*.cns *.st)") + QStringLiteral(";;") + all, "cns"),
-        editor(QStringLiteral("sounds"), tr("Sounds"), "editor_snd", WorkspaceType::Sound, "", "snd",
-               tr("Sounds (*.snd)"), "snd"),
-        editor(QStringLiteral("emulator"), tr("Emulator"), "editor_emul", WorkspaceType::Emulator, "", "", {}, ""),
+        editor(EditorId::Sounds, tr("Sounds"), "editor_snd", WorkspaceType::Sound, "", "snd", tr("Sounds (*.snd)"),
+               "snd"),
+        editor(EditorId::Emulator, tr("Emulator"), "editor_emul", WorkspaceType::Emulator, "", "", {}, ""),
     };
 }
 
@@ -214,7 +215,7 @@ int MugenEngine::scriptProjectType(const QString& typeId) const
 EngineWorkspace* MugenEngine::createWorkspace(const QString& editorId, Project& project, AppContext& context,
                                               QWidget* parent)
 {
-    if (editorId == QLatin1String("emulator"))
+    if (editorId == EditorId::Emulator)
         return new EmulatorWidget(project, context, parent);
     return nullptr;
 }
@@ -257,7 +258,7 @@ QList<OutlineNode> MugenEngine::outline(const Project& project, const QString& e
 VariableUsage MugenEngine::variableUsage(const Project& project, const QString& editorId, const QString& text) const
 {
     Q_UNUSED(project);
-    if (editorId != QLatin1String("states"))
+    if (editorId != EditorId::States)
         return {};
     return scanVariables(text);
 }
@@ -265,10 +266,10 @@ VariableUsage MugenEngine::variableUsage(const Project& project, const QString& 
 void MugenEngine::scaleContactBoxes(Project& project, const QList<QPair<int, int>>& sprites, double widthScale,
                                     double heightScale)
 {
-    const QString air = project.editorFiles(QStringLiteral("animations")).value(0);
+    const QString air = project.editorFiles(EditorId::Animations).value(0);
     if (air.isEmpty() || (!project.file(air) && !QFileInfo::exists(air)))
         return;
-    if (CodeFile* file = project.codeFile(air, QStringLiteral("animations")))
+    if (CodeFile* file = project.codeFile(air, EditorId::Animations))
         AirEdits::scaleContactBoxes(file->document(), sprites, widthScale, heightScale);
 }
 
@@ -284,7 +285,7 @@ void MugenEngine::exportHtml(const ToolContext& context)
     }
     QList<HtmlCommand> commands;
     if (kind == QLatin1String("char")) {
-        const QString path = project->editorFiles(QStringLiteral("commands")).value(0);
+        const QString path = project->editorFiles(EditorId::Commands).value(0);
         QString text;
         if (auto* code = qobject_cast<CodeFile*>(project->file(path))) {
             text = code->document()->toPlainText();
@@ -340,14 +341,11 @@ void MugenEngine::runTool(const QString& actionId, const ToolContext& context)
         OffsetViewerDialog dialog(context.project, context.projects, context.parent);
         dialog.exec();
     } else if (actionId == QLatin1String("st_palfx")) {
-        const QStringList sprites = context.project->editorFiles(QStringLiteral("sprites"));
-        SpriteFile* spriteFile = sprites.isEmpty() || sprites.first().isEmpty()
-                                     ? nullptr
-                                     : context.project->spriteFile(sprites.first(), QStringLiteral("sprites"));
-        PalFXDialog dialog(spriteFile, context.spriteIndex, dataDir() + QStringLiteral("/palFX"), context.parent);
+        PalFXDialog dialog(context.project->mainSpriteFile(), context.spriteIndex, dataDir() + QStringLiteral("/palFX"),
+                           context.parent);
         dialog.setInsertHandler([context](const QString& text) {
             if (context.insertInEditor)
-                context.insertInEditor(QStringLiteral("states"), text);
+                context.insertInEditor(EditorId::States, text);
             else if (context.insertText)
                 context.insertText(text);
         });
@@ -371,7 +369,7 @@ QString MugenEngine::runLogFile(const QString& engineDir) const
 
 QStringList MugenEngine::codeTemplateDirs(const QString& editorId) const
 {
-    if (editorId != QLatin1String("states"))
+    if (editorId != EditorId::States)
         return {};
     return {dataDir() + QStringLiteral("/sctrls"), userDataDir() + QStringLiteral("/sctrls")};
 }
@@ -379,12 +377,7 @@ QStringList MugenEngine::codeTemplateDirs(const QString& editorId) const
 QImage MugenEngine::portrait(Project& project) const
 {
     // Sprite 9000,1 of the character's sprite file (9000,0 without it), if the file is there.
-    const QStringList files = project.editorFiles(QStringLiteral("sprites"));
-    if (files.isEmpty() || files.first().isEmpty())
-        return {};
-    auto* sprites = qobject_cast<SpriteFile*>(project.file(files.first()));
-    if (!sprites && QFileInfo::exists(files.first()))
-        sprites = project.spriteFile(files.first(), QStringLiteral("sprites"));
+    SpriteFile* sprites = project.mainSpriteFile();
     if (!sprites)
         return {};
     const SpriteDocument& doc = sprites->document();
@@ -414,11 +407,11 @@ QStringList MugenEngine::documentationVariants(const Project& project) const
 
 QString MugenEngine::syntaxFileType(const Project& project, const QString& editorId) const
 {
-    if (editorId == QLatin1String("commands"))
+    if (editorId == EditorId::Commands)
         return QStringLiteral("command");
-    if (editorId == QLatin1String("states"))
+    if (editorId == EditorId::States)
         return QStringLiteral("state");
-    if (editorId == QLatin1String("definitions")) {
+    if (editorId == EditorId::Definitions) {
         const QString type = project.typeId();
         if (type == QLatin1String("char") || type == QLatin1String("stage") || type == QLatin1String("motif") ||
             type == QLatin1String("fight") || type == QLatin1String("select") || type == QLatin1String("font") ||
@@ -431,7 +424,7 @@ QString MugenEngine::syntaxFileType(const Project& project, const QString& edito
 QString MugenEngine::syntaxFileTypeForText(const Project& project, const QString& editorId, const QString& text) const
 {
     const QString type = syntaxFileType(project, editorId);
-    if (editorId != QLatin1String("definitions") || text.isEmpty())
+    if (editorId != EditorId::Definitions || text.isEmpty())
         return type;
     // A motif's select, fight or storyboard file tells what it is by its sections.
     DefFile def;
@@ -442,7 +435,7 @@ QString MugenEngine::syntaxFileTypeForText(const Project& project, const QString
 
 IssueList MugenEngine::validate(const Project& project, const QString& editorId, const QString& text) const
 {
-    if (editorId == QLatin1String("animations")) {
+    if (editorId == EditorId::Animations) {
         IssueList issues;
         const AirDocument doc = AirDocument::parse(text);
         for (const AirDocument::Problem& problem : doc.problems()) {

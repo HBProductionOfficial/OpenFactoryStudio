@@ -1,5 +1,6 @@
 #include "engines/mugen/dialogs/ThrowCreatorDialog.h"
 
+#include "core/editors/EditorInfo.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
 #include "engines/mugen/AirEdits.h"
@@ -213,7 +214,7 @@ ThrowCreatorDialog::ThrowCreatorDialog(Project* project, const QList<Project*>& 
     fillAnimations(m_thrownAnim, DefaultThrownAnim);
     const QString air = m_p1->animationFile();
     if (!air.isEmpty() && (project->file(air) || QFileInfo::exists(air)))
-        m_air = project->codeFile(air, QStringLiteral("animations"));
+        m_air = project->codeFile(air, EditorId::Animations);
     m_addAnim->setToolTip(tr("Add animation"));
     m_insertFrame->setToolTip(tr("Insert frame"));
     m_deleteFrame->setToolTip(tr("Remove current frame"));

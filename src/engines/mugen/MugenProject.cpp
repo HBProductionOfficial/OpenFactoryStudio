@@ -1,6 +1,7 @@
 #include "engines/mugen/MugenProject.h"
 
 #include "core/anims/AirEdits.h"
+#include "core/editors/EditorInfo.h"
 #include "core/engine/Engine.h"
 #include "core/project/ProjectFile.h"
 #include "core/sounds/SoundFile.h"
@@ -36,8 +37,7 @@ bool MugenProject::load(QString* error)
     QStringList editors;
     for (const QString& id : editorsForType(typeId())) {
         const QStringList files = editorFiles(id);
-        const bool always =
-            id == QLatin1String("definitions") || id == QLatin1String("sprites") || id == QLatin1String("emulator");
+        const bool always = id == EditorId::Definitions || id == EditorId::Sprites || id == EditorId::Emulator;
         if (always || std::any_of(files.cbegin(), files.cend(), [](const QString& f) { return QFileInfo::exists(f); }))
             editors << id;
     }
@@ -66,13 +66,13 @@ bool MugenProject::createNew(const QString& typeId, const QString& blankDir, QSt
     setTypeId(typeId);
     QStringList editors = editorsForType(typeId);
     if (typeId == QLatin1String("font"))
-        editors.insert(1, QStringLiteral("sprites"));
+        editors.insert(1, EditorId::Sprites);
     setEditorIds(editors);
     readInfo(def);
     collectFiles(def);
     if (typeId == QLatin1String("font"))
-        setEditorFiles(QStringLiteral("sprites"), {directory() + QLatin1Char('/') +
-                                                   QFileInfo(filePath()).completeBaseName() + QStringLiteral(".sff")});
+        setEditorFiles(EditorId::Sprites, {directory() + QLatin1Char('/') + QFileInfo(filePath()).completeBaseName() +
+                                           QStringLiteral(".sff")});
 
     const Formats::SffVersion sffVersion = versionId() == QLatin1String("1.1")   ? Formats::SffVersion::V201
                                            : versionId() == QLatin1String("1.0") ? Formats::SffVersion::V2
@@ -83,16 +83,16 @@ bool MugenProject::createNew(const QString& typeId, const QString& blankDir, QSt
             if (path.isEmpty() || file(path))
                 continue;
             ProjectFile* document = nullptr;
-            if (editorId == QLatin1String("sprites")) {
+            if (editorId == EditorId::Sprites) {
                 auto* sprites = new SpriteFile(path, editorId, this);
                 sprites->createEmpty(sffVersion);
                 document = sprites;
-            } else if (editorId == QLatin1String("sounds")) {
+            } else if (editorId == EditorId::Sounds) {
                 auto* sounds = new SoundFile(path, editorId, this);
                 sounds->createEmpty();
                 document = sounds;
-            } else if (info.workspace == WorkspaceType::Code || editorId == QLatin1String("animations") ||
-                       editorId == QLatin1String("backgrounds")) {
+            } else if (info.workspace == WorkspaceType::Code || editorId == EditorId::Animations ||
+                       editorId == EditorId::Backgrounds) {
                 auto* code = new CodeFile(path, editorId, this);
                 code->createEmpty(path == filePath() ? definitions : readBlank(QFileInfo(path).fileName()));
                 document = code;
@@ -141,10 +141,10 @@ void MugenProject::renameReference(const QString& oldPath, const QString& newPat
 QString MugenProject::singleFileEditor(const QString& filePath)
 {
     static const QHash<QString, QString> editors = {
-        {QStringLiteral("def"), QStringLiteral("definitions")}, {QStringLiteral("sff"), QStringLiteral("sprites")},
-        {QStringLiteral("snd"), QStringLiteral("sounds")},      {QStringLiteral("air"), QStringLiteral("animations")},
-        {QStringLiteral("cns"), QStringLiteral("states")},      {QStringLiteral("st"), QStringLiteral("states")},
-        {QStringLiteral("cmd"), QStringLiteral("commands")},
+        {QStringLiteral("def"), EditorId::Definitions}, {QStringLiteral("sff"), EditorId::Sprites},
+        {QStringLiteral("snd"), EditorId::Sounds},      {QStringLiteral("air"), EditorId::Animations},
+        {QStringLiteral("cns"), EditorId::States},      {QStringLiteral("st"), EditorId::States},
+        {QStringLiteral("cmd"), EditorId::Commands},
     };
     return editors.value(QFileInfo(filePath).suffix().toLower());
 }
@@ -162,9 +162,9 @@ bool MugenProject::loadSingle(QString* error)
     setTypeId(QStringLiteral("char"));
     setVersionId(QStringLiteral("1.1"));
     setVersionDeclared(true);
-    setEditorIds({editorId, QStringLiteral("emulator")});
+    setEditorIds({editorId, EditorId::Emulator});
     setEditorFiles(editorId, {filePath()});
-    setEditorFiles(QStringLiteral("emulator"), {});
+    setEditorFiles(EditorId::Emulator, {});
     setName(QString());
     return true;
 }
@@ -213,14 +213,14 @@ QString MugenProject::detectVersion(const DefFile& def)
 
 QStringList MugenProject::editorsForType(const QString& typeId)
 {
-    const QString def = QStringLiteral("definitions");
-    const QString spr = QStringLiteral("sprites");
-    const QString anim = QStringLiteral("animations");
-    const QString bg = QStringLiteral("backgrounds");
-    const QString cmd = QStringLiteral("commands");
-    const QString st = QStringLiteral("states");
-    const QString snd = QStringLiteral("sounds");
-    const QString emul = QStringLiteral("emulator");
+    const QString def = EditorId::Definitions;
+    const QString spr = EditorId::Sprites;
+    const QString anim = EditorId::Animations;
+    const QString bg = EditorId::Backgrounds;
+    const QString cmd = EditorId::Commands;
+    const QString st = EditorId::States;
+    const QString snd = EditorId::Sounds;
+    const QString emul = EditorId::Emulator;
 
     if (typeId == QLatin1String("char"))
         return {def, spr, anim, cmd, st, snd, emul};
@@ -272,38 +272,37 @@ void MugenProject::collectFiles(const DefFile& def)
             list << path;
     };
 
-    setEditorFiles(QStringLiteral("definitions"), {filePath()});
-    setEditorFiles(QStringLiteral("emulator"), {});
+    setEditorFiles(EditorId::Definitions, {filePath()});
+    setEditorFiles(EditorId::Emulator, {});
 
     const QString type = typeId();
     if (type == QLatin1String("char")) {
-        setEditorFiles(QStringLiteral("sprites"), {resolve(def.value(files, QStringLiteral("sprite")))});
-        setEditorFiles(QStringLiteral("animations"), {resolve(def.value(files, QStringLiteral("anim")))});
-        setEditorFiles(QStringLiteral("commands"), {resolve(def.value(files, QStringLiteral("cmd")))});
-        setEditorFiles(QStringLiteral("sounds"), {resolve(def.value(files, QStringLiteral("sound")))});
+        setEditorFiles(EditorId::Sprites, {resolve(def.value(files, QStringLiteral("sprite")))});
+        setEditorFiles(EditorId::Animations, {resolve(def.value(files, QStringLiteral("anim")))});
+        setEditorFiles(EditorId::Commands, {resolve(def.value(files, QStringLiteral("cmd")))});
+        setEditorFiles(EditorId::Sounds, {resolve(def.value(files, QStringLiteral("sound")))});
         QStringList states;
         addUnique(states, resolve(def.value(files, QStringLiteral("cns"))));
         addUnique(states, resolve(def.value(files, QStringLiteral("st"))));
         for (const QString& st : def.values(files, QStringLiteral("st[0-9]+")))
             addUnique(states, resolve(st));
-        setEditorFiles(QStringLiteral("states"), states);
+        setEditorFiles(EditorId::States, states);
     } else if (type == QLatin1String("stage")) {
-        setEditorFiles(QStringLiteral("sprites"), {resolve(def.value(QStringLiteral("BGdef"), QStringLiteral("spr")))});
-        setEditorFiles(QStringLiteral("animations"), {filePath()});
-        setEditorFiles(QStringLiteral("backgrounds"), {filePath()});
+        setEditorFiles(EditorId::Sprites, {resolve(def.value(QStringLiteral("BGdef"), QStringLiteral("spr")))});
+        setEditorFiles(EditorId::Animations, {filePath()});
+        setEditorFiles(EditorId::Backgrounds, {filePath()});
     } else if (type == QLatin1String("storyboard")) {
-        setEditorFiles(QStringLiteral("sprites"),
-                       {resolve(def.value(QStringLiteral("SceneDef"), QStringLiteral("spr")))});
-        setEditorFiles(QStringLiteral("animations"), {filePath()});
-        setEditorFiles(QStringLiteral("backgrounds"), {filePath()});
+        setEditorFiles(EditorId::Sprites, {resolve(def.value(QStringLiteral("SceneDef"), QStringLiteral("spr")))});
+        setEditorFiles(EditorId::Animations, {filePath()});
+        setEditorFiles(EditorId::Backgrounds, {filePath()});
     } else if (type == QLatin1String("motif")) {
         QStringList definitions{filePath()};
         addUnique(definitions, resolveData(def.value(files, QStringLiteral("select"))));
-        setEditorFiles(QStringLiteral("definitions"), definitions);
-        setEditorFiles(QStringLiteral("sprites"), {resolve(def.value(files, QStringLiteral("spr")))});
-        setEditorFiles(QStringLiteral("animations"), {filePath()});
-        setEditorFiles(QStringLiteral("backgrounds"), {filePath()});
-        setEditorFiles(QStringLiteral("sounds"), {resolve(def.value(files, QStringLiteral("snd")))});
+        setEditorFiles(EditorId::Definitions, definitions);
+        setEditorFiles(EditorId::Sprites, {resolve(def.value(files, QStringLiteral("spr")))});
+        setEditorFiles(EditorId::Animations, {filePath()});
+        setEditorFiles(EditorId::Backgrounds, {filePath()});
+        setEditorFiles(EditorId::Sounds, {resolve(def.value(files, QStringLiteral("snd")))});
     } else if (type == QLatin1String("fight")) {
         QStringList sprites;
         addUnique(sprites, resolve(def.value(files, QStringLiteral("sff"))));
@@ -313,9 +312,9 @@ void MugenProject::collectFiles(const DefFile& def)
         QStringList sounds;
         addUnique(sounds, resolve(def.value(files, QStringLiteral("snd"))));
         addUnique(sounds, resolve(def.value(files, QStringLiteral("common.snd"))));
-        setEditorFiles(QStringLiteral("sprites"), sprites);
-        setEditorFiles(QStringLiteral("animations"), anims);
-        setEditorFiles(QStringLiteral("sounds"), sounds);
+        setEditorFiles(EditorId::Sprites, sprites);
+        setEditorFiles(EditorId::Animations, anims);
+        setEditorFiles(EditorId::Sounds, sounds);
     }
 }
 

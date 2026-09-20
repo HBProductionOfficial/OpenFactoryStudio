@@ -6,6 +6,7 @@
 #include "core/bg/BgDocument.h"
 #include "core/bg/BgRenderer.h"
 #include "core/bg/BgSimulator.h"
+#include "core/editors/EditorInfo.h"
 #include "core/palettes/PaletteOps.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
@@ -62,14 +63,7 @@ QString projectText(Project& project, const QString& path)
 
 const SpriteDocument* projectSprites(Project& project)
 {
-    const QStringList files = project.editorFiles(QStringLiteral("sprites"));
-    if (files.isEmpty() || files.first().isEmpty())
-        return nullptr;
-    if (auto* sprites = qobject_cast<SpriteFile*>(project.file(files.first())))
-        return &sprites->document();
-    if (!QFileInfo::exists(files.first()))
-        return nullptr;
-    SpriteFile* sprites = project.spriteFile(files.first(), QStringLiteral("sprites"));
+    SpriteFile* sprites = project.mainSpriteFile();
     return sprites ? &sprites->document() : nullptr;
 }
 
@@ -428,7 +422,7 @@ bool exportHtml(Project& project, const HtmlExportOptions& options, const QStrin
                     values.insert(key, imageTag(file, QSize(image.width(), image.height())));
             }
         }
-        const QStringList animFiles = project.editorFiles(QStringLiteral("animations"));
+        const QStringList animFiles = project.editorFiles(EditorId::Animations);
         const AirDocument air = AirDocument::parse(projectText(project, animFiles.value(0)).split(QLatin1Char('\n')));
         const int standing = air.indexOf(0);
         if (sprites && standing >= 0) {
@@ -443,7 +437,7 @@ bool exportHtml(Project& project, const HtmlExportOptions& options, const QStrin
                     values.insert(QStringLiteral("anim%1").arg(i + 1), imageTag(file));
             }
         }
-        const QStringList commandFiles = project.editorFiles(QStringLiteral("commands"));
+        const QStringList commandFiles = project.editorFiles(EditorId::Commands);
         QString list;
         for (const HtmlCommand& command : htmlCommands(projectText(project, commandFiles.value(0)))) {
             if (!options.commands.contains(command.name))

@@ -4,6 +4,18 @@
 
 namespace OFS {
 
+// Ids of the editors with their own pages. An engine may add others.
+namespace EditorId {
+inline constexpr QLatin1StringView Definitions{"definitions"};
+inline constexpr QLatin1StringView Sprites{"sprites"};
+inline constexpr QLatin1StringView Animations{"animations"};
+inline constexpr QLatin1StringView Backgrounds{"backgrounds"};
+inline constexpr QLatin1StringView Commands{"commands"};
+inline constexpr QLatin1StringView States{"states"};
+inline constexpr QLatin1StringView Sounds{"sounds"};
+inline constexpr QLatin1StringView Emulator{"emulator"};
+} // namespace EditorId
+
 // Picks the preset's workspace toolbar ("code", "graphics", "sound") and the status bar layout.
 enum class WorkspaceType
 {

@@ -1,4 +1,5 @@
 #include "shell/MainWindow.h"
+#include "core/editors/EditorInfo.h"
 #include "shell/DebugView.h"
 #include "shell/DebuggerPanels.h"
 #include "shell/dialogs/BreakpointDialog.h"
@@ -202,7 +203,7 @@ void MainWindow::buildMenus()
     m_menus->setDynamic(QStringLiteral("bg_groups"), [this](QMenu* menu, QAction* before, QList<QAction*>& created) {
         ProjectView* view = currentProjectView();
         BackgroundsEditor* backgrounds = view ? view->backgroundsEditor() : nullptr;
-        if (!backgrounds || view->currentEditor() != QLatin1String("backgrounds"))
+        if (!backgrounds || view->currentEditor() != EditorId::Backgrounds)
             return;
         const QStringList names = backgrounds->groupNames();
         if (names.isEmpty())
@@ -345,7 +346,7 @@ void MainWindow::buildCentralArea()
             }
             if (view->project()->filePath().compare(path, Qt::CaseInsensitive) == 0)
                 return {view->engine()->syntax(),
-                        view->engine()->syntaxFileType(*view->project(), QStringLiteral("definitions"))};
+                        view->engine()->syntaxFileType(*view->project(), EditorId::Definitions)};
         }
         return {nullptr, QString()};
     };
@@ -491,7 +492,7 @@ void MainWindow::connectActions()
     if (QAction* a = actions.action(QStringLiteral("spr_frame_spr"))) {
         connect(a, &QAction::toggled, this, [this](bool on) {
             ProjectView* view = currentProjectView();
-            if (on && view && view->currentEditor() == QLatin1String("sprites"))
+            if (on && view && view->currentEditor() == EditorId::Sprites)
                 view->showFrameSprite();
         });
     }
@@ -683,7 +684,7 @@ void MainWindow::connectEditActions()
     auto spritesEditing = [this]() -> SpritesEditor* {
         ProjectView* view = currentProjectView();
         SpritesEditor* sprites = view ? view->spritesEditor() : nullptr;
-        if (!sprites || view->currentEditor() != QLatin1String("sprites") || !sprites->page())
+        if (!sprites || view->currentEditor() != EditorId::Sprites || !sprites->page())
             return nullptr;
         return sprites;
     };
@@ -696,7 +697,7 @@ void MainWindow::connectEditActions()
     auto animationsEditing = [this]() -> AnimationsEditor* {
         ProjectView* view = currentProjectView();
         AnimationsEditor* animations = view ? view->animationsEditor() : nullptr;
-        if (!animations || view->currentEditor() != QLatin1String("animations") || !animations->page() ||
+        if (!animations || view->currentEditor() != EditorId::Animations || !animations->page() ||
             animations->page()->textMode())
             return nullptr;
         return animations;
@@ -704,7 +705,7 @@ void MainWindow::connectEditActions()
     auto soundEditing = [this]() -> SoundPage* {
         ProjectView* view = currentProjectView();
         SoundsEditor* sounds = view ? view->soundsEditor() : nullptr;
-        if (!sounds || view->currentEditor() != QLatin1String("sounds"))
+        if (!sounds || view->currentEditor() != EditorId::Sounds)
             return nullptr;
         return sounds->page();
     };
@@ -886,14 +887,14 @@ void MainWindow::connectEditActions()
         const QString action = QString::fromLatin1(id);
         on(id, [this, action] {
             ProjectView* view = currentProjectView();
-            if (view && action == QLatin1String("thumb_save") && view->currentEditor() == QLatin1String("animations") &&
+            if (view && action == QLatin1String("thumb_save") && view->currentEditor() == EditorId::Animations &&
                 view->animationsEditor()) {
                 view->animationsEditor()->perform(action);
                 return;
             }
             if (view && action.startsWith(QLatin1String("org_")) && view->performOrganizer(action))
                 return;
-            ensureEditor(view, QStringLiteral("sprites"));
+            ensureEditor(view, EditorId::Sprites);
             const bool done = view && view->spritesEditor() && view->spritesEditor()->perform(action);
             if (!done && action == QLatin1String("spr_edit_img"))
                 refreshActionStates(); // nothing to edit: the action unchecks again
@@ -907,7 +908,7 @@ void MainWindow::connectEditActions()
         const QString action = QString::fromLatin1(id);
         on(id, [this, action] {
             ProjectView* view = currentProjectView();
-            ensureEditor(view, QStringLiteral("sprites"));
+            ensureEditor(view, EditorId::Sprites);
             if (view && view->spritesEditor())
                 view->spritesEditor()->palettes()->perform(action);
         });
@@ -918,7 +919,7 @@ void MainWindow::connectEditActions()
         const QString action = QString::fromLatin1(id);
         on(id, [this, action] {
             ProjectView* view = currentProjectView();
-            ensureEditor(view, QStringLiteral("backgrounds"));
+            ensureEditor(view, EditorId::Backgrounds);
             if (view && view->backgroundsEditor())
                 view->backgroundsEditor()->perform(action);
             refreshActionStates();
@@ -936,7 +937,7 @@ void MainWindow::connectEditActions()
         const QString action = QString::fromLatin1(id);
         on(id, [this, action] {
             ProjectView* view = currentProjectView();
-            ensureEditor(view, QStringLiteral("sounds"));
+            ensureEditor(view, EditorId::Sounds);
             if (view && view->soundsEditor())
                 view->soundsEditor()->perform(action);
             refreshActionStates();
@@ -974,7 +975,7 @@ void MainWindow::connectEditActions()
         const QString action = QString::fromLatin1(id);
         on(id, [this, action] {
             ProjectView* view = currentProjectView();
-            ensureEditor(view, QStringLiteral("animations"));
+            ensureEditor(view, EditorId::Animations);
             if (view && view->animationsEditor())
                 view->animationsEditor()->perform(action);
             refreshActionStates();
@@ -1285,7 +1286,7 @@ bool MainWindow::findItem(const QString& text, bool* found)
     const QString editor = view->currentEditor();
     static const QRegularExpression pair(QStringLiteral("^(\\d+),(\\d+)$"));
     const QRegularExpressionMatch ids = pair.match(text);
-    if (editor == QLatin1String("sprites")) {
+    if (editor == EditorId::Sprites) {
         SpritePage* page = view->spritesEditor() ? view->spritesEditor()->page() : nullptr;
         if (!page || !page->file())
             return true;
@@ -1297,7 +1298,7 @@ bool MainWindow::findItem(const QString& text, bool* found)
         }
         return true;
     }
-    if (editor == QLatin1String("sounds")) {
+    if (editor == EditorId::Sounds) {
         SoundPage* page = view->soundsEditor() ? view->soundsEditor()->page() : nullptr;
         if (!page || !page->file())
             return true;
@@ -1307,7 +1308,7 @@ bool MainWindow::findItem(const QString& text, bool* found)
             *found = page->setCurrent(index) || page->current() == index;
         return true;
     }
-    if (editor == QLatin1String("animations")) {
+    if (editor == EditorId::Animations) {
         AnimationPage* page = view->animationsEditor() ? view->animationsEditor()->page() : nullptr;
         if (!page)
             return true;
@@ -1620,8 +1621,8 @@ void MainWindow::openEditorFile(const QString& editorId)
     if (!view)
         return;
     const EditorInfo info = view->engine()->editor(editorId);
-    if (info.id.isEmpty() || (info.workspace != WorkspaceType::Code && editorId != QLatin1String("sprites") &&
-                              editorId != QLatin1String("animations") && editorId != QLatin1String("sounds")))
+    if (info.id.isEmpty() || (info.workspace != WorkspaceType::Code && editorId != EditorId::Sprites &&
+                              editorId != EditorId::Animations && editorId != EditorId::Sounds))
         return;
     const QString key = editorId + QStringLiteral("_path");
     const QString start = m_context.config().value(key, view->project()->directory());
@@ -2177,7 +2178,7 @@ Script::Environment MainWindow::scriptEnvironment()
         folder = QDir::homePath();
     environment.projectFolder = QDir::fromNativeSeparators(folder);
     environment.openProject = [this](Project* project) {
-        addProjectView(project, project->isMemoryOnly() ? QStringLiteral("definitions") : QString());
+        addProjectView(project, project->isMemoryOnly() ? EditorId::Definitions : QString());
         if (!project->isMemoryOnly())
             m_context.history().add(project->name(), project->filePath());
     };
@@ -2309,7 +2310,7 @@ void MainWindow::newProject()
             QMessageBox::warning(this, tr("Project template"), error);
         return;
     }
-    addProjectView(project, QStringLiteral("definitions"));
+    addProjectView(project, EditorId::Definitions);
 }
 
 void MainWindow::addProjectView(Project* project, const QString& editorId)
@@ -2714,7 +2715,7 @@ void MainWindow::refreshActionStates()
         }
     }
     // Same as Fighter Factory, Sounds > Save only works in the Sounds editor.
-    enable(QStringLiteral("snd_save"), view && view->currentEditor() == QLatin1String("sounds"));
+    enable(QStringLiteral("snd_save"), view && view->currentEditor() == EditorId::Sounds);
     AnimationsEditor* animations = view ? view->animationsEditor() : nullptr;
     AnimationPage* animationPage = animations ? animations->page() : nullptr;
     const bool textMode = animationPage && animationPage->textMode();

@@ -1,5 +1,6 @@
 #include "engines/mugen/MugenRun.h"
 
+#include "core/editors/EditorInfo.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
 #include "core/project/ProjectSearch.h"
@@ -168,7 +169,7 @@ RunCopy prepareRunCopy(const Project& project, const QString& engineDir)
         // The sprite and music files go where the definition says (paths from the engine folder).
         const QList<QPair<QString, QString>> referenced = {
             {def.value(QStringLiteral("BGdef"), QStringLiteral("spr")),
-             project.editorFiles(QStringLiteral("sprites")).value(0)},
+             project.editorFiles(EditorId::Sprites).value(0)},
             {def.value(QStringLiteral("Music"), QStringLiteral("bgmusic")), QString()}};
         for (const auto& [raw, known] : referenced) {
             if (raw.trimmed().isEmpty())

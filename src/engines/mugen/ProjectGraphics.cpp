@@ -1,5 +1,6 @@
 #include "engines/mugen/ProjectGraphics.h"
 
+#include "core/editors/EditorInfo.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
 #include "core/sprites/QtImages.h"
@@ -37,7 +38,7 @@ ProjectGraphics::ProjectGraphics(const Project& project)
     if (width > 0)
         m_localWidth = width;
 
-    QFile sff(project.editorFiles(QStringLiteral("sprites")).value(0));
+    QFile sff(project.editorFiles(EditorId::Sprites).value(0));
     if (!sff.fileName().isEmpty() && sff.open(QIODevice::ReadOnly)) {
         const QByteArray data = sff.readAll();
         auto document = Formats::SffDocument::read(Formats::ByteSpan(
@@ -51,7 +52,7 @@ ProjectGraphics::~ProjectGraphics() = default;
 
 QString ProjectGraphics::animationFile() const
 {
-    return m_project.editorFiles(QStringLiteral("animations")).value(0);
+    return m_project.editorFiles(EditorId::Animations).value(0);
 }
 
 void ProjectGraphics::reloadAnimations()

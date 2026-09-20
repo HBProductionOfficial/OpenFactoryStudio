@@ -1,5 +1,6 @@
 #include "core/project/Project.h"
 
+#include "core/editors/EditorInfo.h"
 #include "core/engine/Engine.h"
 #include "core/project/ProjectFile.h"
 #include "core/sounds/SoundFile.h"
@@ -178,8 +179,12 @@ SpriteFile* Project::spriteFile(const QString& path, const QString& editorId, QS
 
 SpriteFile* Project::mainSpriteFile()
 {
-    const QStringList files = editorFiles(QStringLiteral("sprites"));
-    return files.isEmpty() || files.first().isEmpty() ? nullptr : spriteFile(files.first(), QStringLiteral("sprites"));
+    const QString path = editorFiles(EditorId::Sprites).value(0);
+    if (path.isEmpty())
+        return nullptr;
+    if (auto* open = qobject_cast<SpriteFile*>(file(path)))
+        return open;
+    return QFileInfo::exists(path) ? spriteFile(path, EditorId::Sprites) : nullptr;
 }
 
 CodeFile* Project::addCodeFile(const QString& path, const QString& editorId, QString* error)
