@@ -2715,6 +2715,8 @@ void MainWindow::refreshActionStates()
                       false);
         }
     }
+    // Same as Fighter Factory, Sounds > Save only works in the Sounds editor.
+    enable(QStringLiteral("snd_save"), view && view->currentEditor() == QLatin1String("sounds"));
     AnimationsEditor* animations = view ? view->animationsEditor() : nullptr;
     AnimationPage* animationPage = animations ? animations->page() : nullptr;
     const bool textMode = animationPage && animationPage->textMode();

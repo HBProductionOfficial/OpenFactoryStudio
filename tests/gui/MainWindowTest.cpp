@@ -3543,6 +3543,7 @@ private Q_SLOTS:
         ProjectView* view = window.currentProjectView();
 
         actions.action("editor_spr")->trigger();
+        QVERIFY(!actions.action("snd_save")->isEnabled());
         auto* sprites = view->findChild<SpritePage*>();
         auto* selector = view->findChild<QScrollBar*>("spr_sel");
         QVERIFY(sprites && selector);
@@ -3572,6 +3573,7 @@ private Q_SLOTS:
         QCOMPARE(sprites->current(), 0);
 
         actions.action("editor_snd")->trigger();
+        QVERIFY(actions.action("snd_save")->isEnabled());
         auto* sounds = view->findChild<SoundPage*>();
         QVERIFY(sounds);
         actions.action("snd_tool_select")->trigger();
