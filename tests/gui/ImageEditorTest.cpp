@@ -190,6 +190,15 @@ private Q_SLOTS:
         QVERIFY(!selected(doc, 0, 0));
         QCOMPARE(editor.undoStack()->count(), 1);
         QCOMPARE(doc.pixel(1, 0).index, 1);
+        // Undo and redo leave the selection where it is, same as Fighter Factory.
+        editor.undoStack()->undo();
+        QCOMPARE(doc.pixel(0, 0).index, 1);
+        QVERIFY(selected(doc, 0, 2) && !selected(doc, 0, 0));
+        editor.setTool(ImageEditor::Tool::RectSelect);
+        drag(editor, at(editor, 3, 3), at(editor, 5, 5));
+        editor.undoStack()->redo();
+        QCOMPARE(doc.pixel(0, 2).index, 1);
+        QVERIFY(selected(doc, 4, 4) && !selected(doc, 0, 2));
     }
 
     void remapAndOptions()

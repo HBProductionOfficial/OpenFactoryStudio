@@ -12,6 +12,8 @@
 #include <QUndoStack>
 #include <QVBoxLayout>
 
+#include <utility>
+
 namespace OFS {
 
 namespace {
@@ -68,6 +70,8 @@ private:
     ImageEditor* m_editor;
 };
 
+// Undo and redo leave the selection alone because selecting is not an edit, same as Fighter Factory. Only a canvas size
+// change drops it.
 class ImageEditCommand : public QUndoCommand
 {
 public:
@@ -77,13 +81,28 @@ public:
         , m_before(std::move(before))
         , m_after(std::move(after))
     {}
-    void undo() override { m_editor->setDocument(m_before); }
-    void redo() override { m_editor->setDocument(m_after); }
+    void undo() override { restore(m_before); }
+    void redo() override
+    {
+        if (std::exchange(m_done, true))
+            restore(m_after);
+        else
+            m_editor->setDocument(m_after);
+    }
 
 private:
+    void restore(ImageDocument document)
+    {
+        const ImageDocument& now = m_editor->document();
+        document.selection =
+            now.width == document.width && now.height == document.height ? now.selection : std::vector<std::uint8_t>();
+        m_editor->setDocument(document);
+    }
+
     ImageEditor* m_editor;
     ImageDocument m_before;
     ImageDocument m_after;
+    bool m_done = false;
 };
 
 ImageEditor::ImageEditor(QWidget* parent)
