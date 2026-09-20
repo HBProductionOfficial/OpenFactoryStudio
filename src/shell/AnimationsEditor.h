@@ -25,6 +25,8 @@ class AnimationPage;
 class AppContext;
 class OrganizerBinding;
 class SpriteDocument;
+class SpriteExplorer;
+class SpriteFile;
 
 // Left panel of the Animations editor, bound to the current animation page, plus the editor's actions.
 class AnimationsEditor : public QObject
@@ -66,7 +68,7 @@ private:
     void applyFrame(const std::function<void(AirFrame&)>& change);
     bool performBoxes(const QString& id);
     bool performDialog(const QString& id);
-    QList<int> explorerSprites(bool all) const;
+    SpriteFile* projectSprites() const;
     void addExplorerFrames(bool all);
     void newAnimationFromExplorer(bool all);
     void saveGif();
@@ -98,9 +100,7 @@ private:
     QPointer<QScrollBar> m_onionSelector;
     QPointer<QScrollBar> m_onionFrameSelector;
     QPointer<QLabel> m_onionLabel;
-    QPointer<QComboBox> m_explorerGroups;
-    QPointer<QListView> m_explorerView;
-    QStandardItemModel* m_explorerModel = nullptr;
+    SpriteExplorer* m_spriteExplorer;
     QPointer<AnimationCodeWindow> m_codeWindow;
     OrganizerBinding* m_organizer = nullptr;
     bool m_updating = false;

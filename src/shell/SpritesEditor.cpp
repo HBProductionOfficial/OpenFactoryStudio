@@ -21,6 +21,7 @@
 #include "shell/OrganizerBinding.h"
 #include "shell/PalettesPanel.h"
 #include "shell/SaveChecks.h"
+#include "shell/SpriteExplorer.h"
 #include "shell/SpritePage.h"
 #include "shell/dialogs/PaletteDialogs.h"
 #include "shell/dialogs/SpriteDialogs.h"
@@ -78,7 +79,10 @@ SpritesEditor::SpritesEditor(AppContext& context, QObject* parent)
     : QObject(parent)
     , m_context(context)
     , m_palettes(new PalettesPanel(context, this))
-{}
+    , m_spriteExplorer(new SpriteExplorer(context.config(), this))
+{
+    connect(m_spriteExplorer, &SpriteExplorer::groupChosen, this, &SpritesEditor::refreshExplorer);
+}
 
 void SpritesEditor::bindPalettes(QWidget* panel)
 {

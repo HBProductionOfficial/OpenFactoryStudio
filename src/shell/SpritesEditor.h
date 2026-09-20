@@ -24,6 +24,7 @@ namespace OFS {
 
 class AppContext;
 class PalettesPanel;
+class SpriteExplorer;
 class SpriteFile;
 class SpritePage;
 
@@ -86,7 +87,6 @@ private:
     void syncTool();
     void saveLayersAsSprites();
     void refreshExplorer();
-    QList<int> explorerSprites(bool all) const;
     void addExplorerLayers(bool all, bool aligned);
     void saveExplorerImages();
     void refresh();
@@ -130,9 +130,7 @@ private:
     QPointer<QWidget> m_foreground;
     QPointer<QWidget> m_background;
     QStandardItemModel* m_layerModel = nullptr;
-    QPointer<QComboBox> m_explorerGroups;
-    QPointer<QListView> m_explorerView;
-    QStandardItemModel* m_explorerModel = nullptr;
+    SpriteExplorer* m_spriteExplorer;
     bool m_explorer = false;
     bool m_explorerActive = false;
     bool m_updating = false;

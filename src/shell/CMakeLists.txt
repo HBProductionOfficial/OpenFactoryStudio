@@ -25,6 +25,8 @@ add_library(ofsshell STATIC
     FileDialogs.cpp
     ImageEditor.h
     ImageEditor.cpp
+    SpriteExplorer.h
+    SpriteExplorer.cpp
     DocumentationPopup.h
     DocumentationPopup.cpp
     MainWindow.h

@@ -641,8 +641,7 @@ double BackgroundsEditor::spriteWidth() const
     auto* project = m_page && m_page->file() ? qobject_cast<Project*>(m_page->file()->parent()) : nullptr;
     if (!e || !project)
         return 0;
-    const QStringList files = project->editorFiles(QStringLiteral("sprites"));
-    auto* sprites = files.isEmpty() ? nullptr : qobject_cast<SpriteFile*>(project->file(files.first()));
+    SpriteFile* sprites = project->mainSpriteFile();
     if (!sprites)
         return 0;
     const int index = sprites->document().findSprite(e->spriteGroup, e->spriteNumber);

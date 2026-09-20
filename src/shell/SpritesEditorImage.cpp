@@ -14,6 +14,7 @@
 #include "shell/FileDialogs.h"
 #include "shell/ImageEditor.h"
 #include "shell/PalettesPanel.h"
+#include "shell/SpriteExplorer.h"
 #include "shell/SpritePage.h"
 #include "shell/dialogs/SpriteDialogs.h"
 
@@ -539,25 +540,7 @@ bool SpritesEditor::explorerShown() const
 
 void SpritesEditor::bindExplorer(QWidget* panel)
 {
-    m_explorerGroups = panel ? panel->findChild<QComboBox*>(QStringLiteral("thumb_grp_list")) : nullptr;
-    m_explorerView = panel ? panel->findChild<QListView*>(QStringLiteral("thumb_view")) : nullptr;
-    if (m_explorerView) {
-        if (!m_explorerModel)
-            m_explorerModel = new QStandardItemModel(this);
-        m_explorerView->setModel(m_explorerModel);
-        m_explorerView->setViewMode(QListView::IconMode);
-        m_explorerView->setMovement(QListView::Static);
-        m_explorerView->setResizeMode(QListView::Adjust);
-        m_explorerView->setWrapping(true);
-        m_explorerView->setSpacing(4);
-        m_explorerView->setSelectionMode(QAbstractItemView::ExtendedSelection);
-        m_explorerView->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    }
-    if (m_explorerGroups)
-        connect(m_explorerGroups, &QComboBox::currentIndexChanged, this, [this] {
-            if (!m_updating)
-                refreshExplorer();
-        });
+    m_spriteExplorer->bind(panel);
     const struct
     {
         const char* name;
@@ -587,66 +570,14 @@ void SpritesEditor::setExplorerActive(bool active)
 
 void SpritesEditor::refreshExplorer()
 {
-    if (!m_explorerModel || !explorerShown() || !m_explorerActive)
-        return;
-    if (m_explorerView && m_explorerView->model() != m_explorerModel)
-        m_explorerView->setModel(m_explorerModel);
-    const SpriteDocument& doc = m_page->file()->document();
-    const bool updating = std::exchange(m_updating, true);
-    QList<int> groups;
-    for (const SpriteEntry& entry : doc.sprites()) {
-        if (!groups.contains(entry.group()))
-            groups << entry.group();
-    }
-    std::sort(groups.begin(), groups.end());
-    int group = groups.isEmpty() ? -1 : groups.first();
-    if (m_explorerGroups) {
-        if (m_explorerGroups->currentIndex() >= 0 && groups.contains(m_explorerGroups->currentText().toInt()))
-            group = m_explorerGroups->currentText().toInt();
-        m_explorerGroups->clear();
-        for (int g : std::as_const(groups))
-            m_explorerGroups->addItem(QString::number(g));
-        m_explorerGroups->setCurrentIndex(int(groups.indexOf(group)));
-    }
-    const int size = std::max(16, m_context.config().intValue(QStringLiteral("thumb_size"), 64));
-    m_explorerModel->clear();
-    if (m_explorerView)
-        m_explorerView->setIconSize(QSize(size, size));
-    for (int i = 0; i < doc.spriteCount(); ++i) {
-        const SpriteEntry& entry = doc.sprites()[i];
-        if (entry.group() != group)
-            continue;
-        const Formats::Image rgba = doc.imageRgba(i);
-        QPixmap thumbnail;
-        if (!rgba.pixelBuffer().empty()) {
-            const QImage image(rgba.pixels().data(), rgba.width(), rgba.height(), rgba.width() * 4,
-                               QImage::Format_RGBA8888);
-            thumbnail = QPixmap::fromImage(image.scaled(size, size, Qt::KeepAspectRatio, Qt::FastTransformation));
-        }
-        auto* item = new QStandardItem(QIcon(thumbnail), QString::number(entry.number()));
-        item->setData(i, Qt::UserRole);
-        m_explorerModel->appendRow(item);
-    }
-    m_updating = updating;
-}
-
-QList<int> SpritesEditor::explorerSprites(bool all) const
-{
-    QList<int> sprites;
-    if (!m_explorerModel || !m_explorerView)
-        return sprites;
-    for (int row = 0; row < m_explorerModel->rowCount(); ++row) {
-        const QModelIndex index = m_explorerModel->index(row, 0);
-        if (all || m_explorerView->selectionModel()->isSelected(index))
-            sprites << index.data(Qt::UserRole).toInt();
-    }
-    return sprites;
+    if (explorerShown() && m_explorerActive)
+        m_spriteExplorer->show(&m_page->file()->document());
 }
 
 void SpritesEditor::addExplorerLayers(bool all, bool aligned)
 {
     // Each sprite becomes a layer named "g,i", at the canvas origin or with its axis on the current sprite's axis.
-    const QList<int> sprites = explorerSprites(all);
+    const QList<int> sprites = m_spriteExplorer->sprites(all);
     const SpriteDocument& doc = m_page->file()->document();
     const int current = m_page->current();
     if (sprites.isEmpty() || current < 0 || current >= doc.spriteCount())
@@ -673,7 +604,7 @@ void SpritesEditor::addExplorerLayers(bool all, bool aligned)
 void SpritesEditor::saveExplorerImages()
 {
     // "<name>_<index>.<suffix>" for every selected sprite.
-    const QList<int> sprites = explorerSprites(false);
+    const QList<int> sprites = m_spriteExplorer->sprites(false);
     if (sprites.isEmpty())
         return;
     SpriteFile* file = m_page->file();

@@ -176,6 +176,12 @@ SpriteFile* Project::spriteFile(const QString& path, const QString& editorId, QS
     return f;
 }
 
+SpriteFile* Project::mainSpriteFile()
+{
+    const QStringList files = editorFiles(QStringLiteral("sprites"));
+    return files.isEmpty() || files.first().isEmpty() ? nullptr : spriteFile(files.first(), QStringLiteral("sprites"));
+}
+
 CodeFile* Project::addCodeFile(const QString& path, const QString& editorId, QString* error)
 {
     CodeFile* f = codeFile(path, editorId, error);

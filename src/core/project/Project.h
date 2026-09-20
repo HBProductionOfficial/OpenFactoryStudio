@@ -63,6 +63,7 @@ public:
     ProjectFile* file(const QString& path) const;
     CodeFile* codeFile(const QString& path, const QString& editorId, QString* error = nullptr);
     SpriteFile* spriteFile(const QString& path, const QString& editorId, QString* error = nullptr);
+    SpriteFile* mainSpriteFile();
     CodeFile* addCodeFile(const QString& path, const QString& editorId, QString* error = nullptr);
     CodeFile* newCodeFile(const QString& placeholderPath, const QString& editorId);
     SpriteFile* addSpriteFile(const QString& path, const QString& editorId, QString* error = nullptr);

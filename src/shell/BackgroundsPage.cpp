@@ -87,14 +87,7 @@ BackgroundsPage::~BackgroundsPage()
 
 SpriteFile* BackgroundsPage::sprites() const
 {
-    if (!m_project)
-        return nullptr;
-    const QStringList files = m_project->editorFiles(QStringLiteral("sprites"));
-    if (files.isEmpty() || files.first().isEmpty())
-        return nullptr;
-    if (auto* open = qobject_cast<SpriteFile*>(m_project->file(files.first())))
-        return open;
-    return m_project->spriteFile(files.first(), QStringLiteral("sprites"));
+    return m_project ? m_project->mainSpriteFile() : nullptr;
 }
 
 bool BackgroundsPage::isStage() const

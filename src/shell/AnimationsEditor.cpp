@@ -17,6 +17,7 @@
 #include "shell/FileDialogs.h"
 #include "shell/FileFilters.h"
 #include "shell/OrganizerBinding.h"
+#include "shell/SpriteExplorer.h"
 #include "shell/dialogs/AnimationDialogs.h"
 #include "shell/dialogs/ProjectDialogs.h"
 
@@ -69,7 +70,9 @@ const int InterpolationFlags[4] = {AirFrame::InterpolateBlend, AirFrame::Interpo
 AnimationsEditor::AnimationsEditor(AppContext& context, QObject* parent)
     : QObject(parent)
     , m_context(context)
+    , m_spriteExplorer(new SpriteExplorer(context.config(), this))
 {
+    connect(m_spriteExplorer, &SpriteExplorer::groupChosen, this, &AnimationsEditor::refreshExplorer);
     // Organizer rows read "<number> - <name>". Moving an animation takes the comments above it along.
     OrganizerBinding::Source source;
     source.captions = [this] {
@@ -360,12 +363,7 @@ void AnimationsEditor::importFromProject(const QList<ImportSource>& sources)
     }
 
     if (dialog.importSprites() && source.sprites && !imports.isEmpty()) {
-        auto* project = qobject_cast<Project*>(m_page->file()->parent());
-        const QStringList files = project ? project->editorFiles(QStringLiteral("sprites")) : QStringList();
-        SpriteFile* sprites = project && !files.isEmpty() && !files.first().isEmpty()
-                                  ? project->spriteFile(files.first(), QStringLiteral("sprites"))
-                                  : nullptr;
-        if (sprites) {
+        if (SpriteFile* sprites = projectSprites()) {
             const AirDocument& from = documents[dialog.project()];
             QList<ProjectImportItem> items;
             QSet<QPair<int, int>> wanted;
@@ -722,11 +720,8 @@ bool AnimationsEditor::performDialog(const QString& id)
     } else if (id == QLatin1String("anim_save_gif")) {
         saveGif();
     } else if (id == QLatin1String("thumb_save")) {
-        const QList<int> sprites = explorerSprites(false);
-        auto* project = qobject_cast<Project*>(page->file()->parent());
-        const QStringList files = project ? project->editorFiles(QStringLiteral("sprites")) : QStringList();
-        auto* spriteFile =
-            project && !files.isEmpty() ? project->spriteFile(files.first(), QStringLiteral("sprites")) : nullptr;
+        const QList<int> sprites = m_spriteExplorer->sprites(false);
+        SpriteFile* spriteFile = projectSprites();
         if (sprites.isEmpty() || !spriteFile)
             return true;
         const QString path = FileDialogs::getSaveFileName(parent, tr("Save sprites"),
@@ -798,15 +793,13 @@ void AnimationsEditor::saveGif()
 {
     AnimationPage* page = m_page;
     const AirAnimation* animation = page->animation();
-    auto* project = qobject_cast<Project*>(page->file()->parent());
-    const QStringList files = project ? project->editorFiles(QStringLiteral("sprites")) : QStringList();
-    SpriteFile* sprites =
-        project && !files.isEmpty() ? project->spriteFile(files.first(), QStringLiteral("sprites")) : nullptr;
+    SpriteFile* sprites = projectSprites();
     if (!animation || !sprites)
         return;
     QWidget* parent = page->window();
     Config& config = m_context.config();
-    const QString folder = config.value(QStringLiteral("gif_path"), project->directory());
+    auto* project = qobject_cast<Project*>(page->file()->parent());
+    const QString folder = config.value(QStringLiteral("gif_path"), project ? project->directory() : QString());
     QString path = FileDialogs::getSaveFileName(parent, tr("Save as animated GIF..."), folder,
                                                 tr("Graphics Interchange Format (*.gif)"));
     if (path.isEmpty())
@@ -858,15 +851,7 @@ void AnimationsEditor::pasteBox()
 
 void AnimationsEditor::bindExplorer(QWidget* panel)
 {
-    m_explorerGroups = control<QComboBox>(panel, "thumb_grp_list");
-    m_explorerView = control<QListView>(panel, "thumb_view");
-    if (m_explorerView && !m_explorerModel)
-        m_explorerModel = new QStandardItemModel(this);
-    if (m_explorerGroups)
-        connect(m_explorerGroups, &QComboBox::currentIndexChanged, this, [this] {
-            if (!m_updating)
-                refreshExplorer();
-        });
+    m_spriteExplorer->bind(panel);
     const struct
     {
         const char* name;
@@ -896,77 +881,22 @@ void AnimationsEditor::setExplorerActive(bool active)
 
 void AnimationsEditor::refreshExplorer()
 {
-    if (!m_explorerView || !m_explorerModel || !m_page || !m_explorerActive)
+    if (!m_page || !m_explorerActive)
         return;
-    auto* project = qobject_cast<Project*>(m_page->file()->parent());
-    const QStringList files = project ? project->editorFiles(QStringLiteral("sprites")) : QStringList();
-    SpriteFile* sprites =
-        project && !files.isEmpty() ? project->spriteFile(files.first(), QStringLiteral("sprites")) : nullptr;
-    m_explorerView->setModel(m_explorerModel);
-    m_explorerView->setViewMode(QListView::IconMode);
-    m_explorerView->setMovement(QListView::Static);
-    m_explorerView->setResizeMode(QListView::Adjust);
-    m_explorerView->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    m_explorerView->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    const bool updating = std::exchange(m_updating, true);
-    QList<int> groups;
-    if (sprites) {
-        for (const SpriteEntry& entry : sprites->document().sprites()) {
-            if (!groups.contains(entry.group()))
-                groups << entry.group();
-        }
-    }
-    std::sort(groups.begin(), groups.end());
-    int group = groups.isEmpty() ? -1 : groups.first();
-    if (m_explorerGroups) {
-        if (m_explorerGroups->currentIndex() >= 0 && groups.contains(m_explorerGroups->currentText().toInt()))
-            group = m_explorerGroups->currentText().toInt();
-        m_explorerGroups->clear();
-        for (int g : std::as_const(groups))
-            m_explorerGroups->addItem(QString::number(g));
-        m_explorerGroups->setCurrentIndex(int(groups.indexOf(group)));
-    }
-    const int size = std::max(16, m_context.config().intValue(QStringLiteral("thumb_size"), 64));
-    m_explorerView->setIconSize(QSize(size, size));
-    m_explorerModel->clear();
-    if (sprites) {
-        const SpriteDocument& doc = sprites->document();
-        for (int i = 0; i < doc.spriteCount(); ++i) {
-            if (doc.sprites().at(i).group() != group)
-                continue;
-            const Formats::Image rgba = doc.imageRgba(i);
-            QPixmap thumbnail;
-            if (!rgba.pixelBuffer().empty())
-                thumbnail =
-                    QPixmap::fromImage(toQImage(rgba).scaled(size, size, Qt::KeepAspectRatio, Qt::FastTransformation));
-            auto* item = new QStandardItem(QIcon(thumbnail), QString::number(doc.sprites().at(i).number()));
-            item->setData(i, Qt::UserRole);
-            m_explorerModel->appendRow(item);
-        }
-    }
-    m_updating = updating;
+    SpriteFile* sprites = projectSprites();
+    m_spriteExplorer->show(sprites ? &sprites->document() : nullptr);
 }
 
-QList<int> AnimationsEditor::explorerSprites(bool all) const
+SpriteFile* AnimationsEditor::projectSprites() const
 {
-    QList<int> sprites;
-    if (!m_explorerModel || !m_explorerView || !m_explorerView->selectionModel())
-        return sprites;
-    for (int row = 0; row < m_explorerModel->rowCount(); ++row) {
-        const QModelIndex index = m_explorerModel->index(row, 0);
-        if (all || m_explorerView->selectionModel()->isSelected(index))
-            sprites << index.data(Qt::UserRole).toInt();
-    }
-    return sprites;
+    auto* project = m_page && m_page->file() ? qobject_cast<Project*>(m_page->file()->parent()) : nullptr;
+    return project ? project->mainSpriteFile() : nullptr;
 }
 
 void AnimationsEditor::addExplorerFrames(bool all)
 {
-    auto* project = qobject_cast<Project*>(m_page->file()->parent());
-    const QStringList files = project ? project->editorFiles(QStringLiteral("sprites")) : QStringList();
-    SpriteFile* spriteFile =
-        project && !files.isEmpty() ? project->spriteFile(files.first(), QStringLiteral("sprites")) : nullptr;
-    const QList<int> sprites = explorerSprites(all);
+    SpriteFile* spriteFile = projectSprites();
+    const QList<int> sprites = m_spriteExplorer->sprites(all);
     if (!spriteFile || sprites.isEmpty() || !m_page->animation())
         return;
     QList<AirFrame> frames;
@@ -981,16 +911,13 @@ void AnimationsEditor::addExplorerFrames(bool all)
     int last = -1;
     m_page->edit([a, f, frames, &last](QStringList& lines) { last = AirEdits::insertFrames(lines, a, f, frames); });
     m_page->setCurrentFrame(last);
-    m_explorerView->clearSelection();
+    m_spriteExplorer->clearSelection();
 }
 
 void AnimationsEditor::newAnimationFromExplorer(bool all)
 {
-    auto* project = qobject_cast<Project*>(m_page->file()->parent());
-    const QStringList files = project ? project->editorFiles(QStringLiteral("sprites")) : QStringList();
-    SpriteFile* spriteFile =
-        project && !files.isEmpty() ? project->spriteFile(files.first(), QStringLiteral("sprites")) : nullptr;
-    const QList<int> sprites = explorerSprites(all);
+    SpriteFile* spriteFile = projectSprites();
+    const QList<int> sprites = m_spriteExplorer->sprites(all);
     if (!spriteFile || sprites.isEmpty())
         return;
     AddAnimationDialog dialog(m_page->window());
@@ -1011,7 +938,7 @@ void AnimationsEditor::newAnimationFromExplorer(bool all)
         added = AirEdits::addAnimation(lines, a, number, name, frames);
     });
     m_page->setCurrent(added);
-    m_explorerView->clearSelection();
+    m_spriteExplorer->clearSelection();
 }
 
 } // namespace OFS
