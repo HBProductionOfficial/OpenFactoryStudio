@@ -21,6 +21,7 @@
 #include "engines/mugen/MugenProject.h"
 #include "engines/mugen/MugenRun.h"
 #include "engines/mugen/MugenSyntax.h"
+#include "engines/mugen/MugenTypes.h"
 #include "engines/mugen/MugenVariables.h"
 #include "engines/mugen/dialogs/ExportHtmlDialog.h"
 #include "engines/mugen/dialogs/OffsetViewerDialog.h"
@@ -67,13 +68,13 @@ QList<EngineVersion> MugenEngine::versions() const
 QList<ProjectTypeInfo> MugenEngine::projectTypes() const
 {
     return {
-        {QStringLiteral("char"), tr("Character")},
-        {QStringLiteral("stage"), tr("Stage")},
-        {QStringLiteral("font"), tr("Font")},
-        {QStringLiteral("storyboard"), tr("Storyboard")},
-        {QStringLiteral("motif"), tr("System screens")},
-        {QStringLiteral("fight"), tr("Fight HUD & effects")},
-        {QStringLiteral("select"), tr("Select screen")},
+        {MugenType::Character, tr("Character")},
+        {MugenType::Stage, tr("Stage")},
+        {MugenType::Font, tr("Font")},
+        {MugenType::Storyboard, tr("Storyboard")},
+        {MugenType::Motif, tr("System screens")},
+        {MugenType::Fight, tr("Fight HUD & effects")},
+        {MugenType::Select, tr("Select screen")},
     };
 }
 
@@ -178,9 +179,8 @@ namespace {
 // MUGEN.ProjectType, numbered as scripts know it.
 const QStringList& scriptTypeIds()
 {
-    static const QStringList ids = {QStringLiteral("char"),  QStringLiteral("stage"), QStringLiteral("storyboard"),
-                                    QStringLiteral("motif"), QStringLiteral("font"),  QStringLiteral("select"),
-                                    QStringLiteral("fight")};
+    static const QStringList ids = {MugenType::Character, MugenType::Stage,  MugenType::Storyboard, MugenType::Motif,
+                                    MugenType::Font,      MugenType::Select, MugenType::Fight};
     return ids;
 }
 
@@ -413,9 +413,7 @@ QString MugenEngine::syntaxFileType(const Project& project, const QString& edito
         return QStringLiteral("state");
     if (editorId == EditorId::Definitions) {
         const QString type = project.typeId();
-        if (type == QLatin1String("char") || type == QLatin1String("stage") || type == QLatin1String("motif") ||
-            type == QLatin1String("fight") || type == QLatin1String("select") || type == QLatin1String("font") ||
-            type == QLatin1String("storyboard"))
+        if (scriptTypeIds().contains(type))
             return type;
     }
     return {};
@@ -430,7 +428,7 @@ QString MugenEngine::syntaxFileTypeForText(const Project& project, const QString
     DefFile def;
     def.parse(text);
     const QString detected = MugenProject::detectType(def);
-    return detected == QLatin1String("char") ? type : detected;
+    return detected == MugenType::Character ? type : detected;
 }
 
 IssueList MugenEngine::validate(const Project& project, const QString& editorId, const QString& text) const

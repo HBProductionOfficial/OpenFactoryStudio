@@ -4,6 +4,7 @@
 #include "core/project/ProjectFile.h"
 #include "core/sounds/SoundFile.h"
 #include "core/sprites/SpriteFile.h"
+#include "engines/mugen/MugenTypes.h"
 #include "engines/mugen/runtime/Files.h"
 #include "engines/mugen/runtime/IniText.h"
 #include "formats/palette/PaletteFormats.h"
@@ -103,8 +104,7 @@ QString EmulatorSession::defaultCharacter(const QString& engineDir)
 
 bool EmulatorSession::canPlay(const QString& projectType)
 {
-    return projectType == QLatin1String("char") || projectType == QLatin1String("stage") ||
-           projectType == QLatin1String("fight");
+    return projectType == MugenType::Character || projectType == MugenType::Stage || projectType == MugenType::Fight;
 }
 
 QString EmulatorSession::textOf(const QString& path) const
@@ -223,14 +223,14 @@ bool EmulatorSession::start(Project& project, const Options& options, QString* e
         return false;
     }
     const QString type = project.typeId();
-    const QString character = type == QLatin1String("char") ? project.filePath() : defaultCharacter(engineDir);
+    const QString character = type == MugenType::Character ? project.filePath() : defaultCharacter(engineDir);
     if (character.isEmpty()) {
         if (error)
             *error = QStringLiteral("The engine directory has no character to play.");
         return false;
     }
-    m_fightDef = type == QLatin1String("fight") ? project.filePath()
-                                                : QDir(engineDir).filePath(QStringLiteral("data/fight.def"));
+    m_fightDef =
+        type == MugenType::Fight ? project.filePath() : QDir(engineDir).filePath(QStringLiteral("data/fight.def"));
 
     auto data = std::make_shared<CharacterData>();
     Project* source = &project;
@@ -289,7 +289,7 @@ bool EmulatorSession::start(Project& project, const Options& options, QString* e
         }
     }
 
-    const QString stage = type == QLatin1String("stage") ? project.filePath() : defaultStage(engineDir);
+    const QString stage = type == MugenType::Stage ? project.filePath() : defaultStage(engineDir);
     if (stage.isEmpty() || !loadStage(stage, engineDir, error)) {
         if (error && error->isEmpty())
             *error = QStringLiteral("The engine directory has no stage.");

@@ -7,6 +7,7 @@
 #include "core/sprites/SpriteFile.h"
 #include "core/widgets/RenderSurface.h"
 #include "engines/mugen/MugenEngine.h"
+#include "engines/mugen/MugenTypes.h"
 
 #include <QAbstractButton>
 #include <QCheckBox>
@@ -120,7 +121,7 @@ void EmulatorWidget::bindPanel(QWidget* panel)
         connect(m_aiLevel, &QSpinBox::valueChanged, this, applyTraining);
     fill(m_screenCombo, {tr("Menu"), tr("Versus"), tr("Continue"), tr("Victory"), tr("Win"), tr("Survival Results")});
     if (m_screenCombo) {
-        m_screenCombo->setEnabled(m_project.typeId() == QLatin1String("motif"));
+        m_screenCombo->setEnabled(m_project.typeId() == MugenType::Motif);
         connect(m_screenCombo, &QComboBox::currentIndexChanged, this, [this] {
             if (m_motifMode && isRunning())
                 restart();
@@ -191,7 +192,7 @@ bool EmulatorWidget::start()
                                                    ? AudioEngine::Backend::Null
                                                    : AudioEngine::Backend::System);
     }
-    if (m_project.typeId() == QLatin1String("storyboard")) {
+    if (m_project.typeId() == MugenType::Storyboard) {
         if (!m_storyboard.start(m_project, m_project.filePath(), m_engineDir, &m_error))
             return false;
         m_storyMode = true;
@@ -208,7 +209,7 @@ bool EmulatorWidget::start()
         return true;
     }
     m_storyMode = false;
-    if (m_project.typeId() == QLatin1String("motif")) {
+    if (m_project.typeId() == MugenType::Motif) {
         const int screen = m_screenCombo ? std::clamp(m_screenCombo->currentIndex(), 0, 5) : 0;
         if (!m_motif.start(m_project, m_project.filePath(), m_engineDir, MotifScreen::Screen(screen), &m_error))
             return false;

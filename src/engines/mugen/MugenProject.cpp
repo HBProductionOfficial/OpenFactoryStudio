@@ -7,6 +7,7 @@
 #include "core/sounds/SoundFile.h"
 #include "core/sprites/SpriteFile.h"
 #include "engines/mugen/DefFile.h"
+#include "engines/mugen/MugenTypes.h"
 
 #include <QDir>
 #include <QFile>
@@ -65,12 +66,12 @@ bool MugenProject::createNew(const QString& typeId, const QString& blankDir, QSt
     setMemoryOnly(true);
     setTypeId(typeId);
     QStringList editors = editorsForType(typeId);
-    if (typeId == QLatin1String("font"))
+    if (typeId == MugenType::Font)
         editors.insert(1, EditorId::Sprites);
     setEditorIds(editors);
     readInfo(def);
     collectFiles(def);
-    if (typeId == QLatin1String("font"))
+    if (typeId == MugenType::Font)
         setEditorFiles(EditorId::Sprites, {directory() + QLatin1Char('/') + QFileInfo(filePath()).completeBaseName() +
                                            QStringLiteral(".sff")});
 
@@ -159,7 +160,7 @@ bool MugenProject::loadSingle(QString* error)
     }
     // Shown as a M.U.G.E.N 1.1 character, whatever the file is.
     setSingleFile(true);
-    setTypeId(QStringLiteral("char"));
+    setTypeId(MugenType::Character);
     setVersionId(QStringLiteral("1.1"));
     setVersionDeclared(true);
     setEditorIds({editorId, EditorId::Emulator});
@@ -174,7 +175,7 @@ void MugenProject::readInfo(const DefFile& def)
     setVersionId(detectVersion(def));
     setVersionDeclared(!def.value(QStringLiteral("Info"), QStringLiteral("mugenversion")).trimmed().isEmpty());
     QString name = def.value(QStringLiteral("Info"), QStringLiteral("name"));
-    if (name.isEmpty() && typeId() == QLatin1String("stage"))
+    if (name.isEmpty() && typeId() == MugenType::Stage)
         name = def.value(QStringLiteral("Info"), QStringLiteral("displayname"));
     setName(name);
 }
@@ -182,20 +183,20 @@ void MugenProject::readInfo(const DefFile& def)
 QString MugenProject::detectType(const DefFile& def)
 {
     if (def.hasSection(QStringLiteral("SceneDef")))
-        return QStringLiteral("storyboard");
+        return MugenType::Storyboard;
     if (def.hasSection(QStringLiteral("StageInfo")) || def.hasSection(QStringLiteral("Camera")) ||
         def.hasSection(QStringLiteral("PlayerInfo")))
-        return QStringLiteral("stage");
+        return MugenType::Stage;
     if (def.hasSection(QStringLiteral("Title Info")) || def.hasSection(QStringLiteral("Select Info")))
-        return QStringLiteral("motif");
+        return MugenType::Motif;
     if (def.hasSection(QStringLiteral("FightFX")) || def.hasSection(QStringLiteral("Lifebar")))
-        return QStringLiteral("fight");
+        return MugenType::Fight;
     if (def.hasSection(QStringLiteral("Characters")) || def.hasSection(QStringLiteral("ExtraStages")))
-        return QStringLiteral("select");
+        return MugenType::Select;
     if (def.hasSection(QStringLiteral("FNT v2")) ||
         (def.hasSection(QStringLiteral("Def")) && !def.value(QStringLiteral("Def"), QStringLiteral("Type")).isEmpty()))
-        return QStringLiteral("font");
-    return QStringLiteral("char");
+        return MugenType::Font;
+    return MugenType::Character;
 }
 
 QString MugenProject::detectVersion(const DefFile& def)
@@ -222,13 +223,13 @@ QStringList MugenProject::editorsForType(const QString& typeId)
     const QString snd = EditorId::Sounds;
     const QString emul = EditorId::Emulator;
 
-    if (typeId == QLatin1String("char"))
+    if (typeId == MugenType::Character)
         return {def, spr, anim, cmd, st, snd, emul};
-    if (typeId == QLatin1String("stage") || typeId == QLatin1String("storyboard"))
+    if (typeId == MugenType::Stage || typeId == MugenType::Storyboard)
         return {def, spr, anim, bg, emul};
-    if (typeId == QLatin1String("motif"))
+    if (typeId == MugenType::Motif)
         return {def, spr, anim, bg, snd, emul};
-    if (typeId == QLatin1String("fight"))
+    if (typeId == MugenType::Fight)
         return {def, spr, anim, snd, emul};
     return {def, emul}; // font, select
 }
@@ -276,7 +277,7 @@ void MugenProject::collectFiles(const DefFile& def)
     setEditorFiles(EditorId::Emulator, {});
 
     const QString type = typeId();
-    if (type == QLatin1String("char")) {
+    if (type == MugenType::Character) {
         setEditorFiles(EditorId::Sprites, {resolve(def.value(files, QStringLiteral("sprite")))});
         setEditorFiles(EditorId::Animations, {resolve(def.value(files, QStringLiteral("anim")))});
         setEditorFiles(EditorId::Commands, {resolve(def.value(files, QStringLiteral("cmd")))});
@@ -287,15 +288,15 @@ void MugenProject::collectFiles(const DefFile& def)
         for (const QString& st : def.values(files, QStringLiteral("st[0-9]+")))
             addUnique(states, resolve(st));
         setEditorFiles(EditorId::States, states);
-    } else if (type == QLatin1String("stage")) {
+    } else if (type == MugenType::Stage) {
         setEditorFiles(EditorId::Sprites, {resolve(def.value(QStringLiteral("BGdef"), QStringLiteral("spr")))});
         setEditorFiles(EditorId::Animations, {filePath()});
         setEditorFiles(EditorId::Backgrounds, {filePath()});
-    } else if (type == QLatin1String("storyboard")) {
+    } else if (type == MugenType::Storyboard) {
         setEditorFiles(EditorId::Sprites, {resolve(def.value(QStringLiteral("SceneDef"), QStringLiteral("spr")))});
         setEditorFiles(EditorId::Animations, {filePath()});
         setEditorFiles(EditorId::Backgrounds, {filePath()});
-    } else if (type == QLatin1String("motif")) {
+    } else if (type == MugenType::Motif) {
         QStringList definitions{filePath()};
         addUnique(definitions, resolveData(def.value(files, QStringLiteral("select"))));
         setEditorFiles(EditorId::Definitions, definitions);
@@ -303,7 +304,7 @@ void MugenProject::collectFiles(const DefFile& def)
         setEditorFiles(EditorId::Animations, {filePath()});
         setEditorFiles(EditorId::Backgrounds, {filePath()});
         setEditorFiles(EditorId::Sounds, {resolve(def.value(files, QStringLiteral("snd")))});
-    } else if (type == QLatin1String("fight")) {
+    } else if (type == MugenType::Fight) {
         QStringList sprites;
         addUnique(sprites, resolve(def.value(files, QStringLiteral("sff"))));
         addUnique(sprites, resolve(def.value(files, QStringLiteral("fightfx.sff"))));

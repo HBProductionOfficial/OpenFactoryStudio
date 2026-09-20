@@ -13,6 +13,7 @@
 #include "core/sprites/SpriteExport.h"
 #include "core/sprites/SpriteFile.h"
 #include "engines/mugen/DefFile.h"
+#include "engines/mugen/MugenTypes.h"
 #include "formats/codecs/Gif.h"
 
 #include <QCoreApplication>
@@ -283,11 +284,11 @@ QList<QPair<QString, QString>> htmlLayouts(const QStringList& roots, const QStri
 
 QString htmlLayoutKind(const QString& projectType)
 {
-    if (projectType == QLatin1String("char"))
+    if (projectType == MugenType::Character)
         return QStringLiteral("char");
-    if (projectType == QLatin1String("stage"))
+    if (projectType == MugenType::Stage)
         return QStringLiteral("stage");
-    if (projectType == QLatin1String("storyboard"))
+    if (projectType == MugenType::Storyboard)
         return QStringLiteral("scene");
     return {};
 }
@@ -408,7 +409,7 @@ bool exportHtml(Project& project, const HtmlExportOptions& options, const QStrin
     const QString base = target.completeBaseName();
     const SpriteDocument* sprites = projectSprites(project);
     const QString type = project.typeId();
-    if (type == QLatin1String("char")) {
+    if (type == MugenType::Character) {
         if (sprites) {
             const QList<std::tuple<int, QString, QString>> portraits = {
                 {1, QStringLiteral("big.png"), QStringLiteral("bigportrait")},
@@ -448,7 +449,7 @@ bool exportHtml(Project& project, const HtmlExportOptions& options, const QStrin
                     (options.horizontalLines ? QStringLiteral("<hr/>") : QStringLiteral("<br/>")) + QLatin1Char('\n');
         }
         values.insert(QStringLiteral("commands"), list);
-    } else if (type == QLatin1String("stage")) {
+    } else if (type == MugenType::Stage) {
         const QStringList lines = projectText(project, project.filePath()).split(QLatin1Char('\n'));
         const BgDocument bg = BgDocument::parse(lines);
         const AirDocument air = AirDocument::parse(lines);

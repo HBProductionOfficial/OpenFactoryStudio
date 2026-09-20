@@ -5,6 +5,7 @@
 #include "core/project/ProjectFile.h"
 #include "core/project/ProjectSearch.h"
 #include "engines/mugen/DefFile.h"
+#include "engines/mugen/MugenTypes.h"
 #include "engines/mugen/ProjectGraphics.h"
 
 #include <QCoreApplication>
@@ -127,7 +128,7 @@ RunCopy prepareRunCopy(const Project& project, const QString& engineDir)
                    ? projectFile.mid(base.size())
                    : QString();
     };
-    if (type == QLatin1String("char")) {
+    if (type == MugenType::Character) {
         if (const QString relative = inside(QStringLiteral("chars")); relative.count(QLatin1Char('/')) == 1) {
             const QString folder = relative.section(QLatin1Char('/'), 0, 0);
             const bool same = QFileInfo(relative).completeBaseName().compare(folder, Qt::CaseInsensitive) == 0;
@@ -135,13 +136,13 @@ RunCopy prepareRunCopy(const Project& project, const QString& engineDir)
             copy.inPlace = true;
             return copy;
         }
-    } else if (type == QLatin1String("stage")) {
+    } else if (type == MugenType::Stage) {
         if (const QString relative = inside(QStringLiteral("stages")); !relative.isEmpty()) {
             copy.name = relative.endsWith(QLatin1String(".def"), Qt::CaseInsensitive) ? relative.chopped(4) : relative;
             copy.inPlace = true;
             return copy;
         }
-    } else if (type == QLatin1String("motif")) {
+    } else if (type == MugenType::Motif) {
         const QString relative = inside(QStringLiteral("data"));
         if (relative.count(QLatin1Char('/')) == 1 &&
             QFileInfo(relative).fileName().compare(QLatin1String("system.def"), Qt::CaseInsensitive) == 0) {
@@ -151,7 +152,7 @@ RunCopy prepareRunCopy(const Project& project, const QString& engineDir)
         }
     }
 
-    if (type == QLatin1String("char")) {
+    if (type == MugenType::Character) {
         const QString chars = root + QStringLiteral("/chars");
         copy.name = freeName(chars);
         const QString dir = chars + QLatin1Char('/') + copy.name;
@@ -161,7 +162,7 @@ RunCopy prepareRunCopy(const Project& project, const QString& engineDir)
         return copy;
     }
 
-    if (type == QLatin1String("stage")) {
+    if (type == MugenType::Stage) {
         const QString stages = root + QStringLiteral("/stages");
         copy.name = freeName(stages);
         DefFile def;
@@ -195,7 +196,7 @@ RunCopy prepareRunCopy(const Project& project, const QString& engineDir)
         return copy;
     }
 
-    if (type == QLatin1String("motif")) {
+    if (type == MugenType::Motif) {
         const QString data = root + QStringLiteral("/data");
         copy.name = freeName(data);
         const QString dir = data + QLatin1Char('/') + copy.name;

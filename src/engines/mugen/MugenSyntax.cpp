@@ -1,6 +1,7 @@
 #include "engines/mugen/MugenSyntax.h"
 
 #include "core/code/CodeLine.h"
+#include "engines/mugen/MugenTypes.h"
 #include "engines/mugen/expr/Expression.h"
 
 #include <QCoreApplication>
@@ -218,7 +219,7 @@ IssueList validateMugenCode(const SyntaxDatabase& syntax, const QString& fileTyp
 
     // A storyboard scene names its background with bg.name. "<name>Def", "<name> ...", "<name>CtrlDef"
     // and "<name>Ctrl ..." are its BG sections.
-    if (fileType == QLatin1String("storyboard")) {
+    if (fileType == MugenType::Storyboard) {
         QStringList names;
         static const QRegularExpression bgName(QStringLiteral("^\\s*bg\\.name\\s*=\\s*\"?([^\";\\r\\n]+)"),
                                                QRegularExpression::CaseInsensitiveOption |

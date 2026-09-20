@@ -41,6 +41,7 @@ add_library(ofs_mugen_lib STATIC
     MugenHtmlExport.h
     MugenHtmlExport.cpp
     MugenSyntax.h
+    MugenTypes.h
     MugenSyntax.cpp
     expr/Expression.h
     expr/Expression.cpp
