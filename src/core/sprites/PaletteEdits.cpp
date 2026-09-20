@@ -238,9 +238,7 @@ int addMissingPalette(SpriteDocument& doc)
     const QList<int> sprites = spritesWithoutPalette(doc);
     if (sprites.isEmpty())
         return -1;
-    Palette gray(256);
-    for (int i = 0; i < 256; ++i)
-        gray[std::size_t(i)] = Rgba{std::uint8_t(i), std::uint8_t(i), std::uint8_t(i), 255};
+    const Palette gray = Formats::grayscalePalette();
     int number = 1;
     for (bool taken = true; taken; ++number) {
         taken = false;

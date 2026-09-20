@@ -64,12 +64,14 @@ public:
     void setBrushSize(Tool tool, int size);
     bool contiguous(Tool tool) const;
     void setContiguous(Tool tool, bool contiguous);
+    static constexpr int MaxBrushSize = 128;
+    static constexpr int RemapSlotCount = 32;
     struct RemapSlot
     {
         std::optional<PaintColor> source;
         std::optional<PaintColor> replacement;
     };
-    const std::array<RemapSlot, 32>& remapSlots() const { return m_slots; }
+    const std::array<RemapSlot, RemapSlotCount>& remapSlots() const { return m_slots; }
     int currentSlot() const { return m_currentSlot; }
     void setCurrentSlot(int slot);
     void setSlotColor(bool replacement, const PaintColor& color);
@@ -108,7 +110,7 @@ private:
     PaintColor m_background{0, {0, 0, 0, 255}};
     std::array<int, 4> m_sizes{1, 1, 1, 1};       // free selection, pen, eraser, remap pen
     std::array<bool, 2> m_contiguous{true, true}; // wand, bucket
-    std::array<RemapSlot, 32> m_slots;
+    std::array<RemapSlot, RemapSlotCount> m_slots;
     int m_currentSlot = 0;
     QTimer* m_playTimer;
     ImageDocument m_playDocument;

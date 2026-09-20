@@ -1,12 +1,12 @@
 #include "engines/mugen/emulator/EmulatorWidget.h"
 
 #include "core/GameTime.h"
-#include "core/widgets/RenderSurface.h"
-
 #include "core/app/AppContext.h"
 #include "core/project/Project.h"
 #include "core/settings/Config.h"
 #include "core/sprites/SpriteFile.h"
+#include "core/widgets/RenderSurface.h"
+#include "engines/mugen/MugenEngine.h"
 
 #include <QAbstractButton>
 #include <QCheckBox>
@@ -47,7 +47,7 @@ EmulatorWidget::EmulatorWidget(Project& project, AppContext& context, QWidget* p
     setMouseTracking(true);
     m_surface = Rendering::attachSurface(this, [this](QPainter& p) { paintScreen(p); });
     setAttribute(Qt::WA_OpaquePaintEvent);
-    connect(&m_context.engineConfig(QStringLiteral("mugen")), &Config::changed, this, [this] {
+    connect(&m_context.engineConfig(MugenEngine::Id), &Config::changed, this, [this] {
         m_keyCodes.reset();
         m_renderOptions.reset();
     });
@@ -57,7 +57,7 @@ EmulatorWidget::EmulatorWidget(Project& project, AppContext& context, QWidget* p
     connect(&m_timer, &QTimer::timeout, this, &EmulatorWidget::advance);
     m_engineDir = EmulatorSession::engineFolderOf(project.filePath());
     if (m_engineDir.isEmpty())
-        m_engineDir = m_context.engineConfig(QStringLiteral("mugen")).value(QLatin1String(EngineKey));
+        m_engineDir = m_context.engineConfig(MugenEngine::Id).value(QLatin1String(EngineKey));
     connect(&project, &Project::fileAdded, this, [this](ProjectFile* file) {
         if (auto* sprites = qobject_cast<SpriteFile*>(file))
             connect(sprites, &SpriteFile::documentChanged, this, [this] { m_renderer.clearCache(); });
@@ -173,7 +173,7 @@ QString EmulatorWidget::engineDir() const
 void EmulatorWidget::setEngineDir(const QString& dir)
 {
     m_engineDir = QDir::fromNativeSeparators(dir.trimmed());
-    m_context.engineConfig(QStringLiteral("mugen")).setValue(QLatin1String(EngineKey), m_engineDir);
+    m_context.engineConfig(MugenEngine::Id).setValue(QLatin1String(EngineKey), m_engineDir);
     if (auto* edit = qobject_cast<QLineEdit*>(m_engine.data()))
         edit->setText(QDir::toNativeSeparators(m_engineDir));
 }
@@ -540,7 +540,7 @@ constexpr const char* kButtons[] = {"up", "down", "left", "right", "a", "b", "c"
 InputState EmulatorWidget::inputOf(int player) const
 {
     if (!m_keyCodes) {
-        const Config& config = m_context.engineConfig(QStringLiteral("mugen"));
+        const Config& config = m_context.engineConfig(MugenEngine::Id);
         KeyCodes codes{};
         for (int p = 0; p < 2; ++p) {
             for (std::size_t b = 0; b < std::size(kButtons); ++b) {
@@ -610,7 +610,7 @@ EmulatorRenderer::Options EmulatorWidget::readRenderOptions() const
     const Config& config = m_context.config();
     options.attackBoxes = config.boolValue(QStringLiteral("show_attack_box"), true);
     options.collisionBoxes = config.boolValue(QStringLiteral("show_collision_box"), true);
-    const Config& engine = m_context.engineConfig(QStringLiteral("mugen"));
+    const Config& engine = m_context.engineConfig(MugenEngine::Id);
     options.attackColor = engine.colorValue(QStringLiteral("clsn_default_attack"), options.attackColor);
     options.collisionColor = engine.colorValue(QStringLiteral("clsn_default_collision"), options.collisionColor);
     return options;

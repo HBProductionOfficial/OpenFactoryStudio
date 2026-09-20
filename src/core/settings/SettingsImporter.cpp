@@ -21,6 +21,9 @@ namespace OFS {
 
 namespace {
 
+// Fighter Factory's only engine module. Its settings are <user folder>/mugen_config.xml.
+const QString OriginalEngine = QStringLiteral("mugen");
+
 const QStringList kRectKeys = {QStringLiteral("advpal_geometry"), QStringLiteral("anim_editcode_geometry"),
                                QStringLiteral("project_run_geometry"), QStringLiteral("script_geometry")};
 
@@ -135,8 +138,8 @@ SettingsImporter::Report SettingsImporter::import(AppContext& context, Parts par
     const ThemeManager& theme = context.theme();
     setAvailableThemes(theme.availablePresets(), theme.availableIconSets(), theme.availableStyles(),
                        theme.availableColorSets());
-    return import(context.config(), context.shortcuts(), context.history(),
-                  &context.engineConfig(QStringLiteral("mugen")), parts);
+    return import(context.config(), context.shortcuts(), context.history(), &context.engineConfig(OriginalEngine),
+                  parts);
 }
 
 void SettingsImporter::importConfig(Config& config, Report& report) const
@@ -255,7 +258,7 @@ void SettingsImporter::importHistory(History& history, Report& report) const
 
 void SettingsImporter::importEngine(Config& engineConfig, Report& report) const
 {
-    const QString file = SettingsFiles::engineConfig(m_sourceDir, QStringLiteral("mugen"));
+    const QString file = SettingsFiles::engineConfig(m_sourceDir, OriginalEngine);
     const QMap<QString, QString> values = readConfigFile(file, report);
     for (auto it = values.cbegin(); it != values.cend(); ++it) {
         if (isPathKey(it.key()) && !it.value().isEmpty() && !QFileInfo::exists(it.value())) {

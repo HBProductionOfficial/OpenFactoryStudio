@@ -112,7 +112,7 @@ void PaletteWidget::paintEvent(QPaintEvent*)
     if (rows > fullRows)
         painter.fillRect(QRect(origin.x(), origin.y() + fullRows * kPitch, (count % n) * kPitch + 1, kPitch + 1),
                          Qt::white);
-    const QColor gray(160, 160, 164);
+    const QColor gray(Qt::gray);
     for (int slot = 0; slot < count; ++slot) {
         const QRect cell = cellRect(slot);
         QColor color(Qt::black);

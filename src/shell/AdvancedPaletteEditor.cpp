@@ -74,7 +74,7 @@ protected:
     void paintEvent(QPaintEvent*) override
     {
         QPainter painter(this);
-        painter.fillRect(rect(), checkerboard(8, Qt::white, QColor(160, 160, 164)));
+        painter.fillRect(rect(), checkerboard(8, Qt::white, Qt::gray));
         if (!m_image.isNull())
             painter.drawImage(QRectF(0, 0, m_image.width() * m_zoom, m_image.height() * m_zoom), m_image);
     }

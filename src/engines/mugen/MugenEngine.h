@@ -18,6 +18,8 @@ public:
     explicit MugenEngine(QObject* parent = nullptr);
     ~MugenEngine() override;
 
+    // The engine's name: its settings file, data folder and options page are named after it.
+    static constexpr QLatin1StringView Id{"mugen"};
     QString name() const override;
     QString displayName() const override;
     QList<EngineVersion> versions() const override;

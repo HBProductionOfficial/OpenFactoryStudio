@@ -68,6 +68,8 @@ namespace OFS {
 
 namespace {
 
+constexpr int TypingPauseMs = 300;
+
 constexpr int kPanelWidth = 262;
 
 QScrollArea* makeScrollArea(QWidget* parent)
@@ -354,7 +356,7 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
                     [this, page, file](const QString& oldPath) { fileRenamed(page, oldPath, file->path()); });
             auto* timer = new QTimer(page);
             timer->setSingleShot(true);
-            timer->setInterval(300);
+            timer->setInterval(TypingPauseMs);
             connect(timer, &QTimer::timeout, this, [this, page] { analyze(page); });
             connect(file->document(), &QTextDocument::contentsChanged, timer, qOverload<>(&QTimer::start));
             QTimer::singleShot(0, this, [this, page] { analyze(page); });
@@ -1004,7 +1006,7 @@ void ProjectView::createCommandsOrganizer()
     m_commandsOrganizer = new OrganizerBinding(source, this);
     auto* timer = new QTimer(this);
     timer->setSingleShot(true);
-    timer->setInterval(300);
+    timer->setInterval(TypingPauseMs);
     connect(timer, &QTimer::timeout, m_commandsOrganizer, &OrganizerBinding::refresh);
     for (ProjectFile* f : m_project->files()) {
         if (auto* code = qobject_cast<CodeFile*>(f); code && code->editorId() == QLatin1String("commands"))

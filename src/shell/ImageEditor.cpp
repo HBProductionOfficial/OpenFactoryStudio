@@ -30,38 +30,42 @@ QRect gridRect(const QPoint& a, const QPoint& b)
 class RemapSlotsWidget : public QWidget
 {
 public:
+    static constexpr int Cell = 12;
+    static constexpr int Half = Cell / 2;
+
     explicit RemapSlotsWidget(ImageEditor* editor)
         : QWidget(editor)
         , m_editor(editor)
     {
-        setFixedSize(32 * 12 + 2, 2 * 12 + 2);
+        setFixedSize(ImageEditor::RemapSlotCount * Cell + 2, 2 * Cell + 2);
     }
 
 protected:
     void paintEvent(QPaintEvent*) override
     {
         QPainter p(this);
-        for (int i = 0; i < 32; ++i) {
+        const QColor empty(192, 192, 192);
+        for (int i = 0; i < ImageEditor::RemapSlotCount; ++i) {
             const ImageEditor::RemapSlot& slot = m_editor->remapSlots()[std::size_t(i)];
             for (int row = 0; row < 2; ++row) {
-                const QRect cell(1 + i * 12, 1 + row * 12, 12, 12);
+                const QRect cell(1 + i * Cell, 1 + row * Cell, Cell, Cell);
                 const std::optional<PaintColor>& color = row == 0 ? slot.source : slot.replacement;
                 if (color) {
                     p.fillRect(cell, m_editor->displayColor(*color));
                 } else {
                     p.fillRect(cell, Qt::white);
-                    p.fillRect(QRect(cell.topLeft(), QSize(6, 6)), QColor(192, 192, 192));
-                    p.fillRect(QRect(cell.topLeft() + QPoint(6, 6), QSize(6, 6)), QColor(192, 192, 192));
+                    p.fillRect(QRect(cell.topLeft(), QSize(Half, Half)), empty);
+                    p.fillRect(QRect(cell.topLeft() + QPoint(Half, Half), QSize(Half, Half)), empty);
                 }
             }
         }
         p.setPen(QPen(palette().color(QPalette::Highlight), 2));
-        p.drawRect(QRect(1 + m_editor->currentSlot() * 12, 1, 12, 24));
+        p.drawRect(QRect(1 + m_editor->currentSlot() * Cell, 1, Cell, 2 * Cell));
     }
     void mousePressEvent(QMouseEvent* event) override
     {
         if (event->button() == Qt::LeftButton) {
-            m_editor->setCurrentSlot(std::clamp(int(event->position().x() - 1) / 12, 0, 31));
+            m_editor->setCurrentSlot(int(event->position().x() - 1) / Cell);
             update();
         }
     }
@@ -119,7 +123,7 @@ ImageEditor::ImageEditor(QWidget* parent)
     m_canvas->setObjectName(QStringLiteral("imageCanvas"));
     m_options->setObjectName(QStringLiteral("spr_tool_options"));
     m_size->setObjectName(QStringLiteral("toolSize"));
-    m_size->setRange(1, 128);
+    m_size->setRange(1, MaxBrushSize);
     m_size->setFixedWidth(256);
     m_contiguousBox->setObjectName(QStringLiteral("toolContiguous"));
     m_remap->setObjectName(QStringLiteral("remapSlots"));
@@ -235,7 +239,7 @@ void ImageEditor::setBrushSize(Tool tool, int size)
     const int i = sizeIndex(tool);
     if (i < 0)
         return;
-    m_sizes[std::size_t(i)] = std::clamp(size, 1, 128);
+    m_sizes[std::size_t(i)] = std::clamp(size, 1, MaxBrushSize);
     if (tool == m_tool)
         updateOptions();
 }
@@ -300,7 +304,7 @@ void ImageEditor::setBackground(const PaintColor& color)
 QColor ImageEditor::displayColor(const PaintColor& color) const
 {
     if (color.rgba.a == 0)
-        return QColor(160, 160, 164);
+        return QColor(Qt::gray);
     return QColor(color.rgba.r, color.rgba.g, color.rgba.b);
 }
 
@@ -319,7 +323,7 @@ PaintColor ImageEditor::sample(const QPoint& pixel) const
 
 void ImageEditor::setCurrentSlot(int slot)
 {
-    m_currentSlot = std::clamp(slot, 0, 31);
+    m_currentSlot = std::clamp(slot, 0, RemapSlotCount - 1);
     m_remap->update();
 }
 

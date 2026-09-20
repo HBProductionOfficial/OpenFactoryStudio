@@ -44,7 +44,7 @@ MugenEngine::~MugenEngine() = default;
 
 QString MugenEngine::name() const
 {
-    return QStringLiteral("mugen");
+    return Id;
 }
 
 QString MugenEngine::displayName() const
