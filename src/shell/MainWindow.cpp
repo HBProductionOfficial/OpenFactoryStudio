@@ -1756,37 +1756,35 @@ void MainWindow::applyInterface()
         engineDirs << engine->dataDir();
     theme.setEngineDataDirs(engineDirs);
 
-    const QString presetName = config.value(QStringLiteral("preset"), QStringLiteral("Neo"));
+    const QString presetName = config.value(QStringLiteral("preset"), ThemeManager::DefaultPreset);
     Preset::Model model;
     const QString globalPreset = theme.presetPath(presetName);
     if (!globalPreset.isEmpty())
         Preset::PresetEngine::runFile(globalPreset, model);
     for (Engine* engine : m_context.engines().engines()) {
-        QString path = engine->userDataDir() + QStringLiteral("/presets/") + presetName + QStringLiteral(".lua");
-        if (!QFileInfo::exists(path))
-            path = engine->dataDir() + QStringLiteral("/presets/") + presetName + QStringLiteral(".lua");
-        if (QFileInfo::exists(path))
+        const QString path = ThemeManager::findPreset({engine->userDataDir(), engine->dataDir()}, presetName);
+        if (!path.isEmpty())
             Preset::PresetEngine::runFile(path, model);
     }
     for (const QString& error : std::as_const(model.errors))
         qWarning("preset: %s", qPrintable(error));
 
-    auto choose = [&config](const char* key, const QString& fromPreset, const char* fallback) {
+    auto choose = [&config](const char* key, const QString& fromPreset, QLatin1StringView fallback) {
         QString v = config.value(QString::fromLatin1(key));
         if (v.isEmpty())
             v = fromPreset;
-        return v.isEmpty() ? QString::fromLatin1(fallback) : v;
+        return v.isEmpty() ? QString(fallback) : v;
     };
-    theme.setIconSet(choose("iconset", model.iconset, "Nuvola"));
+    theme.setIconSet(choose("iconset", model.iconset, ThemeManager::DefaultIconSet));
     theme.setScale(config.boolValue(QStringLiteral("dpi_auto"), false)
                        ? 1.0
                        : std::clamp(config.value(QStringLiteral("dpi_scale"), QStringLiteral("1")).toDouble(),
                                     ThemeManager::MinScale, ThemeManager::MaxScale));
-    if (theme.setStyle(choose("stylesheet", model.stylesheet, "Dark"))) {
+    if (theme.setStyle(choose("stylesheet", model.stylesheet, ThemeManager::DefaultStyle))) {
         QApplication::setPalette(theme.palette());
         qApp->setStyleSheet(theme.styleSheet());
     }
-    theme.setColorSet(choose("colorset", model.colorset, "Dark"));
+    theme.setColorSet(choose("colorset", model.colorset, ThemeManager::DefaultColorSet));
     m_context.actions().applyIcons(theme.iconSet());
     m_dock->setArrowIcons(theme.iconSet().icon(QStringLiteral("bottom_up")),
                           theme.iconSet().icon(QStringLiteral("bottom_down")));

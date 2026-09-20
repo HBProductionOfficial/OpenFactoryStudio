@@ -2,6 +2,7 @@
 
 #include "core/CoreExport.h"
 #include "core/actions/MenuSpec.h"
+#include "core/app/Languages.h"
 #include "core/editors/EditorInfo.h"
 #include "core/syntax/Issue.h"
 
@@ -174,7 +175,7 @@ protected:
 
 private:
     std::unique_ptr<SnippetLibrary> m_snippets;
-    QString m_language = QStringLiteral("en-us");
+    QString m_language = SourceLanguage;
 };
 
 class EnginePlugin

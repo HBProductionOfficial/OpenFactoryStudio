@@ -5,6 +5,7 @@
 #include "core/app/AppContext.h"
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
+#include "core/settings/SettingsFiles.h"
 #include "core/settings/ShortcutSettings.h"
 #include "core/settings/XmlRecordFile.h"
 #include "core/theme/ThemeManager.h"
@@ -99,8 +100,8 @@ QString SettingsImporter::defaultSourceDir()
 
 bool SettingsImporter::hasSettings() const
 {
-    return QFileInfo::exists(m_sourceDir + QStringLiteral("/config.xml")) ||
-           QFileInfo::exists(m_sourceDir + QStringLiteral("/shortcuts.xml"));
+    return QFileInfo::exists(SettingsFiles::config(m_sourceDir)) ||
+           QFileInfo::exists(SettingsFiles::shortcuts(m_sourceDir));
 }
 
 void SettingsImporter::setAvailableThemes(const QStringList& presets, const QStringList& iconSets,
@@ -140,7 +141,7 @@ SettingsImporter::Report SettingsImporter::import(AppContext& context, Parts par
 
 void SettingsImporter::importConfig(Config& config, Report& report) const
 {
-    QMap<QString, QString> values = readConfigFile(m_sourceDir + QStringLiteral("/config.xml"), report);
+    QMap<QString, QString> values = readConfigFile(SettingsFiles::config(m_sourceDir), report);
 
     int left = 0;
     int top = 0;
@@ -204,7 +205,7 @@ void SettingsImporter::importConfig(Config& config, Report& report) const
 
 void SettingsImporter::importShortcuts(ShortcutSettings& shortcuts, Report& report) const
 {
-    const auto records = readRecords(m_sourceDir + QStringLiteral("/shortcuts.xml"), QStringLiteral("shortcuts"),
+    const auto records = readRecords(SettingsFiles::shortcuts(m_sourceDir), QStringLiteral("shortcuts"),
                                      QStringLiteral("shortcut"), report);
     QStringList seen;
     for (const XmlRecord& record : records) {
@@ -226,8 +227,8 @@ void SettingsImporter::importShortcuts(ShortcutSettings& shortcuts, Report& repo
 
 void SettingsImporter::importHistory(History& history, Report& report) const
 {
-    const auto records = readRecords(m_sourceDir + QStringLiteral("/history.xml"), QStringLiteral("history"),
-                                     QStringLiteral("entry"), report);
+    const auto records =
+        readRecords(SettingsFiles::history(m_sourceDir), QStringLiteral("history"), QStringLiteral("entry"), report);
     QList<History::Entry> entries = history.entries();
     auto contains = [&entries](const QString& file) {
         for (const History::Entry& entry : std::as_const(entries)) {
@@ -254,7 +255,8 @@ void SettingsImporter::importHistory(History& history, Report& report) const
 
 void SettingsImporter::importEngine(Config& engineConfig, Report& report) const
 {
-    const QMap<QString, QString> values = readConfigFile(m_sourceDir + QStringLiteral("/mugen_config.xml"), report);
+    const QString file = SettingsFiles::engineConfig(m_sourceDir, QStringLiteral("mugen"));
+    const QMap<QString, QString> values = readConfigFile(file, report);
     for (auto it = values.cbegin(); it != values.cend(); ++it) {
         if (isPathKey(it.key()) && !it.value().isEmpty() && !QFileInfo::exists(it.value())) {
             report.droppedPaths << QStringLiteral("mugen ") + it.key() + QStringLiteral(": ") + it.value();
@@ -264,8 +266,7 @@ void SettingsImporter::importEngine(Config& engineConfig, Report& report) const
         ++report.engineValues;
     }
     bool found = false;
-    const QList<RunConfiguration> runs =
-        RunConfiguration::readFile(m_sourceDir + QStringLiteral("/mugen_config.xml"), &found);
+    const QList<RunConfiguration> runs = RunConfiguration::readFile(file, &found);
     if (found) {
         RunConfiguration::save(engineConfig, runs);
         report.engineValues += int(runs.size());

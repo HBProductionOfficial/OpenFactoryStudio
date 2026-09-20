@@ -1,5 +1,7 @@
 #include "core/app/Translations.h"
 
+#include "core/app/Languages.h"
+
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
@@ -48,8 +50,7 @@ int install(const QString& code, const QStringList& searchDirs)
         }
     }
     installed().clear();
-    if (code.isEmpty() || code.compare(QLatin1String("en-us"), Qt::CaseInsensitive) == 0 ||
-        !QCoreApplication::instance())
+    if (code.isEmpty() || code.compare(SourceLanguage, Qt::CaseInsensitive) == 0 || !QCoreApplication::instance())
         return 0;
     int count = 0;
     // Qt's own texts first, so the program's catalogs win.

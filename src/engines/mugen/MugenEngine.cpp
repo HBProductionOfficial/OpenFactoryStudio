@@ -1,6 +1,4 @@
 #include "engines/mugen/MugenEngine.h"
-#include "core/sprites/QtImages.h"
-#include "engines/mugen/emulator/EmulatorWidget.h"
 
 #include "core/anims/AirDocument.h"
 #include "core/app/AppContext.h"
@@ -8,6 +6,8 @@
 #include "core/code/VariableUsage.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
+#include "core/script/ScriptFolders.h"
+#include "core/sprites/QtImages.h"
 #include "core/sprites/SpriteFile.h"
 #include "core/syntax/SyntaxDatabase.h"
 #include "engines/mugen/AirEdits.h"
@@ -25,6 +25,7 @@
 #include "engines/mugen/dialogs/OffsetViewerDialog.h"
 #include "engines/mugen/dialogs/PalFXDialog.h"
 #include "engines/mugen/dialogs/ThrowCreatorDialog.h"
+#include "engines/mugen/emulator/EmulatorWidget.h"
 
 #include <QDir>
 #include <QFile>
@@ -330,7 +331,8 @@ void MugenEngine::runTool(const QString& actionId, const ToolContext& context)
     }
     if (actionId == QLatin1String("st_throw")) {
         ThrowCreatorDialog dialog(context.project, context.projects,
-                                  dataDir() + QStringLiteral("/scripts/common/Throw.lua"), context.parent);
+                                  Script::scriptFile(dataDir(), Script::ScriptType::Common, QStringLiteral("Throw")),
+                                  context.parent);
         dialog.setInsertHandler(context.insertText);
         dialog.setIcons(context.icon);
         dialog.exec();

@@ -90,6 +90,7 @@ add_library(ofscore SHARED
     settings/History.cpp
     settings/SettingsBundle.h
     settings/SettingsBundle.cpp
+    settings/SettingsFiles.h
     settings/SettingsImporter.h
     settings/SettingsImporter.cpp
     settings/ShortcutSettings.h

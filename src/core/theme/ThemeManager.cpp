@@ -28,6 +28,26 @@ void ThemeManager::setEngineDataDirs(const QStringList& dirs)
 
 namespace {
 
+const QString PresetsKind = QStringLiteral("presets");
+const QString PresetSuffix = QStringLiteral("lua");
+const QString ColorSetsKind = QStringLiteral("colorsets");
+const QString ColorSetSuffix = QStringLiteral("xml");
+const QString IconSetsKind = QStringLiteral("iconsets");
+const QString IconSetMarker = QStringLiteral("iconset.xml");
+const QString StylesKind = QStringLiteral("styles");
+const QString StyleMarker = QStringLiteral("stylesheet.css");
+const QString StylePalette = QStringLiteral("palette.xml");
+
+QString findFile(const QStringList& roots, const QString& kind, const QString& name, const QString& suffix)
+{
+    for (const QString& root : roots) {
+        const QString path = root + u'/' + kind + u'/' + name + u'.' + suffix;
+        if (QFileInfo::exists(path))
+            return path;
+    }
+    return {};
+}
+
 QStringList listFiles(const QStringList& roots, const QString& kind, const QString& suffix)
 {
     QStringList names;
@@ -58,22 +78,22 @@ QStringList listDirs(const QStringList& roots, const QString& kind, const QStrin
 
 QStringList ThemeManager::availablePresets() const
 {
-    return listFiles(m_searchDirs, QStringLiteral("presets"), QStringLiteral("lua"));
+    return listFiles(m_searchDirs, PresetsKind, PresetSuffix);
 }
 
 QStringList ThemeManager::availableIconSets() const
 {
-    return listDirs(m_searchDirs, QStringLiteral("iconsets"), QStringLiteral("iconset.xml"));
+    return listDirs(m_searchDirs, IconSetsKind, IconSetMarker);
 }
 
 QStringList ThemeManager::availableStyles() const
 {
-    return listDirs(m_searchDirs, QStringLiteral("styles"), QStringLiteral("stylesheet.css"));
+    return listDirs(m_searchDirs, StylesKind, StyleMarker);
 }
 
 QStringList ThemeManager::availableColorSets() const
 {
-    return listFiles(m_searchDirs, QStringLiteral("colorsets"), QStringLiteral("xml"));
+    return listFiles(m_searchDirs, ColorSetsKind, ColorSetSuffix);
 }
 
 QString ThemeManager::findDir(const QString& kind, const QString& name, const QString& marker) const
@@ -88,35 +108,30 @@ QString ThemeManager::findDir(const QString& kind, const QString& name, const QS
 
 QString ThemeManager::presetPath(const QString& name) const
 {
-    for (const QString& root : m_searchDirs) {
-        const QString path = root + QStringLiteral("/presets/") + name + QStringLiteral(".lua");
-        if (QFileInfo::exists(path))
-            return path;
-    }
-    return {};
+    return findPreset(m_searchDirs, name);
+}
+
+QString ThemeManager::findPreset(const QStringList& roots, const QString& name)
+{
+    return findFile(roots, PresetsKind, name, PresetSuffix);
 }
 
 QString ThemeManager::colorSetPath(const QString& name) const
 {
-    for (const QString& root : m_searchDirs) {
-        const QString path = root + QStringLiteral("/colorsets/") + name + QStringLiteral(".xml");
-        if (QFileInfo::exists(path))
-            return path;
-    }
-    return {};
+    return findFile(m_searchDirs, ColorSetsKind, name, ColorSetSuffix);
 }
 
 bool ThemeManager::setIconSet(const QString& name)
 {
-    const QString dir = findDir(QStringLiteral("iconsets"), name, QStringLiteral("iconset.xml"));
+    const QString dir = findDir(IconSetsKind, name, IconSetMarker);
     if (dir.isEmpty())
         return false;
     IconSet set;
     if (!set.load(dir))
         return false;
     for (const QString& engineDir : m_engineDataDirs) {
-        const QString overlay = engineDir + QStringLiteral("/iconsets/") + name;
-        if (QFileInfo::exists(overlay + QStringLiteral("/iconset.xml")))
+        const QString overlay = engineDir + u'/' + IconSetsKind + u'/' + name;
+        if (QFileInfo::exists(overlay + u'/' + IconSetMarker))
             set.addOverlay(overlay);
     }
     m_iconSet = set;
@@ -126,13 +141,13 @@ bool ThemeManager::setIconSet(const QString& name)
 
 bool ThemeManager::setStyle(const QString& name)
 {
-    const QString dir = findDir(QStringLiteral("styles"), name, QStringLiteral("stylesheet.css"));
+    const QString dir = findDir(StylesKind, name, StyleMarker);
     if (dir.isEmpty())
         return false;
     m_styleName = name;
     m_styleSheet = StyleSheet::load(dir, m_scale);
     const QPalette standard = QApplication::style() ? QApplication::style()->standardPalette() : QPalette();
-    m_stylePalette = loadPalette(dir + QStringLiteral("/palette.xml"), standard);
+    m_stylePalette = loadPalette(dir + u'/' + StylePalette, standard);
     Q_EMIT styleChanged();
     return true;
 }
@@ -140,10 +155,10 @@ bool ThemeManager::setStyle(const QString& name)
 QPalette ThemeManager::paletteOf(const QString& styleName) const
 {
     const QPalette standard = QApplication::style() ? QApplication::style()->standardPalette() : QPalette();
-    const QString dir = findDir(QStringLiteral("styles"), styleName, QStringLiteral("stylesheet.css"));
+    const QString dir = findDir(StylesKind, styleName, StyleMarker);
     if (dir.isEmpty())
         return standard;
-    return loadPalette(dir + QStringLiteral("/palette.xml"), standard).value_or(standard);
+    return loadPalette(dir + u'/' + StylePalette, standard).value_or(standard);
 }
 
 QPalette ThemeManager::palette() const

@@ -30,8 +30,14 @@ public:
     QStringList availableStyles() const;
     QStringList availableColorSets() const;
 
+    static constexpr QLatin1StringView DefaultPreset{"Neo"};
+    static constexpr QLatin1StringView DefaultIconSet{"Nuvola"};
+    static constexpr QLatin1StringView DefaultStyle{"Dark"};
+    static constexpr QLatin1StringView DefaultColorSet{"Dark"};
+
     QString presetPath(const QString& name) const;
     QString colorSetPath(const QString& name) const;
+    static QString findPreset(const QStringList& roots, const QString& name);
 
     void setEngineDataDirs(const QStringList& dirs);
 

@@ -63,8 +63,8 @@ QList<LanguageInfo> LanguageInfo::available(const QStringList& searchDirs)
 
 LanguageInfo LanguageInfo::builtin()
 {
-    return {QStringLiteral("en-us"), QStringLiteral("English (USA)"),
-            QStringLiteral("Open Factory Studio contributors"), QStringLiteral(OFS_HOMEPAGE)};
+    return {SourceLanguage, QStringLiteral("English (USA)"), QStringLiteral("Open Factory Studio contributors"),
+            QStringLiteral(OFS_HOMEPAGE)};
 }
 
 } // namespace OFS

@@ -2,6 +2,7 @@
 
 #include "core/engine/Engine.h"
 #include "core/engine/EngineManager.h"
+#include "core/script/ScriptFolders.h"
 
 #include <QCheckBox>
 #include <QComboBox>
@@ -31,7 +32,7 @@ QList<ProjectTemplate> findProjectTemplates(const EngineManager& engines)
         for (const QString& root : {engine->dataDir(), engine->userDataDir()}) {
             if (root.isEmpty())
                 continue;
-            const QDir folder(root + QStringLiteral("/scripts/project"));
+            const QDir folder(Script::scriptFolder(root, Script::ScriptType::Project));
             for (const QString& category : folder.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name)) {
                 const QDir dir(folder.filePath(category));
                 for (const QFileInfo& script : dir.entryInfoList({QStringLiteral("*.lua")}, QDir::Files, QDir::Name)) {

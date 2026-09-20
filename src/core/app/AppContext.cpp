@@ -7,6 +7,7 @@
 
 #include "core/actions/ActionCatalog.h"
 #include "core/actions/ActionRegistry.h"
+#include "core/app/Languages.h"
 #include "core/app/Paths.h"
 #include "core/engine/Engine.h"
 #include "core/engine/EngineManager.h"
@@ -15,6 +16,7 @@
 #include "core/project/ProjectFile.h"
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
+#include "core/settings/SettingsFiles.h"
 #include "core/settings/ShortcutSettings.h"
 #include "core/text/Encodings.h"
 #include "core/theme/ThemeManager.h"
@@ -27,12 +29,12 @@ AppContext* g_instance = nullptr;
 
 QString engineConfigDefaultsPath(const QString& engine)
 {
-    return Paths::engineDataDir(engine) + QStringLiteral("/config.xml");
+    return SettingsFiles::config(Paths::engineDataDir(engine));
 }
 
 QString engineConfigUserPath(const QString& engine)
 {
-    return Paths::userDir() + QLatin1Char('/') + engine + QStringLiteral("_config.xml");
+    return SettingsFiles::engineConfig(Paths::userDir(), engine);
 }
 
 } // namespace
@@ -70,10 +72,10 @@ void AppContext::loadSettings()
 {
     const QString data = Paths::dataDir();
     const QString user = Paths::userDir();
-    m_config->load(data + QStringLiteral("/config.xml"), user + QStringLiteral("/config.xml"));
-    m_shortcuts->load(data + QStringLiteral("/shortcuts.xml"), user + QStringLiteral("/shortcuts.xml"));
+    m_config->load(SettingsFiles::config(data), SettingsFiles::config(user));
+    m_shortcuts->load(SettingsFiles::shortcuts(data), SettingsFiles::shortcuts(user));
     m_history->setMaxEntries(m_config->intValue(QStringLiteral("max_history"), 32));
-    m_history->load(user + QStringLiteral("/history.xml"));
+    m_history->load(SettingsFiles::history(user));
     m_theme->setSearchDirs({user, data});
     for (auto it = m_engineConfigs.cbegin(); it != m_engineConfigs.cend(); ++it)
         RunConfiguration::loadEngineSettings(*it.value(), engineConfigDefaultsPath(it.key()),
@@ -83,10 +85,10 @@ void AppContext::loadSettings()
 
 void AppContext::applySettings()
 {
-    Translations::install(m_config->value(QStringLiteral("language"), QStringLiteral("en-us")),
+    Translations::install(m_config->value(QStringLiteral("language"), SourceLanguage),
                           {Paths::userDir(), Paths::dataDir()});
     for (Engine* engine : m_engines->engines())
-        engine->setLanguage(m_config->value(QStringLiteral("language"), QStringLiteral("en-us")));
+        engine->setLanguage(m_config->value(QStringLiteral("language"), SourceLanguage));
     const QList<TextEncoding>& encodings = TextEncoding::all();
     const int codePage = m_config->intValue(QStringLiteral("default_codepage"), 0);
     ProjectFile::setUndoLimit(m_config->intValue(QStringLiteral("undo_limit"), 64));
@@ -111,7 +113,7 @@ void AppContext::initializeEngines(const QStringList& engineSearchDirs)
     QStringList dataDirs;
     for (Engine* engine : m_engines->engines()) {
         engine->initialize(*this);
-        engine->setLanguage(m_config->value(QStringLiteral("language"), QStringLiteral("en-us")));
+        engine->setLanguage(m_config->value(QStringLiteral("language"), SourceLanguage));
         dataDirs << engine->dataDir();
     }
     m_theme->setEngineDataDirs(dataDirs);

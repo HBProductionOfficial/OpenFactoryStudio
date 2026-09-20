@@ -255,7 +255,7 @@ QWidget* OptionsDialog::createGeneralTab()
     languageLayout->addWidget(m_languageAuthor);
     languageLayout->addWidget(m_languageContact);
     bind(
-        QStringLiteral("language"), QStringLiteral("en-us"),
+        QStringLiteral("language"), SourceLanguage,
         [this](const QString& code) {
             int index = m_language->findData(code);
             if (index < 0) {
@@ -290,10 +290,10 @@ QWidget* OptionsDialog::createInterfaceTab()
     m_iconset = addCombo(tr("Iconset:"), QStringLiteral("iconset"));
     m_stylesheet = addCombo(tr("Stylesheet:"), QStringLiteral("stylesheet"));
     m_colorset = addCombo(tr("Colorset:"), QStringLiteral("colorset"));
-    bindName(m_preset, QStringLiteral("preset"), QStringLiteral("Neo"));
-    bindName(m_iconset, QStringLiteral("iconset"), QStringLiteral("Nuvola"));
-    bindName(m_stylesheet, QStringLiteral("stylesheet"), QStringLiteral("Dark"));
-    bindName(m_colorset, QStringLiteral("colorset"), QStringLiteral("Dark"));
+    bindName(m_preset, QStringLiteral("preset"), ThemeManager::DefaultPreset);
+    bindName(m_iconset, QStringLiteral("iconset"), ThemeManager::DefaultIconSet);
+    bindName(m_stylesheet, QStringLiteral("stylesheet"), ThemeManager::DefaultStyle);
+    bindName(m_colorset, QStringLiteral("colorset"), ThemeManager::DefaultColorSet);
     connect(m_colorset, &QComboBox::currentTextChanged, this, [this](const QString& name) {
         if (!m_syncingColors)
             showColorSet(name);

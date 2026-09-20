@@ -25,8 +25,17 @@ QString scriptTypeFolder(ScriptType type)
 
 QString scriptFolder(const QString& dataDir, const QString& engine, ScriptType type)
 {
-    const QString base = engine.isEmpty() ? dataDir : dataDir + QStringLiteral("/engines/") + engine;
-    return QDir::cleanPath(base + QStringLiteral("/scripts/") + scriptTypeFolder(type));
+    return scriptFolder(engine.isEmpty() ? dataDir : dataDir + QStringLiteral("/engines/") + engine, type);
+}
+
+QString scriptFolder(const QString& folder, ScriptType type)
+{
+    return QDir::cleanPath(folder + QStringLiteral("/scripts/") + scriptTypeFolder(type));
+}
+
+QString scriptFile(const QString& folder, ScriptType type, const QString& name)
+{
+    return scriptFolder(folder, type) + u'/' + name + QStringLiteral(".lua");
 }
 
 QStringList listScripts(const QString& folder)
