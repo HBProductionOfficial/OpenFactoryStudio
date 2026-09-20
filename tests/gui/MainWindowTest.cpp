@@ -3547,6 +3547,10 @@ private Q_SLOTS:
         auto* selector = view->findChild<QScrollBar*>("spr_sel");
         QVERIFY(sprites && selector);
         QCOMPARE(selector->focusPolicy(), Qt::StrongFocus);
+        if (sprites->file()->document().version() == Formats::SffVersion::V1) {
+            auto* decompress = view->findChild<QCheckBox*>("spr_dec_load");
+            QVERIFY(decompress && decompress->isEnabled());
+        }
         selector->setFocus(Qt::MouseFocusReason);
         QTRY_VERIFY(selector->hasFocus());
         sprites->setCurrent(0);

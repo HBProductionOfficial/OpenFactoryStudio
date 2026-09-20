@@ -344,10 +344,9 @@ void SpritesEditor::refresh()
             m_axisX->setValue(sign * entry.header.axisX);
         if (m_axisY)
             m_axisY->setValue(sign * entry.header.axisY);
-        if (m_decompress) {
-            m_decompress->setEnabled(doc->version() != Formats::SffVersion::V1);
+        // Also enabled for SFF v1 files because the flag is kept for a later save as v2.
+        if (m_decompress)
             m_decompress->setChecked(SpriteEdits::decompressesOnLoad(*doc, current));
-        }
         if (m_info) {
             const bool shared = doc->linkedSprites(current).size() > 1;
             m_info->setText(QStringLiteral("%1 x %2 px (%3 bit) - %4")

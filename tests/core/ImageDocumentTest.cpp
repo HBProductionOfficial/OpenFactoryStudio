@@ -264,7 +264,7 @@ private Q_SLOTS:
         const Image copied = copy(clip);
         paste(clip, copied);
         QCOMPARE(clip.layers.size(), 2);
-        QCOMPARE(clip.layers[1].name, QStringLiteral("Layer 2"));
+        QCOMPARE(clip.layers[1].name, QStringLiteral("Layer 1"));
         QCOMPARE(clip.pixel(1, 1).index, 1);
         QCOMPARE(clip.pixel(3, 1).index, 0);
     }

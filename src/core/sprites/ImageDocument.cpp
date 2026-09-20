@@ -49,9 +49,11 @@ Image blankLayer(const ImageDocument& doc)
                        : Image::rgba(doc.width, doc.height, std::vector<std::uint8_t>(count * 4, 0));
 }
 
-QString nextLayerName(const ImageDocument& doc)
+// Same names as Fighter Factory: Add counts the new layer too ("Layer 2" over one layer), Paste
+// does not ("Layer 1").
+QString nextLayerName(const ImageDocument& doc, bool pasted = false)
 {
-    return QCoreApplication::translate("OFS::ImageEdits", "Layer %1").arg(doc.layers.size() + 1);
+    return QCoreApplication::translate("OFS::ImageEdits", "Layer %1").arg(doc.layers.size() + (pasted ? 0 : 1));
 }
 
 QList<QPoint> line(QPoint a, QPoint b)
@@ -730,7 +732,7 @@ void paste(ImageDocument& doc, const Image& image)
             else
                 layerImage.setColor(x, y, converted.colorAt(x, y, false));
         }
-    doc.layers << ImageLayer{nextLayerName(doc), std::move(layerImage), true, 0, 100};
+    doc.layers << ImageLayer{nextLayerName(doc, true), std::move(layerImage), true, 0, 100};
     doc.current = int(doc.layers.size()) - 1;
 }
 
