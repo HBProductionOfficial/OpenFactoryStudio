@@ -420,18 +420,14 @@ void ImageEditor::drag(const QPoint& pixel, const QPoint& grid)
         refresh();
         break;
     }
-    case Tool::RectSelect: {
-        ImageDocument doc = m_document;
-        ImageEdits::selectRect(doc, gridRect(m_start, grid));
-        change(doc);
+    case Tool::RectSelect: // the selection changes in place (copying the layers each move is slow)
+        ImageEdits::selectRect(m_document, gridRect(m_start, grid));
+        refresh();
         break;
-    }
-    case Tool::FreeSelect: {
-        ImageDocument doc = m_document;
-        ImageEdits::paintSelection(doc, m_last, pixel, brushSize(m_tool), left);
-        change(doc);
+    case Tool::FreeSelect:
+        ImageEdits::paintSelection(m_document, m_last, pixel, brushSize(m_tool), left);
+        refresh();
         break;
-    }
     case Tool::Pen:
         if (m_button == Qt::NoButton)
             break;

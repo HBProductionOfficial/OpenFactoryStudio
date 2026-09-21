@@ -73,8 +73,11 @@ private:
     void drawCanvas(QPainter& p, const QRectF& target) const;
 
     const ImageDocument* m_document = nullptr;
-    QImage m_composite;
-    QImage m_dimmed;
+    // Rebuilt lazily on paint, so a drag costs one rebuild per frame.
+    mutable QImage m_composite;
+    mutable QImage m_dimmed;
+    mutable bool m_compositeDirty = true;
+    void rebuildComposite() const;
     double m_zoom = 1.0;
     QPointF m_center;
     bool m_panning = false;

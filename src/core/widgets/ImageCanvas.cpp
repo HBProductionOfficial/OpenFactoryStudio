@@ -34,6 +34,15 @@ void ImageCanvas::setDocument(const ImageDocument* document)
 
 void ImageCanvas::refresh()
 {
+    m_compositeDirty = true;
+    if (m_document && m_document->width > 0 && m_document->height > 0)
+        m_zoom = std::clamp(m_zoom, std::min(minimumZoom(), MaximumZoom), MaximumZoom);
+    update();
+}
+
+void ImageCanvas::rebuildComposite() const
+{
+    m_compositeDirty = false;
     m_composite = QImage();
     m_dimmed = QImage();
     if (m_document && m_document->width > 0 && m_document->height > 0) {
@@ -57,9 +66,7 @@ void ImageCanvas::refresh()
                 }
             }
         }
-        m_zoom = std::clamp(m_zoom, std::min(minimumZoom(), MaximumZoom), MaximumZoom);
     }
-    update();
 }
 
 double ImageCanvas::minimumZoom() const
@@ -151,6 +158,8 @@ QPoint ImageCanvas::gridPointAt(const QPointF& point) const
 
 void ImageCanvas::drawCanvas(QPainter& p, const QRectF& target) const
 {
+    if (m_compositeDirty)
+        rebuildComposite();
     if (m_composite.isNull())
         return;
     const double cell = 8 * target.width() / m_document->width;
