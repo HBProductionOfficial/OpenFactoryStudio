@@ -318,6 +318,43 @@ bool SoundsEditor::confirmLeave()
     return !m_page || m_page->confirmDiscard();
 }
 
+const QStringList& SoundsEditor::actionIds()
+{
+    static const QStringList ids = {QStringLiteral("snd_add"),
+                                    QStringLiteral("snd_delete"),
+                                    QStringLiteral("snd_duplicate"),
+                                    QStringLiteral("snd_open_sample"),
+                                    QStringLiteral("snd_save_sample"),
+                                    QStringLiteral("snd_resample"),
+                                    QStringLiteral("snd_play"),
+                                    QStringLiteral("snd_play_loop"),
+                                    QStringLiteral("snd_pause"),
+                                    QStringLiteral("snd_stop"),
+                                    QStringLiteral("snd_select_all"),
+                                    QStringLiteral("snd_select_none"),
+                                    QStringLiteral("snd_remove_selected"),
+                                    QStringLiteral("snd_fill_silence"),
+                                    QStringLiteral("snd_fade_in"),
+                                    QStringLiteral("snd_fade_out"),
+                                    QStringLiteral("snd_save_changes"),
+                                    QStringLiteral("snd_discard_changes"),
+                                    QStringLiteral("snd_tool_offset"),
+                                    QStringLiteral("snd_tool_zoom"),
+                                    QStringLiteral("snd_tool_select"),
+                                    QStringLiteral("snd_tool_move"),
+                                    QStringLiteral("snd_tool_hresize"),
+                                    QStringLiteral("snd_tool_vresize"),
+                                    QStringLiteral("snd_prev"),
+                                    QStringLiteral("snd_next"),
+                                    QStringLiteral("snd_delete_grp"),
+                                    QStringLiteral("snd_rename_grp"),
+                                    QStringLiteral("snd_export"),
+                                    QStringLiteral("snd_import"),
+                                    QStringLiteral("snd_prev_grp"),
+                                    QStringLiteral("snd_next_grp")};
+    return ids;
+}
+
 bool SoundsEditor::perform(const QString& id)
 {
     if (!m_page)

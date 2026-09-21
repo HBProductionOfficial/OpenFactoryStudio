@@ -318,6 +318,30 @@ QString PalettesPanel::projectFolder() const
     return project ? project->directory() : QFileInfo(m_page ? m_page->file()->path() : QString()).absolutePath();
 }
 
+const QStringList& PalettesPanel::actionIds()
+{
+    static const QStringList ids = {QStringLiteral("pal_clear"),
+                                    QStringLiteral("pal_clear_unused"),
+                                    QStringLiteral("pal_add"),
+                                    QStringLiteral("pal_delete"),
+                                    QStringLiteral("pal_delete_duplicates"),
+                                    QStringLiteral("pal_open"),
+                                    QStringLiteral("pal_save"),
+                                    QStringLiteral("pal_remap"),
+                                    QStringLiteral("pal_undo"),
+                                    QStringLiteral("pal_redo"),
+                                    QStringLiteral("pal_switch_color"),
+                                    QStringLiteral("pal_set_color"),
+                                    QStringLiteral("pal_apply_sprite"),
+                                    QStringLiteral("pal_prev"),
+                                    QStringLiteral("pal_next"),
+                                    QStringLiteral("pal_switch_count"),
+                                    QStringLiteral("pal_prev_grp"),
+                                    QStringLiteral("pal_next_grp"),
+                                    QStringLiteral("pal_pick_color")};
+    return ids;
+}
+
 bool PalettesPanel::perform(const QString& id)
 {
     if (!m_page || !id.startsWith(QLatin1String("pal_")))

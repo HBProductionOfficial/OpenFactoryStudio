@@ -58,6 +58,7 @@ public:
 
     void applySettings() { refresh(); }
 
+    static const QStringList& actionIds();
     bool perform(const QString& actionId);
 
     bool imageMode() const;

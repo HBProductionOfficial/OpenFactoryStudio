@@ -527,6 +527,46 @@ void AnimationsEditor::refreshOnion()
                          m_context.config().value(QStringLiteral("onion_opacity"), QStringLiteral("0.74")).toDouble());
 }
 
+const QStringList& AnimationsEditor::actionIds()
+{
+    static const QStringList ids = {QStringLiteral("anim_add"),
+                                    QStringLiteral("anim_delete"),
+                                    QStringLiteral("anim_duplicate"),
+                                    QStringLiteral("anim_code"),
+                                    QStringLiteral("anim_save_gif"),
+                                    QStringLiteral("anim_play"),
+                                    QStringLiteral("anim_stop"),
+                                    QStringLiteral("anim_editcode"),
+                                    QStringLiteral("anim_frame_add"),
+                                    QStringLiteral("anim_frame_delete"),
+                                    QStringLiteral("anim_frameall_offset"),
+                                    QStringLiteral("anim_frameall_time"),
+                                    QStringLiteral("anim_frameall_flip"),
+                                    QStringLiteral("anim_frameall_trans"),
+                                    QStringLiteral("anim_frameall_scale"),
+                                    QStringLiteral("anim_frame_align"),
+                                    QStringLiteral("anim_box_add_attack"),
+                                    QStringLiteral("anim_box_add_collision"),
+                                    QStringLiteral("anim_box_del"),
+                                    QStringLiteral("anim_box_delall"),
+                                    QStringLiteral("anim_box_delall_anim"),
+                                    QStringLiteral("anim_box_type"),
+                                    QStringLiteral("anim_box_default"),
+                                    QStringLiteral("anim_box_prev"),
+                                    QStringLiteral("anim_box_allinst"),
+                                    QStringLiteral("anim_optimize"),
+                                    QStringLiteral("anim_pos_left"),
+                                    QStringLiteral("anim_pos_up"),
+                                    QStringLiteral("anim_pos_right"),
+                                    QStringLiteral("anim_pos_down"),
+                                    QStringLiteral("anim_onion_find"),
+                                    QStringLiteral("anim_prev_anim"),
+                                    QStringLiteral("anim_next_anim"),
+                                    QStringLiteral("anim_prev_frame"),
+                                    QStringLiteral("anim_next_frame")};
+    return ids;
+}
+
 bool AnimationsEditor::perform(const QString& id)
 {
     if (!m_page)

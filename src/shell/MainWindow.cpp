@@ -620,8 +620,8 @@ void MainWindow::connectActions()
 void MainWindow::connectEditActions()
 {
     ActionRegistry& actions = m_context.actions();
-    auto on = [&actions, this](const char* id, auto slot) {
-        if (QAction* a = actions.action(QString::fromLatin1(id)))
+    auto on = [&actions, this](const QString& id, auto slot) {
+        if (QAction* a = actions.action(id))
             connect(a, &QAction::triggered, this, slot);
     };
     auto textTarget = [this]() -> QWidget* {
@@ -817,75 +817,8 @@ void MainWindow::connectEditActions()
         }
     }
     // Sprites editor actions.
-    for (const char* id : {"spr_prev",
-                           "spr_next",
-                           "spr_prev_grp",
-                           "spr_next_grp",
-                           "spr_pos_left",
-                           "spr_pos_up",
-                           "spr_pos_right",
-                           "spr_pos_down",
-                           "spr_delete",
-                           "spr_duplicate",
-                           "spr_crop",
-                           "spr_resize",
-                           "spr_delete_grp",
-                           "spr_rename_grp",
-                           "spr_align",
-                           "spr_openimg",
-                           "spr_saveimgas",
-                           "spr_saveimg_aligned",
-                           "spr_split_channels",
-                           "spr_add",
-                           "spr_export",
-                           "spr_import",
-                           "org_up",
-                           "org_down",
-                           "org_up_10",
-                           "org_down_10",
-                           "org_top",
-                           "org_bottom",
-                           "org_auto",
-                           "spr_align_topleft",
-                           "spr_align_topcenter",
-                           "spr_align_topright",
-                           "spr_align_centerleft",
-                           "spr_align_centercenter",
-                           "spr_align_centerright",
-                           "spr_align_bottomleft",
-                           "spr_align_bottomcenter",
-                           "spr_align_bottomright",
-                           "spr_edit_img",
-                           "spr_saveimg",
-                           "spr_layer_add",
-                           "spr_layer_delete",
-                           "spr_layer_duplicate",
-                           "spr_layer_mergevis",
-                           "spr_layer_mergeall",
-                           "spr_layer_save",
-                           "spr_layer_play",
-                           "spr_view_original",
-                           "spr_image_properties",
-                           "spr_select_all",
-                           "spr_select_none",
-                           "spr_select_invert",
-                           "spr_image_rotate",
-                           "spr_image_fliph",
-                           "spr_image_flipv",
-                           "spr_tool_canvasmove",
-                           "spr_tool_selmove",
-                           "spr_tool_rectsel",
-                           "spr_tool_freesel",
-                           "spr_tool_magicwand",
-                           "spr_tool_picker",
-                           "spr_tool_pen",
-                           "spr_tool_eraser",
-                           "spr_tool_remap_pen",
-                           "spr_tool_paintbucket",
-                           "spr_explorer",
-                           "thumb_save"}) {
-        const QString action = QString::fromLatin1(id);
-        on(id, [this, action] {
+    for (const QString& action : SpritesEditor::actionIds()) {
+        on(action, [this, action] {
             ProjectView* view = currentProjectView();
             if (view && action == QLatin1String("thumb_save") && view->currentEditor() == EditorId::Animations &&
                 view->animationsEditor()) {
@@ -901,12 +834,8 @@ void MainWindow::connectEditActions()
         });
     }
     // Palettes panel actions.
-    for (const char* id :
-         {"pal_clear", "pal_clear_unused", "pal_add", "pal_delete", "pal_delete_duplicates", "pal_open", "pal_save",
-          "pal_remap", "pal_undo", "pal_redo", "pal_switch_color", "pal_set_color", "pal_apply_sprite", "pal_prev",
-          "pal_next", "pal_switch_count", "pal_prev_grp", "pal_next_grp", "pal_pick_color"}) {
-        const QString action = QString::fromLatin1(id);
-        on(id, [this, action] {
+    for (const QString& action : PalettesPanel::actionIds()) {
+        on(action, [this, action] {
             ProjectView* view = currentProjectView();
             ensureEditor(view, EditorId::Sprites);
             if (view && view->spritesEditor())
@@ -914,10 +843,8 @@ void MainWindow::connectEditActions()
         });
     }
     // Backgrounds editor actions.
-    for (const char* id : {"bgs_add", "bgs_delete", "bgs_duplicate", "bgs_play", "bgs_pause", "bgs_stop",
-                           "bgctrls_def_add", "bgctrls_def_delete", "bgctrls_add", "bgctrls_delete"}) {
-        const QString action = QString::fromLatin1(id);
-        on(id, [this, action] {
+    for (const QString& action : BackgroundsEditor::actionIds()) {
+        on(action, [this, action] {
             ProjectView* view = currentProjectView();
             ensureEditor(view, EditorId::Backgrounds);
             if (view && view->backgroundsEditor())
@@ -926,16 +853,8 @@ void MainWindow::connectEditActions()
         });
     }
     // Sounds editor actions.
-    for (const char* id :
-         {"snd_add",         "snd_delete",       "snd_duplicate",       "snd_open_sample",  "snd_save_sample",
-          "snd_resample",    "snd_play",         "snd_play_loop",       "snd_pause",        "snd_stop",
-          "snd_select_all",  "snd_select_none",  "snd_remove_selected", "snd_fill_silence", "snd_fade_in",
-          "snd_fade_out",    "snd_save_changes", "snd_discard_changes", "snd_tool_offset",  "snd_tool_zoom",
-          "snd_tool_select", "snd_tool_move",    "snd_tool_hresize",    "snd_tool_vresize", "snd_prev",
-          "snd_next",        "snd_delete_grp",   "snd_rename_grp",      "snd_export",       "snd_import",
-          "snd_prev_grp",    "snd_next_grp"}) {
-        const QString action = QString::fromLatin1(id);
-        on(id, [this, action] {
+    for (const QString& action : SoundsEditor::actionIds()) {
+        on(action, [this, action] {
             ProjectView* view = currentProjectView();
             ensureEditor(view, EditorId::Sounds);
             if (view && view->soundsEditor())
@@ -960,20 +879,8 @@ void MainWindow::connectEditActions()
     if (QAction* select = actions.action(QStringLiteral("snd_tool_select")))
         select->setChecked(true);
     // Animations editor actions.
-    for (const char* id : {"anim_add",           "anim_delete",          "anim_duplicate",
-                           "anim_code",          "anim_save_gif",        "anim_play",
-                           "anim_stop",          "anim_editcode",        "anim_frame_add",
-                           "anim_frame_delete",  "anim_frameall_offset", "anim_frameall_time",
-                           "anim_frameall_flip", "anim_frameall_trans",  "anim_frameall_scale",
-                           "anim_frame_align",   "anim_box_add_attack",  "anim_box_add_collision",
-                           "anim_box_del",       "anim_box_delall",      "anim_box_delall_anim",
-                           "anim_box_type",      "anim_box_default",     "anim_box_prev",
-                           "anim_box_allinst",   "anim_optimize",        "anim_pos_left",
-                           "anim_pos_up",        "anim_pos_right",       "anim_pos_down",
-                           "anim_onion_find",    "anim_prev_anim",       "anim_next_anim",
-                           "anim_prev_frame",    "anim_next_frame"}) {
-        const QString action = QString::fromLatin1(id);
-        on(id, [this, action] {
+    for (const QString& action : AnimationsEditor::actionIds()) {
+        on(action, [this, action] {
             ProjectView* view = currentProjectView();
             ensureEditor(view, EditorId::Animations);
             if (view && view->animationsEditor())

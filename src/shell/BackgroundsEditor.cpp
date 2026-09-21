@@ -1073,6 +1073,16 @@ bool BackgroundsEditor::confirm(const QString& title, const QString& text)
     return confirmDelete(m_page ? m_page->window() : nullptr, m_context.config(), title, text);
 }
 
+const QStringList& BackgroundsEditor::actionIds()
+{
+    static const QStringList ids = {QStringLiteral("bgs_add"),         QStringLiteral("bgs_delete"),
+                                    QStringLiteral("bgs_duplicate"),   QStringLiteral("bgs_play"),
+                                    QStringLiteral("bgs_pause"),       QStringLiteral("bgs_stop"),
+                                    QStringLiteral("bgctrls_def_add"), QStringLiteral("bgctrls_def_delete"),
+                                    QStringLiteral("bgctrls_add"),     QStringLiteral("bgctrls_delete")};
+    return ids;
+}
+
 bool BackgroundsEditor::perform(const QString& id)
 {
     if (m_page && id.startsWith(QLatin1String("org_"))) {

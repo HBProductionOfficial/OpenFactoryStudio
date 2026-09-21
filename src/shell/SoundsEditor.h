@@ -32,6 +32,7 @@ public:
 
     void importFromProject(const QList<QPair<QString, const SoundDocument*>>& sources);
 
+    static const QStringList& actionIds();
     bool perform(const QString& actionId);
     bool confirmLeave();
 

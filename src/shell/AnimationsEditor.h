@@ -53,6 +53,7 @@ public:
     };
     void importFromProject(const QList<ImportSource>& sources);
 
+    static const QStringList& actionIds();
     bool perform(const QString& actionId);
     void copyBox();
     void cutBox();

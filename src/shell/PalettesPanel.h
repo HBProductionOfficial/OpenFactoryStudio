@@ -38,6 +38,7 @@ public:
     PaletteWidget* grid() const { return m_grid; }
     RemapDialog* remapDialog() const { return m_remap; }
 
+    static const QStringList& actionIds();
     bool perform(const QString& actionId);
 
 Q_SIGNALS:

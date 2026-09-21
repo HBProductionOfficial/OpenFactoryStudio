@@ -48,6 +48,7 @@ public:
     int group() const;
     void setGroup(int group);
 
+    static const QStringList& actionIds();
     bool perform(const QString& actionId);
 
 Q_SIGNALS:
