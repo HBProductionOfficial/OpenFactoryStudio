@@ -1948,6 +1948,13 @@ private Q_SLOTS:
         page->view()->setFocus();
         actions.action("edit_undo")->trigger();
         QCOMPARE(line(0), QStringLiteral("; Stand"));
+        actions.action("anim_frameall_time")->trigger();
+        QCOMPARE(line(5), QStringLiteral("0,1, 0,0, 6"));
+        actions.action("anim_frameall_flip")->trigger();
+        QCOMPARE(line(5), QStringLiteral("0,1, 0,0, 6, H"));
+        actions.action("edit_undo")->trigger();
+        actions.action("edit_undo")->trigger();
+        QCOMPARE(line(5), QStringLiteral("0,1, 0,0, 3"));
         actions.action("anim_next_frame")->trigger();
         QCOMPARE(page->currentFrame(), 1);
         loop->setChecked(true);

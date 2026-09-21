@@ -29,6 +29,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QGuiApplication>
+#include <QHash>
 #include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
@@ -40,6 +41,8 @@
 #include <QStandardItemModel>
 #include <QTextDocument>
 #include <QToolButton>
+
+#include <optional>
 
 namespace OFS {
 
@@ -60,6 +63,20 @@ CopiedBox& copiedBox()
 {
     static CopiedBox box;
     return box;
+}
+
+// Frame > Apply to next frames: the field each action copies.
+std::optional<AirEdits::Field> frameAllField(const QString& id)
+{
+    static const QHash<QString, AirEdits::Field> fields = {
+        {QStringLiteral("anim_frameall_offset"), AirEdits::Field::Offset},
+        {QStringLiteral("anim_frameall_time"), AirEdits::Field::Time},
+        {QStringLiteral("anim_frameall_flip"), AirEdits::Field::Flip},
+        {QStringLiteral("anim_frameall_trans"), AirEdits::Field::Transparency},
+        {QStringLiteral("anim_frameall_scale"), AirEdits::Field::Scale},
+    };
+    const auto it = fields.constFind(id);
+    return it == fields.cend() ? std::nullopt : std::optional(*it);
 }
 
 const int InterpolationFlags[4] = {AirFrame::InterpolateBlend, AirFrame::InterpolateOffset, AirFrame::InterpolateScale,
@@ -613,15 +630,9 @@ bool AnimationsEditor::perform(const QString& id)
                            tr("Do you really want to delete the frame?")))
             return true;
         page->edit([a, f](QStringList& lines) { AirEdits::deleteFrame(lines, a, f); });
-    } else if (id.startsWith(QLatin1String("anim_frameall_"))) {
-        const QString field = id.mid(14);
-        const AirEdits::Field which = field == QLatin1String("offset")  ? AirEdits::Field::Offset
-                                      : field == QLatin1String("time")  ? AirEdits::Field::Time
-                                      : field == QLatin1String("flip")  ? AirEdits::Field::Flip
-                                      : field == QLatin1String("trans") ? AirEdits::Field::Transparency
-                                                                        : AirEdits::Field::Scale;
+    } else if (const std::optional<AirEdits::Field> field = frameAllField(id)) {
         if (page->frame())
-            page->edit([a, f, which](QStringList& lines) { AirEdits::applyToNext(lines, a, f, which); });
+            page->edit([a, f, which = *field](QStringList& lines) { AirEdits::applyToNext(lines, a, f, which); });
     } else if (!performBoxes(id) && !performDialog(id)) {
         return false;
     }
