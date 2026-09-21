@@ -102,6 +102,8 @@ struct OFS_CORE_EXPORT AirAnimation
     int endLine = -1;
     QList<AirFrame> frames;
 
+    static QString header(int number) { return QStringLiteral("[Begin Action %1]").arg(number); }
+
     QString caption() const;
     // Boxes as MUGEN uses them: own regular blocks, else own default, else the last earlier default.
     QList<AirBox> boxes(int frame, int type, bool* isDefault = nullptr, bool* inherited = nullptr) const;

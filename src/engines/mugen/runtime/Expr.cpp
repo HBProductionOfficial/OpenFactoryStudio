@@ -1,5 +1,7 @@
 #include "engines/mugen/runtime/Expr.h"
 
+#include "engines/mugen/MugenRedirects.h"
+
 #include <QHash>
 
 #include <cmath>
@@ -896,16 +898,11 @@ private:
     NodePtr parseName(const QString& name)
     {
         const QString lower = name.toLower();
-        static const QHash<QString, Redirect> redirects = {
-            {QStringLiteral("parent"), Redirect::Parent},       {QStringLiteral("root"), Redirect::Root},
-            {QStringLiteral("helper"), Redirect::Helper},       {QStringLiteral("target"), Redirect::Target},
-            {QStringLiteral("partner"), Redirect::Partner},     {QStringLiteral("enemy"), Redirect::Enemy},
-            {QStringLiteral("enemynear"), Redirect::EnemyNear}, {QStringLiteral("playerid"), Redirect::PlayerID},
-        };
-        if (const auto r = redirects.constFind(lower);
-            r != redirects.cend() && (peek().kind == Token::Kind::Comma || peek().kind == Token::Kind::Open)) {
+        static_assert(std::size(RedirectKeywords) == std::size_t(Redirect::PlayerID) + 1);
+        if (const int r = redirectIndex(lower);
+            r >= 0 && (peek().kind == Token::Kind::Comma || peek().kind == Token::Kind::Open)) {
             auto node = make(Node::Kind::Redirect);
-            node->redirect = *r;
+            node->redirect = Redirect(r);
             if (accept(Token::Kind::Open)) {
                 NodePtr argument = parse(1);
                 if (!argument || !accept(Token::Kind::Close))

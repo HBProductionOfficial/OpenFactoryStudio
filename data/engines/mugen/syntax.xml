@@ -3654,6 +3654,15 @@
         <const name="info.displayname"/>
         <const name="info.author"/>
     </consts>
+    <!-- Redirects ("parent, Var(1)", "helper(2000), StateNo") -->
+    <redirect name="Parent"/>
+    <redirect name="Root"/>
+    <redirect name="Helper"/>
+    <redirect name="Target"/>
+    <redirect name="Partner"/>
+    <redirect name="Enemy"/>
+    <redirect name="EnemyNear"/>
+    <redirect name="PlayerID"/>
     <!-- Triggers -->
     <trigger name="Abs" type="exp" context="default"/>
     <trigger name="Acos" type="exp" context="default"/>

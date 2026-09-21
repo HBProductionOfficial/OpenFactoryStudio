@@ -92,6 +92,7 @@ public:
 
     const SyntaxTrigger* trigger(const QString& name) const;
     QStringList triggerNames() const;
+    const QStringList& redirectNames() const { return m_redirects; }
     bool isConst(const QString& group, const QString& name) const;
     QStringList constNames(const QString& group) const;
 
@@ -111,6 +112,7 @@ private:
     QHash<QString, SyntaxFileType> m_files;
     QStringList m_fileOrder;
     QList<SyntaxTrigger> m_triggers;
+    QStringList m_redirects;
     QHash<QString, QStringList> m_consts;
     mutable QHash<QString, QList<SyntaxParam>> m_paramCache;
     mutable QMutex m_cacheMutex;

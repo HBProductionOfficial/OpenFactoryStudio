@@ -1,5 +1,6 @@
 #include "engines/mugen/AirEdits.h"
 
+#include "core/anims/AirDocument.h"
 #include "core/code/CodeLine.h"
 
 #include <QTextBlock>
@@ -181,7 +182,7 @@ void appendAnimation(QTextDocument* document, int number, const QString& name, i
         added += QLatin1Char('\n');
     if (!name.trimmed().isEmpty())
         added += QStringLiteral("; ") + name.trimmed() + QLatin1Char('\n');
-    added += QStringLiteral("[Begin Action %1]\n").arg(number);
+    added += AirAnimation::header(number) + QLatin1Char('\n');
     AirFrame blank;
     blank.group = -1;
     blank.time = time == 0 ? -1 : time;

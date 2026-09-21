@@ -142,6 +142,7 @@ enum class Trigger : std::uint16_t
     WinTime,
 };
 
+// Where a redirection points, in the order of Mugen::RedirectKeywords.
 enum class Redirect : std::uint8_t
 {
     Parent,

@@ -276,6 +276,7 @@ add_dependencies(test_gui_first_run ofs_data)
 ofs_add_test(NAME mugen_syntax
     SOURCES mugen/MugenSyntaxTest.cpp
     LIBS OFS::mugen)
+target_compile_definitions(test_mugen_syntax PRIVATE OFS_SOURCE_DATA_DIR="${PROJECT_SOURCE_DIR}/data")
 
 ofs_add_test(NAME mugen_run GUI
     SOURCES mugen/MugenRunTest.cpp

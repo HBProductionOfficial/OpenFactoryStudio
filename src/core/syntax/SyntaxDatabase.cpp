@@ -70,6 +70,7 @@ bool SyntaxDatabase::loadFromData(const QByteArray& xml, QString* error)
     m_files.clear();
     m_fileOrder.clear();
     m_triggers.clear();
+    m_redirects.clear();
     m_consts.clear();
     m_paramCache.clear();
 
@@ -157,6 +158,9 @@ bool SyntaxDatabase::loadFromData(const QByteArray& xml, QString* error)
             t.minver = attrs.value(QLatin1String("minver")).toString();
             t.deprecated = attrs.value(QLatin1String("deprecated")).toString();
             m_triggers << t;
+            r.skipCurrentElement();
+        } else if (r.name() == QLatin1String("redirect")) {
+            m_redirects << attrs.value(QLatin1String("name")).toString();
             r.skipCurrentElement();
         } else {
             r.skipCurrentElement();

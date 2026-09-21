@@ -1,6 +1,7 @@
 #include "engines/mugen/MugenSyntax.h"
 #include "core/syntax/SyntaxDatabase.h"
 #include "engines/mugen/MugenOutline.h"
+#include "engines/mugen/MugenRedirects.h"
 #include "engines/mugen/MugenVariables.h"
 #include "engines/mugen/expr/Expression.h"
 
@@ -199,6 +200,21 @@ private Q_SLOTS:
             QCOMPARE(issues.first().message, message);
         else
             QVERIFY(issues.first().message.contains(QStringLiteral("current project version")));
+    }
+
+    void shippedRedirects()
+    {
+        SyntaxDatabase shipped;
+        QVERIFY(shipped.load(QStringLiteral(OFS_SOURCE_DATA_DIR "/engines/mugen/syntax.xml")));
+        QStringList listed;
+        for (const QString& name : shipped.redirectNames())
+            listed << name.toLower();
+        QStringList shared;
+        for (const RedirectKeyword& r : RedirectKeywords)
+            shared << QString(r.name);
+        QCOMPARE(listed, shared);
+        QCOMPARE(redirectIndex(QStringLiteral("enemynear")), 6);
+        QCOMPARE(redirectIndex(QStringLiteral("life")), -1);
     }
 
     void issuePositions()

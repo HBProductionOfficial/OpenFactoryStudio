@@ -102,7 +102,7 @@ bool isCommentedCode(const QString& line)
     text = text.trimmed();
     if (text.isEmpty())
         return false;
-    const AirDocument probe = AirDocument::parse(QStringList{QStringLiteral("[Begin Action 0]"), text});
+    const AirDocument probe = AirDocument::parse(QStringList{AirAnimation::header(0), text});
     return probe.problems().isEmpty() &&
            (probe.animations().first().lastLine == 1 || !probe.animations().first().frames.isEmpty());
 }
@@ -203,7 +203,7 @@ void setNumber(QStringList& lines, int animation, int number)
         return;
     const QString old = lines.at(anim->headerLine);
     const qsizetype commentAt = old.indexOf(QLatin1Char(';'));
-    lines[anim->headerLine] = leadingBlanks(old) + QStringLiteral("[Begin Action %1]").arg(number) +
+    lines[anim->headerLine] = leadingBlanks(old) + AirAnimation::header(number) +
                               (commentAt >= 0 ? QLatin1Char(' ') + old.mid(commentAt).trimmed() : QString());
 }
 
@@ -315,7 +315,7 @@ int addAnimation(QStringList& lines, int after, int number, const QString& name,
         block << QString();
     if (!name.trimmed().isEmpty())
         block << QStringLiteral("; ") + name.trimmed();
-    block << QStringLiteral("[Begin Action %1]").arg(number);
+    block << AirAnimation::header(number);
     for (AirFrame f : frames) {
         f.indent.clear();
         f.comment.clear();
@@ -348,7 +348,7 @@ int duplicateAnimation(QStringList& lines, int animation, int number)
     QStringList block;
     if (!anim->name.isEmpty())
         block << QStringLiteral("; ") + anim->name;
-    block << QStringLiteral("[Begin Action %1]").arg(number);
+    block << AirAnimation::header(number);
     block += lines.mid(anim->headerLine + 1, anim->lastLine - anim->headerLine);
     int at = int(lines.size());
     if (const AirAnimation* next = animationAt(doc, animation + 1)) {

@@ -2,6 +2,7 @@
 
 #include "core/code/CodeLine.h"
 #include "core/syntax/SyntaxDatabase.h"
+#include "engines/mugen/MugenRedirects.h"
 
 #include <QCoreApplication>
 #include <QHash>
@@ -31,11 +32,6 @@ bool rightAssociative(const QString& op)
 {
     return op == QLatin1String("**") || op == QLatin1String(":=");
 }
-
-const QStringList kRedirectsWithArgument = {QStringLiteral("helper"), QStringLiteral("target"), QStringLiteral("enemy"),
-                                            QStringLiteral("enemynear"), QStringLiteral("playerid")};
-const QStringList kRedirectsWithoutArgument = {QStringLiteral("parent"), QStringLiteral("root"),
-                                               QStringLiteral("partner")};
 
 bool isComparison(const QString& op)
 {
@@ -303,10 +299,9 @@ ExprPtr ExpressionParser::parseTrigger(const Token& name)
     const QString lower = name.text.toLower();
 
     // Redirections: "parent, Var(1)", "helper(2000), StateNo", "enemynear(1), Pos X".
-    const bool redirectWithArg = kRedirectsWithArgument.contains(lower);
-    if (redirectWithArg || kRedirectsWithoutArgument.contains(lower)) {
+    if (const int redirect = redirectIndex(lower); redirect >= 0) {
         auto node = makeNode(ExprNode::Kind::Redirect, name.text, name.start, name.length);
-        if (redirectWithArg && peek().kind == Token::Kind::OpenParen) {
+        if (RedirectKeywords[redirect].takesId && peek().kind == Token::Kind::OpenParen) {
             next();
             node->children << parseExpression(1);
             if (!accept(QStringLiteral(")")))

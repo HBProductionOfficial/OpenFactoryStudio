@@ -10,10 +10,6 @@ namespace OFS {
 
 namespace {
 
-const QStringList kRedirects = {QStringLiteral("parent"),    QStringLiteral("root"),    QStringLiteral("helper"),
-                                QStringLiteral("target"),    QStringLiteral("partner"), QStringLiteral("enemy"),
-                                QStringLiteral("enemynear"), QStringLiteral("playerid")};
-
 const QStringList kConstTriggers = {QStringLiteral("const"), QStringLiteral("gethitvar"), QStringLiteral("stagevar"),
                                     QStringLiteral("stageinfo")};
 
@@ -27,6 +23,8 @@ CodeHighlighter::CodeHighlighter(QTextDocument* document, const SyntaxDatabase* 
     if (m_syntax) {
         for (const QString& t : m_syntax->triggerNames())
             m_triggers.insert(t.toLower());
+        for (const QString& r : m_syntax->redirectNames())
+            m_triggers.insert(r.toLower());
         for (const char* group : {"const", "GetHitVar", "AssertSpecial", "StageVar", "StageInfo"}) {
             for (const QString& c : m_syntax->constNames(QString::fromLatin1(group)))
                 m_consts.insert(c.toLower());
@@ -170,7 +168,7 @@ void CodeHighlighter::highlightBlock(const QString& text)
                 kConstTriggers.contains(text.mid(line.tokens[i - 2].start, line.tokens[i - 2].length).toLower()) &&
                 m_consts.contains(word)) {
                 setFormat(t.start, t.length, constant);
-            } else if (m_triggers.contains(word) || kRedirects.contains(word)) {
+            } else if (m_triggers.contains(word)) {
                 setFormat(t.start, t.length, function);
             } else if (info.keywords.contains(word)) {
                 setFormat(t.start, t.length, keywordValue);
