@@ -45,6 +45,10 @@ void CodeHighlighter::setColorSet(const ColorSet& colors)
             f.setFontItalic(true);
         m_formats.insert(role, f);
     }
+    const char* const names[RoleCount] = {"comment",  "block", "keyword",       "number",     "string",
+                                          "function", "const", "keyword_value", "block_type", "symbol"};
+    for (int r = 0; r < RoleCount; ++r)
+        m_roles[std::size_t(r)] = m_formats.value(QLatin1String(names[r]));
     rehighlight();
 }
 
@@ -54,13 +58,20 @@ void CodeHighlighter::setFileType(const QString& fileType)
         return;
     m_fileType = fileType;
     m_sections.clear();
+    m_sectionKeys.clear();
     rehighlight();
 }
 
 const CodeHighlighter::SectionInfo& CodeHighlighter::sectionInfo(const QString& header)
 {
+    // Most lines repeat the header of the line above: its section is looked up once.
+    if (const auto known = m_sectionKeys.constFind(header); known != m_sectionKeys.cend()) {
+        if (const auto it = m_sections.constFind(*known); it != m_sections.cend())
+            return *it;
+    }
     const QString section = m_syntax ? m_syntax->sectionFor(m_fileType, header) : QString();
     const QString key = section.isEmpty() ? QStringLiteral("\x01") + header.toLower() : section.toLower();
+    m_sectionKeys.insert(header, key);
     auto it = m_sections.find(key);
     if (it != m_sections.end())
         return *it;
@@ -121,13 +132,13 @@ void CodeHighlighter::highlightBlock(const QString& text)
     setCurrentBlockState(int(qHash(header.toLower()) & 0x7fffffff));
 
     if (line.commentStart >= 0)
-        setFormat(line.commentStart, int(text.size()) - line.commentStart, m_formats.value(QStringLiteral("comment")));
+        setFormat(line.commentStart, int(text.size()) - line.commentStart, m_roles[Comment]);
 
     if (line.kind == CodeLine::Kind::Section) {
         const int start = int(text.indexOf(QLatin1Char('[')));
         const int end =
             line.headerClosed ? int(text.indexOf(QLatin1Char(']'), start)) + 1 : line.headerStart + line.headerLength;
-        setFormat(start, end - start, m_formats.value(QStringLiteral("block")));
+        setFormat(start, end - start, m_roles[Block]);
         return;
     }
     if (line.kind != CodeLine::Kind::KeyValue && line.kind != CodeLine::Kind::Raw)
@@ -137,17 +148,17 @@ void CodeHighlighter::highlightBlock(const QString& text)
     bool typeLine = false;
     if (line.kind == CodeLine::Kind::KeyValue) {
         if (isKnownParam(info, line.key))
-            setFormat(line.keyStart, line.keyLength, m_formats.value(QStringLiteral("keyword")));
+            setFormat(line.keyStart, line.keyLength, m_roles[Keyword]);
         typeLine = info.typed && line.key.compare(QLatin1String("type"), Qt::CaseInsensitive) == 0;
     }
 
-    const QTextCharFormat number = m_formats.value(QStringLiteral("number"));
-    const QTextCharFormat string = m_formats.value(QStringLiteral("string"));
-    const QTextCharFormat function = m_formats.value(QStringLiteral("function"));
-    const QTextCharFormat constant = m_formats.value(QStringLiteral("const"));
-    const QTextCharFormat keywordValue = m_formats.value(QStringLiteral("keyword_value"));
-    const QTextCharFormat blockType = m_formats.value(QStringLiteral("block_type"));
-    const QTextCharFormat symbol = m_formats.value(QStringLiteral("symbol"));
+    const QTextCharFormat& number = m_roles[Number];
+    const QTextCharFormat& string = m_roles[String];
+    const QTextCharFormat& function = m_roles[Function];
+    const QTextCharFormat& constant = m_roles[Constant];
+    const QTextCharFormat& keywordValue = m_roles[KeywordValue];
+    const QTextCharFormat& blockType = m_roles[BlockType];
+    const QTextCharFormat& symbol = m_roles[Symbol];
 
     for (qsizetype i = 0; i < line.tokens.size(); ++i) {
         const CodeToken& t = line.tokens[i];

@@ -8,6 +8,8 @@
 #include <QSyntaxHighlighter>
 #include <QTextCharFormat>
 
+#include <array>
+
 namespace OFS {
 
 class SyntaxDatabase;
@@ -39,10 +41,27 @@ private:
     const SectionInfo& sectionInfo(const QString& header);
     bool isKnownParam(const SectionInfo& info, const QString& key) const;
 
+    enum Role
+    {
+        Comment,
+        Block,
+        Keyword,
+        Number,
+        String,
+        Function,
+        Constant,
+        KeywordValue,
+        BlockType,
+        Symbol,
+        RoleCount
+    };
+
     const SyntaxDatabase* m_syntax;
     QString m_fileType;
     QHash<QString, QTextCharFormat> m_formats;
+    std::array<QTextCharFormat, RoleCount> m_roles;
     QHash<QString, SectionInfo> m_sections;
+    QHash<QString, QString> m_sectionKeys;
     QSet<QString> m_triggers;
     QSet<QString> m_consts;
 };
