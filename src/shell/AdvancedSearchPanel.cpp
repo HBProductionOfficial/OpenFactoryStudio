@@ -7,6 +7,7 @@
 
 #include <QAbstractTextDocumentLayout>
 #include <QApplication>
+#include <QCache>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QFile>
@@ -68,10 +69,7 @@ public:
                               Qt::AlignVCenter | Qt::AlignLeft, QString::number(line));
             textRect.setLeft(textRect.left() + kLineCellWidth);
         }
-        QTextDocument doc;
-        doc.setDefaultFont(opt.font);
-        doc.setDocumentMargin(0);
-        doc.setHtml(html);
+        const QTextDocument& doc = document(html, opt.font);
         painter->translate(textRect.left(), textRect.top() + (textRect.height() - doc.size().height()) / 2);
         QAbstractTextDocumentLayout::PaintContext context;
         context.palette = opt.palette;
@@ -84,14 +82,28 @@ public:
     QSize sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const override
     {
         QSize size = QStyledItemDelegate::sizeHint(option, index);
-        QTextDocument doc;
-        doc.setDefaultFont(option.font);
-        doc.setDocumentMargin(0);
-        doc.setHtml(index.data(HtmlRole).toString());
+        const QTextDocument& doc = document(index.data(HtmlRole).toString(), option.font);
         size.setWidth(int(doc.idealWidth()) + (index.data(LineRole).toInt() > 0 ? kLineCellWidth : 0) + 8);
         size.setHeight(qMax(size.height(), int(doc.size().height()) + 2));
         return size;
     }
+
+private:
+    // Caches the laid-out text because a search can list thousands of rows.
+    const QTextDocument& document(const QString& html, const QFont& font) const
+    {
+        const QString key = font.key() + QLatin1Char('\n') + html;
+        if (const QTextDocument* known = m_documents.object(key))
+            return *known;
+        auto* doc = new QTextDocument;
+        doc->setDefaultFont(font);
+        doc->setDocumentMargin(0);
+        doc->setHtml(html);
+        m_documents.insert(key, doc);
+        return *doc;
+    }
+
+    mutable QCache<QString, QTextDocument> m_documents{4000};
 };
 
 QString highlightedLine(const SearchHit& hit)
