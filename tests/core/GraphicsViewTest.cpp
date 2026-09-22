@@ -204,6 +204,28 @@ private Q_SLOTS:
         }
     }
 
+    void crossShape()
+    {
+        GraphicsView view;
+        view.resize(200, 200);
+        view.setOrigin(QPoint(100, 100));
+        view.setBackground(GraphicsView::Background::Color);
+        view.setMainCrossPosition(QPoint(0, 0));
+        const QImage shown = view.grab().toImage();
+        const QColor background = shown.pixelColor(view.toWidget(QPointF(30, 30)).toPoint());
+        auto at = [&](int x, int y) {
+            return shown.pixelColor(view.toWidget(QPointF(x, y)).toPoint());
+        };
+        QCOMPARE(at(0, 0), background);
+        for (const QPoint arm : {QPoint(1, 0), QPoint(6, 0), QPoint(-6, 0), QPoint(0, 3), QPoint(0, -6)})
+            QCOMPARE(at(arm.x(), arm.y()), QColor(Qt::black));
+        for (const QPoint edge : {QPoint(7, 0), QPoint(-7, 0), QPoint(0, 7), QPoint(0, -7), QPoint(3, -1),
+                                  QPoint(-1, -1), QPoint(1, 1), QPoint(2, 1), QPoint(-1, 5)})
+            QCOMPARE(at(edge.x(), edge.y()), QColor(Qt::white));
+        for (const QPoint outside : {QPoint(8, 0), QPoint(2, 2), QPoint(-2, -2), QPoint(0, 8)})
+            QCOMPARE(at(outside.x(), outside.y()), background);
+    }
+
     void boxesOverCrosses()
     {
         GraphicsView view;

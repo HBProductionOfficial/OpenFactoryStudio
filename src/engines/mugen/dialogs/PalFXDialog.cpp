@@ -214,7 +214,8 @@ PalFXDialog::PalFXDialog(SpriteFile* sprites, int sprite, const QString& templat
     m_timer->setInterval(TickIntervalMs);
     connect(m_timer, &QTimer::timeout, this, [this] {
         ++m_tick;
-        if (values().sin[0] || values().sin[1] || values().sin[2])
+        const PalFX palfx = values();
+        if (palfx.sin[0] || palfx.sin[1] || palfx.sin[2])
             updatePreview();
     });
     m_timer->start();

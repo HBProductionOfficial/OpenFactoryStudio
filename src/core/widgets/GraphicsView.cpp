@@ -13,7 +13,6 @@
 #include <QMouseEvent>
 #include <QPaintEngine>
 #include <QPainter>
-#include <QPainterPath>
 #include <QWheelEvent>
 
 #include <cmath>
@@ -447,13 +446,9 @@ void GraphicsView::drawCross(QPainter& p, const QPointF& at, const QColor& fill,
     auto cells = [this, at](double x, double y, double w, double h) {
         return QRectF(toWidget(QPointF(at.x() + x, at.y() + y)), QSizeF(w, h) * zoom());
     };
-    QPainterPath outline;
-    outline.addRect(cells(-7, -1, 15, 3));
-    outline.addRect(cells(-1, -7, 3, 15));
-    outline.setFillRule(Qt::WindingFill);
-    QPainterPath centre;
-    centre.addRect(cells(0, 0, 1, 1));
-    p.fillPath(outline.simplified().subtracted(centre), outlineColor);
+    for (const QRectF& part : {cells(-7, -1, 6, 3), cells(2, -1, 6, 3), cells(-1, -7, 3, 6), cells(-1, 2, 3, 6),
+                               cells(-1, -1, 3, 1), cells(-1, 1, 3, 1), cells(-1, 0, 1, 1), cells(1, 0, 1, 1)})
+        p.fillRect(part, outlineColor);
     for (const QRectF& arm : {cells(-6, 0, 6, 1), cells(1, 0, 6, 1), cells(0, -6, 1, 6), cells(0, 1, 1, 6)})
         p.fillRect(arm, fill);
 }

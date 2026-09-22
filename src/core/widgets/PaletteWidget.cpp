@@ -5,6 +5,7 @@
 #include <QPainter>
 
 #include <algorithm>
+#include <vector>
 
 namespace OFS {
 
@@ -113,6 +114,11 @@ void PaletteWidget::paintEvent(QPaintEvent*)
         painter.fillRect(QRect(origin.x(), origin.y() + fullRows * kPitch, (count % n) * kPitch + 1, kPitch + 1),
                          Qt::white);
     const QColor gray(Qt::gray);
+    std::vector<bool> selected(std::size_t(std::max(count, 0)), false);
+    for (int slot : m_selection) {
+        if (slot >= 0 && slot < count)
+            selected[std::size_t(slot)] = true;
+    }
     for (int slot = 0; slot < count; ++slot) {
         const QRect cell = cellRect(slot);
         QColor color(Qt::black);
@@ -126,7 +132,7 @@ void PaletteWidget::paintEvent(QPaintEvent*)
                              gray);
         }
         painter.fillRect(cell, color);
-        if (m_selection.contains(slot)) {
+        if (selected[std::size_t(slot)]) {
             // Black or white so it shows on any color. Fighter Factory's faded outline vanished on white.
             const bool light = color.alpha() < 128 || qGray(color.rgb()) >= 128;
             painter.setPen(QPen(light ? Qt::black : Qt::white, 1));

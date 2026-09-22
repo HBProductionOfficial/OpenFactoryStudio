@@ -212,12 +212,19 @@ void WaveformView::paintEvent(QPaintEvent* event)
         if (m_buffer.empty())
             continue;
         m_peaks.columns(m_buffer, std::uint16_t(c), m_firstFrame, m_framesPerPixel, columns);
+        QList<QLineF> outside;
+        QList<QLineF> inside;
+        outside.reserve(std::max(0, width()));
         for (int x = 0; x < width() && x < soundEnd; ++x) {
             const PeakPair& peak = columns[std::size_t(x)];
             const bool selected = !m_selection.empty() && x >= selectionLeft && x < selectionRight;
-            p.setPen(selected ? WaveInSelection : m_waveColor);
-            p.drawLine(QPointF(x + 0.5, middle - peak.max * half), QPointF(x + 0.5, middle - peak.min * half));
+            (selected ? inside : outside)
+                << QLineF(x + 0.5, middle - peak.max * half, x + 0.5, middle - peak.min * half);
         }
+        p.setPen(m_waveColor);
+        p.drawLines(outside);
+        p.setPen(WaveInSelection);
+        p.drawLines(inside);
         if (band > 8 && c > 0) {
             const QColor base = palette().color(QPalette::Base);
             const QColor ink = palette().color(QPalette::Text);
