@@ -128,6 +128,10 @@ private:
     bool m_settingsApplied = false;
     bool m_following = false;
     mutable QHash<int, QImage> m_spriteCache;
+    QImage onionImage(const QImage& sprite) const;
+    mutable qint64 m_onionSourceKey = -1;
+    mutable int m_onionCachedEffect = -1;
+    mutable QImage m_onionImage;
 };
 
 } // namespace OFS

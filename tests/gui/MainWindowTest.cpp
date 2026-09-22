@@ -1277,6 +1277,7 @@ private Q_SLOTS:
         };
         QTest::mousePress(workspace, Qt::LeftButton, {}, on);
         QTest::mouseMove(workspace, by(2, 0));
+        QCOMPARE(workspace->images().last().topLeft, QPoint(-1, -4));
         QTest::mouseMove(workspace, by(4, 1));
         QTest::mouseRelease(workspace, Qt::LeftButton, {}, by(4, 1));
         const auto& moved = page->file()->document().sprites()[0].header;

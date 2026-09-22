@@ -181,6 +181,16 @@ QImage AnimationPage::spriteImage(int index) const
     return image;
 }
 
+QImage AnimationPage::onionImage(const QImage& sprite) const
+{
+    if (sprite.cacheKey() != m_onionSourceKey || m_onionEffect != m_onionCachedEffect) {
+        m_onionSourceKey = sprite.cacheKey();
+        m_onionCachedEffect = m_onionEffect;
+        m_onionImage = GraphicsView::onionEffect(sprite, m_onionEffect);
+    }
+    return m_onionImage;
+}
+
 const AirAnimation* AnimationPage::animation() const
 {
     return m_current >= 0 && m_current < m_doc.count() ? &m_doc.animations().at(m_current) : nullptr;
@@ -444,7 +454,7 @@ void AnimationPage::refresh()
             const AirFrame& of = onion.frames.at(std::clamp(m_onionFrame, 0, int(onion.frames.size()) - 1));
             if (spriteLayer(of, Placement{double(of.x), double(of.y), of.xScale, of.yScale, of.angle}, m_onionOpacity,
                             false, &layer)) {
-                layer.image = GraphicsView::onionEffect(layer.image, m_onionEffect);
+                layer.image = onionImage(layer.image);
                 images << layer;
             }
         }

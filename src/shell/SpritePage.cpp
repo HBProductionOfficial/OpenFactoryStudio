@@ -71,7 +71,14 @@ SpritePage::SpritePage(SpriteFile* file, QWidget* parent)
     // Dragging the sprite moves it on screen, which moves the axis the other way.
     connect(m_view, &GraphicsView::imageDragged, this, [this](int dx, int dy) {
         m_dragOffset += QPoint(dx, dy);
-        refresh();
+        // Only move the dragged sprite's image, because decoding it again on each move is slow. It is the last image
+        // shown.
+        QList<GraphicsView::Image> images = m_view->images();
+        if (images.isEmpty() || m_current < 0 || m_current >= m_file->document().spriteCount())
+            return refresh();
+        const auto& header = m_file->document().sprites()[m_current].header;
+        images.last().topLeft = QPoint(-header.axisX, -header.axisY) + m_dragOffset;
+        m_view->setImages(images);
     });
     connect(m_view, &GraphicsView::dragFinished, this, [this] {
         const QPoint offset = std::exchange(m_dragOffset, QPoint());
