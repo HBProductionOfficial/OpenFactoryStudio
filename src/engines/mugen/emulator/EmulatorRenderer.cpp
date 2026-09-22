@@ -1,5 +1,6 @@
 #include "engines/mugen/emulator/EmulatorRenderer.h"
 
+#include "core/app/ImageCache.h"
 #include "core/bg/BgRenderer.h"
 #include "core/sprites/QtImages.h"
 #include "engines/mugen/emulator/EmulatorSession.h"
@@ -254,6 +255,11 @@ const QImage& EmulatorRenderer::fontImage(const FightScreen::Font& font, int ban
 
 QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& options)
 {
+    qsizetype cached = 0;
+    for (const auto& sprites : std::as_const(m_cache))
+        cached += sprites.size();
+    if (ImageCache::full(cached))
+        m_cache.clear();
     QImage frame(Screen, QImage::Format_ARGB32_Premultiplied);
     frame.fill(Qt::black);
     if (!session.isStarted())

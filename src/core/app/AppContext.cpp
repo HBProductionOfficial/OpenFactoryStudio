@@ -1,5 +1,6 @@
 #include "core/app/AppContext.h"
 
+#include "core/app/ImageCache.h"
 #include "core/project/Archives.h"
 
 #include "core/app/TaskList.h"
@@ -92,6 +93,7 @@ void AppContext::applySettings()
     const QList<TextEncoding>& encodings = TextEncoding::all();
     const int codePage = m_config->intValue(QStringLiteral("default_codepage"), 0);
     ProjectFile::setUndoLimit(m_config->intValue(QStringLiteral("undo_limit"), 64));
+    ImageCache::setLowMemory(m_config->intValue(QStringLiteral("cache_type"), 1) == 2); // 2: Hard disk
     CodeFile::setTabConversion(m_config->boolValue(QStringLiteral("open_tabToSpace")),
                                m_config->boolValue(QStringLiteral("save_spaceToTab")));
     CodeFile::setFallbackEncoding(codePage > 0 && codePage < int(encodings.size()) ? encodings[codePage].codecName()

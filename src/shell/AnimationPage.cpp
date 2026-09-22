@@ -1,6 +1,7 @@
 #include "shell/AnimationPage.h"
 
 #include "core/GameTime.h"
+#include "core/app/ImageCache.h"
 #include "core/code/CodeEditor.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
@@ -177,6 +178,8 @@ QImage AnimationPage::spriteImage(int index) const
         if (!rgba.pixelBuffer().empty())
             image = toQImage(rgba);
     }
+    if (ImageCache::full(m_spriteCache.size()))
+        m_spriteCache.clear();
     m_spriteCache.insert(index, image);
     return image;
 }

@@ -1,5 +1,6 @@
 #include "engines/mugen/ProjectGraphics.h"
 
+#include "core/app/ImageCache.h"
 #include "core/editors/EditorInfo.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
@@ -77,6 +78,8 @@ QImage ProjectGraphics::sprite(int group, int index, QPoint* axis) const
                 cached.axis = QPoint(info.axisX, info.axisY);
             }
         }
+        if (ImageCache::full(m_cache.size()))
+            m_cache.clear();
         it = m_cache.insert(key, cached);
     }
     if (axis)

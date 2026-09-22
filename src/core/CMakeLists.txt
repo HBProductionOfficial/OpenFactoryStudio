@@ -8,6 +8,8 @@ add_library(ofscore SHARED
     app/AppContext.cpp
     app/TaskList.h
     app/TaskList.cpp
+    app/ImageCache.h
+    app/ImageCache.cpp
     app/Messages.h
     app/Messages.cpp
     app/Languages.h

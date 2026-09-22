@@ -1,3 +1,5 @@
+#include "core/app/AppContext.h"
+#include "core/app/ImageCache.h"
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
 #include "core/settings/ShortcutSettings.h"
@@ -128,6 +130,21 @@ private Q_SLOTS:
         config.setValue("d", 1.25);
         QCOMPARE(config.value("d"), QStringLiteral("1.25"));
         QCOMPARE(config.intValue("missing", 7), 7);
+    }
+
+    // Cache type 2 is Hard disk (few decoded images kept), 1 is Memory (all kept).
+    void cacheType()
+    {
+        AppContext context;
+        context.config().setValue(QStringLiteral("cache_type"), QStringLiteral("2"));
+        context.applySettings();
+        QVERIFY(ImageCache::lowMemory());
+        QVERIFY(!ImageCache::full(ImageCache::LowMemoryLimit - 1));
+        QVERIFY(ImageCache::full(ImageCache::LowMemoryLimit));
+        context.config().setValue(QStringLiteral("cache_type"), QStringLiteral("1"));
+        context.applySettings();
+        QVERIFY(!ImageCache::lowMemory());
+        QVERIFY(!ImageCache::full(100000));
     }
 
     void shortcuts()

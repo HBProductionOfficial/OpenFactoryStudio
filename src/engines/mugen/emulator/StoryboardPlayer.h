@@ -116,7 +116,6 @@ private:
     std::unique_ptr<BgRenderer> m_bgRenderer;
     QImage m_canvas;
     QHash<QPair<const FightScreen::Font*, int>, QImage> m_fontImages;
-    QHash<qint64, std::pair<QImage, QPoint>> m_spriteCache;
     QList<Sound> m_pendingSounds;
     std::optional<QString> m_pendingBgm;
     bool m_pendingBgmLoop = false;

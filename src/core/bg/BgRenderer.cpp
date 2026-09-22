@@ -1,6 +1,7 @@
 #include "core/bg/BgRenderer.h"
 
 #include "core/anims/AirDocument.h"
+#include "core/app/ImageCache.h"
 #include "core/sprites/QtImages.h"
 #include "core/sprites/SpriteDocument.h"
 
@@ -61,6 +62,8 @@ QImage BgRenderer::sprite(int group, int number, bool masked, QPoint* axis)
             const auto& header = m_sprites->sprites()[index].header;
             entry.second = QPoint(header.axisX, header.axisY);
         }
+        if (ImageCache::full(m_cache.size()))
+            m_cache.clear();
         found = m_cache.insert(key, entry);
     }
     if (axis)
