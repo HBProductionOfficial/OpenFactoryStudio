@@ -9,6 +9,7 @@
 #include <QDoubleSpinBox>
 #include <QFrame>
 #include <QGroupBox>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListView>
@@ -29,6 +30,25 @@ QString caption(const ControlDef& def)
         return {};
     return QCoreApplication::translate("Controls", def.caption);
 }
+
+// Up and Down move the focus like Left and Right, same as Fighter Factory on Qt 5. Qt 6 hands
+// them to the panel, which scrolls.
+class PanelCheckBox : public QCheckBox
+{
+public:
+    using QCheckBox::QCheckBox;
+
+protected:
+    void keyPressEvent(QKeyEvent* event) override
+    {
+        const bool plain = !(event->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier));
+        if (plain && (event->key() == Qt::Key_Up || event->key() == Qt::Key_Down)) {
+            focusNextPrevChild(event->key() == Qt::Key_Down);
+            return;
+        }
+        QCheckBox::keyPressEvent(event);
+    }
+};
 
 } // namespace
 
@@ -79,7 +99,7 @@ QWidget* createControlWidget(const ControlDef& def, QWidget* parent)
         break;
     }
     case ControlKind::Check: {
-        auto* c = new QCheckBox(caption(def), parent);
+        auto* c = new PanelCheckBox(caption(def), parent);
         c->setChecked(def.checked);
         w = c;
         break;

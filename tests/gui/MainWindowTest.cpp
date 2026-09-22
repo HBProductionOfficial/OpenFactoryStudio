@@ -1935,6 +1935,23 @@ private Q_SLOTS:
         QCOMPARE(page->view()->boxes().size(), 1);
         QVERIFY(page->view()->boxes().first().editable);
 
+        // The box is written back with top above bottom.
+        auto setLine = [text](int n, const QString& value) {
+            QTextCursor cursor(text->findBlockByNumber(n));
+            cursor.select(QTextCursor::LineUnderCursor);
+            cursor.insertText(value);
+        };
+        setLine(3, QStringLiteral(" Clsn2[0] = -2, 0, 2,-4"));
+        QApplication::processEvents(); // let the page read the text again
+        page->setSelectedBox({0, 0});
+        page->view()->setFocus();
+        QTest::keyClick(page->view(), Qt::Key_Right);
+        QCOMPARE(line(3), QStringLiteral("  Clsn2[0] = -1, -4, 3, 0"));
+        QTest::keyClick(page->view(), Qt::Key_Down);
+        QCOMPARE(line(3), QStringLiteral("  Clsn2[0] = -1, -3, 3, 1"));
+        page->setSelectedBox({});
+        setLine(3, QStringLiteral(" Clsn2[0] = -2, -4, 2, 0"));
+
         time->setValue(6);
         QCOMPARE(line(4), QStringLiteral("0,0, 0,0, 6"));
         QCOMPARE(frameLabel->text(), QStringLiteral("1 / 2 - 6 ticks"));
@@ -3515,6 +3532,108 @@ private Q_SLOTS:
         config.setValue("action_list_width", width);
     }
 
+    void tabOrderParity()
+    {
+        QTemporaryDir dir;
+        SpriteDocument doc;
+        doc.palettes() << SpriteDocument::makePalette(1, 1, Formats::grayscalePalette(256));
+        for (int n = 0; n < 4; ++n) {
+            SpriteEntry entry;
+            entry.header.number = std::uint16_t(n);
+            entry.pixels = SpriteDocument::makePixels(Formats::Image::indexed(2, 2, std::vector<std::uint8_t>(4, 3)));
+            entry.palette = doc.palettes()[0];
+            doc.sprites() << entry;
+        }
+        auto toBytes = [](const Formats::Bytes& bytes) {
+            return QByteArray(reinterpret_cast<const char*>(bytes.data()), qsizetype(bytes.size()));
+        };
+        writeFile(dir.filePath("k.sff"), toBytes(doc.toSff().write().value()));
+        Formats::SndDocument snd;
+        const auto wav =
+            Formats::encodeAudio(Formats::SampleBuffer::fromInt16(std::vector<std::int16_t>(500, 100), 1, 11025));
+        snd.sounds.push_back(Formats::SndSound{0, 0, wav.value()});
+        writeFile(dir.filePath("k.snd"), toBytes(snd.write()));
+        writeFile(dir.filePath("k.air"), "[Begin Action 0]\n0,0, 0,0, 4\n0,1, 0,0, 4\n");
+        writeFile(dir.filePath("k.cns"),
+                  "[Data]\nlife = 1000\n[Statedef 0]\n[State 0, 1]\ntype = Null\ntrigger1 = 1\n");
+        writeFile(dir.filePath("k.def"), "[Info]\nname = \"K\"\nmugenversion = 1.0\n[Files]\nsprite = k.sff\n"
+                                         "sound = k.snd\nanim = k.air\ncns = k.cns\nst = k.cns\n");
+        MainWindow window(*m_context);
+        window.resize(1200, 800);
+        window.show();
+        window.activateWindow();
+        QVERIFY(window.openProject(dir.filePath("k.def")));
+        window.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&window));
+        ActionRegistry& actions = m_context->actions();
+        ProjectView* view = window.currentProjectView();
+        auto tab = [&](const char* from, bool back) -> QString {
+            QWidget* w = nullptr;
+            for (QWidget* c : view->findChildren<QWidget*>(QLatin1String(from)))
+                if (c->isVisible())
+                    w = c;
+            if (!w)
+                return QStringLiteral("<no %1>").arg(QLatin1String(from));
+            w->setFocus(Qt::TabFocusReason);
+            QTest::keyClick(w, Qt::Key_Tab, back ? Qt::ShiftModifier : Qt::NoModifier);
+            QWidget* f = QApplication::focusWidget();
+            return f ? f->objectName() + QLatin1Char('/') + QLatin1String(f->metaObject()->className())
+                     : QStringLiteral("<none>");
+        };
+        struct Step
+        {
+            const char* editor;
+            const char* from;
+            bool back;
+            const char* to;
+        };
+        const Step steps[] = {
+            {"editor_spr", "spr_sel", false, "spr_prev_grp"},
+            {"editor_spr", "spr_sel", true, "spr_edit_img"},
+            {"editor_spr", "spr_grp", false, "spr_next_grp"},
+            {"editor_spr", "spr_num", false, "spr_xaxis"},
+            {"editor_spr", "spr_xaxis", false, "spr_yaxis"},
+            {"editor_spr", "spr_yaxis", false, "spr_pos_left"},
+            {"editor_spr", "spr_dec_load", true, "spr_pos_down"},
+            {"editor_spr", "spr_dec_load", false, "spr_trans_color"},
+            {"editor_spr", "spr_trans_color", false, "spr_onion_skin"},
+            {"editor_spr", "spr_onion_skin", false, "spr_onion_sel"},
+            {"editor_spr", "spr_onion_sel", false, "pal_add"},
+            {"editor_spr", "pal_sel", false, "spr_switch_pal"},
+            {"editor_spr", "spr_switch_pal", false, "pal_grp"},
+            {"editor_spr", "pal_grp", false, "pal_num"},
+            {"editor_anim", "anim_sel", true, "anim_editcode"},
+            {"editor_anim", "anim_sel", false, "anim_number"},
+            {"editor_anim", "anim_number", false, "anim_name"},
+            {"editor_anim", "anim_name", false, "anim_frame_sel"},
+            {"editor_anim", "anim_frame_sel", false, "anim_frame_add"},
+            {"editor_anim", "anim_frame_xaxis", false, "anim_frame_yaxis"},
+            {"editor_anim", "anim_frame_time", false, "anim_frameall_time"},
+            {"editor_anim", "anim_frame_flip", false, "anim_frameall_flip"},
+            {"editor_anim", "anim_frame_loop", false, "anim_frame_xscale"},
+            {"editor_anim", "thumb_grp_list", false, "thumb_action1"},
+            {"editor_snd", "snd_sel", true, "snd_stop"},
+            {"editor_snd", "snd_sel", false, "snd_prev_grp"},
+            {"editor_snd", "snd_grp", false, "snd_next_grp"},
+            {"editor_snd", "snd_curr_sample", false, "snd_save_changes"},
+            {"editor_snd", "snd_sel_start", false, "snd_sel_end"},
+            {"editor_snd", "snd_volume", false, "snd_tool_offset"},
+            {"editor_emul", "emul_match_mode", false, "emul_enemy"},
+            {"editor_emul", "emul_rounds", false, "emul_time"},
+        };
+        for (const Step& st : steps) {
+            actions.action(st.editor)->trigger();
+            QApplication::processEvents();
+            const QString got = tab(st.from, st.back);
+            QVERIFY2(got.startsWith(QLatin1String(st.to) + QLatin1Char('/')),
+                     qPrintable(QStringLiteral("%1 %2 -> %3, Fighter Factory: %4")
+                                    .arg(QLatin1String(st.from),
+                                         st.back ? QStringLiteral("Shift+Tab") : QStringLiteral("Tab"), got,
+                                         QLatin1String(st.to))));
+        }
+    }
+
+    // Which widget gets the keys after a click, a Sounds tool button or an editor switch.
     void keyboardFocusParity()
     {
         QTemporaryDir dir;
@@ -3556,10 +3675,19 @@ private Q_SLOTS:
         auto* selector = view->findChild<QScrollBar*>("spr_sel");
         QVERIFY(sprites && selector);
         QCOMPARE(selector->focusPolicy(), Qt::StrongFocus);
-        if (sprites->file()->document().version() == Formats::SffVersion::V1) {
-            auto* decompress = view->findChild<QCheckBox*>("spr_dec_load");
-            QVERIFY(decompress && decompress->isEnabled());
-        }
+        auto* decompress = view->findChild<QCheckBox*>("spr_dec_load");
+        QVERIFY(decompress);
+        if (sprites->file()->document().version() == Formats::SffVersion::V1)
+            QVERIFY(decompress->isEnabled());
+        decompress->setFocus(Qt::TabFocusReason);
+        QTRY_VERIFY(decompress->hasFocus());
+        QTest::keyClick(decompress, Qt::Key_Down);
+        QWidget* next = QApplication::focusWidget();
+        QVERIFY(next && next != decompress);
+        QTest::keyClick(next, Qt::Key_Up);
+        QTRY_VERIFY(decompress->hasFocus());
+        QTest::keyClick(decompress, Qt::Key_Right);
+        QCOMPARE(QApplication::focusWidget(), next);
         selector->setFocus(Qt::MouseFocusReason);
         QTRY_VERIFY(selector->hasFocus());
         sprites->setCurrent(0);
