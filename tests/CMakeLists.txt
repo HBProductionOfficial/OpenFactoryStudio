@@ -219,6 +219,10 @@ ofs_add_test(NAME gui_mainwindow GUI LABELS gui
     SOURCES gui/MainWindowTest.cpp
     LIBS OFS::shell)
 
+ofs_add_test(NAME gui_code_editor_parity GUI LABELS gui
+    SOURCES gui/CodeEditorParityTest.cpp
+    LIBS OFS::shell OFS::mugen)
+
 ofs_add_test(NAME gui_translation_coverage GUI LABELS gui TIMEOUT 600
     SOURCES gui/TranslationCoverageTest.cpp
     LIBS OFS::shell)
@@ -259,6 +263,7 @@ ofs_add_test(NAME gui_engine_run GUI LABELS oracle TIMEOUT 300
 get_property(_ofs_plugins GLOBAL PROPERTY OFS_ENGINE_PLUGINS)
 add_dependencies(test_core_engines ofs_data ${_ofs_plugins})
 add_dependencies(test_gui_mainwindow ofs_data ${_ofs_plugins})
+add_dependencies(test_gui_code_editor_parity ofs_data ${_ofs_plugins})
 add_dependencies(test_gui_translation_coverage ofs_data ${_ofs_plugins})
 add_dependencies(test_gui_engine_run ofs_data ${_ofs_plugins})
 add_dependencies(test_core_preset_coverage ofs_data ${_ofs_plugins})

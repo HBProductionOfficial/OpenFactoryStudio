@@ -265,6 +265,12 @@ ReformatPredicate syntaxPredicate(const SyntaxDatabase* syntax, const QString& f
         if (!syntax)
             return false;
         const QString name = key.section(QLatin1Char('('), 0, 0).trimmed();
+        // The trigger lines and other built-in expressions of controllers, whatever the
+        // controller's own parameters say (Null takes any key as text).
+        static const QRegularExpression builtIn(QStringLiteral("^(trigger(all|\\d+)|persistent|ignorehitpause)$"),
+                                                QRegularExpression::CaseInsensitiveOption);
+        if (syntax->isTypedSection(fileType, header) && builtIn.match(name).hasMatch())
+            return true;
         if (const SyntaxBlock* block = syntax->findBlock(fileType, header, typeValue)) {
             if (const SyntaxParam* param = syntax->param(fileType, *block, name)) {
                 const QString type = param->type.toLower();
@@ -272,9 +278,7 @@ ReformatPredicate syntaxPredicate(const SyntaxDatabase* syntax, const QString& f
                        type == QLatin1String("hitflags") || type == QLatin1String("guardflags");
             }
         }
-        static const QRegularExpression builtIn(QStringLiteral("^(trigger(all|\\d+)|persistent|ignorehitpause)$"),
-                                                QRegularExpression::CaseInsensitiveOption);
-        return syntax->isTypedSection(fileType, header) && builtIn.match(name).hasMatch();
+        return false;
     };
 }
 

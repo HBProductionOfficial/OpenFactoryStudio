@@ -446,6 +446,7 @@ void CodeEditor::updateCompletion(bool typed)
             m_completer->setMaxVisibleItems(7);
             connect(m_completer, qOverload<const QString&>(&QCompleter::activated), this,
                     &CodeEditor::insertCompletion);
+            m_completer->popup()->installEventFilter(this); // after the completer's own filter: runs first
         }
         m_completionList->setStringList(request.words);
         m_completionStart = request.start;
@@ -467,7 +468,8 @@ void CodeEditor::updateCompletion(bool typed)
         }
     }
     m_completer->setCompletionPrefix(filter);
-    QRect rect = cursorRect();
+    // The completer reads the rectangle in the editor's coordinates, not the viewport's.
+    QRect rect = cursorRect().translated(viewport()->pos());
     rect.setWidth(m_completer->popup()->sizeHintForColumn(0) +
                   m_completer->popup()->verticalScrollBar()->sizeHint().width() + 8);
     m_completer->complete(rect);
@@ -481,7 +483,8 @@ void CodeEditor::updateCompletion(bool typed)
     }
     QAbstractItemView* popup = m_completer->popup();
     if (current >= 0) {
-        popup->setCurrentIndex(popup->model()->index(current, 0));
+        // Current so Enter takes it, but not highlighted. Same as Fighter Factory.
+        popup->selectionModel()->setCurrentIndex(popup->model()->index(current, 0), QItemSelectionModel::Clear);
         popup->scrollTo(popup->currentIndex(), QAbstractItemView::PositionAtTop);
     } else {
         popup->setCurrentIndex(QModelIndex());
@@ -605,6 +608,22 @@ void CodeEditor::mouseReleaseEvent(QMouseEvent* event)
     QPlainTextEdit::mouseReleaseEvent(event);
 }
 
+bool CodeEditor::eventFilter(QObject* watched, QEvent* event)
+{
+    // The first Down or Up in the popup only selects the current word; the next ones move on.
+    if (m_completer && watched == m_completer->popup() && event->type() == QEvent::KeyPress) {
+        const auto* key = static_cast<QKeyEvent*>(event);
+        QAbstractItemView* popup = m_completer->popup();
+        const QModelIndex current = popup->currentIndex();
+        if ((key->key() == Qt::Key_Down || key->key() == Qt::Key_Up) && key->modifiers() == Qt::NoModifier &&
+            current.isValid() && !popup->selectionModel()->isSelected(current)) {
+            popup->selectionModel()->select(current, QItemSelectionModel::ClearAndSelect);
+            return true;
+        }
+    }
+    return QPlainTextEdit::eventFilter(watched, event);
+}
+
 void CodeEditor::keyPressEvent(QKeyEvent* event)
 {
     if (isCompleting()) {
@@ -619,6 +638,13 @@ void CodeEditor::keyPressEvent(QKeyEvent* event)
         default:
             break;
         }
+    }
+    // Same as Fighter Factory: Enter copies no indentation, and Tab and Shift+Tab insert a tab even
+    // over a selection. Qt's Shift+Tab carries no text.
+    if (event->key() == Qt::Key_Backtab && !isReadOnly()) {
+        textCursor().insertText(QStringLiteral("\t"));
+        ensureCursorVisible();
+        return;
     }
     const bool typed = !event->text().isEmpty() && event->text().at(0).isPrint();
     QPlainTextEdit::keyPressEvent(event);

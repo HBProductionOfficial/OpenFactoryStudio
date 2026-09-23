@@ -1,4 +1,5 @@
 #include "shell/MainWindow.h"
+#include "GuiTestSupport.h"
 #include "core/actions/ActionRegistry.h"
 #include "core/app/AppContext.h"
 #include "core/code/CodeEditor.h"
@@ -101,90 +102,9 @@
 #include <QWizard>
 
 using namespace OFS;
+using namespace OFS::GuiTest;
 
 namespace {
-
-void writeFile(const QString& path, const QByteArray& data)
-{
-    QFile f(path);
-    QVERIFY(f.open(QIODevice::WriteOnly));
-    f.write(data);
-}
-
-QByteArray readFile(const QString& path)
-{
-    QFile f(path);
-    return f.open(QIODevice::ReadOnly) ? f.readAll() : QByteArray();
-}
-
-QString keyText(const char* keys)
-{
-    return QKeySequence(QString::fromLatin1(keys)).toString(QKeySequence::NativeText);
-}
-
-QString boxTitle(const QString& title)
-{
-#ifdef Q_OS_MACOS
-    Q_UNUSED(title);
-    return {};
-#else
-    return title;
-#endif
-}
-
-QStringList visibleMenuTitles(QMainWindow& window)
-{
-    QStringList titles;
-    for (QAction* a : window.menuBar()->actions()) {
-        if (a->isVisible() && a->menu())
-            titles << a->menu()->title();
-    }
-    return titles;
-}
-
-QStringList toolBarIds(QToolBar* bar)
-{
-    QStringList ids;
-    for (QAction* a : bar->actions())
-        ids << (a->isSeparator() ? QStringLiteral("|") : a->objectName());
-    return ids;
-}
-
-QMenu* menu(QMainWindow& window, const QString& objectName)
-{
-    return window.findChild<QMenu*>(objectName);
-}
-
-void answerDiscard(QMessageBox::StandardButton button)
-{
-    auto* timer = new QTimer(qApp);
-    timer->setInterval(5);
-    QObject::connect(timer, &QTimer::timeout, qApp, [timer, button] {
-        auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
-        if (!box || !box->isVisible())
-            return;
-        timer->stop();
-        timer->deleteLater();
-        QCOMPARE(box->windowTitle(), boxTitle("Discard changes?"));
-        box->button(button)->click();
-    });
-    timer->start();
-}
-
-template <typename T>
-void whenModal(std::function<void(T*)> answer)
-{
-    auto* timer = new QTimer(qApp);
-    timer->setInterval(5);
-    QObject::connect(timer, &QTimer::timeout, qApp, [timer, answer] {
-        if (auto* window = qobject_cast<T*>(QApplication::activeModalWidget()); window && window->isVisible()) {
-            timer->stop();
-            timer->deleteLater();
-            answer(window);
-        }
-    });
-    timer->start();
-}
 
 // Answers Project > New with the template at `row` of the first tab, or with none when row is -1.
 void chooseTemplate(int row)
@@ -197,25 +117,6 @@ void chooseTemplate(int row)
             qobject_cast<QListWidget*>(tabs->widget(0))->setCurrentRow(row);
         dialog->findChild<QDialogButtonBox*>("buttonBox")->button(QDialogButtonBox::Ok)->click();
     });
-}
-
-void answerBoxes(QList<QMessageBox::StandardButton> buttons, QStringList* texts)
-{
-    auto* timer = new QTimer(qApp);
-    timer->setInterval(5);
-    QObject::connect(timer, &QTimer::timeout, qApp, [timer, buttons, texts]() mutable {
-        auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
-        if (!box || !box->isVisible())
-            return;
-        if (texts)
-            *texts << box->text();
-        box->button(buttons.takeFirst())->click();
-        if (buttons.isEmpty()) {
-            timer->stop();
-            timer->deleteLater();
-        }
-    });
-    timer->start();
 }
 
 void answerEmptyWizard(const QString& choice)
@@ -250,13 +151,7 @@ class MainWindowTest : public QObject
 private Q_SLOTS:
     void initTestCase()
     {
-        qputenv("OFS_AUDIO_BACKEND", "null");
-        m_context = new AppContext;
-        m_context->loadSettings();
-        m_context->history().clear();
-        m_context->config().setValue("lastEditor", QString());
-        m_context->config().setValue("show_quicksearch", false);
-        m_context->initializeEngines();
+        m_context = makeContext();
         QVERIFY(m_dir.isValid());
 
         writeFile(m_dir.filePath("fighter.def"), "; test character\n"
