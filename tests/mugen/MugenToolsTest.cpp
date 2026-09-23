@@ -570,6 +570,11 @@ private Q_SLOTS:
         group->setValue(5011);
         QVERIFY(text->toPlainText().contains(QStringLiteral("\n5011,0, 0,0, 5\n")));
         group->setValue(5010);
+        const QString beforeSplit = text->toPlainText();
+        child<QToolButton>(dialog.get(), "insFrame")->click();
+        QVERIFY2(text->toPlainText().contains(QStringLiteral("\n5010,0, 0,0, 3\n-1,0, 0,0, -1\n")),
+                 qPrintable(text->toPlainText()));
+        text->setPlainText(beforeSplit);
         elements->setValue(0);
         QCOMPARE(group->value(), 5000);
         auto* throwing = child<QComboBox>(dialog.get(), "p1Anim");

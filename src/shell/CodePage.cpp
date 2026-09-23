@@ -31,6 +31,7 @@ CodePage::CodePage(ActionRegistry& actions, QWidget* parent)
     m_snippets->installEventFilter(this);
     m_snippets->view()->installEventFilter(this);
     m_snippets->view()->viewport()->installEventFilter(this);
+    m_snippets->view()->parentWidget()->installEventFilter(this);
     connect(m_snippets, &QComboBox::activated, this, [this](int index) {
         Q_EMIT snippetChosen(m_snippets->itemText(index));
         if (m_snippetByKeyboard)
@@ -116,7 +117,15 @@ void CodePage::setIssues(const IssueList& issues, const IconSet& icons)
 
 bool CodePage::eventFilter(QObject* watched, QEvent* event)
 {
-    if (event->type() == QEvent::KeyPress)
+    // The popup's own filter picks the item on Enter, so ours must see the key first. A filter installed again runs
+    // first.
+    if (event->type() == QEvent::Show && watched == m_snippets->view()->parentWidget()) {
+        m_snippets->view()->installEventFilter(this);
+        m_snippets->view()->viewport()->installEventFilter(this);
+    }
+    // Track whether the next combo choice comes from the keyboard. The popup picks on Enter's ShortcutOverride, before
+    // the key press itself.
+    if (event->type() == QEvent::KeyPress || event->type() == QEvent::ShortcutOverride)
         m_snippetByKeyboard = true;
     else if (event->type() == QEvent::MouseButtonPress || event->type() == QEvent::MouseButtonRelease)
         m_snippetByKeyboard = false;

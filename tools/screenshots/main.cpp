@@ -356,6 +356,7 @@ int main(int argc, char** argv)
     parser.addOption({"sffv2", "A character with an SFF v2 sprite file (optional).", "folder"});
     parser.addOption({"out", "Folder for the screenshots and index.json.", "folder"});
     parser.addOption({"only", "Only the steps of these areas (comma separated, e.g. Character,Sounds).", "areas"});
+    parser.addOption({"native", "Paint the workspaces natively instead of with OpenGL."});
     parser.addHelpOption();
     parser.process(app);
     if (!parser.isSet("mugen") || !parser.isSet("out"))
@@ -384,6 +385,8 @@ int main(int argc, char** argv)
 
     AppContext context;
     context.loadSettings();
+    if (parser.isSet("native"))
+        context.config().setValue("native_painting", true);
     Rendering::choose(context.config(), Paths::userDir());
     context.initializeEngines();
     MainWindow window(context);

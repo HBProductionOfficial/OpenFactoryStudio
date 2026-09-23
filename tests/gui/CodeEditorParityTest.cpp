@@ -399,6 +399,18 @@ private Q_SLOTS:
         QVERIFY(!editor->toPlainText().contains(QStringLiteral("CCC")));
         QVERIFY(editor->toPlainText().startsWith(QStringLiteral("AAA\n    BBB [State 0, zz]")));
         editor->undo();
+
+        editor->setPlainText(before);
+        editor->moveCursor(QTextCursor::End);
+        combo->setCurrentIndex(combo->findText("zz_test"));
+        whenModal<QDialog>(
+            [](QDialog* dialog) { dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Ok)->click(); });
+        combo->setFocus();
+        combo->showPopup();
+        QTRY_VERIFY(combo->view()->isVisible());
+        QTest::keyClick(combo->view(), Qt::Key_Return);
+        QTRY_VERIFY(editor->toPlainText().contains(QStringLiteral("[State 0, zz]")));
+        editor->undo();
         editor->document()->setModified(false);
     }
 

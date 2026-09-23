@@ -4,6 +4,7 @@
 #include "core/actions/ActionRegistry.h"
 #include "core/engine/RunConfiguration.h"
 #include "core/settings/ShortcutSettings.h"
+#include "core/theme/ThemeManager.h"
 #include "shell/BottomDock.h"
 #include "shell/FileDialogs.h"
 #include "shell/MainWindow.h"
@@ -91,12 +92,14 @@ private Q_SLOTS:
         Config& engineConfig = m_context->engineConfig("mugen");
         RunConfiguration::save(engineConfig,
                                {{"One", "C:/a/mugen.exe", "", "%0"}, {"Two", "C:/b/mugen.exe", "", "%0"}});
+        m_context->theme().setIconSet(QStringLiteral("Nuvola")); // as the window loads it
         MugenOptionsPage page(engineConfig);
         page.load();
         page.show();
         auto* list = page.findChild<QListWidget*>("engineList");
         QVERIFY(list);
         QCOMPARE(list->count(), 2);
+        QVERIFY(!list->item(0)->icon().isNull());
         bool opened = false;
         QTimer::singleShot(50, this, [&opened] {
             if (QWidget* modal = QApplication::activeModalWidget()) {
