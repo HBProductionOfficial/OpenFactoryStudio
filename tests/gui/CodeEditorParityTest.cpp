@@ -7,24 +7,32 @@
 #include "core/code/CodeEditor.h"
 #include "core/code/CodeFormatter.h"
 #include "core/code/CompletionModels.h"
+#include "core/code/Snippet.h"
 #include "core/engine/Engine.h"
 #include "core/engine/EngineManager.h"
 #include "core/project/ProjectFile.h"
 #include "core/syntax/SyntaxDatabase.h"
 #include "engines/mugen/MugenOutline.h"
+#include "shell/AdvancedSearchPanel.h"
+#include "shell/AnimationPage.h"
+#include "shell/AnimationsEditor.h"
 #include "shell/CodePage.h"
 #include "shell/DocumentationPopup.h"
 #include "shell/MainWindow.h"
 #include "shell/ProjectView.h"
+#include "shell/QuickFindBar.h"
 #include "shell/dialogs/SnippetEditorDialog.h"
 
 #include <QAbstractItemView>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QCompleter>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QDoubleSpinBox>
+#include <QLabel>
 #include <QLineEdit>
+#include <QListView>
 #include <QListWidget>
 #include <QMenu>
 #include <QMouseEvent>
@@ -35,6 +43,7 @@
 #include <QTabWidget>
 #include <QTemporaryDir>
 #include <QTextBlock>
+#include <QToolButton>
 #include <QTreeView>
 
 using namespace OFS;
@@ -54,6 +63,12 @@ private Q_SLOTS:
         writeFile(m_dir.filePath("c.def"), "[Info]\nname = \"C\"\nmugenversion = 1.0\n"
                                            "[Files]\ncmd = c.cmd\ncns = c.cns\nst = c.cns\nst1 = c2.cns\n");
         writeFile(m_dir.filePath("c2.cns"), "[Statedef 900]\ntype = S\n\n[State 900, 1]\ntype = Null\n");
+        writeFile(m_dir.filePath("q.def"),
+                  "[Info]\nname = \"Q\"\nmugenversion = 1.0\n[Files]\nanim = q.air\ncns = q.cns\n");
+        writeFile(m_dir.filePath("q.cns"), "[Data]\nlife = 1000\n");
+        writeFile(m_dir.filePath("q.air"), "; Stand\n[Begin Action 0]\n-1,0, 0,0, 10\n\n; Walk\n[Begin Action 20]\n"
+                                           "-1,0, 0,0, 10\n\n; Walk\n[Begin Action 21]\n-1,0, 0,0, 10\n\n"
+                                           "; Jump\n[Begin Action 40]\n-1,0, 0,0, 10\n");
         // A snippet with one field of each type, in the user's snippet folder.
         Engine* mugen = m_context->engines().engine(QStringLiteral("mugen"));
         QVERIFY(mugen);
@@ -573,6 +588,131 @@ private Q_SLOTS:
         QVERIFY(!topTexts().contains(QStringLiteral("0")));
         tabs->setCurrentIndex(0);
         QTRY_VERIFY(topTexts().contains(QStringLiteral("0")));
+    }
+
+    // In snippet code the longest field name wins and unknown @words stay as they are.
+    void codeToolbar()
+    {
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(m_dir.filePath("c.def")));
+        m_context->actions().action("editor_st")->trigger();
+        CodePage* page = window.currentProjectView()->currentCodePage();
+        QWidget* bar = page->findChild<QWidget*>("codeToolBar");
+        QVERIFY(bar);
+        QStringList order;
+        for (QWidget* w : bar->findChildren<QWidget*>(QString(), Qt::FindDirectChildrenOnly))
+            if (!w->objectName().isEmpty())
+                order << w->objectName();
+        std::sort(order.begin(), order.end(), [bar](const QString& a, const QString& b) {
+            return bar->findChild<QWidget*>(a)->x() < bar->findChild<QWidget*>(b)->x();
+        });
+        QCOMPARE(order, (QStringList{"codeSnippets", "code_snippet_insert", "code_snippet_new", "code_snippet_edit",
+                                     "codeIssues"}));
+
+        Snippet snippet;
+        snippet.fields = {SnippetField{"a", "A", SnippetField::Type::String, {}, {}},
+                          SnippetField{"ab", "AB", SnippetField::Type::String, {}, {}}};
+        snippet.code = QStringLiteral("x = @ab@a @abc @zz");
+        QCOMPARE(snippet.expand({{"a", "1"}, {"ab", "2"}}), QStringLiteral("x = 21 2c @zz"));
+    }
+
+    void quickFindStartsAtCurrent()
+    {
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(m_dir.filePath("q.def")));
+        window.switchEditor("animations");
+        AnimationPage* page = window.currentProjectView()->animationsEditor()->page();
+        QVERIFY(page);
+        auto find = [&](const QString& text) {
+            m_context->actions().action("edit_find_replace")->trigger();
+            auto* bar = window.findChild<QuickFindBar*>();
+            bar->setFindText(text);
+            Q_EMIT bar->findRequested();
+        };
+        page->setCurrent(0);
+        find("walk");
+        QCOMPARE(page->current(), 1);
+        find("walk");
+        QCOMPARE(page->current(), 1);
+        page->setCurrent(2);
+        find("Walk");
+        QCOMPARE(page->current(), 2);
+        page->setCurrent(3);
+        find("walk");
+        QCOMPARE(page->current(), 1);
+        window.findChild<QuickFindBar*>()->closeRequested();
+    }
+
+    // The file patterns only show for project and folder scopes. Clear keeps the search text.
+    void advancedSearchDetails()
+    {
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(m_dir.filePath("c.def")));
+        auto* panel = window.findChild<AdvancedSearchPanel*>("advancedSearch");
+        QVERIFY(panel);
+        auto* scope = panel->findChild<QComboBox*>("advsearch_scope");
+        auto* type = panel->findChild<QComboBox*>("advsearch_type");
+        auto* text = panel->findChild<QLineEdit*>("advsearch_text");
+        auto* pattern = panel->findChild<QComboBox*>("advsearch_pattern");
+        auto* exclusion = panel->findChild<QComboBox*>("advsearch_exclusion");
+        QVERIFY(scope && type && text && pattern && exclusion);
+        for (int s : {int(AdvancedSearchPanel::AllProjects), int(AdvancedSearchPanel::CurrentProject),
+                      int(AdvancedSearchPanel::FileSystem)}) {
+            scope->setCurrentIndex(s);
+            QVERIFY(pattern->isVisibleTo(panel) && exclusion->isVisibleTo(panel));
+            QVERIFY(pattern->isEditable());
+        }
+        scope->setCurrentIndex(AdvancedSearchPanel::CurrentFile);
+        QVERIFY(!pattern->isVisibleTo(panel) && !exclusion->isVisibleTo(panel));
+        type->setCurrentIndex(1); // Lazy syntax fix
+        QVERIFY(!text->isVisibleTo(panel));
+        QVERIFY(!panel->findChild<QCheckBox*>("advsearch_case")->isVisibleTo(panel));
+        type->setCurrentIndex(0);
+
+        scope->setCurrentIndex(AdvancedSearchPanel::CurrentProject);
+        text->setText("type");
+        panel->search(false);
+        QVERIFY(panel->isShowingResults());
+        const QAbstractItemModel* model = panel->resultsView()->model();
+        QVERIFY(model->rowCount() >= 1);
+        const QModelIndex fileRow = model->index(0, 0);
+        const QString fileHtml = fileRow.data(Qt::UserRole + 1).toString();
+        QVERIFY2(fileHtml.contains(QStringLiteral("<b>")) && fileHtml.contains(QLatin1Char('/')) &&
+                     fileHtml.contains(QStringLiteral(" (")),
+                 qPrintable(fileHtml));
+        const QModelIndex matchRow = model->index(0, 0, fileRow);
+        QVERIFY(matchRow.data(Qt::UserRole + 2).toInt() > 0); // its line number
+        QVERIFY(matchRow.data(Qt::UserRole + 1).toString().contains(QStringLiteral("#FFFF80")));
+        const int found = int(panel->hits().size());
+
+        panel->findChild<QPushButton*>("advsearch_clear")->click();
+        QVERIFY(!panel->isShowingResults());
+        QCOMPARE(text->text(), QStringLiteral("type"));
+        panel->search(false);
+        panel->findChild<QPushButton*>("advsearch_again")->click();
+        QVERIFY(panel->isShowingResults());
+        QCOMPARE(int(panel->hits().size()), found);
+    }
+
+    // A single click in the state controller list does not touch the code.
+    void controllerListClick()
+    {
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(m_dir.filePath("c.def")));
+        m_context->actions().action("editor_st")->trigger();
+        ProjectView* view = window.currentProjectView();
+        QListView* list = nullptr;
+        for (QListView* l : view->findChildren<QListView*>("controllersList"))
+            if (l->isVisible())
+                list = l;
+        QVERIFY(list && list->model() && list->model()->rowCount() > 0);
+        const QString before = view->currentCodeEditor()->toPlainText();
+        Q_EMIT list->clicked(list->model()->index(0, 0));
+        QCOMPARE(view->currentCodeEditor()->toPlainText(), before);
     }
 
 private:
