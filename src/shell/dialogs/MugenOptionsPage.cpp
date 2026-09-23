@@ -163,7 +163,6 @@ QWidget* MugenOptionsPage::createRunGroup()
 
     connect(add, &QPushButton::clicked, this, &MugenOptionsPage::addClicked);
     connect(m_edit, &QPushButton::clicked, this, &MugenOptionsPage::editClicked);
-    connect(m_runList, &QListWidget::itemDoubleClicked, this, &MugenOptionsPage::editClicked);
     connect(m_remove, &QPushButton::clicked, this, [this] { removeRunConfiguration(currentRunConfiguration()); });
     connect(m_clear, &QPushButton::clicked, this, &MugenOptionsPage::clearClicked);
     connect(m_up, &QPushButton::clicked, this, [this] { moveRunConfiguration(currentRunConfiguration(), -1); });

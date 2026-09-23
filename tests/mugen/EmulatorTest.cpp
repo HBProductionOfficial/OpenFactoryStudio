@@ -217,6 +217,42 @@ private Q_SLOTS:
         QVERIFY2(tickMs + renderMs < 1000.0 / 60, "a frame and its tick take longer than 1/60 s");
     }
 
+    void restartIntoTraining()
+    {
+        const QString folder = qEnvironmentVariable("OFS_CORPUS_MUGEN");
+        if (folder.isEmpty() || !QFileInfo::exists(QDir(folder).filePath("chars/kfm/kfm.def")))
+            QSKIP("OFS_CORPUS_MUGEN is not set to a M.U.G.E.N folder with chars/kfm");
+        MugenEngine mugen;
+        QString error;
+        std::unique_ptr<Project> project(mugen.openProject(QDir(folder).filePath("chars/kfm/kfm.def"), &error));
+        QVERIFY2(project, qPrintable(error));
+        EmulatorSession session;
+        EmulatorRenderer renderer;
+        const int seeds =
+            qEnvironmentVariableIntValue("OFS_SEED_COUNT") > 0 ? qEnvironmentVariableIntValue("OFS_SEED_COUNT") : 6;
+        for (int seed = 1; seed <= seeds; ++seed) {
+            for (bool training : {false, true}) {
+                EmulatorSession::Options options;
+                options.engineDir = folder;
+                options.training = training;
+                options.seed = std::uint32_t(seed * 7919 + (training ? 1 : 0)) | 1u;
+                try {
+                    QVERIFY2(session.start(*project, options, &error), qPrintable(error));
+                    for (int i = 0; i < 300; ++i) {
+                        Runtime::InputState p1;
+                        p1.right = i % 60 < 30;
+                        p1.x = i % 20 == 0;
+                        session.tick(p1, {});
+                        if (i % 3 == 0)
+                            renderer.render(session);
+                    }
+                } catch (const std::exception& e) {
+                    QFAIL(qPrintable(QStringLiteral("seed %1, training %2: %3").arg(seed).arg(training).arg(e.what())));
+                }
+            }
+        }
+    }
+
     void unsavedEdits()
     {
         EngineFolder engine;
@@ -759,7 +795,11 @@ private Q_SLOTS:
         QCOMPARE(emulator.session().match().gameTime(), time + 1);
 
         breakpoints.toggle(cmd, 4);
-        whileStopped(emulator, {[&] { emulator.perform("debug_stop"); }}, [&] { emulator.step(); }, &answered);
+        whileStopped(
+            emulator, {[&] {
+                emulator.perform("debug_stop");
+            }},
+            [&] { emulator.step(); }, &answered);
         QCOMPARE(answered, 1);
         QVERIFY(!emulator.isRunning());
         QCOMPARE(emulator.debugState(), Debug::SessionState::None);
@@ -768,7 +808,11 @@ private Q_SLOTS:
         doomed->setBreakpoints(&breakpoints);
         QVERIFY(doomed->start());
         QPointer<EmulatorWidget> watch(doomed);
-        whileStopped(*doomed, {[&] { delete doomed; }}, [&] { doomed->step(); }, &answered);
+        whileStopped(
+            *doomed, {[&] {
+                delete doomed;
+            }},
+            [&] { doomed->step(); }, &answered);
         QCOMPARE(answered, 1);
         QVERIFY(!watch);
     }

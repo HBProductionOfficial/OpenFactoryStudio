@@ -212,6 +212,9 @@ bool EmulatorSession::start(Project& project, const Options& options, QString* e
 {
     m_started = false;
     m_options = options;
+    // Drop the previous match before the players: its helpers and explods point into their data, and
+    // dropping the players first crashed a later restart at random.
+    m_match = std::make_unique<Match>(1);
     m_players.clear();
     m_effects.clear();
     m_soundCache.clear();

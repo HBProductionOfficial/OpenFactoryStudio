@@ -1,7 +1,12 @@
+// Fake mugen.exe for the Run in engine tests. It logs what it was given.
+
+#include <chrono>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <thread>
 
 int main(int argc, char** argv)
 {
@@ -21,6 +26,8 @@ int main(int argc, char** argv)
         const fs::path def = fs::path("chars") / argv[1] / (std::string(argv[1]) + ".def");
         log << "Character definition: " << (fs::exists(def) ? "found" : "missing") << '\n';
     }
+    if (const char* wait = std::getenv("OFS_FAKE_ENGINE_WAIT_MS"))
+        std::this_thread::sleep_for(std::chrono::milliseconds(std::atoi(wait)));
     log << "Log file successfully closed.\n";
     return 0;
 }
