@@ -12,6 +12,7 @@
 #include "engines/mugen/dialogs/PalFXDialog.h"
 #include "engines/mugen/dialogs/ThrowCreatorDialog.h"
 
+#include <QAbstractSpinBox>
 #include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
@@ -22,6 +23,7 @@
 #include <QListWidget>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QScreen>
 #include <QSlider>
 #include <QSpinBox>
 #include <QTemporaryDir>
@@ -30,6 +32,7 @@
 #include <QTimer>
 #include <QToolButton>
 
+#include <functional>
 #include <memory>
 
 using namespace OFS;
@@ -58,6 +61,21 @@ void writeFile(const QString& path, const QByteArray& data)
     QFile f(path);
     QVERIFY(f.open(QIODevice::WriteOnly));
     f.write(data);
+}
+
+template <typename T>
+void whenModal(std::function<void(T*)> answer)
+{
+    auto* timer = new QTimer(qApp);
+    timer->setInterval(5);
+    QObject::connect(timer, &QTimer::timeout, qApp, [timer, answer] {
+        if (auto* window = qobject_cast<T*>(QApplication::activeModalWidget()); window && window->isVisible()) {
+            timer->stop();
+            timer->deleteLater();
+            answer(window);
+        }
+    });
+    timer->start();
 }
 
 template <typename T>
@@ -438,6 +456,189 @@ private Q_SLOTS:
         QCOMPARE(dialog.result(), int(QDialog::Accepted));
         QCOMPARE(inserted, Mugen::throwStates(throwScript(), settings));
         QVERIFY(inserted.contains("value = 821\n"));
+    }
+
+    void throwCreatorDetails()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("t.def"), "[Info]\nname = \"T\"\nmugenversion = 1.0\n"
+                                         "[Files]\ncns = t.cns\nanim = t.air\n");
+        writeFile(dir.filePath("t.cns"), "[Data]\nlife = 1000\n");
+        writeFile(dir.filePath("t.air"), "[Begin Action 0]\n0,0, 0,0, -1\n\n"
+                                         "; Throw\n[Begin Action 810]\n810,0, 0,0, 3\n810,1, 0,0, 5\n810,2, 0,0, 4\n\n"
+                                         "; Thrown\n[Begin Action 820]\n5000,0, 0,0, 5\n5010,0, 0,0, 5\n\n");
+        writeFile(dir.filePath("o.def"),
+                  "[Info]\nname = \"O\"\nmugenversion = 1.0\n[Files]\ncns = t.cns\nanim = o.air\n");
+        writeFile(dir.filePath("o.air"), "[Begin Action 7]\n1,0, 0,0, 5\n");
+        Mugen::MugenEngine engine;
+        QString error;
+        std::unique_ptr<Project> thrower(engine.openProject(dir.filePath("t.def"), &error));
+        QVERIFY2(thrower, qPrintable(error));
+        std::unique_ptr<Project> other(engine.openProject(dir.filePath("o.def"), &error));
+        QVERIFY2(other, qPrintable(error));
+        auto dialog = std::make_unique<Mugen::ThrowCreatorDialog>(
+            thrower.get(), QList<Project*>{thrower.get(), other.get()}, throwScript());
+        auto* file = qobject_cast<CodeFile*>(thrower->file(dir.filePath("t.air")));
+        CodeFile* otherFile = other->codeFile(dir.filePath("o.air"), QStringLiteral("animations"));
+        QVERIFY(file && otherFile);
+        QTextDocument* text = file->document();
+        const QString otherText = otherFile->document()->toPlainText();
+        auto range = [&](const char* name) {
+            auto* spin = child<QAbstractSpinBox>(dialog.get(), name);
+            if (auto* i = qobject_cast<QSpinBox*>(spin))
+                return qMakePair(double(i->minimum()), double(i->maximum()));
+            auto* d = qobject_cast<QDoubleSpinBox*>(spin);
+            return qMakePair(d->minimum(), d->maximum());
+        };
+        QCOMPARE(range("p1SDef"), qMakePair(0.0, 1000000.0));
+        QCOMPARE(range("elem"), qMakePair(0.0, 99.0));
+        QCOMPARE(range("bindX"), qMakePair(-1000.0, 1000.0));
+        QCOMPARE(range("bindY"), qMakePair(-1000.0, 1000.0));
+        QCOMPARE(child<QDoubleSpinBox>(dialog.get(), "bindX")->decimals(), 3);
+        QCOMPARE(range("bindPriority"), qMakePair(-99.0, 99.0));
+        QCOMPARE(range("xVel"), qMakePair(-65535.0, 65535.0));
+        QCOMPARE(range("yVel"), qMakePair(-65535.0, 65535.0));
+        QCOMPARE(range("grp"), qMakePair(-1.0, 65535.0));
+        QCOMPARE(range("idx"), qMakePair(-1.0, 65535.0));
+        QStringList resolutions;
+        auto* res = child<QComboBox>(dialog.get(), "res");
+        for (int i = 0; i < res->count(); ++i)
+            resolutions << res->itemText(i);
+        QCOMPARE(resolutions, (QStringList{"320x240", "640x480", "800x600", "1024x768", "1280x720", "1920x1080"}));
+        QCOMPARE(res->currentText(), QStringLiteral("640x480"));
+
+        QCOMPARE(child<QToolButton>(dialog.get(), "addAnim")->toolTip(), QStringLiteral("Add animation"));
+        QCOMPARE(child<QToolButton>(dialog.get(), "insFrame")->toolTip(), QStringLiteral("Insert frame"));
+        QCOMPARE(child<QToolButton>(dialog.get(), "delFrame")->toolTip(), QStringLiteral("Remove current frame"));
+        for (const char* name :
+             {"grp", "idx", "flipList", "p2Anim", "projs", "xVel", "yVel", "elem", "horizontalSlider", "bindX", "bindY",
+              "bindPriority", "p1SDef", "p1AnimStart", "p1Anim", "res", "ins", "close"})
+            QVERIFY2(child<QWidget>(dialog.get(), name)->toolTip().isEmpty(), name);
+
+        const QString before = text->toPlainText();
+        whenModal<QDialog>([](QDialog* add) { add->reject(); });
+        child<QToolButton>(dialog.get(), "addAnim")->click();
+        QCOMPARE(text->toPlainText(), before);
+        child<QComboBox>(dialog.get(), "projs")->setCurrentIndex(1);
+        whenModal<QDialog>([](QDialog* add) {
+            add->findChild<QSpinBox*>("number")->setValue(830);
+            add->findChild<QLineEdit*>("name")->setText("Tail");
+            add->accept();
+        });
+        child<QToolButton>(dialog.get(), "addAnim")->click();
+        whenModal<QDialog>([](QDialog* add) {
+            add->findChild<QSpinBox*>("number")->setValue(831);
+            add->accept();
+        });
+        child<QToolButton>(dialog.get(), "addAnim")->click();
+        QCOMPARE(text->toPlainText(), before + QStringLiteral("; Tail\n[Begin Action 830]\n-1,0, 0,0, -1\n"
+                                                              "[Begin Action 831]\n-1,0, 0,0, -1\n"));
+        QCOMPARE(otherFile->document()->toPlainText(), otherText);
+        child<QComboBox>(dialog.get(), "projs")->setCurrentIndex(0);
+        auto* thrown = child<QComboBox>(dialog.get(), "p2Anim");
+        thrown->setCurrentIndex(thrown->findText(QStringLiteral("820 - Thrown")));
+
+        Mugen::AnimationPreview* preview = dialog->preview();
+        auto* slider = child<QSlider>(dialog.get(), "horizontalSlider");
+        auto* group = child<QSpinBox>(dialog.get(), "grp");
+        slider->setValue(2);
+        QCOMPARE(group->value(), 5010);
+        const QList<Mugen::AnimationPreview::Figure> figures = preview->figures();
+        QCOMPARE(figures.size(), 2);
+        QCOMPARE(figures[0].cross, QColor(Qt::white));
+        const QColor p2Cross = figures[1].cross;
+        QVERIFY(p2Cross != figures[0].cross);
+        child<QSpinBox>(dialog.get(), "bindPriority")->setValue(-1);
+        QCOMPARE(preview->figures()[1].cross, p2Cross);
+        child<QComboBox>(dialog.get(), "p1AnimStart")->setCurrentIndex(1);
+        QCOMPARE(preview->figures().size(), 2);
+        QCOMPARE(preview->figures()[0].position, figures[0].position);
+        group->setValue(-1);
+        QVERIFY(text->toPlainText().contains(QStringLiteral("\n-1,0, 0,0, 5\n")));
+        QVERIFY(preview->figures().size() < 2 || preview->figures()[1].image.isNull());
+        group->setValue(5010);
+
+        auto* elements = child<QSpinBox>(dialog.get(), "elem");
+        elements->setValue(2);
+        QCOMPARE(slider->value(), 1);
+        QCOMPARE(group->value(), 5000);
+        elements->setValue(5);
+        slider->setValue(4);
+        QCOMPARE(group->value(), 5010);
+        QVERIFY(group->isEnabled());
+        QCOMPARE(preview->figures()[0].position, figures[0].position);
+        group->setValue(5011);
+        QVERIFY(text->toPlainText().contains(QStringLiteral("\n5011,0, 0,0, 5\n")));
+        group->setValue(5010);
+        elements->setValue(0);
+        QCOMPARE(group->value(), 5000);
+        auto* throwing = child<QComboBox>(dialog.get(), "p1Anim");
+        throwing->setCurrentIndex(throwing->findText(QStringLiteral("0")));
+        QCOMPARE(elements->value(), 1);
+        throwing->setCurrentIndex(throwing->findText(QStringLiteral("810 - Throw")));
+        QCOMPARE(elements->value(), 3);
+        child<QComboBox>(dialog.get(), "p1AnimStart")->setCurrentIndex(0);
+        QCOMPARE(elements->value(), 3);
+
+        dialog->show();
+        QVERIFY(QTest::qWaitForWindowExposed(dialog.get()));
+        const QSize at640 = dialog->size();
+        res->setCurrentText("320x240");
+        QVERIFY(dialog->height() < at640.height());
+        res->setCurrentText("1920x1080");
+        const QRect screen = dialog->screen()->availableGeometry();
+        QVERIFY(screen.contains(dialog->frameGeometry()) ||
+                dialog->frameGeometry().size().boundedTo(screen.size()) ==
+                    screen.size().boundedTo(dialog->frameGeometry().size()));
+        res->setCurrentText("640x480");
+        QCOMPARE(preview->origin().x(), 320.0);
+
+        group->setValue(5012);
+        QTest::keyClick(dialog.get(), Qt::Key_Escape);
+        QVERIFY(text->toPlainText().contains(QStringLiteral("\n5012,0, 0,0, 5\n")));
+
+        dialog = std::make_unique<Mugen::ThrowCreatorDialog>(thrower.get(), QList<Project*>{thrower.get(), other.get()},
+                                                             throwScript());
+        QCOMPARE(child<QDoubleSpinBox>(dialog.get(), "bindX")->value(), 75.0);
+        QCOMPARE(child<QSpinBox>(dialog.get(), "bindPriority")->value(), 0);
+        QCOMPARE(child<QComboBox>(dialog.get(), "res")->currentText(), QStringLiteral("640x480"));
+        QCOMPARE(child<QSpinBox>(dialog.get(), "elem")->value(), 3);
+        QCOMPARE(child<QSlider>(dialog.get(), "horizontalSlider")->value(), 0);
+
+        child<QSlider>(dialog.get(), "horizontalSlider")->setValue(2);
+        const QString beforeRemove = text->toPlainText();
+        child<QToolButton>(dialog.get(), "delFrame")->click();
+        QVERIFY(text->toPlainText() != beforeRemove);
+        text->undo();
+        QCOMPARE(text->toPlainText(), beforeRemove);
+    }
+
+    void offsetViewerResets()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("v.def"),
+                  "[Info]\nname = \"V\"\nmugenversion = 1.0\n[Files]\ncns = v.cns\nanim = v.air\n");
+        writeFile(dir.filePath("v.cns"), "[Data]\nlife = 1000\n");
+        writeFile(dir.filePath("v.air"), "[Begin Action 0]\n0,0, 0,0, 5\n0,1, 0,0, 5\n");
+        Mugen::MugenEngine engine;
+        QString error;
+        std::unique_ptr<Project> project(engine.openProject(dir.filePath("v.def"), &error));
+        QVERIFY2(project, qPrintable(error));
+        {
+            Mugen::OffsetViewerDialog viewer(project.get(), {project.get()});
+            child<QDoubleSpinBox>(&viewer, "xoff")->setValue(12);
+            child<QCheckBox>(&viewer, "fliph")->setChecked(false);
+            child<QComboBox>(&viewer, "res")->setCurrentText("320x240");
+            child<QComboBox>(&viewer, "frame1")->setCurrentIndex(1);
+        }
+        Mugen::OffsetViewerDialog viewer(project.get(), {project.get()});
+        QCOMPARE(viewer.windowTitle(), QStringLiteral("Offset viewer"));
+        QCOMPARE(child<QDoubleSpinBox>(&viewer, "xoff")->value(), 100.0);
+        QCOMPARE(child<QDoubleSpinBox>(&viewer, "yoff")->value(), 0.0);
+        QVERIFY(child<QCheckBox>(&viewer, "fliph")->isChecked());
+        QVERIFY(!child<QCheckBox>(&viewer, "flipv")->isChecked());
+        QCOMPARE(child<QComboBox>(&viewer, "res")->currentText(), QStringLiteral("640x480"));
+        QCOMPARE(child<QComboBox>(&viewer, "frame1")->currentIndex(), 0);
     }
 
     void addAnimationDialog()
