@@ -217,8 +217,8 @@ void EmulatorRenderer::clearCache()
 {
     m_cache.clear();
     m_fonts.clear();
-    if (m_stage)
-        m_stage->clearCache();
+    m_stage.reset();
+    m_stageKey = nullptr;
 }
 
 const EmulatorRenderer::Sprite* EmulatorRenderer::sprite(const SpriteDocument* sprites, int group, int number,
@@ -266,9 +266,11 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
         return frame;
     const Match& match = session.match();
     const EmulatorSession::Stage& stage = session.stage();
-    if (m_stageKey != &stage || !m_stage) {
+    // Keyed by the sprites because a restarted session keeps its Stage object but loads new documents
+    // into it. Keying by the Stage left the renderer on freed sprites.
+    if (m_stageKey != stage.sprites.get() || !m_stage) {
         m_stage = std::make_unique<BgRenderer>(stage.sprites.get(), &stage.animations);
-        m_stageKey = &stage;
+        m_stageKey = stage.sprites.get();
     }
 
     Canvas canvas(frame);

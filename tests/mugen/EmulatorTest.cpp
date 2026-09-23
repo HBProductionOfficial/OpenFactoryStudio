@@ -18,6 +18,7 @@
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QGroupBox>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTextCursor>
@@ -251,6 +252,90 @@ private Q_SLOTS:
                 }
             }
         }
+    }
+
+    void widgetRestartIntoTraining()
+    {
+        const QString folder = qEnvironmentVariable("OFS_CORPUS_MUGEN");
+        if (folder.isEmpty() || !QFileInfo::exists(QDir(folder).filePath("chars/kfm/kfm.def")))
+            QSKIP("OFS_CORPUS_MUGEN is not set to a M.U.G.E.N folder with chars/kfm");
+        MugenEngine mugen;
+        QString error;
+        std::unique_ptr<Project> project(mugen.openProject(QDir(folder).filePath("chars/kfm/kfm.def"), &error));
+        QVERIFY2(project, qPrintable(error));
+        AppContext context;
+        QWidget panel;
+        auto* mode = new QComboBox(&panel);
+        mode->setObjectName("emul_match_mode");
+        for (const char* name : {"emul_enemy", "emul_explod_mode", "emul_dummy_ctrl", "emul_dummy_mode",
+                                 "emul_guard_mode", "emul_distance", "emul_button_jam"})
+            (new QComboBox(&panel))->setObjectName(QString::fromLatin1(name));
+        auto* group = new QGroupBox(&panel);
+        group->setObjectName("emul_training");
+        EmulatorWidget emulator(*project, context);
+        emulator.resize(640, 480);
+        emulator.show();
+        emulator.bindPanel(&panel);
+        emulator.setEngineDir(folder);
+        const int rounds =
+            qEnvironmentVariableIntValue("OFS_SEED_COUNT") > 0 ? qEnvironmentVariableIntValue("OFS_SEED_COUNT") : 2;
+        for (int round = 0; round < rounds; ++round) {
+            mode->setCurrentIndex(0);
+            QVERIFY2(emulator.start(), qPrintable(emulator.lastError()));
+            for (int i = 0; i < 300; ++i) {
+                emulator.step();
+                if (i % 50 == 0)
+                    QCoreApplication::processEvents();
+            }
+            emulator.stop();
+            mode->setCurrentIndex(1);
+            QVERIFY2(emulator.start(), qPrintable(emulator.lastError()));
+            for (int i = 0; i < 210; ++i) {
+                emulator.step();
+                if (i % 50 == 0)
+                    QCoreApplication::processEvents();
+            }
+            emulator.stop();
+        }
+    }
+
+    // The renderer once kept drawing the first match's freed sprites.
+    void restartDrawsTheNewStage()
+    {
+        EngineFolder engine;
+        writeFile(engine.dir.filePath("stages/stage0.def"),
+                  "[StageInfo]\nzoffset = 200\n[Camera]\nboundleft = -100\nboundright = 100\n"
+                  "[PlayerInfo]\np1startx = -50\np2startx = 50\n[BGdef]\nspr = stage0.sff\n"
+                  "[BG back]\ntype = normal\nspriteno = 0, 0\nstart = 0, 0\n");
+        auto writeStage = [&engine](QRgb color) {
+            SpriteDocument sprites;
+            Formats::Palette colors(256);
+            colors[1] =
+                Formats::rgb(std::uint8_t(qRed(color)), std::uint8_t(qGreen(color)), std::uint8_t(qBlue(color)));
+            sprites.palettes() << SpriteDocument::makePalette(1, 1, colors);
+            SpriteEntry entry;
+            entry.header.axisX = 160;
+            entry.pixels = SpriteDocument::makePixels(
+                Formats::Image::indexed(320, 240, std::vector<std::uint8_t>(320 * 240, 1), colors));
+            entry.palette = sprites.palettes().first();
+            sprites.sprites() << entry;
+            QVERIFY(sprites.toSff().save(engine.dir.filePath("stages/stage0.sff").toStdWString()).ok());
+        };
+        writeStage(qRgb(255, 0, 0));
+        MugenEngine mugen;
+        std::unique_ptr<Project> project(mugen.openProject(engine.def, nullptr));
+        QVERIFY(project);
+        EmulatorSession session;
+        EmulatorSession::Options options;
+        options.engineDir = engine.dir.path();
+        QString error;
+        QVERIFY2(session.start(*project, options, &error), qPrintable(error));
+        EmulatorRenderer renderer;
+        QCOMPARE(QColor(renderer.render(session).pixel(160, 20)), QColor(255, 0, 0));
+        writeStage(qRgb(0, 0, 255));
+        QVERIFY2(session.start(*project, options, &error), qPrintable(error));
+        renderer.clearCache();
+        QCOMPARE(QColor(renderer.render(session).pixel(160, 20)), QColor(0, 0, 255));
     }
 
     void unsavedEdits()
