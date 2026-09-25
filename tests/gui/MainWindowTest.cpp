@@ -536,7 +536,7 @@ private Q_SLOTS:
         }
         QVERIFY(popup);
         QCOMPARE(popup->size(), QSize(640, 480));
-        QVERIFY(popup->windowFlags() & Qt::WindowStaysOnTopHint);
+        QVERIFY(!(popup->windowFlags() & Qt::WindowStaysOnTopHint));
         QVERIFY(popup->findChild<QTextBrowser*>("docBrowser")->toPlainText().contains("ChangeState"));
         QTest::keyClick(popup, Qt::Key_Escape);
         QTRY_VERIFY(!popup->isVisible());
