@@ -12,11 +12,17 @@
 namespace OFS {
 
 DocumentationPopup::DocumentationPopup(QWidget* parent)
-    : QFrame(parent, Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint)
+    : QFrame(parent, Qt::Tool | Qt::FramelessWindowHint) // above the program's own window only
     , m_browser(new QTextBrowser(this))
 {
     setObjectName(QStringLiteral("docPopup"));
     setAttribute(Qt::WA_DeleteOnClose);
+    // Also close when another program comes to the front, because the popup may never get the keyboard if the program
+    // was not in front when it opened.
+    connect(qApp, &QGuiApplication::applicationStateChanged, this, [this](Qt::ApplicationState state) {
+        if (state != Qt::ApplicationActive)
+            close();
+    });
     setFrameShape(QFrame::StyledPanel);
     m_browser->setObjectName(QStringLiteral("docBrowser"));
     m_browser->setOpenExternalLinks(true);

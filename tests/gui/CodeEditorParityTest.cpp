@@ -502,6 +502,13 @@ private Q_SLOTS:
         DocumentationPopup* second = DocumentationPopup::showPage(dir.filePath("page.html"), near, &editor);
         QVERIFY(second);
         QCOMPARE(second->pos(), near);
+        QVERIFY(!(second->windowFlags() & Qt::WindowStaysOnTopHint));
+        QCOMPARE(second->parentWidget(), static_cast<QWidget*>(&editor));
+        Q_EMIT qApp->applicationStateChanged(Qt::ApplicationInactive);
+        QVERIFY(!second->isVisible());
+        QVERIFY(!popup->isVisible());
+        second = DocumentationPopup::showPage(dir.filePath("page.html"), near, &editor);
+        QVERIFY(second);
         QEvent deactivate(QEvent::WindowDeactivate);
         QCoreApplication::sendEvent(second, &deactivate);
         QVERIFY(!second->isVisible());
