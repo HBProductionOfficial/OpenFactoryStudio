@@ -1,7 +1,10 @@
 #pragma once
 
+#include <QByteArray>
 #include <QObject>
 #include <QString>
+
+#include <functional>
 
 class QNetworkAccessManager;
 class QNetworkReply;
@@ -25,6 +28,16 @@ public:
 
     QString releasesUrl() const;
 
+    struct Reply
+    {
+        QByteArray body;
+        QString error;
+        int status = 200;
+    };
+    // GUI tests answer the request instead of the network. `interactive` tells which check it is.
+    using ReplyOverride = std::function<Reply(bool interactive)>;
+    static void setReplyOverride(ReplyOverride answer);
+
 Q_SIGNALS:
     void updateAvailable(const QString& version, const QString& url, const QString& notes);
     void upToDate();
@@ -32,6 +45,7 @@ Q_SIGNALS:
 
 private:
     void onFinished(QNetworkReply* reply, bool interactive);
+    void handle(const Reply& reply, bool interactive);
 
     QNetworkAccessManager* m_network;
 };

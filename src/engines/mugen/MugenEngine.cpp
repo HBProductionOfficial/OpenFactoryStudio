@@ -104,7 +104,8 @@ QList<EditorInfo> MugenEngine::editors() const
         info.defaultSuffix = QString::fromLatin1(suffix);
         return info;
     };
-    const QString all = tr("All files (*)");
+    // Same as Fighter Factory: commands and states also list every file.
+    const QString all = tr("All files (*.*)");
     return {
         editor(EditorId::Definitions, tr("Definitions"), "editor_def", WorkspaceType::Code, "", "def",
                tr("Definitions (*.def)") + QStringLiteral(";;") + all, "def"),
@@ -115,9 +116,9 @@ QList<EditorInfo> MugenEngine::editors() const
         editor(EditorId::Backgrounds, tr("Backgrounds"), "editor_bg", WorkspaceType::Graphics, "controllers", "", {},
                ""),
         editor(EditorId::Commands, tr("Commands"), "editor_cmd", WorkspaceType::Code, "", "cmd",
-               tr("Commands (*.cmd)") + QStringLiteral(";;") + all, "cmd"),
+               tr("Commands (*.cmd *.*)") + QStringLiteral(";;") + all, "cmd"),
         editor(EditorId::States, tr("States"), "editor_st", WorkspaceType::Code, "", "st",
-               tr("States (*.cns *.st)") + QStringLiteral(";;") + all, "cns"),
+               tr("States (*.cns *.st *.*)") + QStringLiteral(";;") + all, "cns"),
         editor(EditorId::Sounds, tr("Sounds"), "editor_snd", WorkspaceType::Sound, "", "snd", tr("Sounds (*.snd)"),
                "snd"),
         editor(EditorId::Emulator, tr("Emulator"), "editor_emul", WorkspaceType::Emulator, "", "", {}, ""),

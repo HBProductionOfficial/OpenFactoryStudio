@@ -1078,7 +1078,8 @@ private Q_SLOTS:
         });
         actions.action("st_save")->trigger();
         QCOMPARE(prompts.size(), 1);
-        QCOMPARE(prompts[0], QStringLiteral("Save states as...|untitled1.cns|States (*.cns *.st);;All files (*)"));
+        QCOMPARE(prompts[0],
+                 QStringLiteral("Save states as...|untitled1.cns|States (*.cns *.st *.*);;All files (*.*)"));
         QVERIFY(created->isUntitled());
         answer = dir.filePath("brand.cns");
         actions.action("st_save")->trigger();

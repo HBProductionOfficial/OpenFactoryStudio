@@ -12,6 +12,8 @@
 #include <QTransform>
 #include <QWidget>
 
+#include <algorithm>
+
 namespace OFS {
 
 // Workspace of the Sprites and Animations editors: images around an origin (the axis) with rulers,
@@ -105,6 +107,7 @@ public:
         m_background = background;
         update();
     }
+    Background background() const { return m_background; }
     void setBackgroundColor(const QColor& color) { setBackgroundGradient(color, color); }
     void setBackgroundGradient(const QColor& top, const QColor& bottom)
     {
@@ -115,6 +118,8 @@ public:
     QColor backgroundColor() const { return m_backgroundColor; }
     QColor backgroundEnd() const { return m_backgroundEnd; }
     void setBackgroundPicture(const QImage& picture, const QPoint& offset);
+    const QImage& backgroundPicture() const { return m_backgroundPicture; }
+    QPoint backgroundOffset() const { return m_backgroundOffset; }
 
     void setRulersVisible(bool visible)
     {
@@ -140,6 +145,7 @@ public:
         m_imagesOverGuides = over;
         update();
     }
+    bool imagesOverGuides() const { return m_imagesOverGuides; }
     enum class CrossStyle
     {
         Default,
@@ -148,7 +154,10 @@ public:
     };
     void setCrossStyle(CrossStyle style, const QImage& main = {}, const QImage& secondary = {},
                        const QImage& extra = {});
+    CrossStyle crossStyle() const { return m_crossStyle; }
+    const QImage& crossPicture(int which) const { return m_crossImages[std::clamp(which, 0, 2)]; }
     void setBoxOpacity(double opacity);
+    double boxOpacity() const { return m_boxOpacity; }
     void applyGraphicsSettings(const class Config& config);
     // Onion skin effect: 0 none, 1 monochrome, 2 lighter, 3 darker.
     static QImage onionEffect(const QImage& image, int effect);
@@ -158,6 +167,7 @@ public:
         m_boxesOverCrosses = over;
         update();
     }
+    bool boxesOverCrosses() const { return m_boxesOverCrosses; }
 
     QPointF toUnits(const QPointF& widgetPoint) const;
     QPointF toWidget(const QPointF& units) const;

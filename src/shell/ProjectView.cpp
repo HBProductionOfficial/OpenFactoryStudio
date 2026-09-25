@@ -631,6 +631,8 @@ void ProjectView::reconfigureEditors()
                 sprites->applySettings(m_context.config());
             if (auto* animation = qobject_cast<AnimationPage*>(it.value()->widget(i)))
                 animation->applySettings(m_context.config(), &m_context.engineConfig(engine()->name()));
+            if (auto* backgrounds = qobject_cast<BackgroundsPage*>(it.value()->widget(i)))
+                backgrounds->applySettings(m_context.config());
             if (auto* page = codePageOf(it.value()->widget(i)))
                 configureCodeEditor(page->editor(), it.key());
         }

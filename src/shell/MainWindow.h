@@ -156,6 +156,7 @@ private:
     AppContext& m_context;
     std::unique_ptr<MenuBuilder> m_menus;
     Preset::Model m_preset;
+    QString m_panelsKey;
     QList<QMenu*> m_engineMenus;
 
     QToolBar* m_mainBar = nullptr;

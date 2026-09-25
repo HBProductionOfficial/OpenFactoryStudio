@@ -3,6 +3,7 @@
 #include "shell/FileDialogs.h"
 #include "shell/FileFilters.h"
 
+#include "core/actions/ActionRegistry.h"
 #include "core/app/AppContext.h"
 #include "core/code/CodeEditor.h"
 #include "core/code/LuaHighlighter.h"
@@ -21,7 +22,9 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QGridLayout>
+#include <QInputDialog>
 #include <QListView>
+#include <QMenu>
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QRegularExpression>
@@ -90,6 +93,8 @@ void ScriptEditorDialog::buildUi()
     m_highlighter = new LuaHighlighter(m_editor->document());
     m_highlighter->setColorSet(theme.colorSet());
     m_editor->setColorSet(theme.colorSet());
+    m_editor->setCommentPrefix(QStringLiteral("--"));
+    buildCodeMenu();
     m_messages = new QStringListModel(this);
     m_messageView = new QListView(this);
     m_messageView->setModel(m_messages);
@@ -159,6 +164,63 @@ void ScriptEditorDialog::buildUi()
     connect(m_list, &QListView::doubleClicked, this, &ScriptEditorDialog::openListed);
     connect(m_messageView, &QListView::doubleClicked, this, &ScriptEditorDialog::goToMessage);
     connect(m_editor->document(), &QTextDocument::modificationChanged, this, &ScriptEditorDialog::updateTitle);
+}
+
+void ScriptEditorDialog::buildCodeMenu()
+{
+    // The Code submenu of the MUGEN code editors, acting on the script. Its syntax checks and formatting find nothing
+    // to do in Lua.
+    m_codeMenu = new QMenu(tr("Code"), this);
+    m_codeMenu->setObjectName(QStringLiteral("menu_code"));
+    const ActionRegistry& actions = m_context.actions();
+    auto add = [this, &actions](const char* id, const std::function<void()>& run) {
+        const QString name = QString::fromLatin1(id);
+        const QAction* shared = actions.action(name);
+        QAction* action = m_codeMenu->addAction(shared ? shared->icon() : QIcon(), actions.caption(name));
+        action->setObjectName(name);
+        if (shared)
+            action->setShortcut(shared->shortcut());
+        connect(action, &QAction::triggered, this, run);
+    };
+    add("code_goto", [this] {
+        QInputDialog dialog(this);
+        dialog.setObjectName(QStringLiteral("GoToDlg"));
+        dialog.setWindowTitle(tr("Number"));
+        dialog.setInputMode(QInputDialog::IntInput);
+        dialog.setIntRange(1, 99999999);
+        dialog.setIntValue(m_editor->cursorLine());
+        if (dialog.exec() == QDialog::Accepted)
+            m_editor->goToLine(dialog.intValue());
+    });
+    add("code_prev_error", [this] { goToMessageLine(false); });
+    add("code_next_error", [this] { goToMessageLine(true); });
+    add("code_prev_deprecation", [] {});
+    add("code_next_deprecation", [] {});
+    m_codeMenu->addSeparator();
+    add("code_comment", [this] { m_editor->toggleComment(); });
+    add("code_fold_all", [this] { m_editor->foldAll(); });
+    add("code_unfold_all", [this] { m_editor->unfoldAll(); });
+    m_codeMenu->addSeparator();
+    add("code_autoindent", [] {});
+    add("code_autoformat", [] {});
+    m_editor->setCodeMenu(m_codeMenu);
+}
+
+void ScriptEditorDialog::goToMessageLine(bool forward)
+{
+    static const QRegularExpression line(QStringLiteral("^\\D*(\\d+):"));
+    const int current = m_editor->cursorLine();
+    int target = 0;
+    for (const QString& message : m_messages->stringList()) {
+        const QRegularExpressionMatch m = line.match(message);
+        const int number = m.hasMatch() ? m.captured(1).toInt() : 0;
+        if (number <= 0)
+            continue;
+        if (forward ? number > current && (target == 0 || number < target) : number < current && number > target)
+            target = number;
+    }
+    if (target > 0)
+        m_editor->goToLine(target);
 }
 
 bool ScriptEditorDialog::isModified() const

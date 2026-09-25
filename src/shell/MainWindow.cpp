@@ -1699,8 +1699,13 @@ void MainWindow::applyInterface()
     m_quickFind->setIcons(theme.iconSet());
 
     m_preset = model;
-    for (ProjectView* view : projectViews())
-        view->applyPreset(m_preset);
+    // Rebuild the panels only for another preset or language, so Options > Apply keeps their state.
+    const QString panelsKey = presetName + QLatin1Char('|') + config.value(QStringLiteral("language"));
+    if (panelsKey != m_panelsKey) {
+        m_panelsKey = panelsKey;
+        for (ProjectView* view : projectViews())
+            view->applyPreset(m_preset);
+    }
     refreshToolBars();
 }
 
@@ -1738,12 +1743,8 @@ void MainWindow::openProjectDialog()
     QStringList filters;
     for (Engine* engine : m_context.engines().engines())
         filters << engine->projectFileFilter();
-    QFileDialog::Options options;
-    if (!config.boolValue(QStringLiteral("use_native_open"), true))
-        options |= QFileDialog::DontUseNativeDialog;
-    const QString file =
-        FileDialogs::getOpenFileName(this, tr("Open project"), config.value(QStringLiteral("proj_open_path")),
-                                     filters.join(QStringLiteral(";;")), options);
+    const QString file = FileDialogs::getOpenFileName(
+        this, tr("Open project"), config.value(QStringLiteral("proj_open_path")), filters.join(QStringLiteral(";;")));
     if (file.isEmpty())
         return;
     config.setValue(QStringLiteral("proj_open_path"), QFileInfo(file).absolutePath());

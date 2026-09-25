@@ -199,6 +199,8 @@ void SpritePage::applySettings(Config& config)
 {
     m_view->applyGraphicsSettings(config);
     m_onionEffect = config.intValue(QStringLiteral("onion_effect"), 2);
+    m_onionOpacity = config.value(QStringLiteral("onion_opacity"), QStringLiteral("0.74")).toDouble();
+    refresh();
     if (!m_settingsApplied) {
         m_settingsApplied = true;
         m_view->setZoomIndex(config.intValue(QStringLiteral("zoom_level"), 6));

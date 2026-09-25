@@ -27,4 +27,7 @@ void setOpenPromptOverride(SavePrompt prompt);
 
 QString getExistingDirectory(QWidget* parent, const QString& caption, const QString& dir);
 
+// Adds what Options > General > Use system native open dialog asks for.
+QFileDialog::Options openDialogOptions();
+
 } // namespace OFS::FileDialogs

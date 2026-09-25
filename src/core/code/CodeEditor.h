@@ -103,6 +103,7 @@ public:
     QMenu* createContextMenu(const QPoint& position);
     void releaseContextMenu(QMenu* menu);
     void toggleComment();
+    void setCommentPrefix(const QString& prefix) { m_commentPrefix = prefix; }
     void autoIndentSelection();
     void autoFormatSelection();
     void foldAll();
@@ -115,6 +116,9 @@ public:
     void resetZoom();
 
     int gutterWidth() const;
+
+    // The gutter shows a red bar beside changed lines. Undoing the change removes it.
+    bool isLineChanged(int line) const;
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
@@ -131,12 +135,16 @@ private:
     void updateGutterWidth();
     void updateGutter(const QRect& rect, int dy);
     void updateExtraSelections();
+    void watchDocument();
+    void markTextUnchanged();
     void setFolded(QTextBlock header, bool folded);
     void formatSelection(bool format);
     void updateCompletion(bool typed);
     void insertCompletion(const QString& word);
 
     QWidget* m_gutter;
+    QMetaObject::Connection m_documentChanges;
+    QString m_commentPrefix = QStringLiteral(";");
     QPointer<CodeHighlighter> m_highlighter;
     const SyntaxDatabase* m_syntax = nullptr;
     QString m_fileType;

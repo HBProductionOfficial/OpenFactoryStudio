@@ -47,6 +47,9 @@ namespace {
 
 constexpr int kFoldMarkerWidth = 14;
 constexpr int kBreakpointWidth = 14;
+// The revision of the blocks of a loaded text. Qt gives an edited block the document's revision
+// (never negative) and an undone one its revision from before.
+constexpr int kUnchangedRevision = -1;
 
 bool isOpen(QChar c)
 {
@@ -95,9 +98,14 @@ CodeEditor::CodeEditor(QWidget* parent)
     connect(this, &QPlainTextEdit::cursorPositionChanged, this, &CodeEditor::updateExtraSelections);
     updateGutterWidth();
     updateExtraSelections();
+    watchDocument();
 }
 
-CodeEditor::~CodeEditor() = default;
+CodeEditor::~CodeEditor()
+{
+    // The highlighter going with the children redraws the document; the gutter is gone by then.
+    disconnect(m_documentChanges);
+}
 
 void CodeEditor::setOptions(const Options& options)
 {
@@ -114,6 +122,32 @@ void CodeEditor::setCodeDocument(QTextDocument* doc)
         m_highlighter->setDocument(doc);
     updateGutterWidth();
     updateExtraSelections();
+    watchDocument();
+}
+
+void CodeEditor::watchDocument()
+{
+    disconnect(m_documentChanges);
+    QTextDocument* doc = document();
+    if (doc->availableUndoSteps() == 0 && doc->availableRedoSteps() == 0)
+        markTextUnchanged();
+    m_documentChanges = connect(doc, &QTextDocument::contentsChange, this, [this] {
+        if (document()->availableUndoSteps() == 0 && document()->availableRedoSteps() == 0)
+            markTextUnchanged();
+    });
+}
+
+void CodeEditor::markTextUnchanged()
+{
+    for (QTextBlock block = document()->begin(); block.isValid(); block = block.next())
+        block.setRevision(kUnchangedRevision);
+    m_gutter->update();
+}
+
+bool CodeEditor::isLineChanged(int line) const
+{
+    const QTextBlock block = document()->findBlockByNumber(line);
+    return block.isValid() && block.revision() != kUnchangedRevision;
 }
 
 void CodeEditor::setSyntax(const SyntaxDatabase* syntax, const QString& fileType)
@@ -246,7 +280,7 @@ void CodeEditor::toggleComment()
         --endBlock;
 
     const QString first = document()->findBlockByNumber(startBlock).text();
-    const bool uncomment = first.trimmed().startsWith(QLatin1Char(';'));
+    const bool uncomment = first.trimmed().startsWith(m_commentPrefix);
 
     QTextCursor edit(document());
     edit.beginEditBlock();
@@ -255,13 +289,14 @@ void CodeEditor::toggleComment()
         const QString text = block.text();
         QTextCursor c(block);
         if (uncomment) {
-            const int pos = int(text.indexOf(QLatin1Char(';')));
+            const int pos = int(text.indexOf(m_commentPrefix));
             if (pos >= 0 && text.left(pos).trimmed().isEmpty()) {
                 c.setPosition(block.position() + pos);
-                c.deleteChar();
+                c.setPosition(block.position() + pos + int(m_commentPrefix.size()), QTextCursor::KeepAnchor);
+                c.removeSelectedText();
             }
         } else {
-            c.insertText(QStringLiteral(";"));
+            c.insertText(m_commentPrefix);
         }
     }
     edit.endEditBlock();
@@ -709,6 +744,10 @@ void CodeEditor::paintGutter(QPaintEvent* event)
                 painter.setPen(number == textCursor().blockNumber() ? foreground : foreground.darker(140));
                 painter.drawText(numberLeft, int(top), numberWidth, lineHeight, Qt::AlignRight | Qt::AlignVCenter,
                                  QString::number(number + 1));
+            }
+            if (block.revision() != kUnchangedRevision) {
+                const int right = gutterWidth() - (m_options.foldingMarkers ? kFoldMarkerWidth : 0);
+                painter.fillRect(QRect(right - 4, int(top), 3, int(bottom - top)), QColor(220, 0, 0));
             }
             if (m_options.foldingMarkers) {
                 if (const auto* blockData = CodeBlockData::get(block); blockData && blockData->isHeader) {

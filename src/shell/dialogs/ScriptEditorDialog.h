@@ -7,6 +7,7 @@
 class QAction;
 class QComboBox;
 class QListView;
+class QMenu;
 class QPlainTextEdit;
 class QStringListModel;
 class QToolBar;
@@ -37,6 +38,7 @@ public:
     QStringListModel* scriptNames() const { return m_listModel; }
     QToolBar* toolBar() const { return m_toolBar; }
     QAction* runAction() const { return m_run; }
+    QMenu* codeMenu() const { return m_codeMenu; }
 
     QString fileName() const { return m_file; }
     bool isModified() const;
@@ -58,6 +60,8 @@ protected:
 
 private:
     void buildUi();
+    void buildCodeMenu();
+    void goToMessageLine(bool forward);
     void updateTitle();
     void refreshList();
     void setRunning(bool running);
@@ -82,6 +86,7 @@ private:
     QAction* m_saveAs = nullptr;
     QAction* m_run = nullptr;
     QAction* m_translate = nullptr;
+    QMenu* m_codeMenu = nullptr;
     CodeEditor* m_editor = nullptr;
     LuaHighlighter* m_highlighter = nullptr;
     QListView* m_messageView = nullptr;

@@ -131,11 +131,10 @@ void BottomDock::onTabClicked(int index)
 {
     if (index < 0)
         return;
-    if (index != m_tabs->currentIndex()) {
+    if (index != m_tabs->currentIndex())
         setExpanded(true);
-    } else if (m_expanded) {
-        setExpanded(false);
-    }
+    else
+        setExpanded(!m_expanded);
 }
 
 void BottomDock::setArrowIcons(const QIcon& up, const QIcon& down)

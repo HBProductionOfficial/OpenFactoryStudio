@@ -8,8 +8,22 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QStringList>
+#include <QTimer>
 
 namespace OFS {
+
+namespace {
+UpdateChecker::ReplyOverride& replyOverride()
+{
+    static UpdateChecker::ReplyOverride answer;
+    return answer;
+}
+} // namespace
+
+void UpdateChecker::setReplyOverride(ReplyOverride answer)
+{
+    replyOverride() = std::move(answer);
+}
 
 UpdateChecker::UpdateChecker(QObject* parent)
     : QObject(parent)
@@ -23,6 +37,12 @@ QString UpdateChecker::releasesUrl() const
 
 void UpdateChecker::check(bool interactive)
 {
+    if (const ReplyOverride& answer = replyOverride()) {
+        // Answer later, like the network would.
+        const Reply reply = answer(interactive);
+        QTimer::singleShot(0, this, [this, reply, interactive] { handle(reply, interactive); });
+        return;
+    }
     QNetworkRequest request(
         QUrl(QStringLiteral("https://api.github.com/repos/%1/releases/latest").arg(QStringLiteral(OFS_REPOSITORY))));
     request.setRawHeader("Accept", "application/vnd.github+json");
@@ -36,14 +56,24 @@ void UpdateChecker::check(bool interactive)
 void UpdateChecker::onFinished(QNetworkReply* reply, bool interactive)
 {
     reply->deleteLater();
-    if (reply->error() != QNetworkReply::NoError) {
-        if (interactive) {
-            const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-            Q_EMIT failed(status == 404 ? tr("No release has been published yet.") : reply->errorString());
-        }
+    Reply answer;
+    answer.status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    if (reply->error() != QNetworkReply::NoError)
+        answer.error = reply->errorString();
+    else
+        answer.body = reply->readAll();
+    handle(answer, interactive);
+}
+
+void UpdateChecker::handle(const Reply& reply, bool interactive)
+{
+    // The automatic check at startup only shows a newer version.
+    if (!reply.error.isEmpty()) {
+        if (interactive)
+            Q_EMIT failed(reply.status == 404 ? tr("No release has been published yet.") : reply.error);
         return;
     }
-    const QJsonObject release = QJsonDocument::fromJson(reply->readAll()).object();
+    const QJsonObject release = QJsonDocument::fromJson(reply.body).object();
     const QString tag = release.value(QStringLiteral("tag_name")).toString();
     if (tag.isEmpty()) {
         if (interactive)

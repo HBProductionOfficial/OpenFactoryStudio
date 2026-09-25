@@ -199,6 +199,11 @@ ofs_add_test(NAME mugen_script_api GUI
     LIBS OFS::shell OFS::mugen)
 target_include_directories(test_mugen_script_api PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
+ofs_add_test(NAME mugen_script_api_parity GUI
+    SOURCES mugen/ScriptApiParityTest.cpp ${OFS_FORMATS_FIXTURES}
+    LIBS OFS::shell OFS::mugen)
+target_include_directories(test_mugen_script_api_parity PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
 ofs_add_test(NAME core_breakpoints
     SOURCES core/BreakpointsTest.cpp
     LIBS OFS::core)
@@ -225,6 +230,12 @@ ofs_add_test(NAME gui_code_editor_parity GUI LABELS gui
 ofs_add_test(NAME gui_run_tools_parity GUI LABELS gui
     SOURCES gui/RunToolsParityTest.cpp
     LIBS OFS::shell)
+ofs_add_test(NAME gui_project_parity GUI LABELS gui
+    SOURCES gui/ProjectParityTest.cpp
+    LIBS OFS::shell OFS::mugen)
+ofs_add_test(NAME gui_shell_options_parity GUI LABELS gui
+    SOURCES gui/ShellOptionsParityTest.cpp
+    LIBS OFS::shell OFS::mugen)
 
 ofs_add_test(NAME gui_translation_coverage GUI LABELS gui TIMEOUT 600
     SOURCES gui/TranslationCoverageTest.cpp
@@ -268,6 +279,8 @@ add_dependencies(test_core_engines ofs_data ${_ofs_plugins})
 add_dependencies(test_gui_mainwindow ofs_data ${_ofs_plugins})
 add_dependencies(test_gui_code_editor_parity ofs_data ${_ofs_plugins})
 add_dependencies(test_gui_run_tools_parity ofs_data fake_mugen ${_ofs_plugins})
+add_dependencies(test_gui_project_parity ofs_data ${_ofs_plugins})
+add_dependencies(test_gui_shell_options_parity ofs_data ${_ofs_plugins})
 add_dependencies(test_gui_translation_coverage ofs_data ${_ofs_plugins})
 add_dependencies(test_gui_engine_run ofs_data ${_ofs_plugins})
 add_dependencies(test_core_preset_coverage ofs_data ${_ofs_plugins})
