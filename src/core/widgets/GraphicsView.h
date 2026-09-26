@@ -80,9 +80,13 @@ public:
     void setFrames(const QList<Frame>& frames);
     const QList<Frame>& frames() const { return m_frames; }
     void setMainCrossPosition(const QPoint& position);
+    QPoint mainCrossPosition() const { return m_mainCrossPosition; }
     // The secondary cross shows the frame offset. The extra cross sits on the origin.
     void setSecondaryCross(bool visible, const QPoint& position);
+    bool secondaryCrossVisible() const { return m_secondaryCross; }
+    QPoint secondaryCrossPosition() const { return m_secondaryPosition; }
     void setExtraCrossVisible(bool visible);
+    bool extraCrossVisible() const { return m_extraCross; }
 
     void setZoomLevels(const QList<double>& levels);
     const QList<double>& zoomLevels() const { return m_zoomLevels; }
@@ -132,6 +136,7 @@ public:
         m_mainCross = visible;
         update();
     }
+    bool mainCrossVisible() const { return m_mainCross; }
     void setGuidesVisible(bool visible)
     {
         m_guides = visible;

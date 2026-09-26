@@ -132,6 +132,10 @@ void BackgroundsEditor::bindPanel(QWidget* panel)
         m_sinY[k] = control<QDoubleSpinBox>(panel, sinY[k]);
     }
 
+    for (QCheckBox* box : {m_mask.data(), m_link.data()}) {
+        if (box)
+            box->setStatusTip(box->text());
+    }
     for (QDoubleSpinBox* box : panel ? panel->findChildren<QDoubleSpinBox*>() : QList<QDoubleSpinBox*>()) {
         if (box->objectName().startsWith(QLatin1String("bgs_")))
             box->setDecimals(4);

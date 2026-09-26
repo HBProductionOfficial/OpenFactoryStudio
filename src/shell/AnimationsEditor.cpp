@@ -163,6 +163,14 @@ void AnimationsEditor::bindPanel(QWidget* panel)
     m_onionSelector = control<QScrollBar>(panel, "anim_onion_sel");
     m_onionFrameSelector = control<QScrollBar>(panel, "anim_onion_framesel");
     m_onionLabel = control<QLabel>(panel, "anim_onion_lb");
+    // Status tips repeat the captions, same as Fighter Factory.
+    for (QCheckBox* box : {m_loop.data(), m_interpolate[0].data(), m_interpolate[1].data(), m_interpolate[2].data(),
+                           m_interpolate[3].data()}) {
+        if (box)
+            box->setStatusTip(box->text());
+    }
+    if (m_onion)
+        m_onion->setStatusTip(tr("Enable OnionSkin"));
 
     if (m_selector)
         connect(m_selector, &QScrollBar::valueChanged, this, [this](int value) {
@@ -529,7 +537,7 @@ void AnimationsEditor::refreshOnion()
     const bool updating = std::exchange(m_updating, true);
     const int animation = m_onionSelector ? m_onionSelector->value() : 0;
     const AirAnimation* onion = animation >= 0 && animation < doc.count() ? &doc.animations().at(animation) : nullptr;
-    if (m_onionFrameSelector && m_onionUsed)
+    if (m_onionFrameSelector)
         m_onionFrameSelector->setRange(0, onion ? std::max(0, int(onion->frames.size()) - 1) : 0);
     const int frame = m_onionFrameSelector ? m_onionFrameSelector->value() : 0;
     m_updating = updating;
@@ -812,21 +820,12 @@ void AnimationsEditor::showCodeWindow()
     const QStringList text = AirEdits::animationText(AirEdits::lines(page->file()->document()), a);
     m_codeWindow = new AnimationCodeWindow(text, page->window());
     m_codeWindow->setAttribute(Qt::WA_DeleteOnClose);
+    // Stored as "x,y,w,h" like Fighter Factory.
     Config& config = m_context.config();
     const QRect geometry = Config::decodeRect(config.value(QStringLiteral("anim_editcode_geometry")), QRect());
     if (geometry.isValid()) {
         m_codeWindow->resize(geometry.size());
         m_codeWindow->move(geometry.topLeft());
-    }
-    if (QScreen* screen = page->window()->screen()) {
-        const QRect available = screen->availableGeometry();
-        QRect frame = m_codeWindow->frameGeometry();
-        if (!available.contains(frame)) {
-            frame.setSize(frame.size().boundedTo(available.size()));
-            frame.moveLeft(std::clamp(frame.left(), available.left(), available.right() - frame.width()));
-            frame.moveTop(std::clamp(frame.top(), available.top(), available.bottom() - frame.height()));
-            m_codeWindow->move(frame.topLeft());
-        }
     }
     connect(m_codeWindow, &QDialog::finished, this, [this, &config] {
         if (m_codeWindow)
@@ -838,6 +837,18 @@ void AnimationsEditor::showCodeWindow()
             m_page->edit([a, lines](QStringList& all) { AirEdits::replaceAnimation(all, a, lines); });
     });
     m_codeWindow->show();
+    if (QScreen* screen = page->window()->screen()) {
+        const QRect available = screen->availableGeometry();
+        QRect frame = m_codeWindow->frameGeometry();
+        if (!available.contains(frame)) {
+            const QSize margins = frame.size() - m_codeWindow->size();
+            frame.setSize(frame.size().boundedTo(available.size()));
+            m_codeWindow->resize(frame.size() - margins);
+            frame.moveLeft(std::clamp(frame.left(), available.left(), available.right() + 1 - frame.width()));
+            frame.moveTop(std::clamp(frame.top(), available.top(), available.bottom() + 1 - frame.height()));
+            m_codeWindow->move(frame.topLeft());
+        }
+    }
 }
 
 void AnimationsEditor::saveGif()

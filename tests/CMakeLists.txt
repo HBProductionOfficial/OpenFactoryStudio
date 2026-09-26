@@ -235,6 +235,11 @@ ofs_add_test(NAME gui_project_parity GUI LABELS gui
     LIBS OFS::shell OFS::mugen)
 ofs_add_test(NAME gui_shell_options_parity GUI LABELS gui
     SOURCES gui/ShellOptionsParityTest.cpp
+ofs_add_test(NAME gui_animations_parity GUI LABELS gui
+    SOURCES gui/AnimationsParityTest.cpp
+    LIBS OFS::shell)
+ofs_add_test(NAME gui_backgrounds_parity GUI LABELS gui
+    SOURCES gui/BackgroundsParityTest.cpp
     LIBS OFS::shell OFS::mugen)
 
 ofs_add_test(NAME gui_translation_coverage GUI LABELS gui TIMEOUT 600
@@ -281,6 +286,8 @@ add_dependencies(test_gui_code_editor_parity ofs_data ${_ofs_plugins})
 add_dependencies(test_gui_run_tools_parity ofs_data fake_mugen ${_ofs_plugins})
 add_dependencies(test_gui_project_parity ofs_data ${_ofs_plugins})
 add_dependencies(test_gui_shell_options_parity ofs_data ${_ofs_plugins})
+add_dependencies(test_gui_animations_parity ofs_data ${_ofs_plugins})
+add_dependencies(test_gui_backgrounds_parity ofs_data ${_ofs_plugins})
 add_dependencies(test_gui_translation_coverage ofs_data ${_ofs_plugins})
 add_dependencies(test_gui_engine_run ofs_data ${_ofs_plugins})
 add_dependencies(test_core_preset_coverage ofs_data ${_ofs_plugins})
@@ -311,6 +318,7 @@ ofs_add_test(NAME mugen_tools GUI
 add_executable(fake_mugen stubs/fake_mugen.cpp)
 ofs_target_defaults(fake_mugen)
 add_dependencies(test_gui_mainwindow fake_mugen)
+add_dependencies(test_gui_backgrounds_parity fake_mugen)
 
 
 find_package(Python3 COMPONENTS Interpreter)

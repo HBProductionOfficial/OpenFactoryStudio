@@ -1046,11 +1046,14 @@ void MainWindow::connectEditActions()
         QTabWidget* tabs = view ? view->fileTabs(view->currentEditor()) : nullptr;
         return tabs ? qobject_cast<SpritePage*>(tabs->currentWidget()) : nullptr;
     };
-    auto zoom = [this, currentWorkspace, animationPage](void (GraphicsView::*graphic)(), void (ImageCanvas::*image)(),
-                                                        std::function<void(CodeEditor*)> code) {
-        return [this, currentWorkspace, animationPage, graphic, image, code] {
+    auto zoom = [this, currentWorkspace, animationPage, backgroundsPage](void (GraphicsView::*graphic)(),
+                                                                         void (ImageCanvas::*image)(),
+                                                                         std::function<void(CodeEditor*)> code) {
+        return [this, currentWorkspace, animationPage, backgroundsPage, graphic, image, code] {
             if (AnimationPage* animation = animationPage(); animation && !animation->textMode()) {
                 (animation->view()->*graphic)();
+            } else if (BackgroundsPage* backgrounds = backgroundsPage()) {
+                (backgrounds->view()->*graphic)();
             } else if (SpritePage* page = currentWorkspace()) {
                 if (!page->imageMode())
                     (page->view()->*graphic)();

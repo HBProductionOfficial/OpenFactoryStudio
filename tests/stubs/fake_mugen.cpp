@@ -26,6 +26,12 @@ int main(int argc, char** argv)
         const fs::path def = fs::path("chars") / argv[1] / (std::string(argv[1]) + ".def");
         log << "Character definition: " << (fs::exists(def) ? "found" : "missing") << '\n';
     }
+    for (int i = 1; i + 1 < argc; ++i) {
+        if (std::string(argv[i]) == "-r") {
+            const fs::path system = fs::path("data") / argv[i + 1] / "system.def";
+            log << "Motif definition: " << (fs::exists(system) ? "found" : "missing") << '\n';
+        }
+    }
     if (const char* wait = std::getenv("OFS_FAKE_ENGINE_WAIT_MS"))
         std::this_thread::sleep_for(std::chrono::milliseconds(std::atoi(wait)));
     log << "Log file successfully closed.\n";

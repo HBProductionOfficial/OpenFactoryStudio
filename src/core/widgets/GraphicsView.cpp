@@ -683,9 +683,8 @@ void GraphicsView::mousePressEvent(QMouseEvent* event)
     int box = -1;
     int handle = -1;
     int pressedImage = -1;
-    m_drag = (event->modifiers() & Qt::ControlModifier)
-                 ? Drag::Pan
-                 : hitTest(event->position().toPoint(), &box, &handle, &pressedImage);
+    const bool ctrl = event->modifiers() & Qt::ControlModifier;
+    m_drag = ctrl ? Drag::Pan : hitTest(event->position().toPoint(), &box, &handle, &pressedImage);
     if (m_drag == Drag::Image)
         Q_EMIT imagePressed(pressedImage);
     m_dragStart = event->position().toPoint();
@@ -697,7 +696,7 @@ void GraphicsView::mousePressEvent(QMouseEvent* event)
     if (m_drag == Drag::BoxMove || m_drag == Drag::BoxResize) {
         m_dragBoxStart = m_boxes.at(box).rect;
         Q_EMIT boxPressed(box);
-    } else if (m_drag != Drag::BoxDraw) {
+    } else if (m_drag != Drag::BoxDraw && !ctrl) {
         Q_EMIT boxPressed(-1);
     }
 }

@@ -48,6 +48,11 @@ BackgroundsPage::BackgroundsPage(CodeFile* file, Project* project, QWidget* pare
         Q_EMIT tickChanged();
     });
     connect(m_timeline, &TimelineWidget::tickClicked, this, &BackgroundsPage::setTick);
+    // Same as Fighter Factory: the selection outline only shows after the first click on the canvas.
+    connect(m_view, &GraphicsView::pressed, this, [this] {
+        if (!std::exchange(m_selectionShown, true))
+            refresh();
+    });
     connect(m_view, &GraphicsView::imagePressed, this, [this](int image) {
         if (image >= 0 && image < m_imageElements.size())
             setCurrent(m_imageElements.at(image));
@@ -351,11 +356,13 @@ bool BackgroundsPage::eventFilter(QObject* watched, QEvent* event)
 
 void BackgroundsPage::applySettings(const Config& config)
 {
+    m_view->applyGraphicsSettings(config);
+    // This workspace always uses the clear colour, and shows the player crosses for stages only.
+    m_view->setBackground(GraphicsView::Background::Color);
     m_view->setRulersVisible(config.boolValue(QStringLiteral("show_rulers"), true));
     m_view->setMainCrossVisible(config.boolValue(QStringLiteral("show_cross1"), true) && isStage());
     m_view->setGuidesVisible(config.boolValue(QStringLiteral("show_guides"), false));
     m_view->setImagesOverGuides(config.boolValue(QStringLiteral("sprite_over_guides"), false));
-    m_view->applyGraphicsSettings(config);
     if (!m_settingsApplied) {
         // bg_zoom_level counts the levels from 1x.
         m_settingsApplied = true;
@@ -409,7 +416,7 @@ void BackgroundsPage::refresh()
                 selection = QRectF(at, QSizeF(item.image.size()));
         }
     }
-    if (const BgElement* e = element(); e && m_mode != Mode::Playing) {
+    if (const BgElement* e = element(); e && m_mode != Mode::Playing && m_selectionShown) {
         if (!selection.isNull())
             frames << GraphicsView::Frame{selection, Qt::white, true, true};
         QRectF window = screenRect;

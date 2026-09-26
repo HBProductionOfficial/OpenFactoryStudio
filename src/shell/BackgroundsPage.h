@@ -122,6 +122,7 @@ private:
     QPoint m_cursor;
     bool m_settingsApplied = false;
     bool m_secondaryCross = true;
+    bool m_selectionShown = false;
 };
 
 } // namespace OFS

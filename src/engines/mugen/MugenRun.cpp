@@ -202,6 +202,21 @@ RunCopy prepareRunCopy(const Project& project, const QString& engineDir)
         const QString dir = data + QLatin1Char('/') + copy.name;
         if (!makeFolders(dir, copy) || !copyProjectFiles(project, dir, copy))
             return fail();
+        // The screenpack's own fight screen goes along, but not its sprites, sounds and fonts. Same as
+        // Fighter Factory.
+        DefFile def;
+        def.parse(projectFileText(project, project.filePath()));
+        const QString fight =
+            QDir::fromNativeSeparators(def.value(QStringLiteral("Files"), QStringLiteral("fight")).trimmed());
+        if (!fight.isEmpty()) {
+            const QDir projectDir(project.directory());
+            const QString relative = projectDir.relativeFilePath(projectDir.filePath(fight));
+            const QString target = dir + QLatin1Char('/') + relative;
+            if (QFileInfo(projectDir.filePath(fight)).isFile() && !relative.startsWith(QLatin1String("..")) &&
+                !QDir::isAbsolutePath(relative) && !QFileInfo::exists(target) &&
+                !put(project, projectDir.filePath(fight), target, copy))
+                return fail();
+        }
         const QString system = dir + QStringLiteral("/system.def");
         if (!QFileInfo::exists(system) && !put(project, project.filePath(), system, copy))
             return fail();
