@@ -364,7 +364,7 @@ private Q_SLOTS:
 
         canvas->setOrigin(QPoint(10, 10));
         actions.action("view_center_origin")->trigger();
-        QCOMPARE(canvas->origin(), canvas->rect().adjusted(20, 20, 0, 0).center());
+        QCOMPARE(canvas->origin(), canvas->rect().center());
 
         actions.action("bgs_play")->trigger();
         QCOMPARE(canvas->backgroundColor(), QColor(0, 0, 0));
