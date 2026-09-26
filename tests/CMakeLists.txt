@@ -235,6 +235,7 @@ ofs_add_test(NAME gui_project_parity GUI LABELS gui
     LIBS OFS::shell OFS::mugen)
 ofs_add_test(NAME gui_shell_options_parity GUI LABELS gui
     SOURCES gui/ShellOptionsParityTest.cpp
+    LIBS OFS::shell OFS::mugen)
 ofs_add_test(NAME gui_animations_parity GUI LABELS gui
     SOURCES gui/AnimationsParityTest.cpp
     LIBS OFS::shell)
