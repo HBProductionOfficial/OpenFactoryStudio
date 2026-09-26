@@ -557,6 +557,53 @@ private Q_SLOTS:
         QCOMPARE(commands.first().children.first().children.at(1).icon, QStringLiteral("code_cmd"));
     }
 
+    void definitionsTreesByType()
+    {
+        auto texts = [](const Outline& tree) {
+            QStringList t;
+            for (const OutlineNode& node : tree)
+                t << node.text;
+            return t;
+        };
+        const Outline stage = Mugen::mugenOutline(
+            QStringLiteral("[Info]\nname = \"S\"\n[Camera]\nstartx = 0\n[PlayerInfo]\np1startx = -70\n[Bound]\n"
+                           "screenleft = 15\n[StageInfo]\nzoffset = 190\n[Shadow]\nintensity = 128\n[Reflection]\n"
+                           "intensity = 0\n[Music]\nbgmusic = \n[BGdef]\nspr = s.sff\n[BG Back]\ntype = normal\n"
+                           "[BG Floor]\ntype = normal\n[BGCtrlDef Door]\nlooptime = 10\n[BGCtrl Open]\ntype = Null\n"),
+            &m_syntax, QStringLiteral("stage"));
+        QCOMPARE(texts(stage), (QStringList{"Info", "Camera", "PlayerInfo", "Bound", "StageInfo", "Shadow",
+                                            "Reflection", "Music", "BG"}));
+        QStringList elements;
+        for (const OutlineNode& child : stage.last().children)
+            elements << child.text;
+        QVERIFY(elements.contains("Back") && elements.contains("Floor"));
+        QVERIFY(elements.contains("BGCtrlDef Door"));
+
+        const Outline motif = Mugen::mugenOutline(
+            QStringLiteral(
+                "[Info]\nname = \"M\"\n[Files]\nspr = system.sff\n[Music]\ntitle.bgm = \n[Title Info]\n"
+                "fadein.time = 10\n[TitleBGdef]\nbgclearcolor = 0,0,0\n[TitleBG 0]\ntype = normal\n"
+                "[Select Info]\nrows = 2\n[Begin Action 180]\n180,0, 0,0, -1\n[SelectBGdef]\nbgclearcolor = 0,0,0\n"
+                "[SelectBG 0]\ntype = normal\n"),
+            &m_syntax, QStringLiteral("motif"));
+        QCOMPARE(texts(motif), (QStringList{"Info", "Files", "Music", "Title Info", "Title Backgrounds", "Select Info",
+                                            "Animation 180", "Select Backgrounds"}));
+        QCOMPARE(motif[4].children.last().text, QStringLiteral("0"));
+
+        const Outline story = Mugen::mugenOutline(
+            QStringLiteral("[Info]\nlocalcoord = 320,240\n[SceneDef]\nspr = intro.sff\n[Scene 0]\nbg.name = BG0\n"
+                           "[BG0Def]\nspr = intro.sff\n[BG0 Back]\ntype = normal\n; Animation for Suave\n"
+                           "[Begin Action 10]\n10,0, 0,0, 5\n"),
+            &m_syntax, QStringLiteral("storyboard"));
+        QVERIFY(texts(story).contains("BG0"));
+        QVERIFY(texts(story).contains("10 - Animation for Suave"));
+
+        const Outline font = Mugen::mugenOutline(
+            QStringLiteral("[FNT v2]\nfntversion = 2,00\nname = \"F\"\n[Def]\nType = bitmap\nSize = 8,8\n"), &m_syntax,
+            QStringLiteral("font"));
+        QCOMPARE(texts(font), (QStringList{"FNT V2", "Bitmap"}));
+    }
+
     // A double-click on a node also folds or unfolds it. Each state file tab has its own tree.
     void codeTrees()
     {

@@ -2,8 +2,10 @@
 
 #include "core/code/CodeLine.h"
 #include "core/syntax/SyntaxDatabase.h"
+#include "engines/mugen/MugenTypes.h"
 
 #include <QCoreApplication>
+#include <QHash>
 #include <QRegularExpression>
 #include <QStringList>
 
@@ -123,10 +125,16 @@ Outline mugenOutline(const QString& text, const SyntaxDatabase* syntax, const QS
         Section,
         StateDef,
         Controller,
-        Command
+        Command,
+        Background
     };
     Owner owner = Owner::None;
     int commandsIndex = -1;
+    int backgroundIndex = -1;
+    QHash<QString, int> families;
+    const bool definitions = fileType == MugenType::Stage || fileType == MugenType::Motif ||
+                             fileType == MugenType::Storyboard || fileType == MugenType::Fight ||
+                             fileType == MugenType::Select || fileType == MugenType::Font;
     int stateDefIndex = -1;
     const SyntaxBlock* currentBlock = nullptr;
 
@@ -162,6 +170,8 @@ Outline mugenOutline(const QString& text, const SyntaxDatabase* syntax, const QS
             return &outline[stateDefIndex].children.last();
         case Owner::Command:
             return &outline[commandsIndex].children.last();
+        case Owner::Background:
+            return &outline[backgroundIndex].children.last();
         case Owner::None:
             break;
         }
@@ -206,6 +216,71 @@ Outline mugenOutline(const QString& text, const SyntaxDatabase* syntax, const QS
                 owner = Owner::Command;
                 stateDefIndex = -1;
                 continue;
+            }
+            if (definitions) {
+                // Animations show as "Animation 180", or in a storyboard as "10 - <the comment above>".
+                static const QRegularExpression action(QStringLiteral("^Begin\\s+Action\\s+(-?\\d+)"),
+                                                       QRegularExpression::CaseInsensitiveOption);
+                if (const auto m = action.match(line.header); m.hasMatch()) {
+                    const QString number = m.captured(1);
+                    const QString name = n > 0 ? commentName(lines[n - 1]) : QString();
+                    if (fileType == MugenType::Storyboard)
+                        node.text = name.isEmpty() ? number : number + QStringLiteral(" - ") + name;
+                    else
+                        node.text = QCoreApplication::translate("MugenOutline", "Animation %1").arg(number);
+                    outline << node;
+                    owner = Owner::Section;
+                    stateDefIndex = -1;
+                    continue;
+                }
+                // A background family under one entry: [TitleBGdef] is "Title Backgrounds" (a stage's [BGdef] is
+                // "BG" and a storyboard's [BG0Def] is "BG0"), with its [TitleBG ...] and controller sections below.
+                static const QRegularExpression familyDef(QStringLiteral("^((\\w*)BG(\\d*))def$"),
+                                                          QRegularExpression::CaseInsensitiveOption);
+                if (const auto m = familyDef.match(line.header.trimmed()); m.hasMatch()) {
+                    const QString prefix = m.captured(2);
+                    node.text = prefix.isEmpty()
+                                    ? m.captured(1)
+                                    : QCoreApplication::translate("MugenOutline", "%1 Backgrounds").arg(prefix);
+                    outline << node;
+                    backgroundIndex = int(outline.size()) - 1;
+                    families.insert(m.captured(1).toLower(), backgroundIndex);
+                    owner = Owner::Section;
+                    stateDefIndex = -1;
+                    continue;
+                }
+                const QString lower = line.header.toLower();
+                bool member = false;
+                for (auto it = families.cbegin(); it != families.cend(); ++it) {
+                    if (lower.startsWith(it.key() + QLatin1Char(' ')) ||
+                        lower.startsWith(it.key() + QLatin1String("ctrl"))) {
+                        const QString rest = line.header.mid(it.key().size()).trimmed();
+                        node.text =
+                            lower.startsWith(it.key() + QLatin1Char(' ')) && !rest.isEmpty() ? rest : line.header;
+                        backgroundIndex = it.value();
+                        outline[backgroundIndex].children << node;
+                        owner = Owner::Background;
+                        stateDefIndex = -1;
+                        member = true;
+                        break;
+                    }
+                }
+                if (member)
+                    continue;
+                // A font: [FNT v2] is "FNT V2" and [Def] is named after its type ("Bitmap").
+                if (fileType == MugenType::Font) {
+                    if (line.header.compare(QLatin1String("FNT v2"), Qt::CaseInsensitive) == 0)
+                        node.text = QStringLiteral("FNT V2");
+                    else if (line.header.compare(QLatin1String("Def"), Qt::CaseInsensitive) == 0 &&
+                             !typeValue.isEmpty())
+                        node.text = typeValue.left(1).toUpper() + typeValue.mid(1).toLower();
+                    if (!node.text.isEmpty()) {
+                        outline << node;
+                        owner = Owner::Section;
+                        stateDefIndex = -1;
+                        continue;
+                    }
+                }
             }
             // "ja.Quotes" -> "Quotes [ja]"
             QString caption = line.header;
