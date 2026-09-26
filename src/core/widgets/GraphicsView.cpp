@@ -236,7 +236,8 @@ void GraphicsView::setOrigin(const QPoint& origin)
 
 void GraphicsView::centerOrigin()
 {
-    setOrigin(contentRect().center());
+    // Middle of the whole widget, rulers included. Same as Fighter Factory.
+    setOrigin(rect().center());
 }
 
 void GraphicsView::setBackgroundPicture(const QImage& picture, const QPoint& offset)

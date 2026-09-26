@@ -242,6 +242,12 @@ ofs_add_test(NAME gui_animations_parity GUI LABELS gui
 ofs_add_test(NAME gui_backgrounds_parity GUI LABELS gui
     SOURCES gui/BackgroundsParityTest.cpp
     LIBS OFS::shell OFS::mugen)
+ofs_add_test(NAME gui_sprites_parity GUI LABELS gui
+    SOURCES gui/SpritesParityTest.cpp
+    LIBS OFS::shell)
+ofs_add_test(NAME gui_palettes_sounds_parity GUI LABELS gui
+    SOURCES gui/PalettesSoundsParityTest.cpp
+    LIBS OFS::shell)
 
 ofs_add_test(NAME gui_translation_coverage GUI LABELS gui TIMEOUT 600
     SOURCES gui/TranslationCoverageTest.cpp
@@ -289,6 +295,8 @@ add_dependencies(test_gui_project_parity ofs_data ${_ofs_plugins})
 add_dependencies(test_gui_shell_options_parity ofs_data ${_ofs_plugins})
 add_dependencies(test_gui_animations_parity ofs_data ${_ofs_plugins})
 add_dependencies(test_gui_backgrounds_parity ofs_data ${_ofs_plugins})
+add_dependencies(test_gui_sprites_parity ofs_data ${_ofs_plugins})
+add_dependencies(test_gui_palettes_sounds_parity ofs_data ${_ofs_plugins})
 add_dependencies(test_gui_translation_coverage ofs_data ${_ofs_plugins})
 add_dependencies(test_gui_engine_run ofs_data ${_ofs_plugins})
 add_dependencies(test_core_preset_coverage ofs_data ${_ofs_plugins})

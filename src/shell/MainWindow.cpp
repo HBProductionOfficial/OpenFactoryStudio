@@ -2575,6 +2575,9 @@ void MainWindow::refreshActionStates()
     }
     if (sprites && sprites->palettes()->current() < 0)
         enable(QStringLiteral("pal_switch_count"), false);
+    // The Sprites editor draws no secondary or extra cross, so View disables them there.
+    const bool spritesShown = view && view->currentEditor() == EditorId::Sprites;
+    enableAll({"view_secondary_cross", "view_extra_cross"}, !spritesShown);
     if (QAction* a = actions.action(QStringLiteral("spr_edit_img")))
         a->setChecked(image);
     if (QAction* a = actions.action(QStringLiteral("spr_explorer")))

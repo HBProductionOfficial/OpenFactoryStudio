@@ -126,9 +126,12 @@ void SpritesEditor::bindPanel(QWidget* panel)
             if (!m_updating && m_page)
                 m_page->setCurrent(value);
         });
+    // Group and index apply at once from arrows and the wheel. Typed digits apply on Enter.
     for (QSpinBox* box : {m_group.data(), m_number.data()}) {
-        if (box)
-            connect(box, &QSpinBox::editingFinished, this, &SpritesEditor::applyIdentifiers);
+        if (!box)
+            continue;
+        box->setKeyboardTracking(false);
+        connect(box, &QSpinBox::valueChanged, this, &SpritesEditor::applyIdentifiers);
     }
     for (QSpinBox* box : {m_axisX.data(), m_axisY.data()}) {
         if (box)
@@ -733,8 +736,7 @@ void SpritesEditor::addSprites(QWidget* parent, const QString& imageFolder)
     options.axisY = axis.y();
     if (config.boolValue(QStringLiteral("show_addsprite_dialog"), true)) {
         AddSpritesDialog dialog(axis, parent);
-        dialog.setWindowIcon(
-            m_context.actions().action(QStringLiteral("spr_add"))->icon());
+        dialog.setWindowIcon(m_context.actions().action(QStringLiteral("spr_add"))->icon());
         if (dialog.exec() != QDialog::Accepted)
             return;
         options = dialog.options();
