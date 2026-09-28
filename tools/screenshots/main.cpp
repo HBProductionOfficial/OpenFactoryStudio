@@ -9,8 +9,11 @@
 #include "core/app/AppContext.h"
 #include "core/app/Paths.h"
 #include "core/code/CodeEditor.h"
+#include "core/engine/Engine.h"
+#include "core/engine/EngineManager.h"
 #include "core/settings/Config.h"
 #include "core/settings/History.h"
+#include "core/theme/ThemeManager.h"
 #include "core/widgets/RenderSurface.h"
 #include "shell/FileDialogs.h"
 #include "shell/MainWindow.h"
@@ -18,6 +21,7 @@
 #include "shell/dialogs/FirstRunDialog.h"
 
 #include <QAbstractButton>
+#include <QAction>
 #include <QApplication>
 #include <QComboBox>
 #include <QCommandLineParser>
@@ -27,6 +31,7 @@
 #include <QElapsedTimer>
 #include <QEventLoop>
 #include <QFile>
+#include <QHash>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -35,6 +40,8 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QMouseEvent>
+#include <QPainter>
+#include <QPalette>
 #include <QPixmap>
 #include <QPlainTextEdit>
 #include <QPointer>
@@ -344,6 +351,125 @@ bool click(QWidget* root, const QString& name)
 
 } // namespace
 
+// One picture per icon set (icons-<set>.png): the icons the program shows for its main commands,
+// as the icon set and the engine's overlay give them, each with its caption, on the colours of the
+// style the set goes with.
+void writeIconSheets(AppContext& context, const QString& out)
+{
+    ThemeManager& theme = context.theme();
+    QStringList engineDirs;
+    for (Engine* e : context.engines().engines())
+        engineDirs << e->dataDir();
+    theme.setEngineDataDirs(engineDirs);
+    const char* const ids[] = {
+        "file_new",
+        "file_open",
+        "file_save",
+        "file_close",
+        "file_backup",
+        "file_load_backup",
+        "file_run",
+        "tools_options",
+        "editor_def",
+        "editor_spr",
+        "editor_anim",
+        "editor_bg",
+        "editor_cmd",
+        "editor_st",
+        "editor_snd",
+        "editor_emul",
+        "edit_undo",
+        "edit_redo",
+        "edit_cut",
+        "edit_copy",
+        "edit_paste",
+        "edit_find_replace",
+        "spr_add",
+        "spr_delete",
+        "spr_duplicate",
+        "spr_edit_img",
+        "spr_crop",
+        "pal_add",
+        "pal_remap",
+        "tools_pal_editor",
+        "anim_add",
+        "anim_play",
+        "anim_stop",
+        "anim_box_add_attack",
+        "anim_box_add_collision",
+        "snd_add",
+        "snd_play",
+        "snd_stop",
+        "bgs_add",
+        "bgs_play",
+        "st_throw",
+        "st_offset",
+        "st_palfx",
+        "debug_start",
+        "debug_interrupt",
+        "debug_stop",
+        "view_guide_lines",
+        "view_zoomin",
+        "view_calculator",
+        "help_about",
+    };
+    constexpr int Columns = 10;
+    constexpr int CellWidth = 112;
+    constexpr int CellHeight = 84;
+    constexpr int IconSize = 32;
+    constexpr int Title = 40;
+    const int count = int(std::size(ids));
+    const int rows = (count + Columns - 1) / Columns;
+    for (const QString& name : theme.availableIconSets()) {
+        if (!theme.setIconSet(name))
+            continue;
+        const QString style = name == QLatin1String("Flat-Light") ? QStringLiteral("Light")
+                              : name == QLatin1String("Classic")  ? QStringLiteral("Classic")
+                              : name == QLatin1String("Ultimate") ? QStringLiteral("Ultimate")
+                                                                  : QStringLiteral("Dark");
+        const QPalette colours = theme.paletteOf(style);
+        QImage sheet(Columns * CellWidth, Title + rows * CellHeight, QImage::Format_ARGB32);
+        sheet.fill(colours.color(QPalette::Window));
+        QPainter p(&sheet);
+        p.setRenderHint(QPainter::TextAntialiasing);
+        QFont titleFont = QApplication::font();
+        titleFont.setPixelSize(18);
+        titleFont.setBold(true);
+        p.setFont(titleFont);
+        p.setPen(colours.color(QPalette::WindowText));
+        p.drawText(QRect(12, 0, sheet.width() - 24, Title), Qt::AlignVCenter | Qt::AlignLeft,
+                   name + QStringLiteral(" icons (") + style + QStringLiteral(" style)"));
+        QFont captionFont = QApplication::font();
+        captionFont.setPixelSize(11);
+        p.setFont(captionFont);
+        for (int i = 0; i < count; ++i) {
+            const QString id = QString::fromLatin1(ids[i]);
+            const QRect cell((i % Columns) * CellWidth, Title + (i / Columns) * CellHeight, CellWidth, CellHeight);
+            const QPixmap icon = theme.iconSet().icon(id).pixmap(IconSize, IconSize);
+            if (!icon.isNull())
+                p.drawPixmap(cell.center().x() - IconSize / 2, cell.top() + 8, icon);
+            QString caption = id;
+            if (QAction* a = context.actions().action(id))
+                caption = a->text().section(QLatin1Char('\t'), 0, 0).remove(QLatin1Char('&')).trimmed();
+            // The editors' own Add, Play and Stop share their captions: the sheet says whose they are.
+            static const QHash<QString, QString> owners = {{QStringLiteral("spr"), QStringLiteral("sprite")},
+                                                           {QStringLiteral("pal"), QStringLiteral("palette")},
+                                                           {QStringLiteral("anim"), QStringLiteral("animation")},
+                                                           {QStringLiteral("snd"), QStringLiteral("sound")},
+                                                           {QStringLiteral("bgs"), QStringLiteral("background")}};
+            const QString owner = owners.value(id.section(QLatin1Char('_'), 0, 0));
+            if (!owner.isEmpty() && !caption.contains(QLatin1Char(' ')))
+                caption += QLatin1Char(' ') + owner;
+            const QRect text(cell.left() + 4, cell.top() + 8 + IconSize + 4, cell.width() - 8,
+                             cell.height() - IconSize - 16);
+            p.drawText(text, Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap, caption);
+        }
+        p.end();
+        sheet.save(QDir(out).filePath(QStringLiteral("icons-%1.png").arg(name)));
+        qInfo().noquote() << "icons" << name;
+    }
+}
+
 int main(int argc, char** argv)
 {
     QApplication::setApplicationName(QStringLiteral("Open Factory Studio"));
@@ -357,6 +483,7 @@ int main(int argc, char** argv)
     parser.addOption({"out", "Folder for the screenshots and index.json.", "folder"});
     parser.addOption({"only", "Only the steps of these areas (comma separated, e.g. Character,Sounds).", "areas"});
     parser.addOption({"native", "Paint the workspaces natively instead of with OpenGL."});
+    parser.addOption({"icon-sheets", "Only write a picture of each icon set's main icons to --out."});
     parser.addHelpOption();
     parser.process(app);
     if (!parser.isSet("mugen") || !parser.isSet("out"))
@@ -389,6 +516,11 @@ int main(int argc, char** argv)
         context.config().setValue("native_painting", true);
     Rendering::choose(context.config(), Paths::userDir());
     context.initializeEngines();
+    if (parser.isSet("icon-sheets")) {
+        QDir().mkpath(parser.value("out"));
+        writeIconSheets(context, parser.value("out"));
+        return 0;
+    }
     MainWindow window(context);
     window.resize(1600, 1000);
     window.move(40, 30);
