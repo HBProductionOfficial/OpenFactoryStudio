@@ -23,6 +23,9 @@ struct SpritePalette
     std::weak_ptr<const SpritePalette> link;
     // Colors past 32 kept after Switch color count, so switching back restores them.
     Formats::Palette hidden;
+    // Fourth byte of each color in an SFF v1 or v2.0 file, written back while the palette is
+    // unchanged. It is not alpha there, and MUGEN 1.0 leaves it unset.
+    std::vector<std::uint8_t> fileAlpha;
 };
 
 using SpritePixelsPtr = std::shared_ptr<const SpritePixels>;

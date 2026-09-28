@@ -47,6 +47,16 @@ SpriteDocument SpriteDocument::fromSff(const SffDocument& sff)
     for (const SffPalette& p : sff.palettes) {
         auto palette = std::make_shared<SpritePalette>();
         palette->palette = p;
+        // Files before SFF v2.01 store no alpha, so the first color is transparent and the others
+        // opaque. Same as Fighter Factory.
+        if (sff.version != SffVersion::V201) {
+            Formats::Palette& colors = palette->palette.colors;
+            palette->fileAlpha.reserve(colors.size());
+            for (std::size_t c = 0; c < colors.size(); ++c) {
+                palette->fileAlpha.push_back(colors[c].a);
+                colors[c].a = c == 0 ? 0 : 255;
+            }
+        }
         doc.m_palettes << palette;
     }
     for (qsizetype i = 0; i < doc.m_palettes.size(); ++i) {
@@ -91,6 +101,11 @@ SffDocument SpriteDocument::toSff() const
     QHash<const SpritePalette*, int> paletteIndex;
     for (qsizetype i = 0; i < palettes.size(); ++i) {
         SffPalette p = palettes[i]->palette;
+        // An unchanged palette keeps the file's bytes in the versions without alpha.
+        if (sff.version != SffVersion::V201 && palettes[i]->fileAlpha.size() == p.colors.size()) {
+            for (std::size_t c = 0; c < p.colors.size(); ++c)
+                p.colors[c].a = palettes[i]->fileAlpha[c];
+        }
         p.linkedIndex = -1;
         // A link is kept while its target comes first (the writer drops it if the colors differ).
         if (const SpritePalettePtr target = palettes[i]->link.lock())

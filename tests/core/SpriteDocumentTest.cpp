@@ -133,6 +133,42 @@ private Q_SLOTS:
         QCOMPARE(written.palettes.size(), std::size_t(model.palettes().size() + 1));
     }
 
+    // SFF v2.0 keeps a fourth byte per color that is not alpha. M.U.G.E.N 1.0 leaves it unset.
+    void palettesWithoutAlpha()
+    {
+        Test::FixtureFactory factory(5);
+        SffDocument file = factory.sff(SffVersion::V2, 10);
+        QVERIFY(!file.palettes.empty());
+        const std::uint8_t junk[] = {124, 0, 94, 120};
+        for (SffPalette& p : file.palettes) {
+            for (std::size_t c = 0; c < p.colors.size(); ++c)
+                p.colors[c].a = junk[c % 4];
+        }
+        file = reread(file);
+        const auto bytes = file.write();
+        QVERIFY(bytes.ok());
+        const SpriteDocument model = SpriteDocument::fromSff(file);
+        const Palette& colors = model.palettes().first()->palette.colors;
+        QVERIFY(colors.size() > 2);
+        QCOMPARE(int(colors[0].a), 0);
+        for (std::size_t c = 1; c < colors.size(); ++c)
+            QCOMPARE(int(colors[c].a), 255);
+        const auto again = model.toSff().write();
+        QVERIFY(again.ok());
+        QVERIFY(again.value() == bytes.value());
+
+        SpriteDocument edited = model;
+        edited.palettes().first() = SpriteDocument::makePalette(1, 1, colors);
+        const SffDocument written = reread(edited.toSff());
+        QCOMPARE(int(written.palettes.front().colors[1].a), 255);
+
+        SffDocument v201 = factory.sff(SffVersion::V201, 10);
+        QVERIFY(!v201.palettes.empty() && v201.palettes.front().colors.size() > 1);
+        v201.palettes.front().colors[1].a = 128;
+        v201 = reread(v201);
+        QCOMPARE(int(SpriteDocument::fromSff(v201).palettes().first()->palette.colors[1].a), 128);
+    }
+
     void corpusRoundTrip()
     {
         QStringList files;
