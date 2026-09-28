@@ -117,8 +117,9 @@ public:
             return;
         wait(400);
         const QString file = QStringLiteral("%1.png").arg(++m_count, 3, 10, QLatin1Char('0'));
-        const QRect frame = m_window.frameGeometry();
         QScreen* where = m_window.screen();
+        // The desktop's own bars (the taskbar) are left out.
+        const QRect frame = m_window.frameGeometry().intersected(where->availableGeometry());
         const QPixmap picture = where->grabWindow(0, frame.x() - where->geometry().x(),
                                                   frame.y() - where->geometry().y(), frame.width(), frame.height());
         picture.save(QDir(m_out).filePath(file));
@@ -525,6 +526,11 @@ int main(int argc, char** argv)
     window.resize(1600, 1000);
     window.move(40, 30);
     window.show();
+    // The whole window on the desktop, above the taskbar where it fits.
+    if (const QRect available = window.screen()->availableGeometry();
+        window.frameGeometry().bottom() > available.bottom())
+        window.move(window.x(),
+                    std::max(available.top(), window.y() - (window.frameGeometry().bottom() - available.bottom())));
     wait(1500);
     Tour tour(context, window, parser.value("out"));
     if (parser.isSet("only"))
@@ -657,8 +663,11 @@ int main(int argc, char** argv)
         for (int i = 0; i < 20 && !code->isCompleting(); ++i)
             wait(50);
         tour.screen("Code", "Completion while typing", code->isCompleting());
+        // Escape closes the list (it has the keys while it shows).
         QKeyEvent escape(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
-        QApplication::sendEvent(code, &escape);
+        QApplication::sendEvent(QApplication::activePopupWidget() ? QApplication::activePopupWidget() : code, &escape);
+        if (QWidget* popup = QApplication::activePopupWidget())
+            popup->hide();
         code->document()->undo();
         code->document()->undo();
         const int at = code->toPlainText().indexOf("ChangeState");
