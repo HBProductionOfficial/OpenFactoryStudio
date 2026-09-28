@@ -5,6 +5,8 @@
 #include "core/code/CodeEditor.h"
 #include "core/sprites/SpriteDocument.h"
 #include "core/sprites/SpriteFile.h"
+#include "core/theme/IconSet.h"
+#include "core/theme/ThemeManager.h"
 #include "core/widgets/GraphicsView.h"
 #include "core/widgets/PaletteWidget.h"
 #include "core/widgets/TimelineWidget.h"
@@ -985,6 +987,12 @@ private Q_SLOTS:
         };
         QCOMPARE(button("thumb_action2")->text(), QStringLiteral("Add all to the current animation"));
         QCOMPARE(button("thumb_action3")->text(), QStringLiteral("New animation with selected"));
+        for (const char* name : {"thumb_action1", "thumb_action2", "thumb_action3", "thumb_action4"}) {
+            QVERIFY2(!button(name)->icon().isNull(), name);
+            QCOMPARE(button(name)->toolButtonStyle(), Qt::ToolButtonIconOnly);
+        }
+        QCOMPARE(button("thumb_action3")->icon().pixmap(22).toImage(),
+                 m_context->theme().iconSet().icon(QStringLiteral("anim_thumb_new")).pixmap(22).toImage());
 
         button("thumb_action2")->click();
         QCOMPARE(line(page, 2), QStringLiteral("0,0, 0,0, 10"));

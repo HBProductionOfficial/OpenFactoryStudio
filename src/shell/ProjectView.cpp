@@ -118,6 +118,7 @@ ProjectView::ProjectView(Project* project, AppContext& context, QWidget* parent)
 {
     setObjectName(QStringLiteral("projectView"));
     m_project->setParent(this);
+    connect(&m_context.theme(), &ThemeManager::iconSetChanged, this, &ProjectView::refreshPanelIcons);
 
     // Left panel: the editor panels and the project explorer, switched by the bottom tabs.
     m_left->setObjectName(QStringLiteral("leftPanel"));
@@ -1446,6 +1447,7 @@ void ProjectView::applyPreset(const Preset::Model& model)
         if (auto* page = qobject_cast<CodePage*>(tabs->currentWidget()))
             updateOutline(page);
     }
+    refreshPanelIcons();
 }
 
 void ProjectView::setLeftPanelVisible(bool visible)
@@ -1529,21 +1531,8 @@ void ProjectView::updateRightPanel()
                                         m_currentEditor == EditorId::Animations && m_rightPanelVisible);
     QScrollArea* panel = m_extraPanels.value(name);
     if (panel && name == QLatin1String("thumbnails")) {
-        static const char* const spriteCaptions[] = {
-            QT_TR_NOOP("Add selected as layers"), QT_TR_NOOP("Add all as layers"),
-            QT_TR_NOOP("Add selected as layers (aligned)"), QT_TR_NOOP("Add all as layers (aligned)")};
-        static const char* const animationCaptions[] = {
-            QT_TR_NOOP("Add selected to the current animation"), QT_TR_NOOP("Add all to the current animation"),
-            QT_TR_NOOP("New animation with selected"), QT_TR_NOOP("New animation with all")};
-        for (int i = 0; i < 4; ++i) {
-            auto* button = panel->widget()->findChild<QToolButton*>(QStringLiteral("thumb_action%1").arg(i + 1));
-            if (!button)
-                continue;
-            const QString caption = tr(spriteExplorer ? spriteCaptions[i] : animationCaptions[i]);
-            button->setText(caption);
-            button->setToolTip(caption);
-            button->setStatusTip(caption);
-        }
+        m_explorerForSprites = spriteExplorer;
+        refreshPanelIcons();
     }
     const bool show = m_rightPanelVisible && panel;
     if (panel) {
@@ -1551,6 +1540,54 @@ void ProjectView::updateRightPanel()
         m_right->setTitle(extraPanelTitle(name));
     }
     m_right->setVisible(show);
+}
+
+// Panel buttons that are not actions take their icons from the icon set.
+void ProjectView::refreshPanelIcons()
+{
+    const IconSet& icons = m_context.theme().iconSet();
+    const struct
+    {
+        const char* control;
+        const char* icon;
+    } plain[] = {{"emul_start", "debug_start_emul"}, {"org_palette", "org_palette"}};
+    for (const auto& p : plain) {
+        for (QToolButton* button : findChildren<QToolButton*>(QLatin1String(p.control))) {
+            button->setIcon(icons.icon(QLatin1String(p.icon)));
+            button->setToolButtonStyle(Qt::ToolButtonIconOnly);
+        }
+    }
+    QScrollArea* thumbnails = m_extraPanels.value(QStringLiteral("thumbnails"));
+    if (!thumbnails)
+        return;
+    const struct
+    {
+        const char* spritesIcon;
+        const char* spritesCaption;
+        const char* animationsIcon;
+        const char* animationsCaption;
+    } buttons[] = {
+        {"spr_thumb_add", QT_TR_NOOP("Add selected as layers"), "anim_thumb_add",
+         QT_TR_NOOP("Add selected to the current animation")},
+        {"spr_thumb_add_all", QT_TR_NOOP("Add all as layers"), "anim_thumb_add_all",
+         QT_TR_NOOP("Add all to the current animation")},
+        {"spr_thumb_add_aligned", QT_TR_NOOP("Add selected as layers (aligned)"), "anim_thumb_new",
+         QT_TR_NOOP("New animation with selected")},
+        {"spr_thumb_add_all_aligned", QT_TR_NOOP("Add all as layers (aligned)"), "anim_thumb_new_all",
+         QT_TR_NOOP("New animation with all")},
+    };
+    for (int i = 0; i < int(std::size(buttons)); ++i) {
+        auto* button = thumbnails->widget()->findChild<QToolButton*>(QStringLiteral("thumb_action%1").arg(i + 1));
+        if (!button)
+            continue;
+        const auto& b = buttons[i];
+        const QString caption = tr(m_explorerForSprites ? b.spritesCaption : b.animationsCaption);
+        button->setText(caption);
+        button->setToolTip(caption);
+        button->setStatusTip(caption);
+        button->setIcon(icons.icon(QLatin1String(m_explorerForSprites ? b.spritesIcon : b.animationsIcon)));
+        button->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    }
 }
 
 void ProjectView::adoptBottomDock(BottomDock* dock)

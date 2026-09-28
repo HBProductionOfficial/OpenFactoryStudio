@@ -151,6 +151,7 @@ private:
     QString tabToolTip(const QString& path) const;
     void fillProjectExplorer();
     void updateRightPanel();
+    void refreshPanelIcons();
     CodeFile* commandsFile() const;
     void createCommandsOrganizer();
     void updateDockStretch();
@@ -160,6 +161,7 @@ private:
     QPointer<Debug::BreakpointList> m_breakpoints;
     QString m_currentEditor;
     bool m_rightPanelVisible = true;
+    bool m_explorerForSprites = false;
     bool m_organizerVisible = false;
     bool m_debugging = false;
 

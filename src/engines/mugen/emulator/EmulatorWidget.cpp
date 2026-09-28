@@ -133,6 +133,7 @@ void EmulatorWidget::bindPanel(QWidget* panel)
     }
     if (m_start) {
         m_start->disconnect(this);
+        m_start->setEnabled(!isRunning());
         connect(m_start, &QAbstractButton::clicked, this, [this] {
             if (isRunning())
                 stop();
@@ -202,7 +203,7 @@ bool EmulatorWidget::start()
         startTimer();
         setFocus();
         if (m_start)
-            m_start->setToolTip(tr("Stop emulator"));
+            m_start->setEnabled(false);
         update();
         setDebugState(Debug::SessionState::Running);
         Q_EMIT statusChanged();
@@ -220,7 +221,7 @@ bool EmulatorWidget::start()
         startTimer();
         setFocus();
         if (m_start)
-            m_start->setToolTip(tr("Stop emulator"));
+            m_start->setEnabled(false);
         update();
         setDebugState(Debug::SessionState::Running);
         Q_EMIT statusChanged();
@@ -257,7 +258,7 @@ bool EmulatorWidget::start()
     startTimer();
     setFocus();
     if (m_start)
-        m_start->setToolTip(tr("Stop emulator"));
+        m_start->setEnabled(false); // same as Fighter Factory: Stop is on the Debug panel
     update();
     setDebugState(Debug::SessionState::Running);
     Q_EMIT statusChanged();
@@ -304,7 +305,7 @@ void EmulatorWidget::finishStop()
     if (m_mixer)
         m_mixer->stopAll();
     if (m_start)
-        m_start->setToolTip(tr("Start emulator"));
+        m_start->setEnabled(true);
     setDebugState(Debug::SessionState::None);
     Q_EMIT debugLineChanged(QString(), 0);
     Q_EMIT statusChanged();

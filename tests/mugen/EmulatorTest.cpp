@@ -24,6 +24,7 @@
 #include <QTextCursor>
 #include <QTextDocument>
 #include <QTimer>
+#include <QToolButton>
 #include <QWheelEvent>
 
 #include <cmath>
@@ -375,9 +376,15 @@ private Q_SLOTS:
         std::unique_ptr<Project> project(mugen.openProject(engine.def, nullptr));
         AppContext context;
         EmulatorWidget emulator(*project, context);
+        QWidget panel;
+        auto* start = new QToolButton(&panel);
+        start->setObjectName("emul_start");
+        emulator.bindPanel(&panel);
         QCOMPARE(emulator.engineDir(), QDir::cleanPath(engine.dir.path()));
+        QVERIFY(start->isEnabled());
         QVERIFY2(emulator.start(), qPrintable(emulator.lastError()));
         QVERIFY(emulator.isRunning());
+        QVERIFY(!start->isEnabled());
         for (int i = 0; i < 10; ++i)
             emulator.step();
         QCOMPARE(emulator.frame().size(), QSize(320, 240));
@@ -880,11 +887,7 @@ private Q_SLOTS:
         QCOMPARE(emulator.session().match().gameTime(), time + 1);
 
         breakpoints.toggle(cmd, 4);
-        whileStopped(
-            emulator, {[&] {
-                emulator.perform("debug_stop");
-            }},
-            [&] { emulator.step(); }, &answered);
+        whileStopped(emulator, {[&] { emulator.perform("debug_stop"); }}, [&] { emulator.step(); }, &answered);
         QCOMPARE(answered, 1);
         QVERIFY(!emulator.isRunning());
         QCOMPARE(emulator.debugState(), Debug::SessionState::None);
@@ -893,11 +896,7 @@ private Q_SLOTS:
         doomed->setBreakpoints(&breakpoints);
         QVERIFY(doomed->start());
         QPointer<EmulatorWidget> watch(doomed);
-        whileStopped(
-            *doomed, {[&] {
-                delete doomed;
-            }},
-            [&] { doomed->step(); }, &answered);
+        whileStopped(*doomed, {[&] { delete doomed; }}, [&] { doomed->step(); }, &answered);
         QCOMPARE(answered, 1);
         QVERIFY(!watch);
     }
