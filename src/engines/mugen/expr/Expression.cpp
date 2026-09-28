@@ -1,4 +1,5 @@
 #include "engines/mugen/expr/Expression.h"
+#include "engines/mugen/MugenEngine.h"
 
 #include "core/code/CodeLine.h"
 #include "core/syntax/SyntaxDatabase.h"
@@ -356,7 +357,8 @@ ExprPtr ExpressionParser::parseTrigger(const Token& name)
         issue.line = m_line;
         issue.column = name.start;
         issue.length = name.length;
-        issue.message = ExpressionTexts::tr("Trigger deprecated in %1").arg(trigger->deprecated);
+        issue.message =
+            ExpressionTexts::tr("Trigger deprecated in %1").arg(MugenEngine::versionName(trigger->deprecated));
         m_issues->append(issue);
     }
 

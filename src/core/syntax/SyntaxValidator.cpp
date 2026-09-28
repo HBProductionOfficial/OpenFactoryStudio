@@ -290,7 +290,8 @@ IssueList SyntaxValidator::validate(const QString& text) const
                                 SyntaxValidatorTexts::tr("Invalid block for current project version"));
         if (SyntaxDatabase::deprecatedIn(block->deprecated, m_version))
             issues << makeIssue(Issue::Severity::Deprecation, s.headerLine, s.header.headerStart, s.header.headerLength,
-                                SyntaxValidatorTexts::tr("Block deprecated in %1").arg(block->deprecated));
+                                SyntaxValidatorTexts::tr("Block deprecated in %1")
+                                    .arg(m_versionNamer ? m_versionNamer(block->deprecated) : block->deprecated));
         if (block->raw)
             continue;
         QSet<QString> seen;
@@ -341,7 +342,8 @@ IssueList SyntaxValidator::validate(const QString& text) const
                                     SyntaxValidatorTexts::tr("Invalid parameter for current project version"));
             if (SyntaxDatabase::deprecatedIn(param->deprecated, m_version))
                 issues << makeIssue(Issue::Severity::Deprecation, l.number, l.code.keyStart, l.code.keyLength,
-                                    SyntaxValidatorTexts::tr("Parameter deprecated in %1").arg(param->deprecated));
+                                    SyntaxValidatorTexts::tr("Parameter deprecated in %1")
+                                        .arg(m_versionNamer ? m_versionNamer(param->deprecated) : param->deprecated));
             checkValue(*param, l.code.value, l.code.valueStart, l.number, header, block->typeName, issues);
         }
 

@@ -1693,8 +1693,13 @@ void MainWindow::applyInterface()
                                     ThemeManager::MinScale, ThemeManager::MaxScale));
     if (theme.setStyle(choose("stylesheet", model.stylesheet, ThemeManager::DefaultStyle))) {
         QApplication::setPalette(theme.palette());
-        qApp->setStyleSheet(theme.styleSheet());
     }
+    const int fontSize =
+        std::clamp(config.intValue(QStringLiteral("interface_font_size"), ThemeManager::DefaultInterfaceFontSize),
+                   ThemeManager::MinInterfaceFontSize, ThemeManager::MaxInterfaceFontSize);
+    const QString styleSheet = ThemeManager::fontStyleSheet(fontSize) + theme.styleSheet();
+    if (qApp->styleSheet() != styleSheet)
+        qApp->setStyleSheet(styleSheet);
     theme.setColorSet(choose("colorset", model.colorset, ThemeManager::DefaultColorSet));
     m_context.actions().applyIcons(theme.iconSet());
     m_dock->setArrowIcons(theme.iconSet().icon(QStringLiteral("bottom_up")),

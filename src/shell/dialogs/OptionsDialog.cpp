@@ -317,6 +317,12 @@ QWidget* OptionsDialog::createInterfaceTab()
     dpiLayout->addWidget(m_dpiScale);
     connect(dpiAuto, &QCheckBox::toggled, this, &OptionsDialog::updateDependentControls);
     left->addWidget(dpi);
+    left->addWidget(new QLabel(tr("Font size:"), page));
+    auto* fontSize = new QSpinBox(page);
+    fontSize->setObjectName(QStringLiteral("interface_font_size"));
+    fontSize->setRange(ThemeManager::MinInterfaceFontSize, ThemeManager::MaxInterfaceFontSize);
+    bindSpin(fontSize, QStringLiteral("interface_font_size"), ThemeManager::DefaultInterfaceFontSize);
+    left->addWidget(fontSize);
     left->addStretch(1);
 
     auto* leftWidget = new QWidget(page);

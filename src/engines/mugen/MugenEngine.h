@@ -23,6 +23,8 @@ public:
     QString name() const override;
     QString displayName() const override;
     QList<EngineVersion> versions() const override;
+    static QList<EngineVersion> versionList();
+    static QString versionName(const QString& id);
     QList<ProjectTypeInfo> projectTypes() const override;
     QStringList projectExtensions() const override;
 

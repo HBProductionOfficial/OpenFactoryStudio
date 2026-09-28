@@ -1,4 +1,5 @@
 #include "engines/mugen/MugenSyntax.h"
+#include "engines/mugen/MugenEngine.h"
 
 #include "core/code/CodeLine.h"
 #include "engines/mugen/MugenTypes.h"
@@ -198,6 +199,7 @@ IssueList validateMugenCode(const SyntaxDatabase& syntax, const QString& fileTyp
     MugenExpressionChecker checker(&syntax);
     SyntaxValidator validator(syntax, fileType, version);
     validator.setExpressionChecker(&checker);
+    validator.setVersionNamer(&MugenEngine::versionName);
     validator.setRepeatableParams({QStringLiteral("trigger*"), QStringLiteral("triggerall")});
     validator.setBuiltInSections({QStringLiteral("Info"), QStringLiteral("Files"), QStringLiteral("Begin Action"),
                                   QStringLiteral("BGdef"), QStringLiteral("BG"), QStringLiteral("BGCtrlDef"),

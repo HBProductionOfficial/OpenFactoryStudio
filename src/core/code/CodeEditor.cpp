@@ -118,6 +118,10 @@ void CodeEditor::setOptions(const Options& options)
 void CodeEditor::setCodeDocument(QTextDocument* doc)
 {
     setDocument(doc);
+    // A document comes with the application's font; setting the same font on the editor again later
+    // would not reach it.
+    if (doc)
+        doc->setDefaultFont(font());
     if (m_highlighter)
         m_highlighter->setDocument(doc);
     updateGutterWidth();

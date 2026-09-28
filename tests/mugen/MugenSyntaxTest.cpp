@@ -291,7 +291,7 @@ private Q_SLOTS:
             "11: Unknown keyword 'Q'",
             "19: Unknown type 'ChangeStat'",
             "37: Missing parameter 'trigger1'",
-            "40: Block deprecated in 1.0",
+            "40: Block deprecated in M.U.G.E.N 1.0",
             "44: Unknown block header",
         };
         QStringList sortedMessages = messages;

@@ -121,6 +121,26 @@ QString ThemeManager::colorSetPath(const QString& name) const
     return findFile(m_searchDirs, ColorSetsKind, name, ColorSetSuffix);
 }
 
+QFont ThemeManager::systemFont()
+{
+    static const QFont font = QGuiApplication::font();
+    return font;
+}
+
+QString ThemeManager::fontStyleSheet(int interfacePoints)
+{
+    const double system = systemFont().pointSizeF();
+    return QStringLiteral("QLabel, QAbstractButton, QComboBox, QAbstractSpinBox, QLineEdit, QTabBar, QGroupBox "
+                          "{ font-size: %1pt; }\n"
+                          "QAbstractItemView { font-size: %2pt; }\n"
+                          "QHeaderView { font-size: %1pt; }\n"
+                          "*[fontRole=\"system\"] { font-size: %2pt; }\n"
+                          "*[fontRole=\"heading\"] { font-size: %3pt; }\n")
+        .arg(interfacePoints)
+        .arg(system)
+        .arg(system * HeadingScale);
+}
+
 bool ThemeManager::setIconSet(const QString& name)
 {
     const QString dir = findDir(IconSetsKind, name, IconSetMarker);

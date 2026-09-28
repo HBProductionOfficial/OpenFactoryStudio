@@ -57,6 +57,7 @@
 #include <QTabWidget>
 #include <QTemporaryDir>
 #include <QTextBlock>
+#include <QTextDocument>
 #include <QTextLayout>
 #include <QTreeView>
 #include <QUndoStack>
@@ -682,6 +683,45 @@ private Q_SLOTS:
         applyOptions([](QDialog* dialog) { dialog->findChild<QCheckBox*>("dpi_auto")->setChecked(true); });
         QCOMPARE(m_context->theme().scale(), 1.0);
         QCOMPARE(qApp->styleSheet(), normal);
+    }
+
+    // Labels, tabs and headers use the interface font size. Lists and trees keep the system size.
+    void interfaceFontSize()
+    {
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(m_dir.filePath("c/c.def")));
+        const int system = ThemeManager::systemFont().pointSize();
+        auto* tabs = window.findChild<QTabBar*>("leftPanelTabs");
+        auto* tree = window.findChild<QTreeView*>("projectExplorer");
+        QVERIFY(tabs && tree);
+        QCOMPARE(tabs->font().pointSize(), ThemeManager::DefaultInterfaceFontSize);
+        QCOMPARE(tree->font().pointSize(), system);
+        applyOptions([](QDialog* dialog) { dialog->findChild<QSpinBox*>("interface_font_size")->setValue(14); });
+        QCOMPARE(m_context->config().intValue("interface_font_size", 0), 14);
+        QCOMPARE(tabs->font().pointSize(), 14);
+        QCOMPARE(tree->font().pointSize(), system);
+        QHeaderView header(Qt::Horizontal, &window);
+        header.ensurePolished();
+        QCOMPARE(header.font().pointSize(), 14);
+        applyOptions([](QDialog* dialog) {
+            dialog->findChild<QSpinBox*>("interface_font_size")->setValue(ThemeManager::DefaultInterfaceFontSize);
+        });
+        QCOMPARE(tabs->font().pointSize(), ThemeManager::DefaultInterfaceFontSize);
+    }
+
+    // The editor's document must use the Options > Code font too.
+    void codeFont()
+    {
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(m_dir.filePath("c/c.def")));
+        window.switchEditor("states");
+        CodeEditor* editor = window.currentProjectView()->currentCodeEditor();
+        QVERIFY(editor);
+        const QFont expected = CodeEditor::configuredFont(&m_context->config());
+        QCOMPARE(editor->document()->defaultFont().family(), expected.family());
+        QCOMPARE(editor->document()->defaultFont().pointSize(), expected.pointSize());
     }
 
     void paletteFitsSpace()

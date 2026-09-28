@@ -56,6 +56,20 @@ QString MugenEngine::displayName() const
 
 QList<EngineVersion> MugenEngine::versions() const
 {
+    return versionList();
+}
+
+QString MugenEngine::versionName(const QString& id)
+{
+    for (const EngineVersion& version : versionList()) {
+        if (version.id.compare(id.trimmed(), Qt::CaseInsensitive) == 0)
+            return version.name;
+    }
+    return id;
+}
+
+QList<EngineVersion> MugenEngine::versionList()
+{
     return {
         {QStringLiteral("dosbeta"), tr("DOS M.U.G.E.N beta")},
         {QStringLiteral("winbeta"), tr("Win/Linux M.U.G.E.N beta")},

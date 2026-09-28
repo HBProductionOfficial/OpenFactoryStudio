@@ -1,6 +1,7 @@
 #include "shell/WelcomePage.h"
 
 #include "core/settings/History.h"
+#include "core/theme/ThemeManager.h"
 
 #include <QCommandLinkButton>
 #include <QDir>
@@ -22,12 +23,15 @@ namespace OFS {
 
 namespace {
 
+// The page text uses the system font whatever Options > Interface > Font size says, same as Fighter Factory. Headings
+// are a third larger. The buttons do follow the font size option.
 QLabel* heading(const QString& text, QWidget* parent)
 {
     auto* label = new QLabel(text, parent);
     label->setObjectName(QStringLiteral("welcomeHeading"));
-    QFont f = label->font();
-    f.setPointSizeF(f.pointSizeF() * 1.35);
+    label->setProperty("fontRole", QStringLiteral("heading"));
+    QFont f = ThemeManager::systemFont();
+    f.setPointSizeF(f.pointSizeF() * ThemeManager::HeadingScale);
     label->setFont(f);
     return label;
 }
@@ -37,6 +41,7 @@ QLabel* paragraph(const QString& text, QWidget* parent)
     auto* label = new QLabel(text, parent);
     label->setObjectName(QStringLiteral("welcomeText"));
     label->setWordWrap(true);
+    label->setProperty("fontRole", QStringLiteral("system"));
     return label;
 }
 
@@ -202,6 +207,7 @@ void WelcomePage::refresh()
     for (qsizetype i = 0; i < entries.size(); ++i) {
         const History::Entry& e = entries[i];
         auto* button = new RecentButton(e.name, QDir::toNativeSeparators(e.file), this);
+        button->setProperty("fontRole", QStringLiteral("system"));
         button->setObjectName(QStringLiteral("recentProject%1").arg(i + 1));
         button->setToolTip(QDir::toNativeSeparators(e.file));
         button->setCheckable(isEditing());
@@ -218,6 +224,7 @@ void WelcomePage::refresh()
         auto* open =
             new RecentButton(tr("Open project..."), tr("No recent projects. Open one now and start the fun!"), this);
         open->setObjectName(QStringLiteral("welcomeOpenProject"));
+        open->setProperty("fontRole", QStringLiteral("system"));
         open->setMinimumHeight(50);
         connect(open, &QCommandLinkButton::clicked, this, &WelcomePage::openDialogRequested);
         m_grid->addWidget(open, 0, 0, 1, 2);

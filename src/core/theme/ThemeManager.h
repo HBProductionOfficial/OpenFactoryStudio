@@ -4,6 +4,7 @@
 #include "core/theme/ColorSet.h"
 #include "core/theme/IconSet.h"
 
+#include <QFont>
 #include <QObject>
 #include <QPalette>
 #include <QStringList>
@@ -61,6 +62,15 @@ public:
 
     static constexpr double MinScale = 0.2;
     static constexpr double MaxScale = 10.0;
+    // Fighter Factory's interface text is a third larger than the 9 pt Windows system font.
+    static constexpr int DefaultInterfaceFontSize = 12;
+    static constexpr int MinInterfaceFontSize = 6;
+    static constexpr int MaxInterfaceFontSize = 24;
+    static QFont systemFont();
+    // Lists, trees and tables keep the system size, same as Fighter Factory. A "fontRole" property
+    // of "system" or "heading" picks the system or heading size.
+    static QString fontStyleSheet(int interfacePoints);
+    static constexpr double HeadingScale = 1.35;
     void setScale(double scale) { m_scale = scale; }
     double scale() const { return m_scale; }
 

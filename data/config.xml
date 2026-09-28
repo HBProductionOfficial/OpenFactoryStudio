@@ -52,6 +52,7 @@
     <config name="highlightCode" value="true"/>
     <config name="iconset" value="Nuvola"/>
     <config name="initialized" value="false"/>
+    <config name="interface_font_size" value="12"/>
     <config name="issues_x" value=""/>
     <config name="issues_y" value=""/>
     <config name="language" value="en-us"/>

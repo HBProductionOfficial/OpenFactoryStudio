@@ -45,6 +45,8 @@ public:
     void setTypedSectionParams(const QList<SyntaxParam>& params) { m_typedParams = params; }
     // Storyboards name their background sections after the scene's bg.name.
     void setHeaderMapper(std::function<QString(const QString&)> mapper) { m_headerMapper = std::move(mapper); }
+    // Version names for messages ("1.0" as "M.U.G.E.N 1.0"). The id by default.
+    void setVersionNamer(std::function<QString(const QString&)> namer) { m_versionNamer = std::move(namer); }
 
     IssueList validate(const QString& text) const;
 
@@ -63,6 +65,7 @@ private:
     QStringList m_repeatable;
     QList<SyntaxParam> m_typedParams;
     std::function<QString(const QString&)> m_headerMapper;
+    std::function<QString(const QString&)> m_versionNamer;
 };
 
 } // namespace OFS

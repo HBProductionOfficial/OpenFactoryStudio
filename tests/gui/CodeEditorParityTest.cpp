@@ -12,6 +12,8 @@
 #include "core/engine/EngineManager.h"
 #include "core/project/ProjectFile.h"
 #include "core/syntax/SyntaxDatabase.h"
+#include "core/theme/IconSet.h"
+#include "core/theme/ThemeManager.h"
 #include "engines/mugen/MugenOutline.h"
 #include "shell/AdvancedSearchPanel.h"
 #include "shell/AnimationPage.h"
@@ -675,6 +677,13 @@ private Q_SLOTS:
         });
         QCOMPARE(order, (QStringList{"codeSnippets", "code_snippet_insert", "code_snippet_new", "code_snippet_edit",
                                      "codeIssues"}));
+        Issue issue;
+        issue.line = 220;
+        issue.message = QStringLiteral("Parameter deprecated in M.U.G.E.N 1.0");
+        page->setIssues({issue}, m_context->theme().iconSet());
+        auto* issues = page->findChild<QComboBox*>("codeIssues");
+        QVERIFY(issues);
+        QCOMPARE(issues->itemText(0), issue.message);
 
         Snippet snippet;
         snippet.fields = {SnippetField{"a", "A", SnippetField::Type::String, {}, {}},

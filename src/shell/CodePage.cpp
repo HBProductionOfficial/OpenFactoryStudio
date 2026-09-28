@@ -100,7 +100,7 @@ void CodePage::setIssues(const IssueList& issues, const IconSet& icons)
             icon = QStringLiteral("information");
             break;
         }
-        m_navigator->addItem(icons.icon(icon), QStringLiteral("%1: %2").arg(issue.line + 1).arg(issue.message));
+        m_navigator->addItem(icons.icon(icon), issue.message);
     }
 
     QList<CodeEditor::Marker> markers;
