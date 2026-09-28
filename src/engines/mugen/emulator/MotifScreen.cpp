@@ -5,6 +5,7 @@
 #include "core/project/ProjectFile.h"
 #include "core/sounds/SoundFile.h"
 #include "core/sprites/SpriteFile.h"
+#include "core/widgets/Blending.h"
 #include "engines/mugen/emulator/EmulatorSession.h"
 #include "engines/mugen/runtime/Files.h"
 #include "engines/mugen/runtime/IniText.h"
@@ -324,11 +325,10 @@ QImage MotifScreen::render()
         view.layer = layer;
         for (const BgDrawItem& item : renderer->render(*simulator, view)) {
             p.save();
-            p.setOpacity(item.opacity);
-            p.setCompositionMode(item.mode);
             if (item.clip)
                 p.setClipRect(*item.clip);
-            p.drawImage(item.topLeft, item.image);
+            drawBlended(p, QRectF(item.topLeft, item.image.deviceIndependentSize()), item.image, item.mode,
+                        item.opacity);
             p.restore();
         }
     };

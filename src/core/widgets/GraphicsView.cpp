@@ -1,4 +1,5 @@
 #include "core/widgets/GraphicsView.h"
+#include "core/widgets/Blending.h"
 
 #include "core/settings/Config.h"
 #include "core/widgets/Checkerboard.h"
@@ -495,10 +496,8 @@ void GraphicsView::drawImages(QPainter& p)
         if (!image.clip.isEmpty())
             p.setClipRect(QRectF(toWidget(image.clip.topLeft()), toWidget(image.clip.bottomRight())),
                           Qt::IntersectClip);
-        p.setCompositionMode(image.mode);
-        p.setOpacity(image.opacity);
         p.setTransform(image.transform * view, true);
-        p.drawImage(QRectF(image.topLeft, QSizeF(image.image.size())), image.image);
+        drawBlended(p, QRectF(image.topLeft, QSizeF(image.image.size())), image.image, image.mode, image.opacity);
         p.restore();
     }
     p.setOpacity(1.0);

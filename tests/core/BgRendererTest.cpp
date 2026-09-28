@@ -3,8 +3,12 @@
 #include "core/bg/BgDocument.h"
 #include "core/bg/BgSimulator.h"
 #include "core/sprites/SpriteDocument.h"
+#include "core/widgets/Blending.h"
 
+#include <QPainter>
 #include <QTest>
+
+#include <cstdlib>
 
 using namespace OFS;
 
@@ -146,6 +150,35 @@ private Q_SLOTS:
         items = render("[BGdef]\n[BG a]\nspriteno = 0,0\ntrans = addalpha\nalpha = 64, 256\n");
         QCOMPARE(items[0].mode, QPainter::CompositionMode_Plus);
         QCOMPARE(items[0].opacity, 0.25);
+    }
+
+    void subtraction()
+    {
+        QImage frame(4, 1, QImage::Format_ARGB32_Premultiplied);
+        frame.fill(QColor(100, 150, 200));
+        QImage image(4, 1, QImage::Format_ARGB32);
+        image.fill(QColor(30, 200, 50));
+        image.setPixelColor(3, 0, Qt::transparent);
+        {
+            QPainter p(&frame);
+            drawBlended(p, QRectF(0, 0, 4, 1), image, QPainter::CompositionMode_Difference);
+        }
+        QCOMPARE(frame.pixelColor(0, 0), QColor(70, 0, 150));
+        QCOMPARE(frame.pixelColor(3, 0), QColor(100, 150, 200));
+        frame.fill(QColor(100, 150, 200));
+        {
+            QPainter p(&frame);
+            drawBlended(p, QRectF(0, 0, 4, 1), image, QPainter::CompositionMode_Difference, 0.5);
+        }
+        const QColor half = frame.pixelColor(0, 0);
+        QVERIFY(std::abs(half.red() - 85) <= 1 && std::abs(half.green() - 50) <= 1 && std::abs(half.blue() - 175) <= 1);
+        frame.fill(QColor(200, 200, 200));
+        image.fill(QColor(100, 100, 100));
+        {
+            QPainter p(&frame);
+            drawBlended(p, QRectF(0, 0, 4, 1), image, QPainter::CompositionMode_Plus, 0.25);
+        }
+        QVERIFY(std::abs(frame.pixelColor(0, 0).red() - 225) <= 1);
     }
 };
 

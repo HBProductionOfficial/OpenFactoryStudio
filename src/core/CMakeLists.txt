@@ -129,6 +129,8 @@ add_library(ofscore SHARED
     GameTime.h
     widgets/Checkerboard.h
     widgets/Checkerboard.cpp
+    widgets/Blending.h
+    widgets/Blending.cpp
     widgets/Rulers.h
     widgets/WheelSteps.h
     widgets/Rulers.cpp

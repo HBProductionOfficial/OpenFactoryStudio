@@ -5,6 +5,7 @@
 #include "core/project/ProjectFile.h"
 #include "core/sounds/SoundFile.h"
 #include "core/sprites/SpriteFile.h"
+#include "core/widgets/Blending.h"
 #include "engines/mugen/runtime/Files.h"
 #include "engines/mugen/runtime/IniText.h"
 #include "formats/audio/AudioCodec.h"
@@ -336,11 +337,10 @@ QImage StoryboardPlayer::render()
         view.layer = layer;
         for (const BgDrawItem& item : m_bgRenderer->render(*m_bgSimulator, view)) {
             p.save();
-            p.setOpacity(item.opacity);
-            p.setCompositionMode(item.mode);
             if (item.clip)
                 p.setClipRect(*item.clip);
-            p.drawImage(item.topLeft, item.image);
+            drawBlended(p, QRectF(item.topLeft, item.image.deviceIndependentSize()), item.image, item.mode,
+                        item.opacity);
             p.restore();
         }
     };
@@ -369,14 +369,16 @@ QImage StoryboardPlayer::render()
             const double left = f.x - (f.flipH ? image.width() - axis.x() : axis.x());
             const double top = f.y - (f.flipV ? image.height() - axis.y() : axis.y());
             p.save();
-            if (f.transparency.mode != AirTransparency::Mode::None) {
-                p.setCompositionMode(f.transparency.mode == AirTransparency::Mode::Subtraction
-                                         ? QPainter::CompositionMode_Difference
-                                         : QPainter::CompositionMode_Plus);
+            QPainter::CompositionMode mode = QPainter::CompositionMode_SourceOver;
+            double opacity = 1.0;
+            if (f.transparency.mode == AirTransparency::Mode::Subtraction) {
+                mode = QPainter::CompositionMode_Difference; // the engine's subtraction
+            } else if (f.transparency.mode != AirTransparency::Mode::None) {
+                mode = QPainter::CompositionMode_Plus;
                 if (f.transparency.mode == AirTransparency::Mode::Addition)
-                    p.setOpacity(std::clamp(f.transparency.source / 256.0, 0.0, 1.0));
+                    opacity = std::clamp(f.transparency.source / 256.0, 0.0, 1.0);
             }
-            p.drawImage(at + QPointF(left, top), image);
+            drawBlended(p, QRectF(at + QPointF(left, top), image.deviceIndependentSize()), image, mode, opacity);
             p.restore();
         } else if (const auto font = m_fonts.constFind(layer.font); font != m_fonts.cend() && !layer.text.isEmpty()) {
             // Text is typed one letter every textdelay ticks.

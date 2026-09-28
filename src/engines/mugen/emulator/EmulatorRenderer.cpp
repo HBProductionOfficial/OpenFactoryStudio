@@ -3,6 +3,7 @@
 #include "core/app/ImageCache.h"
 #include "core/bg/BgRenderer.h"
 #include "core/sprites/QtImages.h"
+#include "core/widgets/Blending.h"
 #include "engines/mugen/emulator/EmulatorSession.h"
 
 #include <QPainter>
@@ -300,11 +301,10 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
         view.layer = layer;
         for (const BgDrawItem& item : m_stage->render(*stage.simulator, view)) {
             p.save();
-            p.setOpacity(item.opacity);
-            p.setCompositionMode(item.mode);
             if (item.clip)
                 p.setClipRect(*item.clip);
-            p.drawImage(item.topLeft, withFx(item.image, stageFx));
+            const QImage image = withFx(item.image, stageFx);
+            drawBlended(p, QRectF(item.topLeft, image.deviceIndependentSize()), image, item.mode, item.opacity);
             p.restore();
         }
     };
