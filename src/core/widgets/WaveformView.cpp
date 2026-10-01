@@ -187,7 +187,7 @@ void WaveformView::paintEvent(QPaintEvent* event)
     }
     const qint64 firstTick = qint64(std::floor(m_firstFrame / framesPerTick / step)) * step;
     for (qint64 tick = firstTick;; tick += step) {
-        const double x = xAt(tick * framesPerTick);
+        const double x = xAt(double(tick * framesPerTick));
         if (x > width())
             break;
         if (x < 0)

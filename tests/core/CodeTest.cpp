@@ -734,7 +734,7 @@ private Q_SLOTS:
         editor.setPlainText(text);
         QTextCursor c(editor.document());
         c.setPosition(3);
-        c.setPosition(text.indexOf("trigger1") + 2, QTextCursor::KeepAnchor);
+        c.setPosition(int(text.indexOf("trigger1")) + 2, QTextCursor::KeepAnchor);
         editor.setTextCursor(c);
         editor.autoIndentSelection();
         QCOMPARE(editor.toPlainText(), QStringLiteral("[State 0, 1]\ntype\t= Null\ntrigger1= 1\nlast = 1"));

@@ -3086,7 +3086,7 @@ private Q_SLOTS:
         QCOMPARE(organizer->model()->index(0, 0).data().toString(), QStringLiteral("Floor"));
         auto* rows = qobject_cast<QStandardItemModel*>(organizer->model());
         QVERIFY(rows);
-        const int shown = page->view()->images().size();
+        const int shown = int(page->view()->images().size());
         rows->item(0)->setCheckState(Qt::Unchecked);
         QCOMPARE(page->view()->images().size(), 1); // only the sky
         rows->item(0)->setCheckState(Qt::Checked);

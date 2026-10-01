@@ -32,8 +32,17 @@ int main(int argc, char** argv)
             log << "Motif definition: " << (fs::exists(system) ? "found" : "missing") << '\n';
         }
     }
+#if defined(_MSC_VER)
+    char* wait = nullptr;
+    std::size_t length = 0;
+    if (_dupenv_s(&wait, &length, "OFS_FAKE_ENGINE_WAIT_MS") == 0 && wait) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(std::atoi(wait)));
+        std::free(wait);
+    }
+#else
     if (const char* wait = std::getenv("OFS_FAKE_ENGINE_WAIT_MS"))
         std::this_thread::sleep_for(std::chrono::milliseconds(std::atoi(wait)));
+#endif
     log << "Log file successfully closed.\n";
     return 0;
 }

@@ -670,7 +670,7 @@ int main(int argc, char** argv)
             popup->hide();
         code->document()->undo();
         code->document()->undo();
-        const int at = code->toPlainText().indexOf("ChangeState");
+        const int at = int(code->toPlainText().indexOf("ChangeState"));
         if (at >= 0) {
             QTextCursor word(code->document());
             word.setPosition(at + 3);

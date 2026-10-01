@@ -85,8 +85,8 @@ private Q_SLOTS:
         const QString archive = dir.filePath("ps.zip");
         mz_zip_archive zip{};
         QVERIFY(mz_zip_writer_init_file(&zip, archive.toLocal8Bit().constData(), 0));
-        QVERIFY(mz_zip_writer_add_mem(&zip, "kfm\\", nullptr, 0, MZ_DEFAULT_COMPRESSION));
-        QVERIFY(mz_zip_writer_add_mem(&zip, "kfm\\kfm.def", "[Info]", 6, MZ_DEFAULT_COMPRESSION));
+        QVERIFY(mz_zip_writer_add_mem(&zip, "kfm\\", nullptr, 0, mz_uint(MZ_DEFAULT_LEVEL)));
+        QVERIFY(mz_zip_writer_add_mem(&zip, "kfm\\kfm.def", "[Info]", 6, mz_uint(MZ_DEFAULT_LEVEL)));
         QVERIFY(mz_zip_writer_finalize_archive(&zip));
         mz_zip_writer_end(&zip);
 

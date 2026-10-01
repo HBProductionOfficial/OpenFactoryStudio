@@ -668,8 +668,9 @@ void EmulatorWidget::mouseMoveEvent(QMouseEvent* event)
 {
     const QRect screen = screenRect();
     if (!screen.isEmpty())
-        m_mouse = QPoint((event->position().x() - screen.x()) * EmulatorRenderer::Screen.width() / screen.width(),
-                         (event->position().y() - screen.y()) * EmulatorRenderer::Screen.height() / screen.height());
+        m_mouse =
+            QPoint(int((event->position().x() - screen.x()) * EmulatorRenderer::Screen.width() / screen.width()),
+                   int((event->position().y() - screen.y()) * EmulatorRenderer::Screen.height() / screen.height()));
     Q_EMIT statusChanged();
 }
 

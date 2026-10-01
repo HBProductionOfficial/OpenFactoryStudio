@@ -159,7 +159,7 @@ bool create(const QString& archive, const QString& root, const QStringList& file
         const QByteArray data = file.readAll();
         const QByteArray name = QDir::fromNativeSeparators(relative).toUtf8();
         if (!mz_zip_writer_add_mem(&zip, name.constData(), data.constData(), size_t(data.size()),
-                                   MZ_DEFAULT_COMPRESSION)) {
+                                   mz_uint(MZ_DEFAULT_LEVEL))) {
             fail(error, ZipTexts::tr("Cannot add %1 to the archive.").arg(relative));
             mz_zip_writer_end(&zip);
             return false;

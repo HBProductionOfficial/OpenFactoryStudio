@@ -160,7 +160,7 @@ bool StoryboardPlayer::start(Project& project, const QString& defPath, const QSt
         for (const IniEntry& entry : section.entries) {
             const QString key = entry.key.toLower();
             if (key.startsWith(QLatin1String("layer")) && !key.startsWith(QLatin1String("layerall"))) {
-                const int dot = key.indexOf(QLatin1Char('.'));
+                const int dot = int(key.indexOf(QLatin1Char('.')));
                 bool ok = false;
                 const int number = key.mid(5, dot - 5).toInt(&ok);
                 if (!ok || dot < 0)
@@ -190,7 +190,7 @@ bool StoryboardPlayer::start(Project& project, const QString& defPath, const QSt
                     layer.endTime = int(numbers(entry.value).value(0));
                 }
             } else if (key.startsWith(QLatin1String("sound"))) {
-                const int dot = key.indexOf(QLatin1Char('.'));
+                const int dot = int(key.indexOf(QLatin1Char('.')));
                 bool ok = false;
                 const int number = key.mid(5, dot - 5).toInt(&ok);
                 if (!ok || dot < 0)
