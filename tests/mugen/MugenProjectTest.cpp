@@ -96,6 +96,14 @@ private Q_SLOTS:
         QCOMPARE(MugenProject::detectVersion(parse("[Info]\nmugenversion = 1.1\n")), QStringLiteral("1.1"));
         QCOMPARE(MugenProject::detectVersion(parse("[Info]\nmugenversion = 04.14.2001\n")), QStringLiteral("winbeta"));
         QCOMPARE(MugenProject::detectVersion(parse("[Info]\nname = x\n")), QStringLiteral("dosbeta"));
+        QCOMPARE(MugenProject::detectVersion(parse("[Info]\nname = x\nlocalcoord = 320,240\n")), QStringLiteral("1.0"));
+        QCOMPARE(MugenProject::detectVersion(parse("[StageInfo]\nlocalcoord = 320,240\n")), QStringLiteral("1.0"));
+        QCOMPARE(MugenProject::detectVersion(parse("[Files]\nsff = fight.sff\n[FightFx]\nscale = 1\n")),
+                 QStringLiteral("1.0"));
+        QCOMPARE(MugenProject::detectVersion(parse("[Files]\nsff = fight.sff\n[Lifebar]\np1.pos = 1,1\n")),
+                 QStringLiteral("dosbeta"));
+        QCOMPARE(MugenProject::detectVersion(parse("[StageInfo]\nname = x\n[Camera]\nzoomout = 0.8\n")),
+                 QStringLiteral("dosbeta"));
     }
 
     void editorsPerType()

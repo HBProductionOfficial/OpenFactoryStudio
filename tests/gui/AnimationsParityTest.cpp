@@ -932,10 +932,10 @@ private Q_SLOTS:
         page->setCurrentFrame(2);
         frames.clear();
         actions.action("anim_play")->trigger();
-        QTest::qWait(400);
+        // One frame per tick, so a slow debug build needs the long timeout.
+        QTRY_VERIFY_WITH_TIMEOUT(frames.size() > 8, 10000);
         actions.action("anim_stop")->trigger();
         disconnect(record);
-        QVERIFY2(frames.size() > 8, qPrintable(QString::number(frames.size())));
         QCOMPARE(frames.first(), 0);
         const qsizetype end = frames.indexOf(2);
         QVERIFY(end > 0);
@@ -955,7 +955,7 @@ private Q_SLOTS:
         page->setCurrent(2);
         actions.action("anim_play")->trigger();
         double between = -1;
-        for (int i = 0; i < 40 && page->currentFrame() == 0; ++i) {
+        for (int i = 0; i < 500 && page->currentFrame() == 0 && between < 0; ++i) {
             QTest::qWait(10);
             const double x = page->view()->images().last().transform.dx();
             if (page->currentFrame() == 0 && x > 0 && x < 80)

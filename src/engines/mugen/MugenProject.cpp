@@ -202,8 +202,15 @@ QString MugenProject::detectType(const DefFile& def)
 QString MugenProject::detectVersion(const DefFile& def)
 {
     const QString v = def.value(QStringLiteral("Info"), QStringLiteral("mugenversion")).trimmed();
-    if (v.isEmpty())
-        return QStringLiteral("dosbeta");
+    if (v.isEmpty()) {
+        // Same as Fighter Factory: without a mugenversion, a localcoord or the fight screen's [FightFx] means
+        // M.U.G.E.N 1.0. Newer features (like the 1.1 camera zoom) still leave it at the DOS beta.
+        const bool localcoord =
+            !def.value(QStringLiteral("Info"), QStringLiteral("localcoord")).trimmed().isEmpty() ||
+            !def.value(QStringLiteral("StageInfo"), QStringLiteral("localcoord")).trimmed().isEmpty();
+        return localcoord || def.hasSection(QStringLiteral("FightFx")) ? QStringLiteral("1.0")
+                                                                       : QStringLiteral("dosbeta");
+    }
     if (v.startsWith(QLatin1String("1.1")))
         return QStringLiteral("1.1");
     if (v.startsWith(QLatin1String("1.")))

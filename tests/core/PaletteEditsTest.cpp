@@ -177,7 +177,7 @@ private Q_SLOTS:
         QVERIFY(colors.ok());
         QCOMPARE(colors.value().size(), std::size_t(256));
         QCOMPARE(colors.value()[255], (Rgba{0, 255, 0, 255}));
-        QCOMPARE(colors.value()[1], (Rgba{254, 1, std::uint8_t(7 * 254), 255}));
+        QCOMPARE(colors.value()[1], (Rgba{254, 1, std::uint8_t((7 * 254) % 256), 255}));
         QCOMPARE(colors.value()[0].a, std::uint8_t(0));
         colors = PaletteEdits::readFile(dir.filePath("test.act"), true);
         QCOMPARE(colors.value()[1], (Rgba{1, 254, 7, 255}));
