@@ -12,6 +12,8 @@ FetchContent_Declare(libarchive
     URL_HASH SHA256=bde832a5e3344dc723cfe9cc37f8e54bde04565bfe6f136bc1bd31ab352e9fab
     EXCLUDE_FROM_ALL)
 FetchContent_MakeAvailable(libarchive)
+# Users must not declare its functions as DLL imports, because MSVC can't link those.
+target_compile_definitions(archive_static INTERFACE LIBARCHIVE_STATIC)
 
 ofs_add_extension_plugin(archive_rar
     SOURCES RarPlugin.cpp archive_rar.json
