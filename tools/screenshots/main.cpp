@@ -685,6 +685,7 @@ int main(int argc, char** argv)
                                 Qt::NoButton, Qt::ControlModifier);
             QApplication::sendEvent(code->viewport(), &release);
             tour.screen("Code", "Documentation of ChangeState (Ctrl+click)");
+            // Escape closes the page, a tool window found among the top-level widgets.
             for (QWidget* top : QApplication::topLevelWidgets()) {
                 if (top->objectName() == QLatin1String("docPopup") && top->isVisible()) {
                     QKeyEvent close(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);

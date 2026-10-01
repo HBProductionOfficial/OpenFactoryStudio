@@ -887,7 +887,11 @@ private Q_SLOTS:
         QCOMPARE(emulator.session().match().gameTime(), time + 1);
 
         breakpoints.toggle(cmd, 4);
-        whileStopped(emulator, {[&] { emulator.perform("debug_stop"); }}, [&] { emulator.step(); }, &answered);
+        whileStopped(
+            emulator, {[&] {
+                emulator.perform("debug_stop");
+            }},
+            [&] { emulator.step(); }, &answered);
         QCOMPARE(answered, 1);
         QVERIFY(!emulator.isRunning());
         QCOMPARE(emulator.debugState(), Debug::SessionState::None);
@@ -896,7 +900,11 @@ private Q_SLOTS:
         doomed->setBreakpoints(&breakpoints);
         QVERIFY(doomed->start());
         QPointer<EmulatorWidget> watch(doomed);
-        whileStopped(*doomed, {[&] { delete doomed; }}, [&] { doomed->step(); }, &answered);
+        whileStopped(
+            *doomed, {[&] {
+                delete doomed;
+            }},
+            [&] { doomed->step(); }, &answered);
         QCOMPARE(answered, 1);
         QVERIFY(!watch);
     }

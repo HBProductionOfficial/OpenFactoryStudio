@@ -229,6 +229,7 @@ AirDocument AirDocument::parse(const QStringList& lines)
         const qsizetype commentAt = raw.indexOf(QLatin1Char(';'));
         const QString code = (commentAt >= 0 ? raw.left(commentAt) : raw).trimmed();
         if (code.startsWith(QLatin1Char('['))) {
+            // A name comment right above the header belongs to the new animation.
             const bool named = n > 0 && !commentName(lines.at(n - 1)).isEmpty();
             close(named ? n - 1 : n);
             const qsizetype endBracket = code.indexOf(QLatin1Char(']'));

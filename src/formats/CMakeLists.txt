@@ -1,3 +1,4 @@
+# MUGEN file formats and codecs. No Qt, so tests and command-line tools can use it.
 add_library(ofsformats SHARED
     FormatsExport.h
     util/ByteReader.h

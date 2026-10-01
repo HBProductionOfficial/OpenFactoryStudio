@@ -201,6 +201,7 @@ IssueList validateMugenCode(const SyntaxDatabase& syntax, const QString& fileTyp
     validator.setExpressionChecker(&checker);
     validator.setVersionNamer(&MugenEngine::versionName);
     validator.setRepeatableParams({QStringLiteral("trigger*"), QStringLiteral("triggerall")});
+    // Sections the engine handles itself (the database leaves them out).
     validator.setBuiltInSections({QStringLiteral("Info"), QStringLiteral("Files"), QStringLiteral("Begin Action"),
                                   QStringLiteral("BGdef"), QStringLiteral("BG"), QStringLiteral("BGCtrlDef"),
                                   QStringLiteral("BGCtrl"), QStringLiteral("Characters"), QStringLiteral("ExtraStages"),

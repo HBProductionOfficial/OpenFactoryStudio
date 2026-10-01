@@ -8,7 +8,7 @@
 // version. Exit code: 0 when no errors were found (no issues at all with --strict), 1 otherwise,
 // 2 on usage or loading errors.
 //
-// --corpus-env checks the stock files of the local test corpus instead: Kung Fu Man from
+// --corpus-env checks the stock files of the local test corpus: Kung Fu Man from
 // OFS_CORPUS_KFM (its folder) and, from the M.U.G.E.N installation in OFS_CORPUS_MUGEN, the
 // screens in data/ and data/kfm/ plus every stage and font definition. It exits with 77 (skipped)
 // when neither variable is set.
@@ -116,7 +116,7 @@ int main(int argc, char** argv)
             for (const QString& file : project->editorFiles(editorId)) {
                 QFile f(file);
                 if (!f.open(QIODevice::ReadOnly))
-                    continue; // missing files are reported by the editors, not here
+                    continue; // missing files are left to the editors to report
                 QString encoding;
                 QByteArray bom;
                 QString text = CodeFile::decode(f.readAll(), &encoding, &bom);

@@ -14,6 +14,8 @@
 
 namespace OFS::Formats::Test {
 
+// SplitMix64 gives the same output on every platform. The std distributions differ between
+// standard libraries.
 class SplitMix64
 {
 public:

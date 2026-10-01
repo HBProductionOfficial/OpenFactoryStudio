@@ -231,7 +231,7 @@ void MotifScreen::tick(const InputState& keys)
         m_bgSimulator->step();
     if (m_stageSimulator)
         m_stageSimulator->step();
-    auto pressed = [this, &keys](bool InputState::* button) {
+    auto pressed = [this, &keys](bool InputState::*button) {
         return keys.*button && !(m_lastKeys.*button);
     };
     if (m_screen == Screen::Menu && !m_items.isEmpty()) {

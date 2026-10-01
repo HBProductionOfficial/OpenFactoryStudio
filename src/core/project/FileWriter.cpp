@@ -16,6 +16,7 @@ bool writeFileSafely(const QString& path, const QByteArray& bytes, QString* erro
             QThread::msleep(std::min(20 * attempt, 80));
         QSaveFile file(path);
         if (!file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size()) {
+            // Waiting will not help when the folder or disk refuses.
             if (error)
                 *error = file.errorString();
             return false;

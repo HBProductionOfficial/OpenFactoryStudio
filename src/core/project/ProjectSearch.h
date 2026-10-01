@@ -22,7 +22,7 @@ struct OFS_CORE_EXPORT SearchHit
     int offset = 0; // in the file text, with "\n" line ends
     QString matched;
     QStringList captures;
-    QString replacement;  // Lazy syntax fix: the text proposed for matched
+    QString replacement; // Lazy syntax fix: the text proposed for matched
 };
 
 // Files open in a project are read and changed in their document, in one undo step. Closed files

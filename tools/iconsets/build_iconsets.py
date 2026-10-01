@@ -1165,7 +1165,7 @@ def build_set(spec: SetSpec, ctx: Context) -> dict:
             where, rel = produce("engine", key, name)
             entries_e.append((name, rel if where else base_rel_e + rel))
 
-    comment = "Built by tools/iconsets/build_iconsets.py from its tables; edit those instead of this file."
+    comment = "Built by tools/iconsets/build_iconsets.py from its tables. To change it, edit the tables and run the script."
     written = {"global": {"iconset.xml": xml_file(entries_g, comment)},
                "engine": {"iconset.xml": xml_file(entries_e, comment)}}
     for (where, key), o in files.items():

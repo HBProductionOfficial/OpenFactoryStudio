@@ -32,6 +32,7 @@ void removeLines(QTextCursor& cursor, int first, int last)
         cursor.setPosition(from.position());
         cursor.setPosition(to.next().position(), QTextCursor::KeepAnchor);
     } else if (from.previous().isValid()) {
+        // The last line has no line end after it, so take the one before it.
         cursor.setPosition(from.previous().position() + from.previous().length() - 1);
         cursor.setPosition(to.position() + to.length() - 1, QTextCursor::KeepAnchor);
     } else {

@@ -15,6 +15,7 @@ inline constexpr std::size_t kV1SubheaderSize = 32;
 inline constexpr std::size_t kV2PaletteNodeSize = 16;
 inline constexpr std::size_t kV2SpriteNodeSize = 28;
 
+// So damaged headers can't make the reader allocate huge buffers.
 inline constexpr std::size_t kMaxDecodePixels = std::size_t{1} << 26;
 
 // Header offsets.

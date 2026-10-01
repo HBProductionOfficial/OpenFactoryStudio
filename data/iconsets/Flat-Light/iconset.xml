@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Built by tools/iconsets/build_iconsets.py from its tables; edit those instead of this file. -->
+<!-- Built by tools/iconsets/build_iconsets.py from its tables. To change it, edit the tables and run the script. -->
 <iconset>
     <icon name="advpal_adapt_image" file="pal/apply_sprite.svg"/>
     <icon name="advpal_add_diff" file="pal/add_missing.svg"/>

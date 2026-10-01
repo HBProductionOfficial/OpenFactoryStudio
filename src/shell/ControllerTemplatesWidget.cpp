@@ -154,7 +154,7 @@ bool ControllerTemplatesWidget::saveTemplate(const QString& name, const QString&
         if (old.open(QIODevice::ReadOnly))
             crlf = old.readAll().contains("\r\n");
     }
-    // Shipped templates are not changed in place: the user's copy overrides them.
+    // A shipped template is saved as the user's copy, which overrides it.
     if (path.isEmpty() || !path.startsWith(userDir(), Qt::CaseInsensitive))
         path = QDir(userDir()).filePath(name.trimmed() + kSuffix);
     QString body = text;

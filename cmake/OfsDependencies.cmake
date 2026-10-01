@@ -231,6 +231,7 @@ target_include_directories(ofs_miniaudio SYSTEM PUBLIC "$<BUILD_INTERFACE:${PROJ
 target_compile_definitions(ofs_miniaudio PUBLIC
     MA_NO_DECODING MA_NO_ENCODING MA_NO_GENERATION MA_NO_RESOURCE_MANAGER MA_NO_NODE_GRAPH MA_NO_ENGINE)
 if(APPLE)
+    # Link the frameworks at build time. Loading them at run time causes notarization trouble.
     target_compile_definitions(ofs_miniaudio PUBLIC MA_NO_RUNTIME_LINKING)
     target_link_libraries(ofs_miniaudio PUBLIC "-framework CoreFoundation" "-framework CoreAudio" "-framework AudioToolbox")
 elseif(UNIX)

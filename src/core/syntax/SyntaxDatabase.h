@@ -39,7 +39,7 @@ struct SyntaxBlock
     QString minver;
     QString deprecated;
     bool required = false;
-    bool raw = false;          // free text without parameters ([Infobox Text], [Characters])
+    bool raw = false; // free text without parameters ([Infobox Text], [Characters])
     QList<SyntaxParam> params;
 };
 

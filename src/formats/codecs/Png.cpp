@@ -12,6 +12,7 @@ namespace OFS::Formats {
 
 namespace {
 
+// So damaged headers can't ask for gigabytes of memory.
 constexpr std::uint64_t kMaxPixels = std::uint64_t{1} << 26;
 
 struct LodeState

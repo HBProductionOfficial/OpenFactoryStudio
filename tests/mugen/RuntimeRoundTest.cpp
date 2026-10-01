@@ -124,7 +124,7 @@ private Q_SLOTS:
             match.tick();
         QVERIFY(!b.alive());
         QVERIFY(!b.ctrl());
-        QCOMPARE(b.stateNo(), 5030);
+        QCOMPARE(b.stateNo(), 5030); // sent down to 5030, since it was not in a hit state
         match.tick();
         QCOMPARE(match.roundEnd(), RoundEnd::KO);
         QCOMPARE(match.roundWinner(), 0);

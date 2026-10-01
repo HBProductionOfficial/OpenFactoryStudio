@@ -158,6 +158,7 @@ private Q_SLOTS:
         for (QGroupBox* box : view->findChildren<QGroupBox*>())
             widgetText(box, box->title());
 
+        // The project's own name is data, so it stays as it is.
         missing.removeIf([](const QString& s) { return s.endsWith(QLatin1String("Test Fighter")); });
         missing.removeDuplicates();
         qInfo() << checked << "texts checked";

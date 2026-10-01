@@ -152,6 +152,7 @@ private Q_SLOTS:
         QCOMPARE(items[0].opacity, 0.25);
     }
 
+    // Qt's Difference mode gives the absolute difference, which once turned a dark background light.
     void subtraction()
     {
         QImage frame(4, 1, QImage::Format_ARGB32_Premultiplied);
@@ -172,6 +173,7 @@ private Q_SLOTS:
         }
         const QColor half = frame.pixelColor(0, 0);
         QVERIFY(std::abs(half.red() - 85) <= 1 && std::abs(half.green() - 50) <= 1 && std::abs(half.blue() - 175) <= 1);
+        // A weighted addition weights the image first and clips only the sum: 200 + 100 / 4 = 225.
         frame.fill(QColor(200, 200, 200));
         image.fill(QColor(100, 100, 100));
         {
