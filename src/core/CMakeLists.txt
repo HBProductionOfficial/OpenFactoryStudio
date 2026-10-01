@@ -206,6 +206,10 @@ add_library(ofscore SHARED
 add_library(OFS::core ALIAS ofscore)
 ofs_target_defaults(ofscore)
 target_compile_definitions(ofscore PRIVATE OFS_CORE_LIBRARY)
+if(MSVC)
+    # The Lua bindings (sol2 templates) need more sections than an object file holds by default.
+    target_compile_options(ofscore PRIVATE /bigobj)
+endif()
 set_target_properties(ofscore PROPERTIES PREFIX "")
 target_link_libraries(ofscore
     PUBLIC

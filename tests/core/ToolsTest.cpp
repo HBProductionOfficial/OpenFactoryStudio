@@ -248,26 +248,24 @@ private Q_SLOTS:
         QTemporaryDir dir;
         const QString path = dir.filePath("mugen_config.xml");
         Config config;
-        RunConfiguration::save(
-            config, {{"Desktop MUGEN", "C:\\Games\\Mugen\\mugen.exe", "", "%0 kfm"},
-                     {"Desktop MUGEN stage", "C:\\Games\\Mugen\\mugen.exe", "", "kfm kfm -s %0"}});
+        RunConfiguration::save(config, {{"Desktop MUGEN", "C:\\Games\\Mugen\\mugen.exe", "", "%0 kfm"},
+                                        {"Desktop MUGEN stage", "C:\\Games\\Mugen\\mugen.exe", "", "kfm kfm -s %0"}});
         QVERIFY(RunConfiguration::writeEngineSettings(config, path));
         QFile file(path);
         QVERIFY(file.open(QIODevice::ReadOnly));
-        const QByteArray expected =
-            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-            "<configuration>\n"
-            "    <engine name=\"Desktop MUGEN\">\n"
-            "        <param name=\"exe\" value=\"C:\\Games\\Mugen\\mugen.exe\"/>\n"
-            "        <param name=\"icon\" value=\"\"/>\n"
-            "        <param name=\"params\" value=\"%0 kfm\"/>\n"
-            "    </engine>\n"
-            "    <engine name=\"Desktop MUGEN stage\">\n"
-            "        <param name=\"exe\" value=\"C:\\Games\\Mugen\\mugen.exe\"/>\n"
-            "        <param name=\"icon\" value=\"\"/>\n"
-            "        <param name=\"params\" value=\"kfm kfm -s %0\"/>\n"
-            "    </engine>\n"
-            "</configuration>\n";
+        const QByteArray expected = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                                    "<configuration>\n"
+                                    "    <engine name=\"Desktop MUGEN\">\n"
+                                    "        <param name=\"exe\" value=\"C:\\Games\\Mugen\\mugen.exe\"/>\n"
+                                    "        <param name=\"icon\" value=\"\"/>\n"
+                                    "        <param name=\"params\" value=\"%0 kfm\"/>\n"
+                                    "    </engine>\n"
+                                    "    <engine name=\"Desktop MUGEN stage\">\n"
+                                    "        <param name=\"exe\" value=\"C:\\Games\\Mugen\\mugen.exe\"/>\n"
+                                    "        <param name=\"icon\" value=\"\"/>\n"
+                                    "        <param name=\"params\" value=\"kfm kfm -s %0\"/>\n"
+                                    "    </engine>\n"
+                                    "</configuration>\n";
         QCOMPARE(file.readAll(), expected);
         file.close();
 

@@ -381,7 +381,7 @@ ofs_add_test(NAME mugen_runtime_character
     SOURCES mugen/RuntimeCharacterTest.cpp
     LIBS OFS::mugen_runtime)
 
-ofs_add_test(NAME mugen_runtime_states
+ofs_add_test(NAME mugen_runtime_states GUI
     SOURCES mugen/RuntimeStateTest.cpp
     LIBS OFS::mugen_runtime)
 
@@ -389,7 +389,7 @@ ofs_add_test(NAME mugen_runtime_commands
     SOURCES mugen/RuntimeCommandTest.cpp
     LIBS OFS::mugen_runtime)
 
-ofs_add_test(NAME mugen_runtime_hits
+ofs_add_test(NAME mugen_runtime_hits GUI
     SOURCES mugen/RuntimeHitTest.cpp
     LIBS OFS::mugen_runtime)
 

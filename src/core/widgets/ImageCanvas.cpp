@@ -135,8 +135,10 @@ QRectF ImageCanvas::canvasArea() const
     if (!m_document)
         return {};
     const QRectF area = editArea();
+    // Snap to whole pixels. Half pixels blur the image and its frame.
     const QPointF topLeft = area.center() - m_center * m_zoom;
-    return QRectF(topLeft, QSizeF(m_document->width, m_document->height) * m_zoom);
+    return QRectF(QPointF(std::round(topLeft.x()), std::round(topLeft.y())),
+                  QSizeF(m_document->width, m_document->height) * m_zoom);
 }
 
 QPointF ImageCanvas::toWidget(const QPointF& imagePoint) const

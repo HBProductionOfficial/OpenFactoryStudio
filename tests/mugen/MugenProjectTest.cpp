@@ -414,13 +414,14 @@ private Q_SLOTS:
         std::unique_ptr<Project> project(engine.openProject(extracted.filePath("a.def"), &error));
         QVERIFY2(project, qPrintable(error));
         CodeFile* commands = project->codeFile(extracted.filePath("a.cmd"), "commands", &error);
-        project->setArchive("C:/somewhere/pack.zip", extracted.path());
+        const QString archive = QDir::rootPath() + QStringLiteral("somewhere/pack.zip");
+        project->setArchive(archive, extracted.path());
         CodeFile* states = project->codeFile(extracted.filePath("a.cns"), "states", &error);
         QVERIFY(commands && states);
         QVERIFY(commands->isUntitled() && states->isUntitled());
         QVERIFY(!commands->isNameless() && !commands->isModified());
-        QCOMPARE(project->archivePath(), QStringLiteral("C:/somewhere/pack.zip"));
-        QCOMPARE(project->suggestedPath(commands), QStringLiteral("C:/somewhere/a.cmd"));
+        QCOMPARE(project->archivePath(), archive);
+        QCOMPARE(project->suggestedPath(commands), QDir::rootPath() + QStringLiteral("somewhere/a.cmd"));
         project.reset();
         QVERIFY(!QFileInfo::exists(extracted.path()));
     }

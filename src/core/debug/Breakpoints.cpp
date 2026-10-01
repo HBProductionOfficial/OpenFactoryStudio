@@ -8,7 +8,9 @@ namespace {
 
 QString normalized(const QString& file)
 {
-    return QDir::cleanPath(QDir::fromNativeSeparators(file));
+    QString path = file;
+    path.replace(QLatin1Char('\\'), QLatin1Char('/'));
+    return QDir::cleanPath(path);
 }
 
 bool samePath(const QString& a, const QString& b)
