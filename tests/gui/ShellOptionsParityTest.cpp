@@ -2,6 +2,7 @@
 
 #include "GuiTestSupport.h"
 #include "core/actions/ActionRegistry.h"
+#include "core/app/AppContext.h"
 #include "core/app/Paths.h"
 #include "core/app/TaskList.h"
 #include "core/code/CodeEditor.h"
@@ -667,22 +668,34 @@ private Q_SLOTS:
         QCOMPARE(boxes[2], boxTitle("Check updates") + "|You are using the latest version.");
     }
 
+    // DPI scaling only takes effect after a restart, so Apply warns and leaves the style alone.
     void interfaceScale()
     {
         MainWindow window(*m_context);
         window.show();
+        const QString normal = qApp->styleSheet();
+        QStringList boxes;
+        answerBoxes({QMessageBox::Ok}, &boxes);
+        applyOptions([](QDialog* dialog) {
+            dialog->findChild<QCheckBox*>("dpi_auto")->setChecked(false);
+            dialog->findChild<QDoubleSpinBox*>("dpi_scale")->setValue(1.5);
+        });
+        QCOMPARE(boxes, QStringList{"DPI scaling options will take effect after application restart!"});
+        QCOMPARE(m_context->theme().scale(), 1.0);
+        QCOMPARE(qApp->styleSheet(), normal);
+        QCOMPARE(AppContext::interfaceScaleFactor(m_context->config().userPath()), 1.5);
+        boxes.clear();
+        applyOptions([](QDialog*) {});
+        QVERIFY(boxes.isEmpty());
+        answerBoxes({QMessageBox::Ok}, &boxes);
+        applyOptions([](QDialog* dialog) { dialog->findChild<QCheckBox*>("dpi_auto")->setChecked(true); });
+        QCOMPARE(boxes.size(), qsizetype(1));
+        QCOMPARE(AppContext::interfaceScaleFactor(m_context->config().userPath()), 1.0);
+        answerBoxes({QMessageBox::Ok}, &boxes);
         applyOptions([](QDialog* dialog) {
             dialog->findChild<QCheckBox*>("dpi_auto")->setChecked(false);
             dialog->findChild<QDoubleSpinBox*>("dpi_scale")->setValue(1.0);
         });
-        QCOMPARE(m_context->theme().scale(), 1.0);
-        const QString normal = qApp->styleSheet();
-        applyOptions([](QDialog* dialog) { dialog->findChild<QDoubleSpinBox*>("dpi_scale")->setValue(1.5); });
-        QCOMPARE(m_context->theme().scale(), 1.5);
-        QVERIFY(qApp->styleSheet() != normal);
-        applyOptions([](QDialog* dialog) { dialog->findChild<QCheckBox*>("dpi_auto")->setChecked(true); });
-        QCOMPARE(m_context->theme().scale(), 1.0);
-        QCOMPARE(qApp->styleSheet(), normal);
     }
 
     // Labels, tabs and headers use the interface font size. Lists and trees keep the system size.

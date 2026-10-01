@@ -28,6 +28,7 @@ public:
 
     // Loads config, shortcuts and history. Engine plugins load in initializeEngines().
     void loadSettings();
+    static double interfaceScaleFactor(const QString& configPath);
     bool saveSettings(QString* error = nullptr) const;
     void applySettings();
 

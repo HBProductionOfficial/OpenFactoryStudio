@@ -22,6 +22,8 @@
 #include "core/text/Encodings.h"
 #include "core/theme/ThemeManager.h"
 
+#include <algorithm>
+
 namespace OFS {
 
 namespace {
@@ -67,6 +69,17 @@ AppContext::~AppContext()
 AppContext* AppContext::instance()
 {
     return g_instance;
+}
+
+double AppContext::interfaceScaleFactor(const QString& configPath)
+{
+    Config config;
+    config.load(QString(), configPath);
+    if (config.boolValue(QStringLiteral("dpi_auto"), false))
+        return 1.0;
+    bool ok = false;
+    const double scale = config.value(QStringLiteral("dpi_scale"), QStringLiteral("1")).toDouble(&ok);
+    return ok ? std::clamp(scale, ThemeManager::MinScale, ThemeManager::MaxScale) : 1.0;
 }
 
 void AppContext::loadSettings()

@@ -2,6 +2,7 @@
 #include "core/app/AppContext.h"
 #include "core/app/Paths.h"
 #include "core/settings/Config.h"
+#include "core/settings/SettingsFiles.h"
 #include "core/widgets/RenderSurface.h"
 #include "shell/MainWindow.h"
 #include "shell/dialogs/FirstRunDialog.h"
@@ -17,6 +18,12 @@ int main(int argc, char* argv[])
     QApplication::setApplicationVersion(QStringLiteral(OFS_VERSION_STRING));
     QApplication::setOrganizationName(QStringLiteral(OFS_ORGANIZATION));
     QApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
+    // Qt reads the DPI scaling factor before the app starts, so a change applies on the next start.
+    if (!qEnvironmentVariableIsSet("QT_SCALE_FACTOR")) {
+        const double scale = OFS::AppContext::interfaceScaleFactor(OFS::SettingsFiles::config(OFS::Paths::userDir()));
+        if (scale != 1.0)
+            qputenv("QT_SCALE_FACTOR", QByteArray::number(scale));
+    }
 
     QApplication app(argc, argv);
 #if defined(Q_OS_WIN)

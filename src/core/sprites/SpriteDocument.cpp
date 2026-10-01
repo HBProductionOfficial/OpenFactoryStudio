@@ -2,6 +2,8 @@
 
 #include <QHash>
 
+#include <algorithm>
+
 namespace OFS {
 
 using namespace Formats;
@@ -146,8 +148,10 @@ SffDocument SpriteDocument::toSff() const
         s.paletteIndex = entry.palette ? paletteIndex.value(entry.palette.get(), 0) : 0;
         if (nameFromComment(s.raw.v1Reserved) != entry.name) {
             s.raw.v1Reserved.fill(0);
-            const QByteArray text = entry.name.toLatin1().left(13);
-            std::copy(text.cbegin(), text.cend(), s.raw.v1Reserved.begin());
+            const QByteArray text = entry.name.toLatin1();
+            const std::size_t count = std::min(std::size_t(text.size()), s.raw.v1Reserved.size());
+            for (std::size_t c = 0; c < count; ++c)
+                s.raw.v1Reserved[c] = std::uint8_t(text[qsizetype(c)]);
         }
         sff.sprites.push_back(std::move(s));
     }

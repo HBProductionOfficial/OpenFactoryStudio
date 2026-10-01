@@ -210,6 +210,13 @@ if(MSVC)
     # The Lua bindings (sol2 templates) need more sections than an object file holds by default.
     target_compile_options(ofscore PRIVATE /bigobj)
 endif()
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    # GCC 13 release builds report out-of-bounds accesses inside sol2's templates that cannot
+    # happen, so the files using sol2 turn those two checks off.
+    set_source_files_properties(preset/PresetEngine.cpp script/LuaApi.cpp script/LuaFileApi.cpp
+        script/LuaProjectApi.cpp script/LuaScript.cpp script/ScriptHost.cpp
+        PROPERTIES COMPILE_OPTIONS "-Wno-array-bounds;-Wno-stringop-overflow")
+endif()
 set_target_properties(ofscore PROPERTIES PREFIX "")
 target_link_libraries(ofscore
     PUBLIC

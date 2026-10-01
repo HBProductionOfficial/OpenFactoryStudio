@@ -21,6 +21,10 @@ DESTDIR="$appdir" cmake --install "$build" --prefix /usr
 install -Dm644 packaging/linux/openfactorystudio.desktop "$appdir/usr/share/applications/openfactorystudio.desktop"
 install -Dm644 packaging/linux/openfactorystudio.svg "$appdir/usr/share/icons/hicolor/scalable/apps/openfactorystudio.svg"
 
+# linuxdeploy finds libraries through LD_LIBRARY_PATH, so add Qt's lib folder to it.
+qtlibs="$("${QMAKE:-qmake6}" -query QT_INSTALL_LIBS 2>/dev/null || true)"
+if [ -n "$qtlibs" ]; then export LD_LIBRARY_PATH="$qtlibs${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"; fi
+
 tools="${LINUXDEPLOY_DIR:-}"
 linuxdeploy="${tools:+$tools/}linuxdeploy-x86_64.AppImage"
 mkdir -p build/dist

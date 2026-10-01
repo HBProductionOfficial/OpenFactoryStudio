@@ -1023,6 +1023,11 @@ bool OptionsDialog::apply()
     Config& config = m_context.config();
     ShortcutSettings& shortcuts = m_context.shortcuts();
     QStringList errors;
+    const auto dpiOptions = [&config] {
+        return qMakePair(config.boolValue(QStringLiteral("dpi_auto"), false),
+                         config.value(QStringLiteral("dpi_scale"), QStringLiteral("1")).toDouble());
+    };
+    const auto dpiBefore = dpiOptions();
 
     for (auto it = m_extraConfig.cbegin(); it != m_extraConfig.cend(); ++it)
         config.setValue(it.key(), it.value());
@@ -1077,6 +1082,9 @@ bool OptionsDialog::apply()
 
     if (!errors.isEmpty() && isVisible())
         QMessageBox::warning(this, tr("Options"), tr("The settings could not be saved:\n%1").arg(errors.join('\n')));
+    if (dpiOptions() != dpiBefore && isVisible())
+        QMessageBox::warning(this, tr("Attention!"),
+                             tr("DPI scaling options will take effect after application restart!"));
     return errors.isEmpty();
 }
 

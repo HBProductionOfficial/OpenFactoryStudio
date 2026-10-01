@@ -1687,10 +1687,8 @@ void MainWindow::applyInterface()
         return v.isEmpty() ? QString(fallback) : v;
     };
     theme.setIconSet(choose("iconset", model.iconset, ThemeManager::DefaultIconSet));
-    theme.setScale(config.boolValue(QStringLiteral("dpi_auto"), false)
-                       ? 1.0
-                       : std::clamp(config.value(QStringLiteral("dpi_scale"), QStringLiteral("1")).toDouble(),
-                                    ThemeManager::MinScale, ThemeManager::MaxScale));
+    // DPI Scaling already scales the whole interface (main.cpp), so keep the style sizes as written.
+    theme.setScale(1.0);
     if (theme.setStyle(choose("stylesheet", model.stylesheet, ThemeManager::DefaultStyle))) {
         QApplication::setPalette(theme.palette());
     }

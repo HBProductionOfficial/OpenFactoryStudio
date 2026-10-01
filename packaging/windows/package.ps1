@@ -53,8 +53,12 @@ Write-Host "portable: $zip"
 
 $iscc = (Get-Command ISCC.exe -ErrorAction SilentlyContinue).Source
 if (-not $iscc) {
-    foreach ($candidate in @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe")) {
-        if (Test-Path $candidate) { $iscc = $candidate }
+    # Inno Setup 6 or 7 (Chocolatey installs 7) in their default folders.
+    foreach ($innoVersion in @('6', '7')) {
+        foreach ($base in @(${env:ProgramFiles(x86)}, $env:ProgramFiles, "$env:LOCALAPPDATA\Programs")) {
+            $candidate = Join-Path $base "Inno Setup $innoVersion\ISCC.exe"
+            if ($base -and (Test-Path $candidate)) { $iscc = $candidate }
+        }
     }
 }
 if ($iscc) {
@@ -62,5 +66,5 @@ if ($iscc) {
         (Join-Path $PSScriptRoot 'ofs.iss')
     if ($LASTEXITCODE) { throw 'the installer failed to build' }
 } else {
-    Write-Warning 'Inno Setup 6 not found: no installer built'
+    Write-Warning 'Inno Setup not found: no installer built'
 }
