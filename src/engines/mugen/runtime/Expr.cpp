@@ -222,10 +222,12 @@ Value math(const Node& node, Context& context)
     auto arg = [&](int k) {
         return k < int(node.kids.size()) ? evaluateNode(*node.kids[k], context) : Value::undefined();
     };
+    // Bottom in gives bottom out, and so does a value outside the function's domain (acos(2)).
     auto realOf = [](Value v, double (*f)(double)) {
         if (v.isUndefined())
             return v;
-        return Value::real(static_cast<float>(f(v.toFloat())));
+        const double r = f(v.toFloat());
+        return std::isnan(r) ? Value::undefined() : Value::real(static_cast<float>(r));
     };
     switch (node.trigger) {
     case Trigger::Abs: {
@@ -247,17 +249,17 @@ Value math(const Node& node, Context& context)
     case Trigger::Tan:
         return realOf(arg(0), [](double x) { return std::tan(x); });
     case Trigger::Exp:
-        return Value::real(static_cast<float>(std::exp(arg(0).toFloat())));
+        return realOf(arg(0), [](double x) { return std::exp(x); });
     case Trigger::Ln: {
         const Value v = arg(0);
-        if (v.toFloat() <= 0)
+        if (v.isUndefined() || v.toFloat() <= 0)
             return Value::undefined();
         return Value::real(static_cast<float>(std::log(v.toFloat())));
     }
     case Trigger::Log: {
         const Value base = arg(0);
         const Value v = arg(1);
-        if (base.toFloat() <= 0 || v.toFloat() <= 0)
+        if (base.isUndefined() || v.isUndefined() || base.toFloat() <= 0 || v.toFloat() <= 0)
             return Value::undefined();
         return Value::real(static_cast<float>(std::log(v.toFloat()) / std::log(base.toFloat())));
     }
@@ -276,13 +278,21 @@ Value math(const Node& node, Context& context)
     case Trigger::Pi:
         return Value::real(static_cast<float>(std::numbers::pi));
     case Trigger::IfElse: {
+        // Every argument is evaluated. A bottom condition gives bottom.
         const Value condition = arg(0);
         const Value a = arg(1);
         const Value b = arg(2);
+        if (condition.isUndefined())
+            return condition;
         return condition.toBool() ? a : b;
     }
-    case Trigger::Cond:
-        return arg(0).toBool() ? arg(1) : arg(2);
+    case Trigger::Cond: {
+        // Only the chosen branch is evaluated (neither when the condition is bottom).
+        const Value condition = arg(0);
+        if (condition.isUndefined())
+            return condition;
+        return condition.toBool() ? arg(1) : arg(2);
+    }
     default:
         return Value::undefined();
     }
@@ -360,7 +370,10 @@ Value evaluateNode(const Node& node, Context& context)
         return context.trigger(call);
     }
     case Node::Kind::Redirect: {
-        const Value argument = node.kids.size() > 1 ? evaluateNode(*node.kids[0], context) : Value::undefined();
+        const bool hasArgument = node.kids.size() > 1;
+        const Value argument = hasArgument ? evaluateNode(*node.kids[0], context) : Value::undefined();
+        if (hasArgument && argument.isUndefined())
+            return Value::undefined();
         Context* other = context.redirect(node.redirect, argument);
         if (!other)
             return Value::undefined();
@@ -484,19 +497,20 @@ QList<Token> tokenize(const QString& s, QString* error)
 
 enum class Shape : std::uint8_t
 {
-    None,      // Time
-    Arg,       // Var(1)
-    OptArg,    // NumHelper / NumHelper(1234)
-    Args2,     // Log(a, b)
-    Args3,     // IfElse(c, a, b)
-    Component, // Pos X
-    Keyword,   // Const(data.life)
-    AnimElem,  // AnimElem = n[, [op] t]
-    Proj,      // ProjContact[ID] = 0/1[, [op] t]
-    TimeMod,   // TimeMod [op] div, rem
-    String,    // Command = "x"
-    Letters,   // StateType = S
-    HitAttr,   // HitDefAttr = SCA, NA, SA
+    None,          // Time
+    Arg,           // Var(1)
+    OptArg,        // NumHelper / NumHelper(1234)
+    Args2,         // Log(a, b)
+    Args3,         // IfElse(c, a, b)
+    Component,     // Pos X
+    Keyword,       // Const(data.life)
+    KeywordString, // StageVar(info.name) = "x"
+    AnimElem,      // AnimElem = n[, [op] t]
+    Proj,          // ProjContact[ID] = 0/1[, [op] t]
+    TimeMod,       // TimeMod [op] div, rem
+    String,        // Command = "x"
+    Letters,       // StateType = S
+    HitAttr,       // HitDefAttr = SCA, NA, SA
 };
 
 struct TriggerInfo
@@ -538,8 +552,12 @@ const QHash<QString, TriggerInfo>& triggerTable()
         add("animexist", Trigger::AnimExist, Shape::Arg);
         add("animtime", Trigger::AnimTime, Shape::None);
         add("authorname", Trigger::AuthorName, Shape::String);
+        add("backedge", Trigger::BackEdge, Shape::None);
         add("backedgebodydist", Trigger::BackEdgeBodyDist, Shape::None);
         add("backedgedist", Trigger::BackEdgeDist, Shape::None);
+        add("bottomedge", Trigger::BottomEdge, Shape::None);
+        add("camerapos", Trigger::CameraPos, Shape::Component);
+        add("camerazoom", Trigger::CameraZoom, Shape::None);
         add("canrecover", Trigger::CanRecover, Shape::None);
         add("command", Trigger::Command, Shape::String);
         add("const", Trigger::Const, Shape::Keyword);
@@ -549,6 +567,7 @@ const QHash<QString, TriggerInfo>& triggerTable()
         add("ctrl", Trigger::Ctrl, Shape::None);
         add("drawgame", Trigger::DrawGame, Shape::None);
         add("facing", Trigger::Facing, Shape::None);
+        add("frontedge", Trigger::FrontEdge, Shape::None);
         add("frontedgebodydist", Trigger::FrontEdgeBodyDist, Shape::None);
         add("frontedgedist", Trigger::FrontEdgeDist, Shape::None);
         add("fvar", Trigger::FVar, Shape::Arg);
@@ -567,6 +586,7 @@ const QHash<QString, TriggerInfo>& triggerTable()
         add("inguarddist", Trigger::InGuardDist, Shape::None);
         add("ishelper", Trigger::IsHelper, Shape::OptArg);
         add("ishometeam", Trigger::IsHomeTeam, Shape::None);
+        add("leftedge", Trigger::LeftEdge, Shape::None);
         add("life", Trigger::Life, Shape::None);
         add("lifemax", Trigger::LifeMax, Shape::None);
         add("lose", Trigger::Lose, Shape::None);
@@ -612,6 +632,7 @@ const QHash<QString, TriggerInfo>& triggerTable()
         add("projhit", Trigger::ProjHit, Shape::Proj);
         add("projhittime", Trigger::ProjHitTime, Shape::Arg);
         add("random", Trigger::Random, Shape::None);
+        add("rightedge", Trigger::RightEdge, Shape::None);
         add("rootdist", Trigger::RootDist, Shape::Component);
         add("roundno", Trigger::RoundNo, Shape::None);
         add("roundsexisted", Trigger::RoundsExisted, Shape::None);
@@ -620,7 +641,7 @@ const QHash<QString, TriggerInfo>& triggerTable()
         add("screenpos", Trigger::ScreenPos, Shape::Component);
         add("screenwidth", Trigger::ScreenWidth, Shape::None);
         add("selfanimexist", Trigger::SelfAnimExist, Shape::Arg);
-        add("stagevar", Trigger::StageVar, Shape::Keyword);
+        add("stagevar", Trigger::StageVar, Shape::KeywordString);
         add("stateno", Trigger::StateNo, Shape::None);
         add("statetype", Trigger::StateType, Shape::Letters);
         add("sysfvar", Trigger::SysFVar, Shape::Arg);
@@ -631,6 +652,7 @@ const QHash<QString, TriggerInfo>& triggerTable()
         add("time", Trigger::Time, Shape::None);
         add("statetime", Trigger::Time, Shape::None); // the engine's other name for Time
         add("timemod", Trigger::TimeMod, Shape::TimeMod);
+        add("topedge", Trigger::TopEdge, Shape::None);
         add("uniqhitcount", Trigger::UniqHitCount, Shape::None);
         add("var", Trigger::Var, Shape::Arg);
         add("vel", Trigger::Vel, Shape::Component);
@@ -1048,9 +1070,14 @@ private:
                 return nullptr;
             break;
         case Shape::TimeMod:
+            // "=" and "!=" work as in the other special forms. The other comparisons compare the remainder.
             node->special = true;
-            if (!equality())
+            if (isCompare(peek()) && peek().text != QLatin1String("=") && peek().text != QLatin1String("!=")) {
+                node->hasSecond = true;
+                node->second = compareOf(next().text);
+            } else if (!equality()) {
                 return nullptr;
+            }
             for (int k = 0; k < 2; ++k) {
                 NodePtr value = parse(10);
                 if (!value)
@@ -1060,6 +1087,22 @@ private:
                     return fail(QStringLiteral("',' expected in TimeMod"));
             }
             break;
+        case Shape::KeywordString: {
+            if (!accept(Token::Kind::Open))
+                return fail(QStringLiteral("'%1' needs an argument").arg(name));
+            const Token keyword = next();
+            if (keyword.kind != Token::Kind::Name || !accept(Token::Kind::Close))
+                return fail(QStringLiteral("'%1' needs a name in parentheses").arg(name));
+            node->keyword = keyword.text.toLower();
+            node->special = true;
+            if (!equality())
+                return nullptr;
+            const Token text = next();
+            if (text.kind != Token::Kind::String)
+                return fail(QStringLiteral("a string is expected after '%1 ='").arg(name));
+            node->text = text.text;
+            break;
+        }
         case Shape::String: {
             node->special = true;
             if (!equality())

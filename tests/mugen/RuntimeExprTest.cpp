@@ -220,6 +220,12 @@ private Q_SLOTS:
         QVERIFY(isFloat(eval("log(2, 8)"), 3.f));
         QVERIFY(isInt(eval("ifelse(1, 2, 3)"), 2));
         QVERIFY(isInt(eval("cond(0, 2, 3)"), 3));
+        QVERIFY(eval("acos(2)").isUndefined());
+        QVERIFY(eval("asin(1 / 0)").isUndefined());
+        QVERIFY(eval("exp(1 / 0)").isUndefined());
+        QVERIFY(eval("log(1 / 0, 8)").isUndefined());
+        QVERIFY(eval("ifelse(1 / 0, 2, 3)").isUndefined());
+        QVERIFY(eval("cond(1 / 0, 2, 3)").isUndefined());
 
         FakeContext context;
         eval("ifelse(1, 2, var(1) := 7)", context);
@@ -249,6 +255,16 @@ private Q_SLOTS:
         QCOMPARE(context.lastList, QStringList({"NA", "SA"}));
         QVERIFY(isInt(eval("ProjContact1234 = 1", context), 1));
         QCOMPARE(context.lastKeyword, QStringLiteral("1234"));
+
+        QVERIFY(errorOf("TimeMod > 4, 1").isEmpty());
+        QVERIFY(errorOf("TimeMod <= 4, 1").isEmpty());
+        QVERIFY(errorOf("StageVar(info.name) = \"Temple\"").isEmpty());
+        QVERIFY(errorOf("StageVar(info.author) != \"x\" && time").isEmpty());
+        QVERIFY(!errorOf("StageVar(info.name)").isEmpty());
+        QVERIFY(!errorOf("StageVar(info.name) = Temple").isEmpty());
+        QVERIFY(errorOf("BackEdge + FrontEdge + LeftEdge + RightEdge + TopEdge + BottomEdge").isEmpty());
+        QVERIFY(errorOf("CameraPos X + CameraPos Y * CameraZoom").isEmpty());
+        QVERIFY(errorOf("ScreenWidth + ScreenHeight + GameWidth + GameHeight").isEmpty());
     }
 
     void redirections()
@@ -266,6 +282,10 @@ private Q_SLOTS:
         QVERIFY(isInt(context.lastArgument, 1234));
         QVERIFY(isInt(eval("enemynear(1), life = 0 || 1", context), 1));
         QCOMPARE(context.lastRedirect, Redirect::EnemyNear);
+        QVERIFY(isInt(eval("parent(1), time", context), 99));
+        context.lastRedirect = Redirect::Root;
+        QVERIFY(eval("parent(1 / 0), time", context).isUndefined());
+        QCOMPARE(context.lastRedirect, Redirect::Root);
     }
 
     void assignment()
