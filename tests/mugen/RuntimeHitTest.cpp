@@ -73,6 +73,24 @@ struct Fight
     Character b;
 };
 
+// A second HitDef in state 200, on the first tick after the first one's pause.
+QString thenHit(const QString& first, const QString& second)
+{
+    return first +
+           QStringLiteral("\n[State 200, Second]\ntype = HitDef\ntrigger1 = MoveHit = 1 && HitPauseTime = 0\n"
+                          "persistent = 0\n") +
+           second;
+}
+
+Value eval(Character& c, const QString& text)
+{
+    QString error;
+    const Expr expr = Expr::compile(text, &error);
+    if (!error.isEmpty())
+        qWarning("%s: %s", qPrintable(text), qPrintable(error));
+    return expr.evaluate(c);
+}
+
 } // namespace
 
 class RuntimeHitTest : public QObject
@@ -99,8 +117,9 @@ private Q_SLOTS:
         QCOMPARE(f.b.life(), 950);
         QCOMPARE(f.b.stateNo(), 5000);
         QVERIFY(!f.b.ctrl());
-        QCOMPARE(f.a.power(), 50);
-        QCOMPARE(f.b.power(), 50);
+        // The power is the damage times mugen.cfg's defaults: 0.7 for the attacker, 0.6 for the one hit.
+        QCOMPARE(f.a.power(), 35);
+        QCOMPARE(f.b.power(), 30);
         QCOMPARE(f.a.hitPauseTime(), 4); // the hit's tick counts
         QVERIFY(!f.a.hitDef().active);
 
@@ -145,7 +164,7 @@ private Q_SLOTS:
         for (int i = 0; i < 6; ++i)
             f.match.tick();
         QCOMPARE(f.a.var(8), 1);
-        QCOMPARE(f.a.power(), 25); // half the power on a guard
+        QCOMPARE(f.a.power(), 17); // half the power on a guard
     }
 
     void hitFlags()
@@ -331,8 +350,14 @@ private Q_SLOTS:
         b.setFacing(-1);
         a.start(300);
         b.start(200);
-        for (int t = 0; t < 4; ++t)
+        bool spark = false;
+        for (int t = 0; t < 4; ++t) {
             match.tick();
+            spark = spark || (!match.spawns().isEmpty() && match.spawns().at(0).anim == 2);
+        }
+        QVERIFY(spark);
+        QCOMPARE(a.sprPriority(), 1);
+        QCOMPARE(b.sprPriority(), 0);
         QCOMPARE(a.stateNo(), 310);
         QCOMPARE(b.stateNo(), 320);
         QCOMPARE(&b.stateOwner(), &reverser);
@@ -405,6 +430,202 @@ private Q_SLOTS:
         QCOMPARE(g.match.spawns().at(0).anim, 40);
         QVERIFY(!g.match.sounds().at(0).common);
         QCOMPARE(g.match.sounds().at(0).group, 6);
+    }
+
+    void hitVelocityAndAttributes()
+    {
+        Fight f(kHit);
+        QVERIFY(f.untilHit() > 0);
+        // HitVel X is positive moving back.
+        QCOMPARE(eval(f.b, "HitVel X").toFloat(), 4.f);
+        QCOMPARE(eval(f.b, "HitVel Y").toFloat(), 0.f);
+        QCOMPARE(eval(f.b, "GetHitVar(xvel)").toFloat(), -4.f);
+        QVERIFY(eval(f.b, "GetHitVar(xveladd)").isFloat());
+        QVERIFY(!f.a.hitDef().active);
+        QCOMPARE(eval(f.a, "HitDefAttr = SC, NA").toInt(), 1);
+        QCOMPARE(eval(f.a, "HitDefAttr = SCA, AA").toInt(), 1);
+        QCOMPARE(eval(f.a, "HitDefAttr = C, NA").toInt(), 0);
+        QCOMPARE(eval(f.a, "HitDefAttr = S, SA, HA").toInt(), 0);
+        QCOMPARE(eval(f.a, "HitDefAttr != S, SA").toInt(), 1);
+        for (int i = 0; i < 30 && f.a.stateNo() != 0; ++i)
+            f.match.tick();
+        QCOMPARE(f.a.stateNo(), 0);
+        QCOMPARE(eval(f.a, "HitDefAttr = SCA, AA").toInt(), 0);
+    }
+
+    void chains()
+    {
+        auto lifeAfter = [](const QString& second) {
+            Fight f(thenHit(QString(kHit) + QStringLiteral("\nid = 3"),
+                            QStringLiteral("attr = S, NA\ndamage = 7\n") + second));
+            for (int t = 0; t < 14; ++t)
+                f.match.tick();
+            return f.b.life();
+        };
+        QCOMPARE(lifeAfter(QString()), 943);
+        QCOMPARE(lifeAfter(QStringLiteral("chainid = 3")), 943);
+        QCOMPARE(lifeAfter(QStringLiteral("chainid = 4")), 950);
+        QCOMPARE(lifeAfter(QStringLiteral("nochainid = 2, 3")), 950);
+        Fight fresh(QStringLiteral("attr = S, NA\ndamage = 50\nchainid = 3"));
+        QCOMPARE(fresh.untilHit(10), -1);
+    }
+
+    void hitAdd()
+    {
+        Fight f(QString(kHit) +
+                QStringLiteral("\n[State 200, Add]\ntype = HitAdd\n"
+                               "trigger1 = MoveHit = 1 && HitPauseTime = 0\npersistent = 0\nvalue = 2"));
+        for (int t = 0; t < 10; ++t)
+            f.match.tick();
+        QCOMPARE(f.b.getHitVars().hitCount, 3);
+        QCOMPARE(eval(f.a, "HitCount").toInt(), 3);
+    }
+
+    void facingAndPlacement()
+    {
+        Fight turned(QStringLiteral("attr = S, NA\ndamage = 10\np1getp2facing = 1"));
+        QVERIFY(turned.untilHit() > 0);
+        QCOMPARE(turned.a.facing(), -1);
+        auto placed = [](const QString& extra) {
+            Fight f(QStringLiteral("attr = S, NA\ndamage = 10\n") + extra);
+            f.untilHit();
+            return QPointF(f.b.pos().x() - f.a.pos().x(), f.b.pos().y() - f.a.pos().y());
+        };
+        QCOMPARE(placed(QStringLiteral("snap = 30, -10")), QPointF(30, -10));
+        QCOMPARE(placed(QStringLiteral("mindist = 50")), QPointF(50, 0));
+        QCOMPARE(placed(QStringLiteral("maxdist = 30")), QPointF(30, 0));
+        QCOMPARE(placed(QStringLiteral("mindist = 10\nmaxdist = 60")), QPointF(40, 0));
+    }
+
+    void forceStand()
+    {
+        auto stateAfter = [](const QString& hitdef) {
+            Fight f(hitdef);
+            f.data.addStates(QStringLiteral("[Statedef 11]\ntype = C\nphysics = C\nanim = 0\n"
+                                            "[State 11]\ntype = Null\ntrigger1 = 1\n"));
+            f.b.start(11);
+            f.untilHit();
+            return f.b.stateNo();
+        };
+        QCOMPARE(stateAfter(QStringLiteral("attr = S, NA\ndamage = 10\nground.velocity = -4, -5")), 5000);
+        QCOMPARE(stateAfter(QStringLiteral("attr = S, NA\ndamage = 10\nground.velocity = -4, -5\nforcestand = 0")),
+                 5010);
+        QCOMPARE(stateAfter(QStringLiteral("attr = S, NA\ndamage = 10\nforcestand = 1")), 5000);
+        QCOMPARE(stateAfter(QStringLiteral("attr = S, NA\ndamage = 10")), 5010);
+    }
+
+    void forceNoFall()
+    {
+        Fight f(thenHit(QString(kHit) + QStringLiteral("\nfall = 1"),
+                        QStringLiteral("attr = S, NA\ndamage = 7\nforcenofall = 1")));
+        QVERIFY(f.untilHit() > 0);
+        QVERIFY(f.b.getHitVars().fall);
+        for (int t = 0; t < 12 && f.b.life() > 943; ++t)
+            f.match.tick();
+        QCOMPARE(f.b.life(), 943);
+        QVERIFY(!f.b.getHitVars().fall);
+    }
+
+    void severalTargets()
+    {
+        auto fight = [](const QString& hitdef) {
+            CharacterData a;
+            a.setAnimations(kAir);
+            a.addStates(states(hitdef));
+            CharacterData b;
+            b.setAnimations(kAir);
+            b.addStates("[Statedef 0]\ntype = S\nphysics = S\nanim = 0\n"
+                        "[State 0]\ntype = Helper\ntrigger1 = time = 0\nid = 1\nstateno = 1000\n"
+                        "[Statedef 1000]\ntype = S\nphysics = N\nanim = 0\n[State 1000]\ntype = Null\ntrigger1 = 1\n"
+                        "[Statedef 5000]\ntype = S\nmovetype = H\nphysics = N\nanim = 5000\n"
+                        "[State 5000]\ntype = Null\ntrigger1 = 1\n");
+            Match match;
+            Character p1(a, &match);
+            Character p2(b, &match);
+            p1.setPos({-20, 0});
+            p2.setPos({20, 0});
+            p2.setFacing(-1);
+            p1.start(200);
+            p2.start(0);
+            for (int t = 0; t < 4; ++t)
+                match.tick();
+            const Character* helper = match.characters().last();
+            return QList<int>{p2.life(), helper->life(), eval(p1, "HitCount").toInt(), eval(p1, "UniqHitCount").toInt(),
+                              eval(p1, "NumTarget").toInt()};
+        };
+        QCOMPARE(fight(QStringLiteral("attr = S, NA\ndamage = 50")), QList<int>({950, 950, 1, 2, 2}));
+        QCOMPARE(fight(QStringLiteral("attr = S, NA\ndamage = 50\nhitonce = 1")), QList<int>({950, 1000, 1, 1, 1}));
+    }
+
+    void affectTeam()
+    {
+        auto lives = [](const QString& team) {
+            CharacterData a;
+            a.setAnimations(kAir);
+            a.addStates(
+                QStringLiteral("[Statedef 0]\ntype = S\nphysics = S\nanim = 0\n"
+                               "[State 0]\ntype = Helper\ntrigger1 = time = 0\nstateno = 1000\n"
+                               "[Statedef 1000]\ntype = S\nmovetype = A\nphysics = N\nanim = 200\n"
+                               "[State 1000]\ntype = HitDef\ntrigger1 = time = 0\nattr = S, NA\ndamage = 30\n%1\n"
+                               "[Statedef 5000]\ntype = S\nmovetype = H\nphysics = N\nanim = 0\n"
+                               "[State 5000]\ntype = Null\ntrigger1 = 1\n")
+                    .arg(team));
+            CharacterData idle;
+            idle.setAnimations(kAir);
+            idle.addStates("[Statedef 0]\ntype = S\nanim = 0\n[State 0]\ntype = Null\ntrigger1 = 1\n");
+            Match match;
+            Character p1(a, &match);
+            Character p2(idle, &match);
+            p1.setPos({0, 0});
+            p2.setPos({150, 0});
+            p2.setFacing(-1);
+            p1.start(0);
+            p2.start(0);
+            for (int t = 0; t < 8; ++t)
+                match.tick();
+            return QList<int>{p1.life(), p2.life(), match.characters().last()->life()};
+        };
+        QCOMPARE(lives(QString()), QList<int>({1000, 1000, 1000}));
+        QCOMPARE(lives(QStringLiteral("affectteam = F")), QList<int>({970, 1000, 1000}));
+        QCOMPARE(lives(QStringLiteral("affectteam = B")), QList<int>({970, 1000, 1000}));
+    }
+
+    void juggle()
+    {
+        auto fight = [](bool noCheck) {
+            CharacterData a;
+            a.setAnimations(kAir);
+            a.addStates(
+                QStringLiteral("[Statedef 200]\ntype = S\nmovetype = A\nphysics = S\nanim = 200\njuggle = 10\n"
+                               "[State 200, hit]\ntype = HitDef\ntrigger1 = time = 0\nattr = S, NA\n"
+                               "damage = 10\nfall = 1\n"
+                               "[State 200, again]\ntype = ChangeState\ntrigger1 = AnimTime = 0\nvalue = 200\n") +
+                (noCheck ? QStringLiteral("[Statedef -2]\n[State -2]\ntype = AssertSpecial\ntrigger1 = 1\n"
+                                          "flag = nojugglecheck\n")
+                         : QString()));
+            CharacterData b;
+            b.setAnimations(kAir);
+            b.addStates("[Statedef 0]\ntype = S\nphysics = S\nanim = 0\n[State 0]\ntype = Null\ntrigger1 = 1\n"
+                        "[Statedef 5000]\ntype = A\nmovetype = H\nphysics = N\nanim = 5000\nvelset = 0, 0\n"
+                        "[State 5000]\ntype = Null\ntrigger1 = 1\n"
+                        "[Statedef 5020]\ntype = A\nmovetype = H\nphysics = N\nanim = 5000\nvelset = 0, 0\n"
+                        "[State 5020]\ntype = Null\ntrigger1 = 1\n");
+            Match match;
+            Character p1(a, &match);
+            Character p2(b, &match);
+            p1.setPos({-20, 0});
+            p2.setPos({20, 0});
+            p2.setFacing(-1);
+            p1.start(200);
+            p2.start(0);
+            for (int t = 0; t < 30; ++t)
+                match.tick();
+            return std::pair(p2.getHitVars().hitCount, p2.jugglePoints());
+        };
+        QCOMPARE(fight(false), std::pair(1, 5));
+        const auto [hits, points] = fight(true);
+        QVERIFY(hits > 1);
+        QVERIFY(points < 5);
     }
 };
 

@@ -145,7 +145,7 @@ bool Match::isAsserted(const QString& flag) const
                        [&flag](const Character* c) { return c->isAsserted(flag); });
 }
 
-void Match::requestPause(bool super, int playerId, int time, bool pauseBg, bool darken)
+void Match::requestPause(bool super, int playerId, int time, bool pauseBg, bool darken, int endCmdBufTime)
 {
     // A longer pause replaces one waiting to start, and a player may replace its own.
     int& pending = super ? m_superPending : m_pausePending;
@@ -153,6 +153,7 @@ void Match::requestPause(bool super, int playerId, int time, bool pauseBg, bool 
     if (pending < 0 || time > pending || player == playerId) {
         pending = std::max(0, time);
         player = playerId;
+        (super ? m_superEndCmdBufTime : m_pauseEndCmdBufTime) = std::clamp(endCmdBufTime, 0, pending);
     }
     if (super) {
         m_superPauseBg = pauseBg;
@@ -259,7 +260,19 @@ bool Match::decideRound()
 const Character* Match::attackerNear(const Character* c) const
 {
     for (const Character* other : std::as_const(m_characters)) {
-        if (other->m_team == c->m_team || other->m_destroyed || other->moveType() != QLatin1Char('A'))
+        if (other->m_team == c->m_team || other->m_destroyed)
+            continue;
+        // A projectile on its way: within its guard.dist (else the owner's size.proj.attack.dist).
+        for (const Projectile& p : other->m_projectiles) {
+            if (p.gone || p.status != Projectile::Status::Active || p.hits <= 0)
+                continue;
+            const float reach = p.hitDef.guardDist >= 0
+                                    ? float(p.hitDef.guardDist)
+                                    : other->data().constant(QStringLiteral("size.proj.attack.dist"), 90);
+            if (std::abs(p.pos.x - c->m_pos.x) <= reach)
+                return other;
+        }
+        if (other->moveType() != QLatin1Char('A'))
             continue;
         const int guardDist = other->hitDef().active ? other->hitDef().guardDist : -1;
         const float reach =
@@ -416,6 +429,12 @@ void Match::tick()
         auto opposed = [](const Character* a, const Character* b) {
             return a->m_team != b->m_team && !a->m_destroyed && !b->m_destroyed;
         };
+        auto affects = [](const Character* a, const Character* b) {
+            if (a == b || a->m_destroyed || b->m_destroyed)
+                return false;
+            const AffectTeam team = a->m_hitDef.affectTeam;
+            return a->m_team != b->m_team ? team != AffectTeam::Friend : team != AffectTeam::Enemy;
+        };
         for (Character* a : std::as_const(m_characters)) {
             for (Character* b : std::as_const(m_characters)) {
                 if (opposed(a, b) && a->reverses(*b))
@@ -427,7 +446,7 @@ void Match::tick()
         };
         for (Character* a : std::as_const(m_characters)) {
             for (Character* b : std::as_const(m_characters)) {
-                if (opposed(a, b) && !reversed(a) && a->wouldHit(*b) && a->lands(*b))
+                if (affects(a, b) && !reversed(a) && a->wouldHit(*b) && a->lands(*b))
                     hits << std::pair(a, b);
             }
         }
@@ -435,9 +454,14 @@ void Match::tick()
             reverser->reverse(*attacker);
         for (const auto& [attacker, target] : std::as_const(hits))
             attacker->attack(*target);
+        for (Character* c : std::as_const(m_characters)) {
+            if (c->m_hitDefLanded)
+                c->m_hitDef.active = false;
+            c->m_hitDefLanded = false;
+        }
         for (Character* attacker : std::as_const(m_characters)) {
             for (Character* target : std::as_const(m_characters)) {
-                if (attacker->m_team != target->m_team && !target->m_destroyed)
+                if (attacker != target && !target->m_destroyed)
                     attacker->projectilesAttack(*target);
             }
         }
@@ -513,8 +537,11 @@ void Match::keepOnScreen()
     for (Character* c : std::as_const(m_characters)) {
         if (!c->screenBound())
             continue;
-        const float x =
-            std::clamp(float(c->pos().x()), m_cameraX - half + m_screenEdge, m_cameraX + half - m_screenEdge);
+        const float leftEdge = c->facing() > 0 ? c->backEdgeWidth() : c->frontEdgeWidth();
+        const float rightEdge = c->facing() > 0 ? c->frontEdgeWidth() : c->backEdgeWidth();
+        const float low = m_cameraX - half + m_screenEdge + leftEdge;
+        const float high = std::max(low, m_cameraX + half - m_screenEdge - rightEdge);
+        const float x = std::clamp(float(c->pos().x()), low, high);
         c->moveX(x - float(c->pos().x()));
     }
 }

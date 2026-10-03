@@ -409,6 +409,10 @@ ofs_add_test(NAME mugen_runtime_rounds
     SOURCES mugen/RuntimeRoundTest.cpp
     LIBS OFS::mugen_runtime)
 
+ofs_add_test(NAME mugen_runtime_triggers
+    SOURCES mugen/RuntimeTriggerTest.cpp
+    LIBS OFS::mugen_runtime)
+
 ofs_add_test(NAME mugen_training
     SOURCES mugen/TrainingTest.cpp
     LIBS OFS::mugen)

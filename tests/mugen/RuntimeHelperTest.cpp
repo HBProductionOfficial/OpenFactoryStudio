@@ -113,6 +113,48 @@ private Q_SLOTS:
         QCOMPARE(match.characters().size(), 57);
         QVERIFY(!p1.messages().isEmpty());
     }
+
+    void destroyRecursive()
+    {
+        auto left = [](const QString& flags) {
+            CharacterData data;
+            data.setAnimations("[Begin Action 0]\n0,0, 0,0, -1\n");
+            data.addStates(
+                QStringLiteral("[Statedef 0]\n"
+                               "[State 0]\ntype = Helper\ntrigger1 = time = 0\nid = 1\nstateno = 1000\n"
+                               "[Statedef 1000]\n"
+                               "[State 1000, a]\ntype = Helper\ntrigger1 = time = 0\nid = 2\nstateno = 2000\n"
+                               "[State 1000, b]\ntype = Explod\ntrigger1 = time = 0\nanim = 0\nremovetime = -1\n"
+                               "[State 1000, c]\ntype = DestroySelf\ntrigger1 = time = 2\n%1\n"
+                               "[Statedef 2000]\n[State 2000]\ntype = Null\ntrigger1 = 1\n")
+                    .arg(flags));
+            Match match;
+            Character p1(data, &match);
+            p1.start(0);
+            for (int i = 0; i < 5; ++i)
+                match.tick();
+            return std::pair(int(match.characters().size()), int(p1.explods().size()));
+        };
+        QCOMPARE(left(QString()), std::pair(2, 1));
+        QCOMPARE(left(QStringLiteral("recursive = 1\nremoveexplods = 1")), std::pair(1, 0));
+    }
+
+    void ownPalette()
+    {
+        CharacterData data;
+        data.addStates("[Statedef 0]\n"
+                       "[State 0, a]\ntype = Helper\ntrigger1 = time = 0\nid = 1\nstateno = 1000\nownpal = 1\n"
+                       "[State 0, b]\ntype = Helper\ntrigger1 = time = 0\nid = 2\nstateno = 1000\n"
+                       "[Statedef 1000]\n[State 1000]\ntype = Null\ntrigger1 = 1\n");
+        Match match;
+        Character p1(data, &match);
+        p1.start(0);
+        match.tick();
+        QCOMPARE(match.characters().size(), 3);
+        QVERIFY(p1.ownPal());
+        QVERIFY(match.characters().at(1)->ownPal());
+        QVERIFY(!match.characters().at(2)->ownPal());
+    }
 };
 
 QTEST_GUILESS_MAIN(RuntimeHelperTest)

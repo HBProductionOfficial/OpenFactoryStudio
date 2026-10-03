@@ -128,6 +128,31 @@ private Q_SLOTS:
         match.tick();
         QCOMPARE(a.numProjectiles(), 1);
     }
+
+    void guardDistance()
+    {
+        // Guard distance comes from the owner's size.proj.attack.dist (90 by default).
+        CharacterData data;
+        data.setAnimations(kAir);
+        data.addStates(shooter("projid = 5\nprojanim = 1000\nvelocity = 10, 0\nownpal = 1"));
+        Match match;
+        Character a(data, &match);
+        Character b(data, &match);
+        a.setPos({-100, 0});
+        b.setPos({150, 0});
+        b.setFacing(-1);
+        a.start(300);
+        b.start(0);
+        match.tick();
+        QVERIFY(a.projectiles().at(0).ownPal);
+        // The distance is read at the start of each tick.
+        while (!a.projectiles().isEmpty() && a.projectiles().at(0).pos.x < 50)
+            match.tick();
+        match.tick();
+        QCOMPARE(Expr::compile("InGuardDist").evaluate(b).toInt(), 0);
+        match.tick();
+        QCOMPARE(Expr::compile("InGuardDist").evaluate(b).toInt(), 1);
+    }
 };
 
 QTEST_GUILESS_MAIN(RuntimeProjectileTest)

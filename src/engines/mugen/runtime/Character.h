@@ -126,11 +126,28 @@ public:
         m_screenWidth = width;
         m_screenEdge = edge;
     }
+    void setScreenHeight(float height, float floor)
+    {
+        m_screenHeight = height;
+        m_screenFloor = floor;
+    }
     float cameraX() const { return m_cameraX; }
     float stageLeft() const { return m_left; }
     float stageRight() const { return m_right; }
     float screenWidth() const { return m_screenWidth; }
     float screenEdge() const { return m_screenEdge; }
+    float screenHeight() const { return m_screenHeight; }
+    float screenFloor() const { return m_screenFloor; }
+    void setStageInfo(const QString& key, const QString& value) { m_stageInfo.insert(key, value); }
+    QString stageInfo(const QString& key) const { return m_stageInfo.value(key); }
+    struct Rules
+    {
+        float attackLifeToPowerMul = 0.7f;
+        float getHitLifeToPowerMul = 0.6f;
+        float superTargetDefenceMul = 1.5f;
+    };
+    void setRules(const Rules& rules) { m_rules = rules; }
+    const Rules& rules() const { return m_rules; }
     int random(int max);
 
     bool isAsserted(const QString& flag) const;
@@ -165,7 +182,8 @@ public:
     int pauseTime() const { return m_pauseTime; }
     bool superDarken() const { return m_superDarken; }
     bool pauseBackground() const { return m_superTime > 0 ? m_superPauseBg : m_pauseBg; }
-    void requestPause(bool super, int playerId, int time, bool pauseBg, bool darken = false);
+    int endCmdBufTime() const { return m_superTime > 0 ? m_superEndCmdBufTime : m_pauseEndCmdBufTime; }
+    void requestPause(bool super, int playerId, int time, bool pauseBg, bool darken = false, int endCmdBufTime = 0);
 
     void setFightFx(const CharacterData* data) { m_fightFx = data; }
     const CharacterData* fightFx() const { return m_fightFx; }
@@ -190,7 +208,11 @@ private:
     float m_right = 1000;
     float m_screenWidth = 320;
     float m_screenEdge = 15;
+    float m_screenHeight = 240;
+    float m_screenFloor = 200;
     float m_cameraX = 0;
+    QHash<QString, QString> m_stageInfo;
+    Rules m_rules;
     QList<SoundEvent> m_sounds;
     QList<SpawnEvent> m_spawns;
     EnvShake m_envShake;
@@ -206,6 +228,8 @@ private:
     bool m_superDarken = true;
     bool m_superPauseBg = true;
     bool m_pauseBg = true;
+    int m_superEndCmdBufTime = 0;
+    int m_pauseEndCmdBufTime = 0;
     const CharacterData* m_fightFx = nullptr;
     std::vector<std::unique_ptr<Character>> m_helpers;
 
@@ -254,6 +278,9 @@ public:
     void setInGuardDist(bool in) { m_inGuardDist = in; }
     float backWidth() const;
     float frontWidth() const;
+    float backEdgeWidth() const { return m_edge[0]; }
+    float frontEdgeWidth() const { return m_edge[1]; }
+    int jugglePoints() const { return m_juggle; }
     bool pushes() const { return m_push; }
     void moveX(float dx) { m_pos.x += dx; }
     void releaseTargets();
@@ -291,6 +318,7 @@ public:
     QList<QRectF> projectileBoxes(const Projectile& p, int type) const;
 
     const CharacterData& data() const { return m_data; }
+    QString name() const { return m_isHelper ? m_helperName : m_data.name(); }
     int stateNo() const { return m_stateNo; }
     int prevStateNo() const { return m_prevStateNo; }
     int time() const { return m_time; }
@@ -325,6 +353,8 @@ public:
     Character* parent() const { return m_parent; }
     Character* root() const { return m_root; }
     bool destroyed() const { return m_destroyed; }
+    // A helper without ownpal shares its parent's palette, so the parent's PalFX and RemapPal reach it.
+    bool ownPal() const { return !m_isHelper || m_ownPal; }
     int team() const { return m_team; }
     bool isPlayerType() const { return !m_isHelper || m_helperPlayerType; }
     float constant(const QString& name, float fallback) const;
@@ -371,8 +401,10 @@ private:
     void updatePosition();
     void readHitDef(const Controller& c);
     HitDef hitDefFrom(const Controller& c);
-    bool hitAllowed(const HitDef& hd, const Character& target) const;
-    bool deliverHit(Character& target, const HitDef& hd, int facing, int overrideSlot = -1);
+    bool hitAllowed(const HitDef& hd, const Character& target, bool projectile = false) const;
+    int juggleCost(const HitDef& hd, bool projectile) const { return hd.airJuggle + (projectile ? 0 : m_stateJuggle); }
+    bool deliverHit(Character& target, const HitDef& hd, int facing, int overrideSlot = -1, bool projectile = false);
+    void destroy(bool recursive, bool removeExplods);
     void showHit(Character& target, const HitDef& hd, int facing, bool guarded);
     bool executeProjectile(const Controller& c);
     const CharacterData* projectileAnimData(const Projectile::Anim& anim) const;
@@ -430,6 +462,10 @@ private:
     InputState m_input;
 
     HitDef m_hitDef;
+    bool m_hitDefAttr = false; // HitDefAttr still reads it after the hit
+    bool m_hitDefLanded = false;
+    int m_stateJuggle = 0;
+    int m_juggle = 15;
     GetHitVars m_ghv;
     int m_hitPauseTime = 0;
     bool m_gotHit = false;
@@ -453,6 +489,8 @@ private:
     bool m_posFreeze = false;
     bool m_push = true;
     float m_width[2] = {-1, -1};
+    float m_edge[2] = {0, 0};
+    int m_lastDust = -1000;
     bool m_guarding = false;
     int m_airJumps = 0;
 
@@ -502,7 +540,9 @@ private:
     bool m_isHelper = false;
     bool m_helperPlayerType = false;
     bool m_keyCtrl = true;
+    bool m_ownPal = false;
     int m_helperId = 0;
+    QString m_helperName;
     Character* m_parent = nullptr;
     Character* m_root = nullptr;
     int m_team = 0;

@@ -29,6 +29,8 @@ QSet<QString> attackClasses(const QStringList& names)
     return classes;
 }
 
+// %d and %i take a whole number, %f, %e and %g (any case) a float, and %% is a percent sign.
+// \n, \t, \\ and \" are escapes.
 QString formatText(const QString& format, const std::vector<Value>& args)
 {
     QString out;
@@ -36,17 +38,23 @@ QString formatText(const QString& format, const std::vector<Value>& args)
     for (int i = 0; i < format.size(); ++i) {
         const QChar ch = format.at(i);
         const QChar following = i + 1 < format.size() ? format.at(i + 1) : QChar();
-        if (ch == QLatin1Char('\\') && (following == QLatin1Char('n') || following == QLatin1Char('t'))) {
-            out += following == QLatin1Char('n') ? QLatin1Char('\n') : QLatin1Char('\t');
+        const char spec = following.toLatin1();
+        if (ch == QLatin1Char('\\') && QByteArrayView("nt\\\"").contains(spec)) {
+            out += spec == 'n' ? QLatin1Char('\n') : spec == 't' ? QLatin1Char('\t') : following;
             ++i;
-        } else if (ch == QLatin1Char('%') && following == QLatin1Char('%')) {
+        } else if (ch == QLatin1Char('%') && spec == '%') {
             out += QLatin1Char('%');
             ++i;
-        } else if (ch == QLatin1Char('%') && (following == QLatin1Char('d') || following == QLatin1Char('i'))) {
+        } else if (ch == QLatin1Char('%') && (spec == 'd' || spec == 'i')) {
             out += QString::number(next < args.size() ? args[next++].toInt() : 0);
             ++i;
-        } else if (ch == QLatin1Char('%') && following == QLatin1Char('f')) {
-            out += QString::number(next < args.size() ? double(args[next++].toFloat()) : 0.0, 'f', 6);
+        } else if (ch == QLatin1Char('%') && QByteArrayView("fFeEgG").contains(spec)) {
+            const double value = next < args.size() ? double(args[next++].toFloat()) : 0.0;
+            const char kind = spec == 'F' ? 'f' : spec == 'E' ? 'e' : spec == 'G' ? 'g' : spec;
+            QString text = QString::number(value, kind, 6);
+            if (spec == 'E' || spec == 'G')
+                text = text.toUpper();
+            out += text;
             ++i;
         } else {
             out += ch;
@@ -185,6 +193,7 @@ bool Character::executeEffect(const Controller& c)
             event.index = intParam(c, QStringLiteral("value"), 0, 1);
             event.lowPriority = intParam(c, QStringLiteral("lowpriority"), 0) != 0;
             event.volume = intParam(c, QStringLiteral("volume"), 0);
+            event.volumeScale = std::clamp(floatParam(c, QStringLiteral("volumescale"), 100), 0.f, 100.f);
             event.freqMul = floatParam(c, QStringLiteral("freqmul"), 1);
             event.loop = intParam(c, QStringLiteral("loop"), 0) != 0;
         } else {
@@ -269,6 +278,8 @@ bool Character::executeEffect(const Controller& c)
         return true;
     }
     if (type == QLatin1String("afterimagetime")) {
+        if (m_draw.afterImage.time == 0)
+            return true;
         const QString key = has(c, QStringLiteral("time")) ? QStringLiteral("time") : QStringLiteral("value");
         m_draw.afterImage.time = intParam(c, key, m_draw.afterImage.time);
         return true;
@@ -309,11 +320,14 @@ bool Character::executeEffect(const Controller& c)
                                      intParam(c, QStringLiteral("source"), 0, 1));
         const QPair<int, int> dest(intParam(c, QStringLiteral("dest"), -1, 0),
                                    intParam(c, QStringLiteral("dest"), 0, 1));
-        if (source.first >= 0) {
-            if (dest.first < 0 || dest == source)
-                m_draw.remap.remove(source);
-            else
-                m_draw.remap.insert(source, dest);
+        if (source.first < 0) {
+            m_draw.remap.clear();
+            if (dest.first >= 0)
+                m_draw.remap.insert(DrawState::AllPalettes, dest);
+        } else if (dest.first < 0 || dest == source) {
+            m_draw.remap.remove(source);
+        } else {
+            m_draw.remap.insert(source, dest);
         }
         return true;
     }
@@ -323,12 +337,25 @@ bool Character::executeEffect(const Controller& c)
         SpawnEvent event;
         event.playerId = m_id;
         const bool dust = type == QLatin1String("makedust");
+        if (dust) {
+            const int spacing = std::max(1, intParam(c, QStringLiteral("spacing"), 3));
+            if (m_match->gameTime() - m_lastDust < spacing)
+                return true;
+            m_lastDust = m_match->gameTime();
+        }
         event.kind = dust ? SpawnEvent::Kind::Dust : SpawnEvent::Kind::GameAnim;
         event.anim = dust ? 120 : intParam(c, QStringLiteral("value"), 0);
         event.under = !dust && intParam(c, QStringLiteral("under"), 0) != 0;
-        auto at = [this, &c, &event](const QString& name) {
+        // GameMakeAnim's random moves it up to half its value each way.
+        Vec2 shift;
+        if (const int range = dust ? 0 : intParam(c, QStringLiteral("random"), 0); range > 0) {
+            shift.x = float(m_match->random(range + 1) - range / 2);
+            shift.y = float(m_match->random(range + 1) - range / 2);
+        }
+        auto at = [this, &c, &event, shift](const QString& name) {
             SpawnEvent e = event;
-            e.pos = Vec2{m_pos.x + floatParam(c, name, 0, 0) * float(m_facing), m_pos.y + floatParam(c, name, 0, 1)};
+            e.pos = Vec2{m_pos.x + (floatParam(c, name, 0, 0) + shift.x) * float(m_facing),
+                         m_pos.y + floatParam(c, name, 0, 1) + shift.y};
             return e;
         };
         m_match->addSpawn(at(QStringLiteral("pos")));
@@ -353,11 +380,12 @@ bool Character::executeEffect(const Controller& c)
             --moveTime;
         (super ? m_superMoveTime : m_pauseMoveTime) = moveTime;
         const bool pauseBg = intParam(c, QStringLiteral("pausebg"), 1) != 0;
+        const int endCmdBufTime = intParam(c, QStringLiteral("endcmdbuftime"), 0);
         if (!super) {
-            m_match->requestPause(false, m_id, time, pauseBg);
+            m_match->requestPause(false, m_id, time, pauseBg, false, endCmdBufTime);
             return true;
         }
-        m_match->requestPause(true, m_id, time, pauseBg, intParam(c, QStringLiteral("darken"), 1) != 0);
+        m_match->requestPause(true, m_id, time, pauseBg, intParam(c, QStringLiteral("darken"), 1) != 0, endCmdBufTime);
         powerOwner()->m_power =
             std::clamp(powerOwner()->m_power + intParam(c, QStringLiteral("poweradd"), 0), 0, int(m_data.powerMax()));
         // Out of reach for the pause. It starts next tick, so one tick more.
@@ -365,7 +393,7 @@ bool Character::executeEffect(const Controller& c)
             m_unhittableTime = time + (time > 0 ? 1 : 0);
         float defMul = floatParam(c, QStringLiteral("p2defmul"), 0);
         if (defMul <= 0)
-            defMul = m_data.constant(QStringLiteral("super.targetdefencemul"), 1.5f);
+            defMul = m_match->rules().superTargetDefenceMul;
         if (defMul != 1) {
             for (Character* other : m_match->characters()) {
                 if (other != this)
@@ -397,6 +425,8 @@ bool Character::executeEffect(const Controller& c)
         return true;
     }
     if (type == QLatin1String("forcefeedback"))
+        return true;
+    if (type == QLatin1String("zoom"))
         return true;
     return false;
 }

@@ -105,6 +105,7 @@ bool Character::executeProjectile(const Controller& c)
     p.heightBound[1] = intParam(c, QStringLiteral("projheightbound"), 1, 1);
     p.superMoveTime = intParam(c, QStringLiteral("supermovetime"), 0);
     p.pauseMoveTime = intParam(c, QStringLiteral("pausemovetime"), 0);
+    p.ownPal = intParam(c, QStringLiteral("ownpal"), 0) != 0;
 
     const Vec2 offset = pair(QStringLiteral("offset"), Vec2());
     const QString posType = c.param(QStringLiteral("postype"))
@@ -223,11 +224,14 @@ void Character::projectilesAttack(Character& target)
         if (p.gone || p.status != Projectile::Status::Active || p.paused || p.hits <= 0 || p.curMissTime > 0 ||
             p.hitPause > 0 || p.contact)
             continue;
-        if (!hitAllowed(p.hitDef, target))
+        const AffectTeam team = p.hitDef.affectTeam;
+        if (m_team != target.m_team ? team == AffectTeam::Friend : team == AffectTeam::Enemy)
+            continue;
+        if (!hitAllowed(p.hitDef, target, true))
             continue;
         if (!boxesMeet(projectileBoxes(p, 1), target.boxes(2)))
             continue;
-        const bool guarded = deliverHit(target, p.hitDef, p.facing);
+        const bool guarded = deliverHit(target, p.hitDef, p.facing, -1, true);
         p.contact = true;
         p.hitPause = std::max(0, guarded ? p.hitDef.guardPauseTime[0] : p.hitDef.pauseTime[0]);
         m_projContact = guarded ? ProjContactKind::Guarded : ProjContactKind::Hit;

@@ -37,7 +37,6 @@ const QList<QPair<const char*, float>>& defaults()
         {"size.air.front", 12},
         {"size.height", 60},
         {"size.attack.dist", 160},
-        {"super.targetdefencemul", 1.5f},
         {"size.proj.attack.dist", 90},
         {"size.proj.doscale", 0},
         {"size.head.pos.x", -5},
@@ -166,6 +165,7 @@ bool CharacterData::load(const QString& defPath, const QString& engineDir, QStri
     if (const IniSection* info = def.section(QStringLiteral("Info"))) {
         m_name = unquote(info->value(QStringLiteral("name")));
         m_displayName = unquote(info->value(QStringLiteral("displayname"), info->value(QStringLiteral("name"))));
+        m_author = unquote(info->value(QStringLiteral("author")));
         m_mugenVersion = unquote(info->value(QStringLiteral("mugenversion"))).trimmed();
         const int width = info->value(QStringLiteral("localcoord")).split(QLatin1Char(',')).value(0).trimmed().toInt();
         if (width > 0)

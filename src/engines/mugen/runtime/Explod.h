@@ -54,6 +54,7 @@ struct Explod
     bool ignoreHitPause = true;
 
     Vec2 scale{1, 1};
+    float angle = 0;
     int sprPriority = 0;
     bool onTop = false;
     bool ownPal = false;

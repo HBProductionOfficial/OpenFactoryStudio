@@ -28,10 +28,20 @@ Value Character::trigger(const TriggerCall& call)
         return Value::integer(m_animNo);
     case Trigger::AnimTime:
         return Value::integer(m_anim.animTime());
-    case Trigger::AnimElemTime:
-        return Value::integer(m_anim.animElemTime(arg(0).toInt()));
-    case Trigger::AnimElemNo:
-        return Value::integer(m_anim.animElemNo(arg(0).toInt()));
+    case Trigger::AnimElemTime: {
+        const int element = arg(0).toInt();
+        if (arg(0).isUndefined() || element < 1 || element > m_anim.frameCount())
+            return Value::undefined();
+        return Value::integer(m_anim.animElemTime(element));
+    }
+    case Trigger::AnimElemNo: {
+        // Bottom before the animation started, unless it is in its loop (then it counts as looping forever).
+        const int offset = arg(0).toInt();
+        if (arg(0).isUndefined() ||
+            (offset < 0 && m_anim.frame() < m_anim.loopStart() && m_anim.animElemTime(1) + offset < 0))
+            return Value::undefined();
+        return Value::integer(m_anim.animElemNo(offset));
+    }
     case Trigger::AnimElem: {
         // AnimElem = n means AnimElemTime(n) = 0. "AnimElem = n, op t" compares AnimElemTime(n).
         const int element = arg(0).toInt();
@@ -55,14 +65,42 @@ Value Character::trigger(const TriggerCall& call)
         const int divisor = arg(0).toInt();
         if (divisor <= 0)
             return Value::undefined();
-        return special(m_time % divisor == arg(1).toInt());
+        const Value remainder = Value::integer(m_time % divisor);
+        return special(Ops::compare(remainder, arg(1), call.hasSecond ? call.second : Compare::Equal).toBool());
     }
     case Trigger::Pos:
         // X from the centre of the screen.
         return Value::real(call.keyword == QLatin1String("y") ? m_pos.y : m_pos.x - (m_match ? m_match->cameraX() : 0));
     case Trigger::ScreenPos: {
         const float left = m_match ? m_match->cameraX() - m_match->screenWidth() / 2 : -160;
-        return Value::real(call.keyword == QLatin1String("y") ? m_pos.y : m_pos.x - left);
+        const float floor = m_match ? m_match->screenFloor() : 200;
+        return Value::real(call.keyword == QLatin1String("y") ? m_pos.y + floor : m_pos.x - left);
+    }
+    case Trigger::CameraPos:
+        return Value::real(call.keyword == QLatin1String("y") ? 0.f : (m_match ? m_match->cameraX() : 0.f));
+    case Trigger::CameraZoom:
+        return Value::real(1);
+    case Trigger::ScreenWidth:
+    case Trigger::GameWidth:
+        return Value::real(m_match ? m_match->screenWidth() : 320);
+    case Trigger::ScreenHeight:
+    case Trigger::GameHeight:
+        return Value::real(m_match ? m_match->screenHeight() : 240);
+    case Trigger::LeftEdge:
+    case Trigger::RightEdge:
+    case Trigger::BackEdge:
+    case Trigger::FrontEdge: {
+        const float camera = m_match ? m_match->cameraX() : 0;
+        const float half = m_match ? m_match->screenWidth() / 2 : 160;
+        bool right = call.trigger == Trigger::RightEdge;
+        if (call.trigger == Trigger::BackEdge || call.trigger == Trigger::FrontEdge)
+            right = (m_facing > 0) == (call.trigger == Trigger::FrontEdge);
+        return Value::real(right ? camera + half : camera - half);
+    }
+    case Trigger::TopEdge:
+    case Trigger::BottomEdge: {
+        const float top = m_match ? -m_match->screenFloor() : -200;
+        return Value::real(call.trigger == Trigger::TopEdge ? top : top + (m_match ? m_match->screenHeight() : 240));
     }
     case Trigger::BackEdgeDist:
     case Trigger::FrontEdgeDist:
@@ -85,22 +123,30 @@ Value Character::trigger(const TriggerCall& call)
     case Trigger::Facing:
         return Value::integer(m_facing);
     case Trigger::Var:
-        return Value::integer(var(arg(0).toInt()));
     case Trigger::FVar:
-        return Value::real(fvar(arg(0).toInt()));
-    case Trigger::SysVar: {
-        const int i = arg(0).toInt();
-        return Value::integer(i >= 0 && i < int(m_sysVars.size()) ? m_sysVars[std::size_t(i)] : 0);
-    }
+    case Trigger::SysVar:
     case Trigger::SysFVar: {
         const int i = arg(0).toInt();
-        return Value::real(i >= 0 && i < int(m_sysFVars.size()) ? m_sysFVars[std::size_t(i)] : 0);
+        const bool isFloat = call.trigger == Trigger::FVar || call.trigger == Trigger::SysFVar;
+        const bool system = call.trigger == Trigger::SysVar || call.trigger == Trigger::SysFVar;
+        const int count = system ? 5 : isFloat ? int(m_fvars.size()) : int(m_vars.size());
+        if (arg(0).isUndefined() || i < 0 || i >= count)
+            return Value::undefined();
+        if (isFloat)
+            return Value::real(system ? sysFVar(i) : fvar(i));
+        return Value::integer(system ? sysVar(i) : var(i));
     }
     case Trigger::Const: {
-        if (!m_data.hasConstant(call.keyword))
+        const QString& key = call.keyword;
+        if (key == QLatin1String("data.fall.defence_mul"))
+            return Value::real(100.f / (constant(QStringLiteral("data.fall.defence_up"), 50) + 100.f));
+        if (!m_data.hasConstant(key) && !m_constants.contains(key))
             return Value::undefined();
-        const float value = m_data.constant(call.keyword);
-        if (call.keyword.startsWith(QLatin1String("data.")) || call.keyword == QLatin1String("movement.airjump.num"))
+        const float value = constant(key, 0);
+        // Whole numbers for data, sizes and air jumps. Floats for scales, speeds and accelerations.
+        const bool scale = key == QLatin1String("size.xscale") || key == QLatin1String("size.yscale");
+        if (((key.startsWith(QLatin1String("data.")) || key.startsWith(QLatin1String("size."))) && !scale) ||
+            key == QLatin1String("movement.airjump.num") || key == QLatin1String("movement.airjump.height"))
             return Value::integer(int(value));
         return Value::real(value);
     }
@@ -162,14 +208,19 @@ Value Character::trigger(const TriggerCall& call)
     case Trigger::InGuardDist:
         return Value::boolean(m_inGuardDist);
     case Trigger::HitDefAttr: {
-        if (!m_hitDef.active)
+        if (!m_hitDefAttr || m_moveType != QLatin1Char('A') || m_hitDef.attrStates.isEmpty())
             return special(false);
-        bool states = false;
-        for (QChar s : call.keyword)
-            states = states || m_hitDef.attrStates.contains(s);
+        bool states = true;
+        for (QChar s : m_hitDef.attrStates)
+            states = states && call.keyword.contains(s);
         bool classes = call.list.isEmpty();
-        for (const QString& cls : call.list)
-            classes = classes || m_hitDef.attrClasses.contains(cls);
+        for (const QString& wanted : call.list) {
+            for (const QString& cls : m_hitDef.attrClasses) {
+                if (cls == wanted || (wanted.size() == 2 && wanted.at(0) == QLatin1Char('A') && cls.size() == 2 &&
+                                      cls.at(1) == wanted.at(1)))
+                    classes = true;
+            }
+        }
         return special(states && classes);
     }
     case Trigger::GetHitVar: {
@@ -211,7 +262,7 @@ Value Character::trigger(const TriggerCall& call)
         if (key == QLatin1String("ctrltime"))
             return Value::integer(m_ghv.ctrlTime);
         if (key == QLatin1String("recovertime"))
-            return Value::integer(m_ghv.recoverTime);
+            return Value::integer(std::max(0, m_ghv.downRecoverTime));
         if (key == QLatin1String("guarded"))
             return Value::boolean(m_ghv.guarded);
         if (key == QLatin1String("fall"))
@@ -238,11 +289,16 @@ Value Character::trigger(const TriggerCall& call)
             return Value::integer(m_ghv.downRecoverTime);
         if (key == QLatin1String("isbound"))
             return Value::boolean(m_bindTo != nullptr);
-        if (key == QLatin1String("xveladd") || key == QLatin1String("yveladd") || key == QLatin1String("xoff") ||
-            key == QLatin1String("yoff"))
+        // The velocity added on a KO and the snap offsets. The emulator has neither.
+        if (key == QLatin1String("xveladd") || key == QLatin1String("yveladd"))
+            return Value::real(0);
+        if (key == QLatin1String("xoff") || key == QLatin1String("yoff") || key == QLatin1String("zoff"))
             return Value::integer(0);
         return Value::undefined();
     }
+    case Trigger::HitVel:
+        // X is positive moving backwards (Vel X's opposite). Y is GetHitVar(yvel).
+        return Value::real(call.keyword == QLatin1String("y") ? m_ghv.yvel : -m_ghv.xvel * float(m_facing));
     case Trigger::NumTarget:
         return Value::integer(int(targetsWithId(call.args.empty() ? -1 : arg(0).toInt()).size()));
     case Trigger::NumExplod:
@@ -279,15 +335,41 @@ Value Character::trigger(const TriggerCall& call)
         return Value::boolean(m_isHelper && (call.args.empty() || m_helperId == arg(0).toInt()));
     case Trigger::NumHelper: {
         const Character* player = m_root ? m_root : this;
+        const int id = call.args.empty() ? 0 : arg(0).toInt();
         int count = 0;
         if (m_match) {
             for (const Character* c : m_match->characters()) {
-                if (c->m_isHelper && !c->m_destroyed && c->m_root == player &&
-                    (call.args.empty() || c->m_helperId == arg(0).toInt()))
+                if (c->m_isHelper && !c->m_destroyed && c->m_root == player && (id <= 0 || c->m_helperId == id))
                     ++count;
             }
         }
         return Value::integer(count);
+    }
+    case Trigger::PlayerIDExist:
+        return Value::boolean(m_match && m_match->playerById(arg(0).toInt()));
+    case Trigger::Name:
+    case Trigger::P1Name:
+        return special(name().compare(call.text, Qt::CaseInsensitive) == 0);
+    case Trigger::AuthorName:
+        return special(m_data.author().compare(call.text, Qt::CaseInsensitive) == 0);
+    case Trigger::P2Name:
+    case Trigger::P4Name: {
+        const Character* enemy = m_match ? m_match->enemy(this, call.trigger == Trigger::P2Name ? 0 : 1) : nullptr;
+        return special(enemy && enemy->name().compare(call.text, Qt::CaseInsensitive) == 0);
+    }
+    case Trigger::P3Name:
+        return special(false);
+    case Trigger::TeamMode:
+        return special(call.keyword == QLatin1String("SINGLE"));
+    case Trigger::IsHomeTeam:
+        // In versus play the left side (P1's) is at home.
+        return Value::boolean(m_team == 0);
+    case Trigger::StageVar: {
+        QString key = call.keyword;
+        if (key == QLatin1String("info.authorname"))
+            key = QStringLiteral("info.author");
+        const QString value = m_match ? m_match->stageInfo(key) : QString();
+        return special(!value.isNull() && value.compare(call.text, Qt::CaseInsensitive) == 0);
     }
     case Trigger::ParentDist:
     case Trigger::RootDist: {

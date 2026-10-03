@@ -49,7 +49,7 @@ struct AfterImage
     int palColor = 256;
     bool palInvertAll = false;
     std::array<int, 3> palBright{30, 30, 30};
-    std::array<int, 3> palContrast{120, 220, 220};
+    std::array<int, 3> palContrast{120, 120, 220};
     std::array<int, 3> palPostBright{0, 0, 0};
     std::array<int, 3> palAdd{10, 10, 25};
     std::array<float, 3> palMul{0.65f, 0.65f, 0.75f};
@@ -78,6 +78,8 @@ struct DrawState
     PalFx palFx;
     AfterImage afterImage;
     QHash<QPair<int, int>, QPair<int, int>> remap;
+    // The remap source that stands for every palette (RemapPal with source -1).
+    static constexpr QPair<int, int> AllPalettes{-1, -1};
 };
 
 struct EnvShake
@@ -111,6 +113,7 @@ struct SoundEvent
     int channel = -1;
     bool lowPriority = false;
     int volume = 0;
+    float volumeScale = 100;
     float freqMul = 1;
     bool loop = false;
     float pan = 0;

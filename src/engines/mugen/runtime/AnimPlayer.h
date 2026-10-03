@@ -26,6 +26,7 @@ public:
     int animElemNo(int offset) const;
     // -1 when it ends on an endless frame.
     int totalTime() const { return m_totalTime; }
+    int loopStart() const { return m_loopStart; }
     bool ended() const { return m_ended; }
 
 private:

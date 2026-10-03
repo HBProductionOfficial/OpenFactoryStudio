@@ -28,8 +28,9 @@ void Character::readExplod(const Controller& c, Explod& e, bool create)
         e.id = intParam(c, QStringLiteral("id"), e.id);
     e.relativeFacing = sign(QStringLiteral("facing"), e.relativeFacing);
     e.vFacing = sign(QStringLiteral("vfacing"), e.vFacing);
-    e.vel = pair(QStringLiteral("vel"), e.vel);
+    e.vel = pair(has(c, QStringLiteral("vel")) ? QStringLiteral("vel") : QStringLiteral("velocity"), e.vel);
     e.accel = pair(QStringLiteral("accel"), e.accel);
+    e.angle = floatParam(c, QStringLiteral("angle"), e.angle);
     e.bindTime = intParam(c, QStringLiteral("bindtime"), e.bindTime);
     e.removeTime = intParam(c, QStringLiteral("removetime"), e.removeTime);
     if (has(c, QStringLiteral("supermove")))
@@ -177,7 +178,7 @@ bool Character::executeExplod(const Controller& c)
     }
     if (type == QLatin1String("explodbindtime")) {
         const QString key = has(c, QStringLiteral("time")) ? QStringLiteral("time") : QStringLiteral("value");
-        const int time = intParam(c, key, 0);
+        const int time = intParam(c, key, 1);
         withId([time](Explod& e) { e.bindTime = time; });
         return true;
     }

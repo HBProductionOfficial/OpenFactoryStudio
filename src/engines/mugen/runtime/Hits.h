@@ -33,6 +33,13 @@ enum class PriorityType
     Dodge, // neither lands at equal priority
 };
 
+enum class AffectTeam
+{
+    Enemy,
+    Both,
+    Friend,
+};
+
 // A ReversalDef is a HitDef too: it turns back the attacks of its attributes that its Clsn1 meets.
 struct HitDef
 {
@@ -92,6 +99,17 @@ struct HitDef
     int p2SprPriority = 0;
     int id = 0;
     int chainId = -1;
+    int noChainId[2] = {-1, -1};
+    AffectTeam affectTeam = AffectTeam::Enemy;
+    bool hitOnce = false;
+    int airJuggle = 0;
+    bool forceStand = false;
+    bool forceNoFall = false;
+    int p1GetP2Facing = 0;
+    // Where the target is put once hit, from the attacker. NaN where not given.
+    float snap[2] = {std::nanf(""), std::nanf("")};
+    float minDist[2] = {std::nanf(""), std::nanf("")};
+    float maxDist[2] = {std::nanf(""), std::nanf("")};
     bool p2GetP1State = true;
     bool downRecover = true;
     int downRecoverTime = -1; // -1: the target's liedown.time
@@ -143,7 +161,6 @@ struct GetHitVars
     int hitTime = 0;
     int slideTime = 0;
     int ctrlTime = 0;
-    int recoverTime = 0;
     float xvel = 0; // toward the screen. HitVelSet turns it to the character's facing.
     float yvel = 0;
     float yAccel = 0;
@@ -156,6 +173,7 @@ struct GetHitVars
     int fallTime = 0;
     bool fallKill = true;
     int hitId = 0;
+    int hitBy = 0;
     bool kill = true;
     bool downRecover = true;
     int downRecoverTime = -1;

@@ -164,6 +164,9 @@ bool Character::execute(const Controller& c)
         return false;
     }
     if (type == QLatin1String("hitfallvel")) {
+        // Only for a character that was hit and falls.
+        if (m_moveType != QLatin1Char('H') || !m_ghv.fall)
+            return false;
         if (!std::isnan(m_ghv.fallXVelocity))
             m_vel.x = m_ghv.fallXVelocity;
         m_vel.y = m_ghv.fallYVelocity;
@@ -180,6 +183,8 @@ bool Character::execute(const Controller& c)
         return false;
     }
     if (type == QLatin1String("hitfalldamage")) {
+        if (m_moveType != QLatin1Char('H') || !m_ghv.fall)
+            return false;
         int life = m_life - m_ghv.fallDamage;
         if (!m_ghv.fallKill)
             life = std::max(life, std::min(1, m_life));
@@ -218,12 +223,16 @@ bool Character::execute(const Controller& c)
             const int value = intParam(c, QStringLiteral("value"), 0);
             const bool kill = intParam(c, QStringLiteral("kill"), 1) != 0;
             const bool absolute = intParam(c, QStringLiteral("absolute"), 0) != 0;
+            const double attack = double(m_data.constant(QStringLiteral("data.attack"), 100)) / 100.0 * m_attackMul;
             for (Character* t : targets) {
                 if (value == 0)
                     break;
                 double damage = -value;
-                if (!absolute)
-                    damage /= std::max(0.01, t->m_data.defence() / 100.0);
+                if (!absolute) {
+                    const double defence =
+                        t->m_data.defence() / 100.0 * double(t->m_defenceMul) * double(t->m_superDefenceMul);
+                    damage = damage * attack / std::max(0.01, defence);
+                }
                 if (damage > 0 && damage < 1)
                     damage = 1;
                 damage = std::min(damage, double(t->m_life));
@@ -278,13 +287,17 @@ bool Character::execute(const Controller& c)
         return false;
     }
     if (type == QLatin1String("width")) {
+        // player = front, back: the width that pushes. edge = front, back: the distance kept from the
+        // screen's sides. value sets both. A missing back is 0.
+        auto read = [this](const Param* p, float* backFront) {
+            if (!p || !p->isExpression())
+                return;
+            backFront[1] = eval(p, 0).toFloat();
+            backFront[0] = p->values.size() > 1 ? eval(p, 1).toFloat() : 0.f;
+        };
         const Param* value = c.param(QStringLiteral("value"));
-        const Param* player = c.param(QStringLiteral("player"));
-        const Param* p = value ? value : player;
-        if (p && p->isExpression()) {
-            m_width[1] = eval(p, 0).toFloat();
-            m_width[0] = p->values.size() > 1 ? eval(p, 1).toFloat() : m_width[1];
-        }
+        read(value ? value : c.param(QStringLiteral("player")), m_width);
+        read(value ? value : c.param(QStringLiteral("edge")), m_edge);
         return false;
     }
     if (type == QLatin1String("movehitreset")) {
@@ -293,12 +306,21 @@ bool Character::execute(const Controller& c)
         return false;
     }
     if (type == QLatin1String("hitadd")) {
-        m_hitCount += intParam(c, QStringLiteral("value"), 0);
+        const int value = intParam(c, QStringLiteral("value"), 0);
+        m_hitCount += value;
+        for (Character* t : std::as_const(m_targets)) {
+            if (t->m_moveType == QLatin1Char('H'))
+                t->m_ghv.hitCount = std::max(0, t->m_ghv.hitCount + value);
+        }
         return false;
     }
     if (type == QLatin1String("lifeadd")) {
+        // Scaled by the character's defence unless absolute. kill = 0 cannot bring the life below 1.
         const int max = int(m_data.lifeMax());
-        int life = m_life + intParam(c, QStringLiteral("value"), 0);
+        int value = intParam(c, QStringLiteral("value"), 0);
+        if (intParam(c, QStringLiteral("absolute"), 0) == 0)
+            value = int(std::lround(value / std::max(0.01, m_data.defence() / 100.0)));
+        int life = m_life + value;
         if (intParam(c, QStringLiteral("kill"), 1) == 0)
             life = std::max(life, std::min(1, m_life));
         m_life = std::clamp(life, 0, max);
@@ -307,7 +329,7 @@ bool Character::execute(const Controller& c)
     if (type == QLatin1String("destroyself")) {
         if (!m_isHelper)
             return false;
-        m_destroyed = true;
+        destroy(intParam(c, QStringLiteral("recursive"), 0) != 0, intParam(c, QStringLiteral("removeexplods"), 0) != 0);
         return true;
     }
     if (executeEffect(c) || executeExplod(c) || executeHelper(c) || executeProjectile(c))

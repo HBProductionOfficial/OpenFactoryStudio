@@ -58,6 +58,7 @@ struct Projectile
     bool remove = true;  // goes away when its hits are used up
     int superMoveTime = 0;
     int pauseMoveTime = 0;
+    bool ownPal = false; // its owner's PalFX and RemapPal do not reach it (1.1)
 
     int time = 0;
     int hitPause = 0;

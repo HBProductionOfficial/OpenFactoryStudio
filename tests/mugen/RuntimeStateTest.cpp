@@ -252,6 +252,28 @@ private Q_SLOTS:
         for (int i = 0; i < 5; ++i)
             QCOMPARE(one.random(1000), two.random(1000));
     }
+
+    void faceP2()
+    {
+        CharacterData data;
+        data.addStates("[Statedef 300]\ntype = S\nfacep2 = 1\n"
+                       "[State 300, a]\ntype = VelSet\ntrigger1 = time = 0\nx = 2\n"
+                       "[State 300, b]\ntype = HitFallVel\ntrigger1 = 1\n"
+                       "[Statedef 310]\ntype = S\n[State 310]\ntype = Null\ntrigger1 = 1\n");
+        Match match;
+        Character a(data, &match);
+        Character b(data, &match);
+        a.setPos({50, 0});
+        b.setPos({-50, 0});
+        a.start(310);
+        b.start(310);
+        match.tick();
+        QCOMPARE(a.facing(), 1);
+        a.start(300);
+        match.tick();
+        QCOMPARE(a.facing(), -1);
+        QCOMPARE(a.vel().x(), 2.0);
+    }
 };
 
 QTEST_MAIN(RuntimeStateTest)

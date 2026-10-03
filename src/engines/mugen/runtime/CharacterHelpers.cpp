@@ -22,6 +22,9 @@ bool Character::executeHelper(const Controller& c)
         const Param* helperType = c.param(QStringLiteral("helpertype"));
         h->m_helperPlayerType = helperType && unquote(helperType->text.trimmed()).toLower() == QLatin1String("player");
         h->m_helperId = std::max(0, intParam(c, QStringLiteral("id"), 0));
+        const Param* name = c.param(QStringLiteral("name"));
+        h->m_helperName = name ? unquote(name->text.trimmed()) : this->name() + QStringLiteral("'s helper");
+        h->m_ownPal = intParam(c, QStringLiteral("ownpal"), 0) != 0;
         h->m_keyCtrl = intParam(c, QStringLiteral("keyctrl"), 0) != 0;
         h->m_superMoveTime = intParam(c, QStringLiteral("supermovetime"), 0);
         h->m_pauseMoveTime = intParam(c, QStringLiteral("pausemovetime"), 0);
@@ -111,6 +114,21 @@ bool Character::executeHelper(const Controller& c)
         return true;
     }
     return false;
+}
+
+void Character::destroy(bool recursive, bool removeExplods)
+{
+    if (m_destroyed)
+        return;
+    m_destroyed = true;
+    if (removeExplods)
+        m_explods.removeIf([this](const Explod& e) { return e.ownerId == m_id; });
+    if (!recursive || !m_match)
+        return;
+    for (Character* c : m_match->characters()) {
+        if (c->m_isHelper && c->m_parent == this)
+            c->destroy(true, removeExplods);
+    }
 }
 
 } // namespace OFS::Mugen::Runtime

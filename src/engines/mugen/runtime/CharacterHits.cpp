@@ -64,8 +64,24 @@ bool Character::canGuard(const HitDef& hit) const
            (m_stateType == QLatin1Char('A') && flags.contains(QLatin1Char('A')));
 }
 
-bool Character::hitAllowed(const HitDef& hd, const Character& target) const
+bool Character::hitAllowed(const HitDef& hd, const Character& target, bool projectile) const
 {
+    // chainID: only a target whose last hit was this player's with that ID. nochainID refuses those.
+    const Character* player = m_root ? m_root : this;
+    const bool lastHitMine = target.m_moveType == QLatin1Char('H') && target.m_ghv.hitBy == player->m_id;
+    if (hd.chainId >= 0 && !(lastHitMine && target.m_ghv.hitId == hd.chainId))
+        return false;
+    for (int id : hd.noChainId) {
+        if (id >= 0 && lastHitMine && target.m_ghv.hitId == id)
+            return false;
+    }
+    // A falling or lying target is hit only while it has the juggle points the attack takes.
+    const bool juggled =
+        target.m_moveType == QLatin1Char('H') &&
+        ((target.m_stateType == QLatin1Char('A') && target.m_ghv.fall) || target.m_stateType == QLatin1Char('L'));
+    if (juggled && !m_asserted.contains(QStringLiteral("nojugglecheck")) &&
+        juggleCost(hd, projectile) > target.m_juggle)
+        return false;
     const QString flags = hd.hitFlag.toUpper();
     const QChar type = target.m_stateType;
     const bool falling = type == QLatin1Char('A') && target.m_ghv.fall && target.m_moveType == QLatin1Char('H');
@@ -158,6 +174,10 @@ void Character::reverse(Character& attacker)
         m_pendingP1State = rd.p1StateNo;
         m_ctrl = false;
     }
+    HitDef shown = rd;
+    shown.sparkX += attacker.m_hitDef.sparkX;
+    shown.sparkY += attacker.m_hitDef.sparkY;
+    showHit(attacker, shown, m_facing, false);
     attacker.m_hitDef.active = false;
     attacker.m_moveReversedTime = 1;
     attacker.m_ctrl = false;
@@ -184,21 +204,24 @@ int Character::overrideFor(const HitDef& hit, QChar attackerState) const
 
 bool Character::attack(Character& target)
 {
-    if (!m_hitDef.active)
+    // A HitDef may hit several targets in the same tick (one with hitonce), then Match::tick uses it up.
+    if (!m_hitDef.active || (m_hitDef.hitOnce && m_hitDefLanded))
         return false;
     const HitDef& hd = m_hitDef;
     // The target's HitOverride takes the attack, but throws (p1stateno, p2stateno) miss it.
     const int slot = target.overrideFor(hd, m_stateType);
     if (slot >= 0 && (hd.p1StateNo >= 0 || hd.p2StateNo >= 0))
         return false;
+    const bool first = !m_hitDefLanded;
+    m_hitDefLanded = true;
     const bool guarded = deliverHit(target, hd, m_facing, slot);
     if (slot >= 0) {
         if (hd.pauseTime[0] > 0)
             m_hitPauseTime = hd.pauseTime[0];
         m_moveContactTime = 1;
         m_moveGuarded = false;
-        m_hitCount += hd.numHits;
-        m_hitDef.active = false;
+        if (first)
+            m_hitCount += hd.numHits;
         return true;
     }
 
@@ -208,7 +231,8 @@ bool Character::attack(Character& target)
     m_moveContactTime = 1;
     m_moveGuarded = guarded;
     if (!guarded) {
-        m_hitCount += hd.numHits;
+        if (first)
+            m_hitCount += hd.numHits;
         ++m_uniqHitCount;
         if (hd.p1StateNo >= 0) {
             m_pendingP1State = hd.p1StateNo;
@@ -218,10 +242,23 @@ bool Character::attack(Character& target)
             target.m_facing = -m_facing;
         else if (hd.p2Facing < 0)
             target.m_facing = m_facing;
-        if (hd.p1Facing < 0)
+        if (hd.p1GetP2Facing != 0)
+            m_facing = hd.p1GetP2Facing > 0 ? target.m_facing : -target.m_facing;
+        else if (hd.p1Facing < 0)
             m_facing = -m_facing;
+        if (hd.hitOnce) {
+            for (int i = int(m_targets.size()) - 1; i >= 0; --i) {
+                if (m_targets[i] == &target)
+                    continue;
+                if (m_targets[i]->m_bindTo == this) {
+                    m_targets[i]->m_bindTo = nullptr;
+                    m_targets[i]->m_bindTime = 0;
+                }
+                m_targets.removeAt(i);
+                m_targetIds.removeAt(i);
+            }
+        }
     }
-    m_hitDef.active = false;
     return true;
 }
 
@@ -277,13 +314,15 @@ void Character::showHit(Character& target, const HitDef& hd, int facing, bool gu
     target.m_sprPriority = hd.p2SprPriority;
 }
 
-bool Character::deliverHit(Character& target, const HitDef& hd, int facing, int overrideSlot)
+bool Character::deliverHit(Character& target, const HitDef& hd, int facing, int overrideSlot, bool projectile)
 {
     const Character::HitOverrideSlot* override =
         overrideSlot >= 0 ? &target.m_overrides[std::size_t(overrideSlot)] : nullptr;
     if (override && override->forceAir)
         target.m_stateType = QLatin1Char('A');
     const QChar type = target.m_stateType;
+    const bool wasJuggled = target.m_moveType == QLatin1Char('H') &&
+                            ((type == QLatin1Char('A') && target.m_ghv.fall) || type == QLatin1Char('L'));
     const bool guarded = !override && target.canGuard(hd) && !m_asserted.contains(QStringLiteral("unguardable"));
     const float attackMul = m_data.constant(QStringLiteral("data.attack"), 100) / 100.0f * m_attackMul;
     const float defence = target.m_data.defence() / 100.0f * target.m_defenceMul * target.m_superDefenceMul;
@@ -310,6 +349,7 @@ bool Character::deliverHit(Character& target, const HitDef& hd, int facing, int 
     ghv.type = type == QLatin1Char('A') ? hd.airType : hd.groundType;
     ghv.yAccel = hd.yAccel;
     ghv.hitId = hd.id;
+    ghv.hitBy = (m_root ? m_root : this)->m_id;
     if (guarded) {
         ghv.guarded = true;
         ghv.hitShakeTime = std::max(0, hd.guardPauseTime[1]);
@@ -365,6 +405,8 @@ bool Character::deliverHit(Character& target, const HitDef& hd, int facing, int 
                 ghv.yvel = -0.001f; // the engine lifts falling characters a little
             ghv.hitTime = ghv.yvel != 0 ? hd.airHitTime : hd.groundHitTime;
         }
+        if (hd.forceNoFall && !(type == QLatin1Char('A') ? hd.airFall : hd.fall))
+            ghv.fall = false;
         ghv.hitTime = std::max(0, ghv.hitTime);
         if (ghv.hitTime > 0)
             ++ghv.hitTime;
@@ -372,6 +414,33 @@ bool Character::deliverHit(Character& target, const HitDef& hd, int facing, int 
         ghv.attr = hd.attrClasses.value(0).toUpper();
         if (ghv.fall)
             ++ghv.fallCount;
+    }
+    if (!guarded && !override) {
+        const int cost = juggleCost(hd, projectile);
+        if (wasJuggled)
+            target.m_juggle -= cost;
+        else if (ghv.fall)
+            target.m_juggle = int(target.constant(QStringLiteral("data.airjuggle"), 15)) - cost;
+        if (!projectile && (wasJuggled || ghv.fall))
+            m_stateJuggle = 0;
+        if (hd.forceStand && type == QLatin1Char('C'))
+            target.m_stateType = QLatin1Char('S');
+        const float ahead = float(facing);
+        auto place = [&](int axis, float offset) {
+            if (axis == 0)
+                target.m_pos.x = m_pos.x + offset * ahead;
+            else
+                target.m_pos.y = m_pos.y + offset;
+        };
+        for (int axis = 0; axis < 2; ++axis) {
+            if (!std::isnan(hd.snap[axis]))
+                place(axis, hd.snap[axis]);
+            const float distance = axis == 0 ? (target.m_pos.x - m_pos.x) * ahead : target.m_pos.y - m_pos.y;
+            if (!std::isnan(hd.minDist[axis]) && distance < hd.minDist[axis])
+                place(axis, hd.minDist[axis]);
+            else if (!std::isnan(hd.maxDist[axis]) && distance > hd.maxDist[axis])
+                place(axis, hd.maxDist[axis]);
+        }
     }
     ghv.groundAnimType = hd.animType;
     ghv.airAnimType = hd.airAnimType;
@@ -402,6 +471,7 @@ bool Character::deliverHit(Character& target, const HitDef& hd, int facing, int 
 void Character::readHitDef(const Controller& c)
 {
     m_hitDef = hitDefFrom(c);
+    m_hitDefAttr = true;
 }
 
 HitDef Character::hitDefFrom(const Controller& c)
@@ -493,9 +563,12 @@ HitDef Character::hitDefFrom(const Controller& c)
     hd.guardKill = intParam(c, QStringLiteral("guard.kill"), 1) != 0;
     hd.fallKill = intParam(c, QStringLiteral("fall.kill"), 1) != 0;
     hd.numHits = intParam(c, QStringLiteral("numhits"), 1);
-    hd.hitGetPower = intParam(c, QStringLiteral("getpower"), hd.hitDamage, 0);
+    // The power a hit gives: the damage times mugen.cfg's multipliers unless given, half on a guard.
+    const Match::Rules rules = m_match ? m_match->rules() : Match::Rules();
+    hd.hitGetPower = intParam(c, QStringLiteral("getpower"), int(float(hd.hitDamage) * rules.attackLifeToPowerMul), 0);
     hd.guardGetPower = intParam(c, QStringLiteral("getpower"), hd.hitGetPower / 2, 1);
-    hd.hitGivePower = intParam(c, QStringLiteral("givepower"), hd.hitDamage, 0);
+    hd.hitGivePower =
+        intParam(c, QStringLiteral("givepower"), int(float(hd.hitDamage) * rules.getHitLifeToPowerMul), 0);
     hd.guardGivePower = intParam(c, QStringLiteral("givepower"), hd.hitGivePower / 2, 1);
     hd.p1SprPriority = intParam(c, QStringLiteral("p1sprpriority"), 1);
     hd.p2SprPriority = intParam(c, QStringLiteral("p2sprpriority"), 0);
@@ -545,6 +618,28 @@ HitDef Character::hitDefFrom(const Controller& c)
     hd.p2GetP1State = intParam(c, QStringLiteral("p2getp1state"), 1) != 0;
     hd.p1Facing = intParam(c, QStringLiteral("p1facing"), 0);
     hd.p2Facing = intParam(c, QStringLiteral("p2facing"), 0);
+    hd.p1GetP2Facing = intParam(c, QStringLiteral("p1getp2facing"), 0);
+    hd.noChainId[0] = intParam(c, QStringLiteral("nochainid"), -1, 0);
+    hd.noChainId[1] = intParam(c, QStringLiteral("nochainid"), -1, 1);
+    if (const Param* team = c.param(QStringLiteral("affectteam"))) {
+        const QString t = team->text.trimmed().toUpper();
+        hd.affectTeam = t.startsWith(QLatin1Char('B'))   ? AffectTeam::Both
+                        : t.startsWith(QLatin1Char('F')) ? AffectTeam::Friend
+                                                         : AffectTeam::Enemy;
+    }
+    const bool isThrow = std::any_of(hd.attrClasses.cbegin(), hd.attrClasses.cend(),
+                                     [](const QString& k) { return k.size() == 2 && k.at(1) == QLatin1Char('T'); });
+    hd.hitOnce = intParam(c, QStringLiteral("hitonce"), isThrow ? 1 : 0) != 0;
+    hd.airJuggle = intParam(c, QStringLiteral("air.juggle"), 0);
+    // forcestand is on by default for hits that lift the target.
+    hd.forceStand = intParam(c, QStringLiteral("forcestand"), hd.groundVelocity[1] != 0 ? 1 : 0) != 0;
+    hd.forceNoFall = intParam(c, QStringLiteral("forcenofall"), 0) != 0;
+    const float none = std::nanf("");
+    for (int axis = 0; axis < 2; ++axis) {
+        hd.snap[axis] = floatParam(c, QStringLiteral("snap"), none, axis);
+        hd.minDist[axis] = floatParam(c, QStringLiteral("mindist"), none, axis);
+        hd.maxDist[axis] = floatParam(c, QStringLiteral("maxdist"), none, axis);
+    }
     hd.active = true;
     return hd;
 }

@@ -489,6 +489,141 @@ private Q_SLOTS:
         QCOMPARE(a.explods().at(0).drawPos().x, 40.f);
         QCOMPARE(a.explods().at(0).drawFacing(), -1);
     }
+
+    void width()
+    {
+        CharacterData walker;
+        walker.addStates("[Statedef 300]\n"
+                         "[State 300, w]\ntype = Width\ntrigger1 = 1\nedge = 20, 30\nplayer = 25\n"
+                         "[State 300, v]\ntype = VelSet\ntrigger1 = 1\nx = 5\n");
+        CharacterData still;
+        still.addStates("[Statedef 0]\n[State 0]\ntype = Null\ntrigger1 = 1\n");
+        Match match;
+        Character c(walker, &match);
+        Character other(still, &match);
+        other.setPos({-100, 0});
+        c.start(300);
+        other.start(0);
+        for (int i = 0; i < 200; ++i)
+            match.tick();
+        QCOMPARE(c.frontEdgeWidth(), 20.f);
+        QCOMPARE(c.backEdgeWidth(), 30.f);
+        QCOMPARE(c.frontWidth(), 25.f);
+        QCOMPARE(c.backWidth(), 0.f);
+        // The camera between both: the right side is 160 from it, less the screen's 15 and the 20.
+        QCOMPARE(float(c.pos().x()), match.cameraX() + 160 - 15 - 20);
+    }
+
+    void lifeAdd()
+    {
+        CharacterData data;
+        data.setConstant(QStringLiteral("data.defence"), 200);
+        data.addStates("[Statedef 0]\n"
+                       "[State 0, a]\ntype = LifeAdd\ntrigger1 = time = 0\nvalue = -100\n"
+                       "[State 0, b]\ntype = LifeAdd\ntrigger1 = time = 1\nvalue = -100\nabsolute = 1\n");
+        Character c(data);
+        c.start(0);
+        c.tick();
+        QCOMPARE(c.life(), 950);
+        c.tick();
+        QCOMPARE(c.life(), 850);
+    }
+
+    void afterImages()
+    {
+        CharacterData data;
+        data.addStates("[Statedef 0]\n"
+                       "[State 0, a]\ntype = AfterImageTime\ntrigger1 = time = 0\ntime = 20\n"
+                       "[State 0, b]\ntype = AfterImage\ntrigger1 = time = 1\ntime = 5\n"
+                       "[State 0, c]\ntype = AfterImageTime\ntrigger1 = time = 2\nvalue = 20\n");
+        Character c(data);
+        c.start(0);
+        c.tick();
+        QCOMPARE(c.draw().afterImage.time, 0);
+        c.tick();
+        QCOMPARE(c.draw().afterImage.palContrast, (std::array<int, 3>{120, 120, 220}));
+        c.tick();
+        QCOMPARE(c.draw().afterImage.time, 19); // 20, counted down once this tick
+    }
+
+    void moreEffects()
+    {
+        CharacterData data;
+        data.setAnimations("[Begin Action 501]\n501,0, 0,0, -1\n");
+        data.addStates("[Statedef 0]\n"
+                       "[State 0, dust]\ntype = MakeDust\ntrigger1 = 1\npos = 0, 0\nspacing = 3\n"
+                       "[State 0, anim]\ntype = GameMakeAnim\ntrigger1 = time = 0\nvalue = 7\nrandom = 40\n"
+                       "[State 0, snd]\ntype = PlaySnd\ntrigger1 = time = 0\nvalue = 1, 0\nvolumescale = 50\n"
+                       "[State 0, ex]\ntype = Explod\ntrigger1 = time = 0\nanim = 501\nid = 4\nangle = 30\n"
+                       "velocity = 2, 0\nremovetime = -1\n"
+                       "[State 0, ex2]\ntype = Explod\ntrigger1 = time = 0\nanim = 501\nid = 5\nremovetime = -1\n"
+                       "bindtime = 0\n"
+                       "[State 0, bind]\ntype = ExplodBindTime\ntrigger1 = time = 1\nid = 5\n"
+                       "[State 0, move]\ntype = VelSet\ntrigger1 = 1\nx = 3\n"
+                       "[State 0, zoom]\ntype = Zoom\ntrigger1 = time = 0\nscale = 2\n"
+                       "[State 0, remap]\ntype = RemapPal\ntrigger1 = time = 0\nsource = 1, 1\ndest = 1, 2\n"
+                       "[State 0, all]\ntype = RemapPal\ntrigger1 = time = 1\nsource = -1, 0\ndest = 1, 3\n"
+                       "[State 0, text]\ntype = DisplayToClipboard\ntrigger1 = time = 0\n"
+                       "text = \"%e %G %i \\\"q\\\" a\\\\b\"\nparams = 21.0, 0.5, 7\n");
+        Match match;
+        Character c(data, &match);
+        c.setPos({100, 0});
+        c.start(0);
+        match.tick();
+        QCOMPARE(match.spawns().size(), 2);
+        const SpawnEvent anim = match.spawns().at(1);
+        QCOMPARE(anim.anim, 7);
+        QVERIFY(std::abs(anim.pos.x - 100) <= 20 && std::abs(anim.pos.y) <= 20);
+        QCOMPARE(match.sounds().at(0).volumeScale, 50.f);
+        QCOMPARE(c.explods().at(0).angle, 30.f);
+        QCOMPARE(c.explods().at(0).vel.x, 2.f);
+        QCOMPARE(c.draw().remap.value({1, 1}), qMakePair(1, 2));
+        QCOMPARE(c.clipboard(), QStringLiteral("2.100000e+01 0.5 7 \"q\" a\\b"));
+        QVERIFY(c.messages().isEmpty());
+        match.tick();
+        QCOMPARE(match.spawns().size(), 0);
+        QCOMPARE(c.explods().at(1).drawPos().x, float(c.pos().x()));
+        QVERIFY(c.explods().at(1).drawPos().x > 103);
+        QCOMPARE(c.draw().remap.size(), 1);
+        QCOMPARE(c.draw().remap.value(DrawState::AllPalettes), qMakePair(1, 3));
+        match.tick();
+        QCOMPARE(match.spawns().size(), 0);
+        match.tick();
+        QCOMPARE(match.spawns().size(), 1);
+    }
+
+    void pauseCommandBuffer()
+    {
+        auto pressed = [](int bufferTime) {
+            CharacterData pauser;
+            pauser.addStates(QStringLiteral("[Statedef 300]\n"
+                                            "[State 300]\ntype = Pause\ntrigger1 = time = 0\ntime = 5\n"
+                                            "endcmdbuftime = %1\n")
+                                 .arg(bufferTime));
+            CharacterData frozen;
+            frozen.setCommands("[Defaults]\ncommand.buffer.time = 3\n[Command]\nname = \"x\"\ncommand = x\ntime = 1\n");
+            frozen.addStates("[Statedef 0]\n[State 0]\ntype = VarAdd\ntrigger1 = command = \"x\"\nv = 0\nvalue = 1\n");
+            Match match;
+            Character a(pauser, &match);
+            Character b(frozen, &match);
+            a.start(300);
+            b.start(0);
+            match.tick();
+            for (int i = 0; i < 4; ++i)
+                match.tick();
+            const bool frozenBefore = b.frozen();
+            InputState x;
+            x.x = true;
+            b.setInput(x);
+            match.tick();
+            const bool frozenLast = b.frozen();
+            b.setInput(InputState());
+            match.tick();
+            return frozenBefore && frozenLast && !b.frozen() ? b.var(0) : -1;
+        };
+        QCOMPARE(pressed(0), 0);
+        QVERIFY(pressed(2) > 0);
+    }
 };
 
 QTEST_GUILESS_MAIN(RuntimeEffectsTest)

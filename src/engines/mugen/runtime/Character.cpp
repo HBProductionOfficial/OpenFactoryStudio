@@ -35,6 +35,7 @@ Character::Character(const CharacterData& data, Match* match)
     , m_id(s_nextId++)
 {
     m_life = int(data.lifeMax());
+    m_juggle = int(data.constant(QStringLiteral("data.airjuggle"), 15));
     m_commands = data.commands();
     if (match)
         match->add(this);
@@ -86,6 +87,10 @@ void Character::resetForRound(Vec2 pos, int facing, bool firstRound)
     m_hitPauseTime = 0;
     m_ghv = GetHitVars();
     m_hitDef = HitDef();
+    m_hitDefAttr = false;
+    m_hitDefLanded = false;
+    m_stateJuggle = 0;
+    m_juggle = int(constant(QStringLiteral("data.airjuggle"), 15));
     m_gotHit = false;
     m_hitStateNo = -1;
     m_pendingP1State = -1;
@@ -227,8 +232,20 @@ void Character::enterState()
         const Param* p = def->param(QLatin1String(name));
         return p && p->isExpression() && eval(p).toBool();
     };
-    if (!keep("hitdefpersist"))
+    if (keep("facep2")) {
+        const Character* enemy = m_match ? m_match->enemy(this) : nullptr;
+        if (enemy && (enemy->m_pos.x - m_pos.x) * float(m_facing) < 0)
+            m_facing = -m_facing;
+    }
+    // Without juggle an attack carries on the points of the attack state before it that did not juggle.
+    if (const Param* juggle = def->param(QStringLiteral("juggle")); juggle && juggle->isExpression())
+        m_stateJuggle = std::max(0, eval(juggle).toInt());
+    else if (m_moveType != QLatin1Char('A'))
+        m_stateJuggle = 0;
+    if (!keep("hitdefpersist")) {
         m_hitDef.active = false;
+        m_hitDefAttr = false;
+    }
     if (!keep("movehitpersist")) {
         m_moveContactTime = 0;
         m_moveGuarded = false;
@@ -355,6 +372,7 @@ void Character::prepare()
     if (m_hitPauseTime <= 0) {
         m_push = isPlayerType();
         m_width[0] = m_width[1] = -1;
+        m_edge[0] = m_edge[1] = 0;
         m_screenBound = isPlayerType();
         m_moveCamera[0] = m_moveCamera[1] = isPlayerType();
         if (m_match && m_match->superPauseTime() > 0) {
@@ -430,12 +448,14 @@ void Character::runActions()
     if (!m_isHelper && m_hitPauseTime <= 0 && m_ctrl &&
         (m_stateNo == 0 || m_stateNo == 11 || m_stateNo == 20 || (m_stateNo == 52 && m_anim.animTime() == 0)))
         autoTurn();
-    if (!m_isHelper)
-        m_commands.update(m_input, m_facing);
-    m_wasHit = false;
     const Match* match = m_match;
     m_frozen =
         match && (match->superPauseTime() > 0 ? m_superMoveTime == 0 : match->pauseTime() > 0 && m_pauseMoveTime == 0);
+    // A frozen player's commands are buffered only in the pause's last endcmdbuftime ticks.
+    const int pauseLeft = !m_frozen ? 0 : match->superPauseTime() > 0 ? match->superPauseTime() : match->pauseTime();
+    if (!m_isHelper && (!m_frozen || pauseLeft <= match->endCmdBufTime()))
+        m_commands.update(m_input, m_facing);
+    m_wasHit = false;
     if (m_unhittableTime > 0)
         --m_unhittableTime;
     if (m_frozen) {
@@ -511,6 +531,7 @@ void Character::runActions()
         m_ghv.fall = false;
         m_ghv.fallCount = 0;
         m_superDefenceMul = 1;
+        m_juggle = int(constant(QStringLiteral("data.airjuggle"), 15));
     }
     if (m_ghv.hitShakeTime <= 0 && m_ghv.hitTime >= 0)
         --m_ghv.hitTime;

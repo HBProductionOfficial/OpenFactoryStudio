@@ -79,7 +79,10 @@ public:
     using TextSource = std::function<std::optional<QString>(const QString& path)>;
     void setTextSource(TextSource source) { m_source = std::move(source); }
     QString name() const { return m_name; }
+    void setName(const QString& name) { m_name = name; }
     QString displayName() const { return m_displayName; }
+    QString author() const { return m_author; }
+    void setAuthor(const QString& author) { m_author = author; }
     QString mugenVersion() const { return m_mugenVersion; }
     void setMugenVersion(const QString& version) { m_mugenVersion = version; }
     bool isMugen11() const;
@@ -118,6 +121,7 @@ private:
 
     QString m_name;
     QString m_displayName;
+    QString m_author;
     QString m_mugenVersion;
     int m_localCoordWidth = 320;
     QString m_spriteFile;
