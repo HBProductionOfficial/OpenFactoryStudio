@@ -89,10 +89,22 @@ QByteArray fileHash(const QString& path)
     return hash.result();
 }
 
+// A character also takes the other files its definition names (WinMUGEN palette files belong to no
+// editor).
 bool copyProjectFiles(const Project& project, const QString& dir, RunCopy& copy)
 {
     const QDir projectDir(project.directory());
-    for (const QString& path : ProjectSearch::projectFiles(project)) {
+    QStringList paths = ProjectSearch::projectFiles(project);
+    if (project.typeId() == MugenType::Character) {
+        DefFile def;
+        def.parse(projectFileText(project, project.filePath()));
+        for (const QString& value : def.values(QStringLiteral("Files"), QStringLiteral(".*"))) {
+            const QString path = QDir::cleanPath(projectDir.filePath(QDir::fromNativeSeparators(value)));
+            if (QFileInfo(path).isFile() && !paths.contains(path, Qt::CaseInsensitive))
+                paths << path;
+        }
+    }
+    for (const QString& path : std::as_const(paths)) {
         const QString relative = projectDir.relativeFilePath(path);
         if (relative.startsWith(QLatin1String("..")) || QDir::isAbsolutePath(relative))
             continue; // outside the project folder: the engine finds it in its own folders

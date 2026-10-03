@@ -45,7 +45,11 @@ private Q_SLOTS:
         writeFile(engine + "/chars/ofs_0/existing.txt", "someone else's folder");
         writeFile(project + "/hero.def",
                   "[Info]\r\nname = \"Hero\"\r\nmugenversion = 1.0\r\n[Files]\r\ncmd = hero.cmd\r\n"
-                  "cns = hero.cns\r\nsprite = hero.sff\r\nanim = hero.air\r\nstcommon = common1.cns\r\n");
+                  "cns = hero.cns\r\nsprite = hero.sff\r\nanim = hero.air\r\nstcommon = common1.cns\r\n"
+                  "pal1 = hero.act\r\npal2 = colors/alt.act\r\npal3 = missing.act\r\n");
+        // A WinMUGEN character needs its palette files, which belong to no editor.
+        writeFile(project + "/hero.act", QByteArray(768, '\1'));
+        writeFile(project + "/colors/alt.act", QByteArray(768, '\2'));
         writeFile(project + "/hero.cmd", "[Command]\r\nname = \"x\"\r\ncommand = x\r\n");
         writeFile(project + "/hero.cns", "[Data]\r\nlife = 1000\r\n");
         writeFile(project + "/hero.sff", QByteArray("ElecbyteSpr\0fake", 16));
@@ -70,6 +74,9 @@ private Q_SLOTS:
         QCOMPARE(readFile(project + "/hero.cns"), QByteArray("[Data]\r\nlife = 1000\r\n"));
         QVERIFY(cns->isModified());
         QVERIFY(!QFileInfo::exists(dir + "/common1.cns"));
+        QCOMPARE(readFile(dir + "/hero.act"), readFile(project + "/hero.act"));
+        QCOMPARE(readFile(dir + "/colors/alt.act"), readFile(project + "/colors/alt.act"));
+        QVERIFY(!QFileInfo::exists(dir + "/missing.act"));
 
         copy.remove();
         QVERIFY(!QFileInfo::exists(dir));
