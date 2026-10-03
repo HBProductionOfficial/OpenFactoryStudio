@@ -131,6 +131,11 @@ bool EmulatorSession::loadStage(const QString& path, const QString& engineDir, Q
     const IniSection* camera = ini.section(QStringLiteral("Camera"));
     const IniSection* players = ini.section(QStringLiteral("PlayerInfo"));
     m_stage.zoffset = number(info, "zoffset", 200);
+    const IniSection* about = ini.section(QStringLiteral("Info"));
+    m_stage.name = about ? unquote(about->value(QStringLiteral("name"))) : QString();
+    m_stage.displayName =
+        about ? unquote(about->value(QStringLiteral("displayname"), about->value(QStringLiteral("name")))) : QString();
+    m_stage.author = about ? unquote(about->value(QStringLiteral("author"))) : QString();
     m_stage.boundLeft = number(camera, "boundleft", -150);
     m_stage.boundRight = number(camera, "boundright", 150);
     m_stage.p1x = number(players, "p1startx", -70);
@@ -307,6 +312,19 @@ bool EmulatorSession::start(Project& project, const Options& options, QString* e
 
     m_match = std::make_unique<Match>(options.seed ? options.seed : 1);
     m_match->setBounds(m_stage.boundLeft - 160, m_stage.boundRight + 160);
+    m_match->setScreenHeight(240, m_stage.zoffset);
+    m_match->setStageInfo(QStringLiteral("info.name"), m_stage.name);
+    m_match->setStageInfo(QStringLiteral("info.displayname"), m_stage.displayName);
+    m_match->setStageInfo(QStringLiteral("info.author"), m_stage.author);
+    {
+        const IniText config = IniText::parse(readText(QDir(engineDir).filePath(QStringLiteral("data/mugen.cfg"))));
+        const IniSection* rules = config.section(QStringLiteral("Rules"));
+        Match::Rules values;
+        values.attackLifeToPowerMul = number(rules, "default.attack.lifetopowermul", values.attackLifeToPowerMul);
+        values.getHitLifeToPowerMul = number(rules, "default.gethit.lifetopowermul", values.getHitLifeToPowerMul);
+        values.superTargetDefenceMul = number(rules, "super.targetdefencemul", values.superTargetDefenceMul);
+        m_match->setRules(values);
+    }
     if (m_fightFx)
         m_match->setFightFx(m_fightFx.get());
     p1.character = std::make_unique<Character>(*p1.data, m_match.get());
@@ -403,7 +421,14 @@ const Formats::Palette* EmulatorSession::paletteOf(const Character& character, i
         id = {entry.palette->palette.group, entry.palette->palette.number};
     else
         return nullptr;
-    const QPair<int, int> shown = character.draw().remap.value(id, id);
+    QPair<int, int> shown = id;
+    for (const Character* c = &character; c; c = c->ownPal() ? nullptr : c->parent()) {
+        const auto& remap = c->draw().remap;
+        if (remap.contains(id) || remap.contains(DrawState::AllPalettes)) {
+            shown = remap.value(id, remap.value(DrawState::AllPalettes));
+            break;
+        }
+    }
     if (shown == id && !act)
         return nullptr;
     if (v1 && shown.first == 1 && shown.second >= 1 && shown.second <= 12 && p->acts[std::size_t(shown.second - 1)])
@@ -467,8 +492,11 @@ void EmulatorSession::playSounds(AudioMixer& mixer)
         const float pan = stereoPan(e.playerId, e.pan, e.absolutePan);
         switch (e.kind) {
         case SoundEvent::Kind::Play:
+            // volume: 128 makes a sound a quarter louder and -128 a quarter softer. volumescale is a percentage
+            // of that.
             if (auto s = sound(e.playerId, e.common, e.group, e.index))
-                mixer.play(s, e.playerId, e.channel, std::max(0.0f, 1.0f + float(e.volume) * 0.25f / 128.0f), pan,
+                mixer.play(s, e.playerId, e.channel,
+                           std::max(0.0f, 1.0f + float(e.volume) * 0.25f / 128.0f) * e.volumeScale / 100.0f, pan,
                            e.loop, e.lowPriority, std::clamp(e.freqMul, 0.01f, 5.0f));
             break;
         case SoundEvent::Kind::Stop:

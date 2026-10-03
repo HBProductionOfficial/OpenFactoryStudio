@@ -293,7 +293,7 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
     stageFx << allFx;
 
     auto drawStage = [&](int layer) {
-        if (!stage.simulator)
+        if (!stage.simulator || match.isAsserted(layer == 0 ? QStringLiteral("nobg") : QStringLiteral("nofg")))
             return;
         BgView view;
         view.screen = QSizeF(Screen);
@@ -371,6 +371,9 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
         const DrawState& draw = c->draw();
         QList<ColorFx> ownFx;
         addFx(ownFx, draw.palFx);
+        // A helper without ownpal shares its parent's palette, and its PalFX.
+        for (const Character* up = c; !up->ownPal() && up->parent(); up = up->parent())
+            addFx(ownFx, up->parent()->draw().palFx);
         ownFx << allFx;
         auto paletteOf = [&session, c](const AirAnimation* animation, int frame) -> const Formats::Palette* {
             if (!animation || frame < 0 || frame >= animation->frames.size())
@@ -433,6 +436,7 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
                               look.facing = e.drawFacing();
                               look.vfacing = e.vFacing;
                               look.scale = QPointF(e.scale.x, e.scale.y);
+                              look.angle = e.angle;
                               const int frame = e.anim.isEmpty() ? -1 : e.anim.frame();
                               if (!e.common && animation && frame >= 0 && frame < animation->frames.size()) {
                                   const AirFrame& f = animation->frames[frame];
@@ -446,7 +450,8 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
         }
         for (const Projectile& pr : c->projectiles()) {
             const SpriteDocument* projSprites = pr.shown.common ? session.fightFxSprites() : sprites;
-            items << Item{pr.sprPriority, order++, [&, c, pr, projSprites, ownFx] {
+            const QList<ColorFx> projFx = pr.ownPal ? allFx : ownFx;
+            items << Item{pr.sprPriority, order++, [&, c, pr, projSprites, projFx] {
                               const AirAnimation* animation =
                                   pr.animData ? pr.animData->animation(pr.shown.number) : nullptr;
                               Look look;
@@ -457,7 +462,7 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
                                   const AirFrame& f = animation->frames[frame];
                                   look.palette = session.paletteOf(*c, f.group, f.number);
                               }
-                              look.fx = ownFx;
+                              look.fx = projFx;
                               drawFrame(projSprites, animation, frame, toScreen(pr.pos), look);
                           }};
         }
@@ -483,8 +488,12 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
     if (color.time != 0 && !color.under)
         p.fillRect(QRect(QPoint(), Screen), fill);
 
+    // The fight screen ignores the shake and the zoom, but AllPalFX colours it too.
     canvas.setBase(QTransform());
-    for (const FightScreen::Item& item : session.fightScreen().items(match, session.sides())) {
+    const QList<FightScreen::Item> screenItems = match.isAsserted(QStringLiteral("nobardisplay"))
+                                                     ? QList<FightScreen::Item>()
+                                                     : session.fightScreen().items(match, session.sides());
+    for (const FightScreen::Item& item : screenItems) {
         if (item.font) {
             p.save();
             if (item.clip)

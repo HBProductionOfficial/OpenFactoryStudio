@@ -78,6 +78,21 @@ struct EngineFolder
     }
 };
 
+void writeStageSprite(const QString& path, QRgb color)
+{
+    SpriteDocument sprites;
+    Formats::Palette colors(256);
+    colors[1] = Formats::rgb(std::uint8_t(qRed(color)), std::uint8_t(qGreen(color)), std::uint8_t(qBlue(color)));
+    sprites.palettes() << SpriteDocument::makePalette(1, 1, colors);
+    SpriteEntry entry;
+    entry.header.axisX = 160;
+    entry.pixels =
+        SpriteDocument::makePixels(Formats::Image::indexed(320, 240, std::vector<std::uint8_t>(320 * 240, 1), colors));
+    entry.palette = sprites.palettes().first();
+    sprites.sprites() << entry;
+    QVERIFY(sprites.toSff().save(path.toStdWString()).ok());
+}
+
 // Sounds as (group, number, level), each holding one constant level.
 void writeSounds(const QString& path, const QList<std::tuple<int, int, double>>& sounds)
 {
@@ -309,18 +324,7 @@ private Q_SLOTS:
                   "[PlayerInfo]\np1startx = -50\np2startx = 50\n[BGdef]\nspr = stage0.sff\n"
                   "[BG back]\ntype = normal\nspriteno = 0, 0\nstart = 0, 0\n");
         auto writeStage = [&engine](QRgb color) {
-            SpriteDocument sprites;
-            Formats::Palette colors(256);
-            colors[1] =
-                Formats::rgb(std::uint8_t(qRed(color)), std::uint8_t(qGreen(color)), std::uint8_t(qBlue(color)));
-            sprites.palettes() << SpriteDocument::makePalette(1, 1, colors);
-            SpriteEntry entry;
-            entry.header.axisX = 160;
-            entry.pixels = SpriteDocument::makePixels(
-                Formats::Image::indexed(320, 240, std::vector<std::uint8_t>(320 * 240, 1), colors));
-            entry.palette = sprites.palettes().first();
-            sprites.sprites() << entry;
-            QVERIFY(sprites.toSff().save(engine.dir.filePath("stages/stage0.sff").toStdWString()).ok());
+            writeStageSprite(engine.dir.filePath("stages/stage0.sff"), color);
         };
         writeStage(qRgb(255, 0, 0));
         MugenEngine mugen;
@@ -337,6 +341,37 @@ private Q_SLOTS:
         QVERIFY2(session.start(*project, options, &error), qPrintable(error));
         renderer.clearCache();
         QCOMPARE(QColor(renderer.render(session).pixel(160, 20)), QColor(0, 0, 255));
+    }
+
+    void screenFlags()
+    {
+        EngineFolder engine;
+        writeFile(engine.dir.filePath("stages/stage0.def"),
+                  "[Info]\nname = \"Red Room\"\n[StageInfo]\nzoffset = 200\n[Camera]\nboundleft = -100\n"
+                  "boundright = 100\n[PlayerInfo]\np1startx = -50\np2startx = 50\n[BGdef]\nspr = stage0.sff\n"
+                  "[BG back]\ntype = normal\nspriteno = 0, 0\nstart = 0, 0\n");
+        writeStageSprite(engine.dir.filePath("stages/stage0.sff"), qRgb(255, 0, 0));
+        writeFile(engine.dir.filePath("chars/test/test.cmd"),
+                  "[Statedef -1]\n"
+                  "[State -1]\ntype = AssertSpecial\ntrigger1 = var(10) = 1\nflag = noBG\n"
+                  "[State -1]\ntype = VarSet\ntrigger1 = StageVar(info.name) = \"Red Room\"\nv = 11\nvalue = 1\n");
+        MugenEngine mugen;
+        std::unique_ptr<Project> project(mugen.openProject(engine.def, nullptr));
+        QVERIFY(project);
+        EmulatorSession session;
+        EmulatorSession::Options options;
+        options.engineDir = engine.dir.path();
+        options.training = true;
+        QString error;
+        QVERIFY2(session.start(*project, options, &error), qPrintable(error));
+        session.tick({}, {});
+        Runtime::Character& p1 = *session.players()[0].character;
+        QCOMPARE(p1.var(11), 1);
+        EmulatorRenderer renderer;
+        QCOMPARE(QColor(renderer.render(session).pixel(160, 20)), QColor(255, 0, 0));
+        p1.setVar(10, 1);
+        session.tick({}, {});
+        QCOMPARE(QColor(renderer.render(session).pixel(160, 20)), QColor(0, 0, 0));
     }
 
     void unsavedEdits()
@@ -507,7 +542,8 @@ private Q_SLOTS:
                   "value = gametime\n"
                   "[State -1]\ntype = LifeAdd\ntrigger1 = roundstate = 2 && pos x > 0 && life = 1000\nvalue = -500\n"
                   "[State -1]\ntype = LifeAdd\ntrigger1 = pos x > 0 && life = 500 && gametime >= var(0) + 20\n"
-                  "value = -500\n");
+                  "value = -500\n"
+                  "[State -1]\ntype = AssertSpecial\ntrigger1 = var(12) = 1\nflag = nokoslow\n");
         MugenEngine mugen;
         std::unique_ptr<Project> project(mugen.openProject(engine.def, nullptr));
         QVERIFY(project);
@@ -573,6 +609,12 @@ private Q_SLOTS:
         QCOMPARE(session.match().roundEnd(), Runtime::RoundEnd::KO);
         QCOMPARE(session.match().overClock(), 10);
         QCOMPARE(screen.gameSpeed(session.match()), 0.25f);
+        session.players()[0].character->setVar(12, 1);
+        session.tick({}, {});
+        QCOMPARE(screen.gameSpeed(session.match()), 1.f);
+        session.players()[0].character->setVar(12, 0);
+        session.tick({}, {});
+        QVERIFY(screen.gameSpeed(session.match()) < 0.5f);
         while (session.match().overClock() < 59)
             session.tick({}, {});
         QVERIFY(screen.gameSpeed(session.match()) > 0.9f);

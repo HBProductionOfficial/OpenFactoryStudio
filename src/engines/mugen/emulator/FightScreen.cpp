@@ -492,7 +492,8 @@ bool FightScreen::over(const Element& e) const
 float FightScreen::gameSpeed(const Match& match) const
 {
     const int ended = match.overClock();
-    if (!m_loaded || ended < 0 || ended >= m_slowTime || match.roundEnd() == RoundEnd::TimeOver)
+    if (!m_loaded || ended < 0 || ended >= m_slowTime || match.roundEnd() == RoundEnd::TimeOver ||
+        match.isAsserted(QStringLiteral("nokoslow")))
         return 1;
     const int left = m_slowTime - ended;
     const float fade = m_slowTime * 0.75f;

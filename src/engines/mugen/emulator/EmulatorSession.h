@@ -76,6 +76,9 @@ public:
         std::shared_ptr<const SpriteDocument> sprites;
         AirDocument animations;
         float zoffset = 200;
+        QString name;
+        QString displayName;
+        QString author;
         float boundLeft = -150;
         float boundRight = 150;
         float p1x = -70;
