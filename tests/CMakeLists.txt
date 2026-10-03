@@ -220,7 +220,8 @@ ofs_add_test(NAME core_tools GUI
     SOURCES core/ToolsTest.cpp
     LIBS OFS::core)
 
-ofs_add_test(NAME gui_mainwindow GUI LABELS gui
+# A debug MSVC build needs about nine minutes for this one.
+ofs_add_test(NAME gui_mainwindow GUI LABELS gui TIMEOUT 1200
     SOURCES gui/MainWindowTest.cpp
     LIBS OFS::shell)
 
@@ -435,5 +436,9 @@ foreach(name IN ITEMS gui_mainwindow gui_options gui_breakpoint_dialog gui_scrip
     get_test_property(${name} ENVIRONMENT_MODIFICATION _ofs_envmod)
     if(_ofs_envmod)
         set_tests_properties(${name}_hidpi PROPERTIES ENVIRONMENT_MODIFICATION "${_ofs_envmod}")
+    endif()
+    get_test_property(${name} TIMEOUT _ofs_timeout)
+    if(_ofs_timeout)
+        set_tests_properties(${name}_hidpi PROPERTIES TIMEOUT "${_ofs_timeout}")
     endif()
 endforeach()
