@@ -11,6 +11,7 @@
 #include "core/editors/EditorInfo.h"
 #include "core/editors/Organize.h"
 #include "core/engine/Engine.h"
+#include "core/engine/EngineDebugSession.h"
 #include "core/engine/EngineWorkspace.h"
 #include "core/preset/ControlRegistry.h"
 #include "core/preset/PresetBuilder.h"
@@ -173,6 +174,16 @@ ProjectView::ProjectView(Project* project, AppContext& context, QWidget* parent)
     layout->addLayout(m_workspaceLayout, 1);
     layout->addWidget(m_right);
 
+    m_engineSession = engine()->createDebugSession(*m_project, this);
+    if (m_engineSession) {
+        connect(m_engineSession, &EngineDebugSession::debugStateChanged, this, [this] {
+            refreshDebugging();
+            Q_EMIT debugStateChanged();
+        });
+        connect(m_engineSession, &EngineDebugSession::debugLineChanged, this, &ProjectView::showDebugLine);
+        connect(m_engineSession, &EngineDebugSession::debugVariablesChanged, this, &ProjectView::debugVariablesChanged);
+    }
+
     for (const QString& id : m_project->editorIds())
         createEditor(engine()->editor(id));
     fillProjectExplorer();
@@ -185,6 +196,7 @@ ProjectView::ProjectView(Project* project, AppContext& context, QWidget* parent)
 
 ProjectView::~ProjectView()
 {
+    delete m_engineSession;
     // Worker thread analyses read the project, so let them finish first.
     for (const QPointer<QFutureWatcher<Analysis>>& watcher : std::as_const(m_analyses)) {
         if (watcher)
@@ -294,8 +306,8 @@ void ProjectView::createEditor(const EditorInfo& info)
                         Q_EMIT currentFileChanged();
                 });
                 workspace->setBreakpoints(m_breakpoints);
-                connect(workspace, &EngineWorkspace::debugStateChanged, this, [this, workspace] {
-                    setDebugging(workspace->debugState() != Debug::SessionState::None);
+                connect(workspace, &EngineWorkspace::debugStateChanged, this, [this] {
+                    refreshDebugging();
                     Q_EMIT debugStateChanged();
                 });
                 connect(workspace, &EngineWorkspace::debugLineChanged, this, &ProjectView::showDebugLine);
@@ -1139,6 +1151,8 @@ void ProjectView::setBreakpoints(Debug::BreakpointList* breakpoints)
         if (workspace)
             workspace->setBreakpoints(breakpoints);
     }
+    if (m_engineSession)
+        m_engineSession->setBreakpoints(breakpoints);
     if (!breakpoints)
         return;
     connect(breakpoints, &Debug::BreakpointList::changed, this, [this] {
@@ -1181,10 +1195,24 @@ QString ProjectView::debugEditor() const
     return QString();
 }
 
+Debug::Target* ProjectView::debugTarget() const
+{
+    if (m_engineSession && m_engineSession->debugState() != Debug::SessionState::None)
+        return m_engineSession.data();
+    return debugWorkspace();
+}
+
 QWidget* ProjectView::debugPanel() const
 {
     QScrollArea* panel = m_extraPanels.value(QStringLiteral("debug"));
     return panel ? panel->widget() : nullptr;
+}
+
+void ProjectView::refreshDebugging()
+{
+    const EngineWorkspace* workspace = debugWorkspace();
+    setDebugging((m_engineSession && m_engineSession->debugState() != Debug::SessionState::None) ||
+                 (workspace && workspace->debugState() != Debug::SessionState::None));
 }
 
 void ProjectView::setDebugging(bool debugging)
@@ -1384,7 +1412,7 @@ void ProjectView::applyPreset(const Preset::Model& model)
     const auto organizer = model.extraPanels.constFind(QStringLiteral("organizer"));
     if (organizer != model.extraPanels.cend() && organizer->layout)
         builder.buildPanel(*organizer->layout, m_extraPanels.value(QStringLiteral("organizer"))->widget(), 22);
-    if (!debugEditor().isEmpty() && !m_extraPanels.contains(QStringLiteral("debug"))) {
+    if ((!debugEditor().isEmpty() || m_engineSession) && !m_extraPanels.contains(QStringLiteral("debug"))) {
         QScrollArea* debug = makeScrollArea(m_rightStack);
         debug->setObjectName(QStringLiteral("extra_debug"));
         m_rightStack->addWidget(debug);

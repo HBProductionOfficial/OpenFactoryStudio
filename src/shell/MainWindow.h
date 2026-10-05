@@ -36,6 +36,7 @@ class CodeEditor;
 class MenuBuilder;
 class ProjectFile;
 class ProjectView;
+struct RunConfiguration;
 class QuickFindBar;
 class StatusBar;
 class TaskbarTabs;
@@ -132,6 +133,7 @@ private:
 public:
     void runInEngine();
     bool isEngineRunning() const { return m_engineProcess != nullptr; }
+    void startOnEngine();
 
     Script::Environment scriptEnvironment();
     // Number 0 makes a new breakpoint.
@@ -151,6 +153,9 @@ public:
 
 private:
     void finishEngineRun(QProcess* process);
+    // Copies the project into the engine's folder (saving it first when it runs in place) and builds the command line.
+    bool prepareLaunch(ProjectView* view, const RunConfiguration& run, EngineLaunch* launch, QString* error);
+    void showEngineOutput(QString logPath, const QString& printed, const QDateTime& started);
     void runEngineTool(Engine* engine, const QString& actionId);
 
     AppContext& m_context;

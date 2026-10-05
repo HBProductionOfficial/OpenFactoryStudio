@@ -24,6 +24,7 @@ class QWidget;
 namespace OFS {
 
 class AppContext;
+class EngineDebugSession;
 class EngineWorkspace;
 
 class AppContext;
@@ -57,6 +58,15 @@ struct OFS_CORE_EXPORT RunCopy
 
     bool isValid() const { return error.isEmpty() && !name.isEmpty(); }
     void remove() const;
+};
+
+// Command line that starts an engine on a run copy, with %0 replaced by the copy's name.
+struct EngineLaunch
+{
+    QString program;
+    QStringList arguments;
+    QString workingDir;
+    RunCopy copy;
 };
 
 // What an engine's own tool dialogs (like the Throw creator) work on.
@@ -126,6 +136,12 @@ public:
         Q_UNUSED(editorId)
         Q_UNUSED(project)
         Q_UNUSED(context)
+        Q_UNUSED(parent)
+        return nullptr;
+    }
+    virtual EngineDebugSession* createDebugSession(Project& project, QObject* parent)
+    {
+        Q_UNUSED(project)
         Q_UNUSED(parent)
         return nullptr;
     }

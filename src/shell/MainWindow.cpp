@@ -18,6 +18,7 @@
 #include "core/code/TextSearch.h"
 #include "core/debug/Breakpoints.h"
 #include "core/engine/Engine.h"
+#include "core/engine/EngineDebugSession.h"
 #include "core/engine/EngineManager.h"
 #include "core/engine/EngineWorkspace.h"
 #include "core/engine/RunConfiguration.h"
@@ -561,12 +562,13 @@ void MainWindow::connectActions()
         if (EngineWorkspace* debugger = view->debugWorkspace())
             debugger->perform(QStringLiteral("debug_start_emul"));
     });
+    on("debug_start_engine", [this] { startOnEngine(); });
     for (const char* id : {"debug_interrupt", "debug_continue", "debug_start", "debug_stop", "debug_restart",
                            "debug_step_over", "debug_step_into", "debug_step_out", "debug_step_frame"}) {
         const QString action = QString::fromLatin1(id);
         on(id, [this, action] {
             ProjectView* view = currentProjectView();
-            if (EngineWorkspace* debugger = view ? view->debugWorkspace() : nullptr)
+            if (Debug::Target* debugger = view ? view->debugTarget() : nullptr)
                 debugger->perform(action);
         });
     }
@@ -1332,32 +1334,21 @@ void MainWindow::runInEngine()
         QMessageBox::critical(this, tr("Error!"), tr("Executable not found!"));
         return;
     }
-    const QString engineDir = QFileInfo(run.executable).absolutePath();
-    RunCopy copy = engine->prepareRun(*view->project(), engineDir);
-    if (!copy.isValid()) {
-        QMessageBox::warning(this, tr("Run in engine"), copy.error);
+    EngineLaunch launch;
+    QString error;
+    if (!prepareLaunch(view, run, &launch, &error)) {
+        QMessageBox::warning(this, tr("Run in engine"), error);
         return;
     }
-    // Run in place: the engine reads the project's own files, so they are saved first.
-    if (copy.inPlace) {
-        waitForTasks();
-        QString error;
-        if (!view->project()->save(&error)) {
-            QMessageBox::warning(this, tr("Run in engine"), error);
-            return;
-        }
-    }
-    QString parameters = run.parameters;
-    parameters.replace(QStringLiteral("%0"), copy.name);
 
     auto* process = new QProcess(this);
-    process->setProgram(run.executable);
-    process->setArguments(QProcess::splitCommand(parameters));
-    process->setWorkingDirectory(engineDir);
+    process->setProgram(launch.program);
+    process->setArguments(launch.arguments);
+    process->setWorkingDirectory(launch.workingDir);
     process->setProcessChannelMode(QProcess::MergedChannels);
     m_engineProcess = process;
-    m_runCopy = copy;
-    m_runLog = engine->runLogFile(engineDir);
+    m_runCopy = launch.copy;
+    m_runLog = engine->runLogFile(launch.workingDir);
     m_runStarted = QDateTime::currentDateTime().addSecs(-1);
     m_runOutput.clear();
     connect(process, &QProcess::readyRead, this,
@@ -1371,6 +1362,71 @@ void MainWindow::runInEngine()
         QMessageBox::critical(this, tr("Error!"), message);
     });
     process->start();
+}
+
+bool MainWindow::prepareLaunch(ProjectView* view, const RunConfiguration& run, EngineLaunch* launch, QString* error)
+{
+    const QString engineDir = QFileInfo(run.executable).absolutePath();
+    RunCopy copy = view->engine()->prepareRun(*view->project(), engineDir);
+    if (!copy.isValid()) {
+        *error = copy.error;
+        return false;
+    }
+    // Run in place: the engine reads the project's own files, so they are saved first.
+    if (copy.inPlace) {
+        waitForTasks();
+        if (!view->project()->save(error))
+            return false;
+    }
+    QString parameters = run.parameters;
+    parameters.replace(QStringLiteral("%0"), copy.name);
+    launch->program = run.executable;
+    launch->arguments = QProcess::splitCommand(parameters);
+    launch->workingDir = engineDir;
+    launch->copy = copy;
+    return true;
+}
+
+void MainWindow::startOnEngine()
+{
+    ProjectView* view = currentProjectView();
+    EngineDebugSession* session = view ? view->engineDebugSession() : nullptr;
+    const Debug::Target* running = view ? view->debugTarget() : nullptr;
+    if (!session || (running && running->debugState() != Debug::SessionState::None))
+        return;
+    Engine* engine = view->engine();
+    const QList<RunConfiguration> runs = RunConfiguration::load(m_context.engineConfig(engine->name()));
+    if (runs.isEmpty()) {
+        QMessageBox::warning(this, tr("Warning!"),
+                             tr("Oops, you need to add an engine first. Do it in Tools / Options."));
+        return;
+    }
+    int index = 0;
+    const QString lastKey = QStringLiteral("last_") + engine->displayName();
+    if (runs.size() > 1) {
+        RunChooserDialog chooser(runs, m_context.config().intValue(lastKey, 0), this);
+        if (chooser.exec() != QDialog::Accepted)
+            return;
+        index = chooser.selectedIndex();
+        m_context.config().setValue(lastKey, index);
+    }
+    const RunConfiguration run = runs.at(index);
+    if (run.executable.trimmed().isEmpty() || !QFileInfo(run.executable).isFile()) {
+        QMessageBox::critical(this, tr("Error!"), tr("Executable not found!"));
+        return;
+    }
+    if (!session->canDebug(run)) {
+        QMessageBox::warning(this, tr("Start on Engine"), tr("The debugger does not support this engine."));
+        return;
+    }
+    QPointer<ProjectView> target = view;
+    QString error;
+    const bool started =
+        session->start([this, target, run](EngineLaunch* launch,
+                                           QString* why) { return target && prepareLaunch(target, run, launch, why); },
+                       &error);
+    if (!started && !error.isEmpty())
+        QMessageBox::warning(this, tr("Start on Engine"), error);
 }
 
 void MainWindow::runEngineTool(Engine* engine, const QString& actionId)
@@ -1414,22 +1470,26 @@ void MainWindow::finishEngineRun(QProcess* process)
     if (process != m_engineProcess)
         return;
     m_runOutput += QString::fromLocal8Bit(process->readAll());
-    QString logPath = m_runLog;
-    if (QFileInfo(logPath).isDir()) {
-        const QFileInfoList files = QDir(logPath).entryInfoList(QDir::Files, QDir::Time);
-        logPath = files.isEmpty() ? QString() : files.first().absoluteFilePath();
-    }
-    QString text = m_runOutput;
-    QFile log(logPath);
-    if (!logPath.isEmpty() && QFileInfo(logPath).lastModified() >= m_runStarted && log.open(QIODevice::ReadOnly))
-        text = QString::fromLocal8Bit(log.readAll());
-    text.replace(QLatin1String("\r\n"), QLatin1String("\n"));
-    if (!text.isEmpty())
-        m_dock->engineOutput()->setPlainText(text);
+    showEngineOutput(m_runLog, m_runOutput, m_runStarted);
     m_runCopy.remove();
     m_runCopy = RunCopy();
     m_engineProcess = nullptr;
     process->deleteLater();
+}
+
+void MainWindow::showEngineOutput(QString logPath, const QString& printed, const QDateTime& started)
+{
+    if (QFileInfo(logPath).isDir()) {
+        const QFileInfoList files = QDir(logPath).entryInfoList(QDir::Files, QDir::Time);
+        logPath = files.isEmpty() ? QString() : files.first().absoluteFilePath();
+    }
+    QString text = printed;
+    QFile log(logPath);
+    if (!logPath.isEmpty() && QFileInfo(logPath).lastModified() >= started && log.open(QIODevice::ReadOnly))
+        text = QString::fromLocal8Bit(log.readAll());
+    text.replace(QLatin1String("\r\n"), QLatin1String("\n"));
+    if (!text.isEmpty())
+        m_dock->engineOutput()->setPlainText(text);
 }
 
 void MainWindow::refreshIssues()
@@ -2112,7 +2172,7 @@ Script::Environment MainWindow::scriptEnvironment()
 void MainWindow::refreshDebugViews()
 {
     ProjectView* view = currentProjectView();
-    EngineWorkspace* debugger = view ? view->debugWorkspace() : nullptr;
+    Debug::Target* debugger = view ? view->debugTarget() : nullptr;
     const Debug::SessionState session = debugger ? debugger->debugState() : Debug::SessionState::None;
     const bool on = session != Debug::SessionState::None;
     QWidget* panel = view ? view->debugPanel() : nullptr;
@@ -2256,6 +2316,14 @@ void MainWindow::addProjectView(Project* project, const QString& editorId)
         if (view == currentProjectView())
             refreshDebugViews();
     });
+    if (EngineDebugSession* session = view->engineDebugSession()) {
+        connect(session, &EngineDebugSession::finished, this, [this, view, session] {
+            showEngineOutput(view->engine()->runLogFile(session->launch().workingDir), session->output(),
+                             session->startTime());
+        });
+        connect(session, &EngineDebugSession::failed, this,
+                [this](const QString& message) { QMessageBox::warning(this, tr("Start on Engine"), message); });
+    }
     view->setCodeMenu(m_menus->submenu(QStringLiteral("menu_code")));
     connect(view, &ProjectView::issuesChanged, this, [this] {
         refreshIssues();
@@ -2523,18 +2591,20 @@ void MainWindow::refreshActionStates()
                "file_close_others",  "file_backup",       "file_load_backup", "file_run",
                "edit_undo",          "edit_redo",         "edit_cut",         "edit_copy",
                "edit_paste",         "edit_find_replace", "view_issues",      "view_advanced_search",
-               "view_engine_output", "view_debugger",     "view_watch",       "debug_start_engine",
-               "debug_start_emul",   "debug_breakpoint",  "editor_new",       "editor_open",
-               "editor_save",        "editor_saveas",     "tools_export_html"},
+               "view_engine_output", "view_debugger",     "view_watch",       "debug_start_emul",
+               "debug_breakpoint",   "editor_new",        "editor_open",      "editor_save",
+               "editor_saveas",      "tools_export_html"},
               project);
-    EngineWorkspace* debugger = view ? view->debugWorkspace() : nullptr;
+    // Debug actions follow the engine's session, else the Emulator's. Stepping needs a session that sees its lines.
+    Debug::Target* debugger = view ? view->debugTarget() : nullptr;
     const Debug::SessionState session = debugger ? debugger->debugState() : Debug::SessionState::None;
     const bool interrupted = session == Debug::SessionState::Interrupted;
-    enable(QStringLiteral("debug_start_emul"), debugger && session == Debug::SessionState::None);
+    enable(QStringLiteral("debug_start_emul"), view && view->debugWorkspace() && session == Debug::SessionState::None);
+    enable(QStringLiteral("debug_start_engine"),
+           view && view->engineDebugSession() && session == Debug::SessionState::None);
     enable(QStringLiteral("debug_interrupt"), session == Debug::SessionState::Running);
-    enableAll(
-        {"debug_continue", "debug_start", "debug_step_over", "debug_step_into", "debug_step_out", "debug_step_frame"},
-        interrupted);
+    enableAll({"debug_continue", "debug_start", "debug_step_frame"}, interrupted);
+    enableAll({"debug_step_over", "debug_step_into", "debug_step_out"}, interrupted && debugger->stepsByLine());
     enableAll({"debug_stop", "debug_restart", "debug_data_breakpoint", "debug_data_watch1", "debug_data_watch2"},
               session != Debug::SessionState::None);
     const Project* current = view ? view->project() : nullptr;

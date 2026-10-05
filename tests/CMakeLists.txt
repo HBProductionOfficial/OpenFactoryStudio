@@ -208,6 +208,12 @@ ofs_add_test(NAME core_breakpoints
     SOURCES core/BreakpointsTest.cpp
     LIBS OFS::core)
 
+ofs_add_test(NAME mugen_external_debugger
+    SOURCES mugen/ExternalDebuggerTest.cpp stubs/FakeEngineMemory.h
+    LIBS OFS::mugen)
+target_include_directories(test_mugen_external_debugger PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_definitions(test_mugen_external_debugger PRIVATE OFS_SOURCE_DATA_DIR="${PROJECT_SOURCE_DIR}/data")
+
 ofs_add_test(NAME core_script_folders
     SOURCES core/ScriptFoldersTest.cpp
     LIBS OFS::core)
@@ -222,8 +228,9 @@ ofs_add_test(NAME core_tools GUI
 
 # A debug MSVC build needs about nine minutes for this one.
 ofs_add_test(NAME gui_mainwindow GUI LABELS gui TIMEOUT 1200
-    SOURCES gui/MainWindowTest.cpp
-    LIBS OFS::shell)
+    SOURCES gui/MainWindowTest.cpp stubs/FakeEngineMemory.h
+    LIBS OFS::shell OFS::mugen)
+target_include_directories(test_gui_mainwindow PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 ofs_add_test(NAME gui_code_editor_parity GUI LABELS gui
     SOURCES gui/CodeEditorParityTest.cpp

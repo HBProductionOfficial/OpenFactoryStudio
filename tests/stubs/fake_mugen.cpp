@@ -32,6 +32,8 @@ int main(int argc, char** argv)
             log << "Motif definition: " << (fs::exists(system) ? "found" : "missing") << '\n';
         }
     }
+    // Flush now so an engine stopped while it waits (Debug > Stop) has still written this much.
+    log.flush();
 #if defined(_MSC_VER)
     char* wait = nullptr;
     std::size_t length = 0;

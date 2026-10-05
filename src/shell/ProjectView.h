@@ -3,6 +3,7 @@
 #include "core/code/CodeOutline.h"
 #include "core/code/VariableUsage.h"
 #include "core/editors/EditorInfo.h"
+#include "core/engine/EngineDebugSession.h"
 #include "core/preset/PresetModel.h"
 #include "core/syntax/Issue.h"
 
@@ -27,7 +28,8 @@ class EngineWorkspace;
 
 namespace Debug {
 class BreakpointList;
-}
+class Target;
+} // namespace Debug
 
 class AppContext;
 class BottomDock;
@@ -78,6 +80,9 @@ public:
     EngineWorkspace* currentWorkspace() const;
     EngineWorkspace* debugWorkspace() const;
     QString debugEditor() const;
+    EngineDebugSession* engineDebugSession() const { return m_engineSession; }
+    // Where the debug actions go: the engine's session while it runs, else the Emulator.
+    Debug::Target* debugTarget() const;
     QWidget* debugPanel() const;
     bool isDebugging() const { return m_debugging; }
     QList<CodePage*> codePages() const;
@@ -133,6 +138,7 @@ private:
     void fileRenamed(QWidget* page, const QString& oldPath, const QString& newPath);
     void configureCodeEditor(CodeEditor* editor, const QString& editorId);
     void applyWorkspaceColors(QWidget* page);
+    void refreshDebugging();
     void setDebugging(bool debugging);
     void showDebugLine(const QString& file, int line);
     struct Analysis
@@ -159,6 +165,7 @@ private:
     Project* m_project;
     AppContext& m_context;
     QPointer<Debug::BreakpointList> m_breakpoints;
+    QPointer<EngineDebugSession> m_engineSession;
     QString m_currentEditor;
     bool m_rightPanelVisible = true;
     bool m_explorerForSprites = false;

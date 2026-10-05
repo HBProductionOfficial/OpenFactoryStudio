@@ -2,9 +2,12 @@
 #include "GuiTestSupport.h"
 #include "core/actions/ActionRegistry.h"
 #include "core/app/AppContext.h"
+#include "core/app/Paths.h"
 #include "core/code/CodeEditor.h"
 #include "core/debug/Breakpoints.h"
+#include "core/debug/ProcessMemory.h"
 #include "core/engine/Engine.h"
+#include "core/engine/EngineDebugSession.h"
 #include "core/engine/EngineWorkspace.h"
 #include "core/engine/RunConfiguration.h"
 #include "core/project/Archives.h"
@@ -53,6 +56,7 @@
 #include "shell/dialogs/ScriptEditorDialog.h"
 #include "shell/dialogs/SnippetEditorDialog.h"
 #include "shell/dialogs/StateControllerDialog.h"
+#include "stubs/FakeEngineMemory.h"
 
 #include <QAction>
 #include <QApplication>
@@ -5623,6 +5627,152 @@ private Q_SLOTS:
         QCOMPARE(watch->model()->index(0, 1).data().toString(), tr("N/A"));
         actions.action("watch_remove_all")->trigger();
         QCOMPARE(watch->model()->rowCount(), 0);
+        window.closeAllProjects();
+    }
+
+    void startOnEngine()
+    {
+        // The fake engine stands in for WinMUGEN. It keeps running, its imports look like WinMUGEN's
+        // and its memory follows the shipped address map.
+        QTemporaryDir engineDir;
+#ifdef Q_OS_WIN
+        const QString suffix = QStringLiteral(".exe");
+#else
+        const QString suffix;
+#endif
+        const QString exe = engineDir.filePath("mugen" + suffix);
+        QVERIFY(QFile::copy(QCoreApplication::applicationDirPath() + "/fake_mugen" + suffix, exe));
+        QDir().mkpath(engineDir.filePath("chars"));
+        qputenv("OFS_FAKE_ENGINE_WAIT_MS", "60000");
+        const QList<Mugen::DebugAddressMap> maps =
+            Mugen::DebugAddressMap::load(Paths::dataDir() + "/engines/mugen/debug.xml");
+        QCOMPARE(maps.size(), 1);
+        constexpr std::uint32_t P1 = 0x03000000;
+        constexpr std::uint32_t P2 = 0x03100000;
+        auto memory = std::make_shared<Test::FakeEngineMemory>(maps.front());
+        memory->addPlayer(0, P1, 32, "Debugged");
+        memory->addPlayer(1, P2, 33, "Kung Fu Man");
+        Debug::setImportReader([](const QString&) { return QStringList{"KERNEL32.DLL", "alleg40.dll"}; });
+        Debug::ProcessMemory::setOpener([memory](qint64, QString*) -> std::unique_ptr<Debug::ProcessMemory> {
+            return std::make_unique<Test::SharedImageMemory>(memory->sharedImage());
+        });
+
+        QTemporaryDir projectDir;
+        writeFile(projectDir.filePath("dbg.def"), "[Info]\nname = \"Debugged\"\n[Files]\ncns = dbg.cns\n"
+                                                  "st = dbg.cns\nsprite = dbg.sff\nanim = dbg.air\n");
+        writeFile(projectDir.filePath("dbg.air"), "[Begin Action 0]\n0,0, 0,0, -1\n");
+        writeFile(projectDir.filePath("dbg.cns"), "[Data]\nlife = 1000\n\n[Statedef 0]\ntype = S\n"
+                                                  "[State 0, 1]\ntype = Null\ntrigger1 = 1\n\n"
+                                                  "[Statedef 200]\ntype = S\n[State 200, 1]\ntype = Null\n"
+                                                  "trigger1 = 1\n");
+        const QString states = QDir::cleanPath(projectDir.filePath("dbg.cns"));
+
+        MainWindow window(*m_context);
+        window.show();
+        ActionRegistry& actions = m_context->actions();
+        QVERIFY(window.openProject(projectDir.filePath("dbg.def")));
+        Config& engineConfig = m_context->engineConfig("mugen");
+        RunConfiguration::save(engineConfig, {{"WinMUGEN", QDir::toNativeSeparators(exe), "", "%0 kfm"}});
+        ProjectView* view = window.currentProjectView();
+        EngineDebugSession* session = view->engineDebugSession();
+        QVERIFY(session);
+        QVERIFY(actions.action("debug_start_engine")->isEnabled());
+        auto* breakpoints = window.findChild<Debug::BreakpointList*>();
+        QVERIFY(breakpoints);
+        breakpoints->toggle(states, 12); // [State 200, 1]
+
+        actions.action("debug_start_engine")->trigger();
+        QCOMPARE(session->debugState(), Debug::SessionState::Running);
+        QVERIFY(QFileInfo::exists(engineDir.filePath("chars/ofs_0/ofs_0.def")));
+        QVERIFY(view->isDebugging());
+        QVERIFY(!actions.action("debug_start_engine")->isEnabled());
+        QVERIFY(!actions.action("debug_start_emul")->isEnabled());
+        QVERIFY(actions.action("debug_interrupt")->isEnabled());
+        QVERIFY(actions.action("debug_stop")->isEnabled());
+        QVERIFY(!actions.action("debug_continue")->isEnabled());
+        auto* variables = view->debugPanel()->findChild<QTreeView*>("debug_variables");
+        QVERIFY(variables);
+        QTRY_VERIFY(variables->model() && variables->model()->rowCount() == 3);
+        QCOMPARE(variables->model()->index(0, 0).data().toString(), QStringLiteral("Game"));
+        QCOMPARE(variables->model()->index(1, 0).data().toString(), QStringLiteral("P1: Debugged (32)"));
+        QCOMPARE(variables->model()->index(2, 0).data().toString(), QStringLiteral("P2: Kung Fu Man (33)"));
+
+        actions.action("debug_interrupt")->trigger();
+        QCOMPARE(memory->global("pause"), 1);
+        QCOMPARE(session->debugState(), Debug::SessionState::Interrupted);
+        QVERIFY(actions.action("debug_continue")->isEnabled());
+        QVERIFY(actions.action("debug_step_frame")->isEnabled());
+        // The engine does not report the line it runs, so there is no stepping by line.
+        QVERIFY(!actions.action("debug_step_over")->isEnabled());
+        QVERIFY(!actions.action("debug_step_into")->isEnabled());
+        QVERIFY(!actions.action("debug_step_out")->isEnabled());
+        CodeEditor* editor = view->currentCodeEditor();
+        QVERIFY(editor);
+        QCOMPARE(editor->currentDebugLine(), 3); // [Statedef 0]
+        QTreeView* stack = window.findChild<QTreeView*>("callStack");
+        QVERIFY(stack && stack->model());
+        QCOMPARE(stack->model()->rowCount(), 1);
+        QCOMPARE(stack->model()->index(0, 1).data().toString(), QStringLiteral("P1: Debugged (32): [Statedef 0]"));
+
+        memory->playLoop({P1, P2});
+        const int time = memory->global("game_time");
+        actions.action("debug_step_frame")->trigger();
+        QCOMPARE(memory->global("game_time"), time + 1);
+        QCOMPARE(memory->global("pause"), 1);
+        QCOMPARE(session->debugState(), Debug::SessionState::Interrupted);
+        memory->image().onRead = nullptr;
+
+        actions.action("debug_continue")->trigger();
+        QCOMPARE(memory->global("pause"), 0);
+        QCOMPARE(session->debugState(), Debug::SessionState::Running);
+        QCOMPARE(view->currentCodeEditor()->currentDebugLine(), -1);
+        memory->changeState(P1, 200);
+        QTRY_COMPARE(session->debugState(), Debug::SessionState::Interrupted);
+        QCOMPARE(memory->global("pause"), 1);
+        editor = view->currentCodeEditor();
+        QCOMPARE(editor->currentDebugLine(), 9); // [Statedef 200]
+        QCOMPARE(editor->breakpointMarks().value(11), CodeEditor::BreakpointMark::Active);
+
+        auto* output = window.findChild<QTextEdit*>("engineOutput");
+        QVERIFY(output);
+        output->clear();
+        actions.action("debug_stop")->trigger();
+        QCOMPARE(session->debugState(), Debug::SessionState::None);
+        QVERIFY(!view->isDebugging());
+        QVERIFY(!QFileInfo::exists(engineDir.filePath("chars/ofs_0")));
+        QVERIFY(actions.action("debug_start_engine")->isEnabled());
+        QCOMPARE(editor->currentDebugLine(), -1);
+        QVERIFY2(output->toPlainText().contains("Arguments: ofs_0 kfm"), qPrintable(output->toPlainText()));
+
+        // A new engine starts unpaused.
+        breakpoints->removeAll();
+        memory->setGlobal("pause", 0);
+        actions.action("debug_start_engine")->trigger();
+        QCOMPARE(session->debugState(), Debug::SessionState::Running);
+        actions.action("debug_restart")->trigger();
+        QCOMPARE(session->debugState(), Debug::SessionState::Running);
+        QVERIFY(QFileInfo::exists(engineDir.filePath("chars/ofs_0/ofs_0.def")));
+        actions.action("debug_stop")->trigger();
+        QCOMPARE(session->debugState(), Debug::SessionState::None);
+        QVERIFY(!QFileInfo::exists(engineDir.filePath("chars/ofs_0")));
+
+        Debug::setImportReader([](const QString&) { return QStringList{"sdl.dll"}; });
+        QString message;
+        QTimer::singleShot(0, this, [&message] {
+            auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            message = box->windowTitle() + "|" + box->text();
+            box->accept();
+        });
+        actions.action("debug_start_engine")->trigger();
+        QCOMPARE(message, boxTitle("Start on Engine") + "|The debugger does not support this engine.");
+        QCOMPARE(session->debugState(), Debug::SessionState::None);
+        QVERIFY(!QFileInfo::exists(engineDir.filePath("chars/ofs_0")));
+
+        Debug::setImportReader({});
+        Debug::ProcessMemory::setOpener({});
+        qunsetenv("OFS_FAKE_ENGINE_WAIT_MS");
+        RunConfiguration::save(engineConfig, {});
         window.closeAllProjects();
     }
 

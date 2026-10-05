@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Memory maps for Debug > Start on Engine, one per engine version. "imports" names a library the
+engine's program loads, which tells which run configurations start that version.
+Values are decimal. "player_*" names are offsets in a player's structure, the others offsets from
+game_base unless absolute="true". An empty value means unknown for that version (shown as N/A).
+type: int (32 bits, default), float, byte, string or pointer. count: length of an array, pointer
+table or string. enum: coded values, as "1:S,2:C". Checked against a running WinMUGEN.
+-->
+<debug>
+    <mugen version="winbeta" imports="alleg40.dll">
+        <address name="game_base" value="4938572" absolute="true" type="pointer"/>
+        <address name="game_time" value="46076"/>
+        <address name="pause" value="4942465" absolute="true" type="byte"/>
+        <address name="frame_paused" value="46096" type="byte"/>
+        <address name="debug_target" value="50456"/>
+        <address name="debug_mode" value="50464"/>
+        <address name="cmd_buffer" value="" absolute="true"/>
+        <address name="cmd_current" value="" absolute="true"/>
+        <address name="cmd_last" value="" absolute="true"/>
+        <address name="screen_x" value="46120" type="float"/>
+        <address name="screen_y" value="46124" type="float"/>
+        <address name="players" value="46932" type="pointer" count="64"/>
+        <address name="player_active" value="344"/>
+        <address name="player_id" value="4"/>
+        <address name="player_helper_id" value="9752"/>
+        <address name="player_team" value="12"/>
+        <address name="player_parent" value="9756"/>
+        <address name="player_root" value="9764" type="pointer"/>
+        <address name="player_name" value="32" type="string" count="48"/>
+        <address name="player_alive" value="3620"/>
+        <address name="player_visible" value=""/>
+        <address name="player_unhitable_time" value="4100"/>
+        <address name="player_life" value="352"/>
+        <address name="player_power" value="376"/>
+        <address name="player_power_level" value="388"/>
+        <address name="player_facing" value="400"/>
+        <address name="player_spr_priority" value=""/>
+        <address name="player_damage" value=""/>
+        <address name="player_fall_damage" value="4212"/>
+        <address name="player_palette_no" value="5060"/>
+        <address name="player_pos_x" value="412" type="float"/>
+        <address name="player_pos_y" value="416" type="float"/>
+        <address name="player_pos_freeze" value=""/>
+        <address name="player_vel_x" value="436" type="float"/>
+        <address name="player_vel_y" value="440" type="float"/>
+        <address name="player_state_redit_to" value=""/>
+        <address name="player_state_no" value="3060"/>
+        <address name="player_prev_state_no" value="3064"/>
+        <address name="player_state_type" value="3584" enum="1:S,2:C,3:A,4:L"/>
+        <address name="player_move_type" value="3588" enum="0:I,1:A,2:H"/>
+        <address name="player_physics" value="3592" enum="0:N,1:S,2:C,3:A"/>
+        <address name="player_state_time" value="3580"/>
+        <address name="player_ctrl" value="3596"/>
+        <address name="player_guard" value=""/>
+        <address name="player_hit_pause_time" value=""/>
+        <address name="player_pause_move_time" value=""/>
+        <address name="player_spause_move_time" value=""/>
+        <address name="player_attack_mul" value="392" type="float"/>
+        <address name="player_defence_mul" value="396" type="float"/>
+        <address name="player_constrain" value=""/>
+        <address name="player_camera_follows_x" value=""/>
+        <address name="player_camera_follows_y" value=""/>
+        <address name="player_push_checking" value=""/>
+        <address name="player_edge_front" value=""/>
+        <address name="player_edge_back" value=""/>
+        <address name="player_player_front" value=""/>
+        <address name="player_player_back" value=""/>
+        <address name="player_move_hit" value="3632"/>
+        <address name="player_enemy_hit" value="3636"/>
+        <address name="player_hit_attr1" value=""/>
+        <address name="player_hit_attr2" value=""/>
+        <address name="player_var" value="3648" count="60"/>
+        <address name="player_fvar" value="3888" type="float" count="40"/>
+        <address name="player_isys_var" value="4048" count="5"/>
+        <address name="player_sys_fvar" value="4068" type="float" count="5"/>
+    </mugen>
+</debug>

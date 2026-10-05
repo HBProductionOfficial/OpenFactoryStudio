@@ -145,9 +145,14 @@ add_library(ofscore SHARED
     script/ScriptTranslation.h
     script/ScriptTranslation.cpp
     engine/EngineWorkspace.h
+    engine/EngineDebugSession.h
+    engine/EngineDebugSession.cpp
     debug/Breakpoints.h
     debug/DebugTypes.h
+    debug/DebugTarget.h
     debug/Breakpoints.cpp
+    debug/ProcessMemory.h
+    debug/ProcessMemory.cpp
     script/LuaScript.h
     script/LuaScript.cpp
     script/ScriptHost.h

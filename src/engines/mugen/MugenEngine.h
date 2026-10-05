@@ -42,6 +42,7 @@ public:
     QMap<int, QString> scriptFileFilters() const override;
     EngineWorkspace* createWorkspace(const QString& editorId, Project& project, AppContext& context,
                                      QWidget* parent) override;
+    EngineDebugSession* createDebugSession(Project& project, QObject* parent) override;
     const SyntaxDatabase* syntax() const override;
     const CompletionModels* completion() const override;
     QStringList codeTemplateDirs(const QString& editorId) const override;

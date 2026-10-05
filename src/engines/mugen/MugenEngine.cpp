@@ -4,6 +4,7 @@
 #include "core/app/AppContext.h"
 #include "core/code/CompletionModels.h"
 #include "core/code/VariableUsage.h"
+#include "core/debug/ProcessMemory.h"
 #include "core/editors/EditorInfo.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
@@ -23,6 +24,7 @@
 #include "engines/mugen/MugenSyntax.h"
 #include "engines/mugen/MugenTypes.h"
 #include "engines/mugen/MugenVariables.h"
+#include "engines/mugen/debugger/ExternalDebugSession.h"
 #include "engines/mugen/dialogs/ExportHtmlDialog.h"
 #include "engines/mugen/dialogs/OffsetViewerDialog.h"
 #include "engines/mugen/dialogs/PalFXDialog.h"
@@ -233,6 +235,17 @@ EngineWorkspace* MugenEngine::createWorkspace(const QString& editorId, Project& 
     if (editorId == EditorId::Emulator)
         return new EmulatorWidget(project, context, parent);
     return nullptr;
+}
+
+EngineDebugSession* MugenEngine::createDebugSession(Project& project, QObject* parent)
+{
+    // Watching the engine from outside means reading its process's memory (Windows only).
+    if (!Debug::ProcessMemory::isAvailable())
+        return nullptr;
+    QList<DebugAddressMap> maps = DebugAddressMap::load(dataDir() + QStringLiteral("/debug.xml"));
+    if (maps.isEmpty())
+        return nullptr;
+    return new ExternalDebugSession(project, std::move(maps), parent);
 }
 
 QMap<int, QString> MugenEngine::scriptFileFilters() const

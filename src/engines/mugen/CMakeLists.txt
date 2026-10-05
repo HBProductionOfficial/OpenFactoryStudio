@@ -62,6 +62,12 @@ add_library(ofs_mugen_lib STATIC
     emulator/EmulatorRenderer.cpp
     emulator/EmulatorWidget.h
     emulator/EmulatorWidget.cpp
+    debugger/DebugAddressMap.h
+    debugger/DebugAddressMap.cpp
+    debugger/ExternalDebugger.h
+    debugger/ExternalDebugger.cpp
+    debugger/ExternalDebugSession.h
+    debugger/ExternalDebugSession.cpp
 )
 add_library(OFS::mugen ALIAS ofs_mugen_lib)
 ofs_target_defaults(ofs_mugen_lib)
