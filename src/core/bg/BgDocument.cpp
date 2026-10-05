@@ -105,6 +105,11 @@ BgElement element(const BgSection& section)
     e.scaleStart = QPointF(n[0], n[1]);
     n = section.numbers(QStringLiteral("scaledelta"), 2);
     e.scaleDelta = QPointF(n[0], n[1]);
+    // One value is for both directions.
+    if (const auto zoomDelta = section.value(QStringLiteral("zoomdelta"))) {
+        n = section.numbers(QStringLiteral("zoomdelta"), 2, 1);
+        e.zoomDelta = QPointF(n[0], zoomDelta->contains(QLatin1Char(',')) ? n[1] : n[0]);
+    }
     n = section.numbers(QStringLiteral("sin.x"), 3);
     std::copy(n.begin(), n.end(), e.sinX);
     n = section.numbers(QStringLiteral("sin.y"), 3);

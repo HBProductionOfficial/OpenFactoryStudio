@@ -106,12 +106,24 @@ bool Character::executeProjectile(const Controller& c)
     p.superMoveTime = intParam(c, QStringLiteral("supermovetime"), 0);
     p.pauseMoveTime = intParam(c, QStringLiteral("pausemovetime"), 0);
     p.ownPal = intParam(c, QStringLiteral("ownpal"), 0) != 0;
+    if (p.ownPal) {
+        p.remap = paletteRemap();
+        forceRemap(c, p.remap);
+    }
+    for (int i = 0; i < 3; ++i)
+        p.shadow[std::size_t(i)] = intParam(c, QStringLiteral("projshadow"), 0, i);
+    for (auto it = c.params.cbegin(); it != c.params.cend(); ++it) {
+        if (it.key().startsWith(QLatin1String("afterimage."))) {
+            p.afterImage = readAfterImage(c, QStringLiteral("afterimage."));
+            break;
+        }
+    }
 
     const Vec2 offset = pair(QStringLiteral("offset"), Vec2());
     const QString posType = c.param(QStringLiteral("postype"))
                                 ? c.param(QStringLiteral("postype"))->text.trimmed().toLower()
                                 : QStringLiteral("p1");
-    const float half = m_match ? m_match->screenWidth() / 2 : 160;
+    const float half = m_match ? m_match->gameWidth() / 2 : 160;
     const float camera = m_match ? m_match->cameraX() : 0;
     p.facing = m_facing;
     if (posType == QLatin1String("p2") && m_match && m_match->enemy(this)) {
@@ -134,7 +146,7 @@ bool Character::executeProjectile(const Controller& c)
 
 void Character::updateProjectiles()
 {
-    const float half = m_match ? m_match->screenWidth() / 2 : 160;
+    const float half = m_match ? m_match->gameWidth() / 2 : 160;
     const float camera = m_match ? m_match->cameraX() : 0;
     for (Projectile& p : m_projectiles) {
         if (p.gone)
@@ -269,6 +281,26 @@ void Character::tickProjectiles()
             --p.hitPause;
             p.frozen = true;
         }
+        AfterImage& ai = p.afterImage;
+        if (ai.time == 0) {
+            p.afterImages.clear();
+            continue;
+        }
+        if (p.afterImageTicks++ % std::max(1, ai.timeGap) == 0 && !p.player.isEmpty()) {
+            AfterImageFrame f;
+            f.pos = p.pos;
+            f.animData = p.animData;
+            f.animNo = p.shown.number;
+            f.common = p.shown.common;
+            f.frame = p.player.frame();
+            f.facing = p.facing;
+            f.scale = p.scale;
+            p.afterImages.prepend(f);
+            while (p.afterImages.size() > std::clamp(ai.length, 1, 60))
+                p.afterImages.removeLast();
+        }
+        if (ai.time > 0)
+            --ai.time;
     }
     m_projectiles.removeIf([](const Projectile& p) { return p.gone; });
 }

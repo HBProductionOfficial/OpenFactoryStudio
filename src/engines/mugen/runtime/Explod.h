@@ -55,9 +55,15 @@ struct Explod
 
     Vec2 scale{1, 1};
     float angle = 0;
+    float xAngle = 0;
+    float yAngle = 0;
+    Projection projection = Projection::Perspective;
+    float focalLength = 2048;
     int sprPriority = 0;
     bool onTop = false;
     bool ownPal = false;
+    PaletteRemap remap;
+    std::array<int, 3> shadow{0, 0, 0}; // the colour its shadow takes away (0,0,0: none, r -1: the stage's)
     QString trans = QStringLiteral("default");
     std::array<int, 2> alpha{256, 0};
 

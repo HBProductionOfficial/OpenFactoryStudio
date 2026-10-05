@@ -154,7 +154,59 @@ bool EmulatorSession::loadStage(const QString& path, const QString& engineDir, Q
     if (group >= 0)
         m_stage.simulator = std::make_unique<BgSimulator>(m_stage.bg.groups()[group]);
     m_stage.animations = AirDocument::parse(text);
+    loadStageLook(ini);
     return true;
+}
+
+void EmulatorSession::loadStageLook(const IniText& ini)
+{
+    auto numbers = [](const IniSection* section, const char* key, int count, float fallback) {
+        QList<float> out(count, fallback);
+        if (!section || !section->has(QLatin1String(key)))
+            return out;
+        const QStringList parts = section->value(QLatin1String(key)).split(QLatin1Char(','));
+        for (int i = 0; i < count && i < parts.size(); ++i) {
+            bool ok = false;
+            const float value = parts[i].trimmed().toFloat(&ok);
+            if (ok)
+                out[i] = value;
+        }
+        return out;
+    };
+    const IniSection* camera = ini.section(QStringLiteral("Camera"));
+    Match::CameraSettings& zoom = m_stage.camera;
+    zoom = Match::CameraSettings();
+    zoom.zoomOut = number(camera, "zoomout", 1);
+    zoom.zoomIn = number(camera, "zoomin", 1);
+    zoom.startZoom = number(camera, "startzoom", 1);
+    zoom.zoomInDelay = int(number(camera, "zoomindelay", 0));
+    zoom.tension = number(camera, "tension", 50);
+    zoom.boundHigh = number(camera, "boundhigh", 0);
+
+    Shadows& look = m_stage.shadows;
+    look = Shadows();
+    const IniSection* shadow = ini.section(QStringLiteral("Shadow"));
+    look.intensity = std::clamp(int(number(shadow, "intensity", 128)), 0, 256);
+    // MUGEN 1.1 no longer reads the shadow's colour.
+    CharacterData version;
+    if (const IniSection* about = ini.section(QStringLiteral("Info")))
+        version.setMugenVersion(unquote(about->value(QStringLiteral("mugenversion"))));
+    if (!version.isMugen11()) {
+        const QList<float> color = numbers(shadow, "color", 3, 0);
+        for (std::size_t i = 0; i < 3; ++i)
+            look.color[i] = std::clamp(int(color[qsizetype(i)]), 0, 255);
+    }
+    look.yScale = number(shadow, "yscale", 0.4f);
+    look.xShear = number(shadow, "xshear", 0);
+    if (shadow && shadow->has(QStringLiteral("fade.range"))) {
+        const QList<float> range = numbers(shadow, "fade.range", 2, 0);
+        look.fade = range[0] < range[1];
+        look.fadeTop = range[0];
+        look.fadeBottom = range[1];
+    }
+    const IniSection* reflection = ini.section(QStringLiteral("Reflection"));
+    const bool reflect = number(reflection, "reflect", 0) != 0 || number(shadow, "reflect", 0) != 0;
+    look.reflection = std::clamp(int(number(reflection, "intensity", reflect ? 128 : 0)), 0, 256);
 }
 
 void EmulatorSession::loadFightFx(const QString& engineDir)
@@ -312,6 +364,7 @@ bool EmulatorSession::start(Project& project, const Options& options, QString* e
 
     m_match = std::make_unique<Match>(options.seed ? options.seed : 1);
     m_match->setBounds(m_stage.boundLeft - 160, m_stage.boundRight + 160);
+    m_match->setCamera(m_stage.camera);
     m_match->setScreenHeight(240, m_stage.zoffset);
     m_match->setStageInfo(QStringLiteral("info.name"), m_stage.name);
     m_match->setStageInfo(QStringLiteral("info.displayname"), m_stage.displayName);
@@ -406,6 +459,12 @@ void EmulatorSession::loadPalettes(Player& player)
 
 const Formats::Palette* EmulatorSession::paletteOf(const Character& character, int group, int number) const
 {
+    return paletteOf(character, group, number, character.paletteRemap());
+}
+
+const Formats::Palette* EmulatorSession::paletteOf(const Character& character, int group, int number,
+                                                   const PaletteRemap& remap) const
+{
     const Player* p = playerOf(character);
     const SpriteDocument* sprites = p ? p->sprites : nullptr;
     const int index = sprites ? sprites->findSprite(group, number) : -1;
@@ -421,14 +480,7 @@ const Formats::Palette* EmulatorSession::paletteOf(const Character& character, i
         id = {entry.palette->palette.group, entry.palette->palette.number};
     else
         return nullptr;
-    QPair<int, int> shown = id;
-    for (const Character* c = &character; c; c = c->ownPal() ? nullptr : c->parent()) {
-        const auto& remap = c->draw().remap;
-        if (remap.contains(id) || remap.contains(DrawState::AllPalettes)) {
-            shown = remap.value(id, remap.value(DrawState::AllPalettes));
-            break;
-        }
-    }
+    const QPair<int, int> shown = remap.value(id, remap.value(DrawState::AllPalettes, id));
     if (shown == id && !act)
         return nullptr;
     if (v1 && shown.first == 1 && shown.second >= 1 && shown.second <= 12 && p->acts[std::size_t(shown.second - 1)])

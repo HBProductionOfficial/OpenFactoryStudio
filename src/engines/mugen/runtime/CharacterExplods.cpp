@@ -31,6 +31,19 @@ void Character::readExplod(const Controller& c, Explod& e, bool create)
     e.vel = pair(has(c, QStringLiteral("vel")) ? QStringLiteral("vel") : QStringLiteral("velocity"), e.vel);
     e.accel = pair(QStringLiteral("accel"), e.accel);
     e.angle = floatParam(c, QStringLiteral("angle"), e.angle);
+    e.xAngle = floatParam(c, QStringLiteral("xangle"), e.xAngle);
+    e.yAngle = floatParam(c, QStringLiteral("yangle"), e.yAngle);
+    if (const Param* projection = c.param(QStringLiteral("projection"))) {
+        const QString kind = unquote(projection->text.trimmed()).toLower();
+        e.projection = kind == QLatin1String("orthographic")   ? Projection::Orthographic
+                       : kind == QLatin1String("perspective2") ? Projection::Perspective2
+                                                               : Projection::Perspective;
+    }
+    const float focalLength = floatParam(c, QStringLiteral("focallength"), e.focalLength);
+    e.focalLength = focalLength > 0 ? focalLength : 2048;
+    // shadow = r, g, b (1.0), or one number that is not 0 (1.1).
+    for (int i = 0; i < 3; ++i)
+        e.shadow[std::size_t(i)] = intParam(c, QStringLiteral("shadow"), e.shadow[std::size_t(i)], i);
     e.bindTime = intParam(c, QStringLiteral("bindtime"), e.bindTime);
     e.removeTime = intParam(c, QStringLiteral("removetime"), e.removeTime);
     if (has(c, QStringLiteral("supermove")))
@@ -41,6 +54,12 @@ void Character::readExplod(const Controller& c, Explod& e, bool create)
     e.sprPriority = intParam(c, QStringLiteral("sprpriority"), e.sprPriority);
     e.onTop = intParam(c, QStringLiteral("ontop"), e.onTop ? 1 : 0) != 0;
     e.ownPal = intParam(c, QStringLiteral("ownpal"), e.ownPal ? 1 : 0) != 0;
+    // Its own palette keeps the owner's remapped palettes of the moment, then takes remappal's.
+    if (e.ownPal && !e.common) {
+        if (create)
+            e.remap = paletteRemap();
+        forceRemap(c, e.remap);
+    }
     e.removeOnGetHit = intParam(c, QStringLiteral("removeongethit"), e.removeOnGetHit ? 1 : 0) != 0;
     e.ignoreHitPause = intParam(c, QStringLiteral("ignorehitpause"), e.ignoreHitPause ? 1 : 0) != 0;
     if (const Param* trans = c.param(QStringLiteral("trans"))) {

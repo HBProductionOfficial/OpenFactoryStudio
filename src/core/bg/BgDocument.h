@@ -84,6 +84,7 @@ struct OFS_CORE_EXPORT BgElement
     double yScaleDelta = 0;
     QPointF scaleStart{1, 1};
     QPointF scaleDelta;
+    QPointF zoomDelta{1, 1}; // 1.1: share of the camera zoom, 0 none to 1 all
     // Sine: amplitude, period (ticks), phase (degrees).
     double sinX[3] = {0, 0, 0};
     double sinY[3] = {0, 0, 0};

@@ -25,6 +25,10 @@ bool Character::executeHelper(const Controller& c)
         const Param* name = c.param(QStringLiteral("name"));
         h->m_helperName = name ? unquote(name->text.trimmed()) : this->name() + QStringLiteral("'s helper");
         h->m_ownPal = intParam(c, QStringLiteral("ownpal"), 0) != 0;
+        if (h->m_ownPal) {
+            h->m_draw.remap = paletteRemap();
+            forceRemap(c, h->m_draw.remap);
+        }
         h->m_keyCtrl = intParam(c, QStringLiteral("keyctrl"), 0) != 0;
         h->m_superMoveTime = intParam(c, QStringLiteral("supermovetime"), 0);
         h->m_pauseMoveTime = intParam(c, QStringLiteral("pausemovetime"), 0);
@@ -48,7 +52,7 @@ bool Character::executeHelper(const Controller& c)
         const QString posType = c.param(QStringLiteral("postype"))
                                     ? c.param(QStringLiteral("postype"))->text.trimmed().toLower()
                                     : QStringLiteral("p1");
-        const float half = m_match->screenWidth() / 2;
+        const float half = m_match->gameWidth() / 2;
         const float left = m_match->cameraX() - half;
         const float right = m_match->cameraX() + half;
         Vec2 at;

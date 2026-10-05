@@ -72,26 +72,30 @@ Value Character::trigger(const TriggerCall& call)
         // X from the centre of the screen.
         return Value::real(call.keyword == QLatin1String("y") ? m_pos.y : m_pos.x - (m_match ? m_match->cameraX() : 0));
     case Trigger::ScreenPos: {
-        const float left = m_match ? m_match->cameraX() - m_match->screenWidth() / 2 : -160;
+        // From the top-left corner of the screen, in screen pixels (zoomed about the ground line).
+        const float left = m_match ? m_match->cameraX() - m_match->gameWidth() / 2 : -160;
         const float floor = m_match ? m_match->screenFloor() : 200;
-        return Value::real(call.keyword == QLatin1String("y") ? m_pos.y + floor : m_pos.x - left);
+        const float zoom = m_match ? m_match->cameraZoom() : 1;
+        return Value::real(call.keyword == QLatin1String("y") ? m_pos.y * zoom + floor : (m_pos.x - left) * zoom);
     }
     case Trigger::CameraPos:
         return Value::real(call.keyword == QLatin1String("y") ? 0.f : (m_match ? m_match->cameraX() : 0.f));
     case Trigger::CameraZoom:
-        return Value::real(1);
+        return Value::real(m_match ? m_match->cameraZoom() : 1);
     case Trigger::ScreenWidth:
-    case Trigger::GameWidth:
         return Value::real(m_match ? m_match->screenWidth() : 320);
     case Trigger::ScreenHeight:
-    case Trigger::GameHeight:
         return Value::real(m_match ? m_match->screenHeight() : 240);
+    case Trigger::GameWidth:
+        return Value::real(m_match ? m_match->gameWidth() : 320);
+    case Trigger::GameHeight:
+        return Value::real(m_match ? m_match->gameHeight() : 240);
     case Trigger::LeftEdge:
     case Trigger::RightEdge:
     case Trigger::BackEdge:
     case Trigger::FrontEdge: {
         const float camera = m_match ? m_match->cameraX() : 0;
-        const float half = m_match ? m_match->screenWidth() / 2 : 160;
+        const float half = m_match ? m_match->gameWidth() / 2 : 160;
         bool right = call.trigger == Trigger::RightEdge;
         if (call.trigger == Trigger::BackEdge || call.trigger == Trigger::FrontEdge)
             right = (m_facing > 0) == (call.trigger == Trigger::FrontEdge);
@@ -99,15 +103,15 @@ Value Character::trigger(const TriggerCall& call)
     }
     case Trigger::TopEdge:
     case Trigger::BottomEdge: {
-        const float top = m_match ? -m_match->screenFloor() : -200;
-        return Value::real(call.trigger == Trigger::TopEdge ? top : top + (m_match ? m_match->screenHeight() : 240));
+        const float top = m_match ? -m_match->screenFloor() / m_match->cameraZoom() : -200;
+        return Value::real(call.trigger == Trigger::TopEdge ? top : top + (m_match ? m_match->gameHeight() : 240));
     }
     case Trigger::BackEdgeDist:
     case Trigger::FrontEdgeDist:
     case Trigger::BackEdgeBodyDist:
     case Trigger::FrontEdgeBodyDist: {
         const float camera = m_match ? m_match->cameraX() : 0;
-        const float half = m_match ? m_match->screenWidth() / 2 : 160;
+        const float half = m_match ? m_match->gameWidth() / 2 : 160;
         const float leftEdge = camera - half;
         const float rightEdge = camera + half;
         const bool back = call.trigger == Trigger::BackEdgeDist || call.trigger == Trigger::BackEdgeBodyDist;

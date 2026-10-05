@@ -7,10 +7,13 @@
 #include "engines/mugen/emulator/EmulatorSession.h"
 
 #include <QPainter>
+#include <QPolygonF>
 #include <QtMath>
 
 #include <algorithm>
+#include <array>
 #include <functional>
+#include <optional>
 
 namespace OFS::Mugen {
 
@@ -134,6 +137,15 @@ QImage withFx(const QImage& source, const QList<ColorFx>& effects)
     return image.convertToFormat(QImage::Format_ARGB32_Premultiplied);
 }
 
+QImage silhouette(const QImage& image, const QColor& color)
+{
+    QImage shape = image.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    QPainter p(&shape);
+    p.setCompositionMode(QPainter::CompositionMode_SourceIn);
+    p.fillRect(shape.rect(), color);
+    return shape;
+}
+
 // The engine's weighted additions and subtractions are drawn alone on a layer and mixed in by hand.
 class Canvas
 {
@@ -165,6 +177,8 @@ public:
             if (blend.kind == Blend::Kind::Add) {
                 m_painter.setCompositionMode(QPainter::CompositionMode_Plus);
                 m_painter.setOpacity(std::clamp(blend.src / 256.0, 0.0, 1.0));
+            } else if (blend.src < 256) {
+                m_painter.setOpacity(std::max(0.0, blend.src / 256.0));
             }
             m_painter.drawImage(QPointF(), image);
             m_painter.restore();
@@ -281,9 +295,13 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
         canvas.setBase(QTransform::fromTranslate(
             0, shake.ampl * std::sin(qDegreesToRadians(shake.phase + shake.freq * match.gameTime()))));
     }
-    const float camera = match.cameraX();
-    auto toScreen = [&](Vec2 pos) {
-        return QPointF(pos.x - camera + Screen.width() / 2.0, pos.y + stage.zoffset);
+    const Match::View& view = match.view();
+    const QTransform world = QTransform::fromTranslate(-view.x, -view.y) *
+                             QTransform::fromScale(view.scale, view.scale) *
+                             QTransform::fromTranslate(Screen.width() / 2.0, stage.zoffset);
+    const QTransform toWorld = world.inverted();
+    auto toScreen = [&world](Vec2 pos) {
+        return world.map(QPointF(pos.x, pos.y));
     };
     // AllPalFX colours everything. BGPalFX colours the stage too.
     QList<ColorFx> allFx;
@@ -295,16 +313,20 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
     auto drawStage = [&](int layer) {
         if (!stage.simulator || match.isAsserted(layer == 0 ? QStringLiteral("nobg") : QStringLiteral("nofg")))
             return;
-        BgView view;
-        view.screen = QSizeF(Screen);
-        view.camera = QPointF(camera, 0);
-        view.layer = layer;
-        for (const BgDrawItem& item : m_stage->render(*stage.simulator, view)) {
+        BgView bgView;
+        bgView.screen = QSizeF(Screen);
+        bgView.camera = QPointF(view.x, view.y);
+        bgView.zoom = view.scale;
+        bgView.ground = stage.zoffset;
+        bgView.layer = layer;
+        for (const BgDrawItem& item : m_stage->render(*stage.simulator, bgView)) {
             p.save();
             if (item.clip)
                 p.setClipRect(*item.clip);
             const QImage image = withFx(item.image, stageFx);
-            drawBlended(p, QRectF(item.topLeft, image.deviceIndependentSize()), image, item.mode, item.opacity);
+            const QSizeF size = image.deviceIndependentSize();
+            drawBlended(p, QRectF(item.topLeft, QSizeF(size.width() * item.scale.x(), size.height() * item.scale.y())),
+                        image, item.mode, item.opacity);
             p.restore();
         }
     };
@@ -316,44 +338,129 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
         QPointF scale{1, 1};
         double angle = 0;
         QPointF angleScale{1, 1};
+        double xAngle = 0;
+        double yAngle = 0;
+        Projection projection = Projection::Perspective;
+        double focalLength = 2048;
+        bool screen = false;
         const Formats::Palette* palette = nullptr;
         QList<ColorFx> fx;
         std::optional<Blend> blend;
         QString trans = QStringLiteral("default");
         std::array<int, 2> alpha{256, 0};
     };
-    auto drawFrame = [&](const SpriteDocument* sprites, const AirAnimation* animation, int frameIndex, QPointF at,
-                         const Look& look) {
+    struct Placed
+    {
+        QImage image;
+        QTransform transform;
+        Blend blend;
+    };
+    auto place = [&](const SpriteDocument* sprites, const AirAnimation* animation, int frameIndex, QPointF at,
+                     const Look& look) -> std::optional<Placed> {
         if (!animation || frameIndex < 0 || frameIndex >= animation->frames.size())
-            return;
+            return std::nullopt;
         const AirFrame& f = animation->frames[frameIndex];
         if (f.group < 0)
-            return;
+            return std::nullopt;
         const Sprite* s = sprite(sprites, f.group, f.number, look.palette);
         if (!s || s->image.isNull())
-            return;
+            return std::nullopt;
         const bool flipH = f.flipH != (look.facing < 0);
         const bool flipV = f.flipV != (look.vfacing < 0);
-        const QImage image = withFx(flipH || flipV ? s->image.mirrored(flipH, flipV) : s->image, look.fx);
-        const double left = f.x * look.facing - (flipH ? image.width() - s->axis.x() : s->axis.x());
-        const double top = f.y - (flipV ? image.height() - s->axis.y() : s->axis.y());
-        QTransform t;
-        t.translate(at.x(), at.y());
+        Placed placed;
+        placed.image = withFx(flipH || flipV ? s->image.mirrored(flipH, flipV) : s->image, look.fx);
+        placed.blend = look.blend ? *look.blend : blendOf(f.transparency, look.trans, look.alpha);
+        const double left = f.x * look.facing - (flipH ? placed.image.width() - s->axis.x() : s->axis.x());
+        const double top = f.y - (flipV ? placed.image.height() - s->axis.y() : s->axis.y());
+        const QTransform space = look.screen ? QTransform() : world;
+        QTransform flat;
         const double angle = f.angle + look.angle;
         if (angle != 0)
-            t.rotate(-angle * look.facing);
-        t.scale(look.scale.x() * f.xScale * look.angleScale.x(), look.scale.y() * f.yScale * look.angleScale.y());
-        t.translate(left, top);
-        canvas.draw(image, t, look.blend ? *look.blend : blendOf(f.transparency, look.trans, look.alpha));
+            flat.rotate(-angle * look.facing);
+        flat.scale(look.scale.x() * f.xScale * look.angleScale.x(), look.scale.y() * f.yScale * look.angleScale.y());
+        flat.translate(left, top);
+        if (look.xAngle == 0 && look.yAngle == 0) {
+            placed.transform = flat * QTransform::fromTranslate(at.x(), at.y()) * space;
+            return placed;
+        }
+        // The engine's fixed perspective looks from 2048 pixels in front of the screen's centre, so corners
+        // turned nearer grow.
+        const double yAngle = qDegreesToRadians(look.yAngle) * ((look.facing < 0) != (look.vfacing < 0) ? -1 : 1);
+        const double xAngle = qDegreesToRadians(look.xAngle);
+        const double zoom = look.screen ? 1.0 : double(view.scale);
+        const double focal = look.focalLength * zoom;
+        const QPointF eye = look.projection == Projection::Perspective2
+                                ? space.map(at)
+                                : QPointF(Screen.width() / 2.0, Screen.height() / 2.0);
+        const QRectF rect(placed.image.rect());
+        const QPolygonF square({rect.topLeft(), rect.topRight(), rect.bottomRight(), rect.bottomLeft()});
+        QPolygonF corners;
+        for (const QPointF& corner : square) {
+            const QPointF r = flat.map(corner);
+            const double x = r.x() * std::cos(yAngle);
+            const double zy = -r.x() * std::sin(yAngle);
+            const double y = r.y() * std::cos(xAngle) - zy * std::sin(xAngle);
+            const double z = (r.y() * std::sin(xAngle) + zy * std::cos(xAngle)) * zoom;
+            QPointF onScreen = space.map(at + QPointF(x, y));
+            if (look.projection != Projection::Orthographic) {
+                if (z >= focal * 0.99)
+                    return std::nullopt;
+                onScreen = eye + (onScreen - eye) * (focal / (focal - z));
+            }
+            corners << onScreen;
+        }
+        if (!QTransform::quadToQuad(square, corners, placed.transform))
+            return std::nullopt;
+        return placed;
     };
 
-    drawStage(0);
-    if (match.superPauseTime() > 0 && match.superDarken())
-        p.fillRect(QRect(QPoint(), Screen), QColor(0, 0, 0, 128));
-    const EnvColor& color = match.envColor();
-    const QColor fill(color.color[0], color.color[1], color.color[2]);
-    if (color.time != 0 && color.under)
-        p.fillRect(QRect(QPoint(), Screen), fill);
+    // Shadows and reflections draw the sprites again on the ground: a shadow squashed by yscale, leaning
+    // by xshear and darkened by its intensity, and a reflection mirrored in the floor.
+    const EmulatorSession::Shadows& shading = stage.shadows;
+    const bool shadows = !match.isAsserted(QStringLiteral("globalnoshadow"));
+    struct Ground
+    {
+        Placed placed;
+        double height = 0;
+        double offset = 0;
+        std::array<int, 3> color{0, 0, 0};
+    };
+    QList<Ground> grounds;
+    auto castReflection = [&](const Ground& g) {
+        if (shading.reflection <= 0)
+            return;
+        const int r = shading.reflection;
+        Blend b = g.placed.blend;
+        if (b.kind == Blend::Kind::Sub) {
+            b.src = b.src * r / 256;
+        } else {
+            const int src = b.kind == Blend::Kind::Normal ? 256 : b.src;
+            const int dst = b.kind == Blend::Kind::Normal ? 0 : b.dst;
+            b = Blend{Blend::Kind::Add, src * r / 256, 256 - (256 - dst) * r / 256};
+        }
+        const QTransform mirror(1, 0, 0, -1, 0, g.offset);
+        canvas.draw(g.placed.image, g.placed.transform * toWorld * mirror * world, b);
+    };
+    auto castShadow = [&](const Ground& g) {
+        double strength = 1;
+        if (shading.fade && g.height < shading.fadeBottom)
+            strength = std::max(0.0, (g.height - shading.fadeTop) / (shading.fadeBottom - shading.fadeTop));
+        if (g.placed.blend.kind != Blend::Kind::Normal)
+            strength *= std::clamp(1 - g.placed.blend.dst / 256.0, 0.0, 1.0);
+        if (strength <= 0)
+            return;
+        const std::array<int, 3>& rgb = g.color[0] < 0 ? shading.color : g.color;
+        const QTransform squash(1, 0, shading.xShear, -shading.yScale, 0, g.offset);
+        const QTransform onGround = g.placed.transform * toWorld * squash * world;
+        if (shading.intensity > 0)
+            canvas.draw(silhouette(g.placed.image, Qt::black), onGround,
+                        Blend{Blend::Kind::Normal, int(std::lround(shading.intensity * strength)), 0});
+        if (rgb != std::array<int, 3>{0, 0, 0}) {
+            const QColor taken(std::clamp(rgb[0], 0, 255), std::clamp(rgb[1], 0, 255), std::clamp(rgb[2], 0, 255));
+            canvas.draw(silhouette(g.placed.image, taken), onGround,
+                        Blend{Blend::Kind::Sub, int(std::lround(256 * strength)), 256});
+        }
+    };
 
     // Creation order at equal sprite priority.
     struct Item
@@ -364,6 +471,28 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
     };
     QList<Item> items;
     int order = 0;
+    auto add = [&](int priority, const std::optional<Placed>& placed) {
+        if (placed)
+            items << Item{priority, order++, [&canvas, placed] {
+                              canvas.draw(placed->image, placed->transform, placed->blend);
+                          }};
+    };
+    auto afterImageLook = [&allFx](const AfterImage& ai, int k, const AfterImageFrame& h) {
+        Look look;
+        look.facing = h.facing;
+        look.scale = QPointF(h.scale.x, h.scale.y);
+        if (h.angleDraw) {
+            look.angle = h.angle;
+            look.angleScale = QPointF(h.angleScale.x, h.angleScale.y);
+        }
+        look.fx = {afterImageFx(ai, k)};
+        look.fx << allFx;
+        look.blend = blendOf(AirTransparency(), ai.trans);
+        return look;
+    };
+    auto frameOf = [](const AirAnimation* animation, int index) -> const AirFrame* {
+        return animation && index >= 0 && index < animation->frames.size() ? &animation->frames[index] : nullptr;
+    };
     for (const Character* c : match.characters()) {
         if (c->destroyed())
             continue;
@@ -375,96 +504,95 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
         for (const Character* up = c; !up->ownPal() && up->parent(); up = up->parent())
             addFx(ownFx, up->parent()->draw().palFx);
         ownFx << allFx;
-        auto paletteOf = [&session, c](const AirAnimation* animation, int frame) -> const Formats::Palette* {
-            if (!animation || frame < 0 || frame >= animation->frames.size())
-                return nullptr;
-            const AirFrame& f = animation->frames[frame];
-            return session.paletteOf(*c, f.group, f.number);
+        const PaletteRemap remap = c->paletteRemap();
+        auto paletteOf = [&](const AirAnimation* animation, int index, const PaletteRemap& shown) {
+            const AirFrame* f = frameOf(animation, index);
+            return f ? session.paletteOf(*c, f->group, f->number, shown) : nullptr;
         };
         const AfterImage& ai = draw.afterImage;
         const QList<AfterImageFrame>& history = c->afterImages();
         const int gap = std::max(1, ai.frameGap);
         for (int i = int((history.size() - 1) / gap) * gap; i >= 0 && !history.isEmpty(); i -= gap) {
-            const AfterImageFrame h = history[i];
-            const int k = i / gap;
-            items << Item{c->sprPriority(), order++, [&, sprites, h, k, ai, paletteOf] {
-                              const AirAnimation* animation = h.animData ? h.animData->animation(h.animNo) : nullptr;
-                              Look look;
-                              look.facing = h.facing;
-                              if (h.angleDraw) {
-                                  look.angle = h.angle;
-                                  look.angleScale = QPointF(h.angleScale.x, h.angleScale.y);
-                              }
-                              look.palette = paletteOf(animation, h.frame);
-                              look.fx = {afterImageFx(ai, k)};
-                              look.fx << allFx;
-                              look.blend = blendOf(AirTransparency(), ai.trans);
-                              drawFrame(sprites, animation, h.frame, toScreen(h.pos), look);
-                          }};
+            const AfterImageFrame& h = history[i];
+            const AirAnimation* animation = h.animData ? h.animData->animation(h.animNo) : nullptr;
+            Look look = afterImageLook(ai, i / gap, h);
+            look.palette = paletteOf(animation, h.frame, remap);
+            add(c->sprPriority(), place(sprites, animation, h.frame, QPointF(h.pos.x, h.pos.y), look));
         }
         if (!c->isAsserted(QStringLiteral("invisible"))) {
-            items << Item{c->sprPriority(), order++, [&, c, sprites, ownFx, paletteOf] {
-                              const AirAnimation* animation = c->animationData().animation(c->animNo());
-                              const DrawState& d = c->draw();
-                              Look look;
-                              look.facing = c->facing();
-                              if (d.angleDraw) {
-                                  look.angle = d.angle;
-                                  look.angleScale = QPointF(d.angleScale.x, d.angleScale.y);
-                              }
-                              look.palette = paletteOf(animation, c->anim().frame());
-                              look.fx = ownFx;
-                              look.trans = d.trans;
-                              look.alpha = d.alpha;
-                              const QPointF at =
-                                  toScreen(Vec2{float(c->pos().x()) + d.offset.x, float(c->pos().y()) + d.offset.y});
-                              drawFrame(sprites, animation, c->anim().isEmpty() ? -1 : c->anim().frame(), at, look);
-                          }};
+            const AirAnimation* animation = c->animationData().animation(c->animNo());
+            Look look;
+            look.facing = c->facing();
+            if (draw.angleDraw) {
+                look.angle = draw.angle;
+                look.angleScale = QPointF(draw.angleScale.x, draw.angleScale.y);
+            }
+            look.palette = paletteOf(animation, c->anim().frame(), remap);
+            look.fx = ownFx;
+            look.trans = draw.trans;
+            look.alpha = draw.alpha;
+            const QPointF at(c->pos().x() + draw.offset.x, c->pos().y() + draw.offset.y);
+            const std::optional<Placed> placed =
+                place(sprites, animation, c->anim().isEmpty() ? -1 : c->anim().frame(), at, look);
+            add(c->sprPriority(), placed);
+            if (placed && shadows && !c->isAsserted(QStringLiteral("noshadow")))
+                grounds << Ground{*placed, at.y(), c->constant(QStringLiteral("size.shadowoffset"), 0), {-1, 0, 0}};
         }
         for (const Explod& e : c->explods()) {
             const SpriteDocument* explodSprites = e.common ? session.fightFxSprites() : session.spritesOf(*c);
-            const int priority = e.onTop ? 1000 : e.sprPriority;
-            QList<ColorFx> explodFx;
+            const AirAnimation* animation = e.animData ? e.animData->animation(e.animNo) : nullptr;
+            Look look;
             if (!e.ownPal)
-                addFx(explodFx, draw.palFx);
-            explodFx << allFx;
-            items << Item{priority, order++, [&, c, e, explodSprites, explodFx] {
-                              const AirAnimation* animation = e.animData ? e.animData->animation(e.animNo) : nullptr;
-                              const QPointF at =
-                                  e.screen ? QPointF(e.drawPos().x, e.drawPos().y) : toScreen(e.drawPos());
-                              Look look;
-                              look.facing = e.drawFacing();
-                              look.vfacing = e.vFacing;
-                              look.scale = QPointF(e.scale.x, e.scale.y);
-                              look.angle = e.angle;
-                              const int frame = e.anim.isEmpty() ? -1 : e.anim.frame();
-                              if (!e.common && animation && frame >= 0 && frame < animation->frames.size()) {
-                                  const AirFrame& f = animation->frames[frame];
-                                  look.palette = session.paletteOf(*c, f.group, f.number);
-                              }
-                              look.fx = explodFx;
-                              look.trans = e.trans;
-                              look.alpha = e.alpha;
-                              drawFrame(explodSprites, animation, frame, at, look);
-                          }};
+                addFx(look.fx, draw.palFx);
+            look.fx << allFx;
+            look.facing = e.drawFacing();
+            look.vfacing = e.vFacing;
+            look.scale = QPointF(e.scale.x, e.scale.y);
+            look.angle = e.angle;
+            look.xAngle = e.xAngle;
+            look.yAngle = e.yAngle;
+            look.projection = e.projection;
+            look.focalLength = e.focalLength;
+            look.screen = e.screen;
+            look.trans = e.trans;
+            look.alpha = e.alpha;
+            const int frameNo = e.anim.isEmpty() ? -1 : e.anim.frame();
+            if (!e.common)
+                look.palette = paletteOf(animation, frameNo, e.ownPal ? e.remap : remap);
+            const QPointF at(e.drawPos().x, e.drawPos().y);
+            const std::optional<Placed> placed = place(explodSprites, animation, frameNo, at, look);
+            add(e.onTop ? 1000 : e.sprPriority, placed);
+            if (placed && shadows && !e.screen && e.shadow != std::array<int, 3>{0, 0, 0})
+                grounds << Ground{*placed, at.y(), 0, e.shadow};
         }
         for (const Projectile& pr : c->projectiles()) {
-            const SpriteDocument* projSprites = pr.shown.common ? session.fightFxSprites() : sprites;
             const QList<ColorFx> projFx = pr.ownPal ? allFx : ownFx;
-            items << Item{pr.sprPriority, order++, [&, c, pr, projSprites, projFx] {
-                              const AirAnimation* animation =
-                                  pr.animData ? pr.animData->animation(pr.shown.number) : nullptr;
-                              Look look;
-                              look.facing = pr.facing;
-                              look.scale = QPointF(pr.scale.x, pr.scale.y);
-                              const int frame = pr.player.isEmpty() ? -1 : pr.player.frame();
-                              if (!pr.shown.common && animation && frame >= 0 && frame < animation->frames.size()) {
-                                  const AirFrame& f = animation->frames[frame];
-                                  look.palette = session.paletteOf(*c, f.group, f.number);
-                              }
-                              look.fx = projFx;
-                              drawFrame(projSprites, animation, frame, toScreen(pr.pos), look);
-                          }};
+            const PaletteRemap& projRemap = pr.ownPal ? pr.remap : remap;
+            const AfterImage& trail = pr.afterImage;
+            const int every = std::max(1, trail.frameGap);
+            for (int i = int((pr.afterImages.size() - 1) / every) * every; i >= 0 && !pr.afterImages.isEmpty();
+                 i -= every) {
+                const AfterImageFrame& h = pr.afterImages[i];
+                const AirAnimation* animation = h.animData ? h.animData->animation(h.animNo) : nullptr;
+                Look look = afterImageLook(trail, i / every, h);
+                if (!h.common)
+                    look.palette = paletteOf(animation, h.frame, projRemap);
+                add(pr.sprPriority, place(h.common ? session.fightFxSprites() : sprites, animation, h.frame,
+                                          QPointF(h.pos.x, h.pos.y), look));
+            }
+            const AirAnimation* animation = pr.animData ? pr.animData->animation(pr.shown.number) : nullptr;
+            Look look;
+            look.facing = pr.facing;
+            look.scale = QPointF(pr.scale.x, pr.scale.y);
+            const int frameNo = pr.player.isEmpty() ? -1 : pr.player.frame();
+            if (!pr.shown.common)
+                look.palette = paletteOf(animation, frameNo, projRemap);
+            look.fx = projFx;
+            const std::optional<Placed> placed = place(pr.shown.common ? session.fightFxSprites() : sprites, animation,
+                                                       frameNo, QPointF(pr.pos.x, pr.pos.y), look);
+            add(pr.sprPriority, placed);
+            if (placed && shadows && pr.shadow != std::array<int, 3>{0, 0, 0})
+                grounds << Ground{*placed, pr.pos.y, 0, pr.shadow};
         }
     }
     for (const EmulatorSession::Effect& effect : session.effects()) {
@@ -473,13 +601,25 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
         const SpriteDocument* sprites = effect.common ? session.fightFxSprites()
                                         : owner       ? session.spritesOf(*owner)
                                                       : nullptr;
-        items << Item{effect.under ? -1000 : 500, order++, [&, effect, data, sprites] {
-                          Look look;
-                          look.fx = allFx;
-                          drawFrame(sprites, data ? data->animation(effect.anim) : nullptr,
-                                    effect.player.isEmpty() ? -1 : effect.player.frame(), toScreen(effect.pos), look);
-                      }};
+        Look look;
+        look.fx = allFx;
+        add(effect.under ? -1000 : 500,
+            place(sprites, data ? data->animation(effect.anim) : nullptr,
+                  effect.player.isEmpty() ? -1 : effect.player.frame(), QPointF(effect.pos.x, effect.pos.y), look));
     }
+
+    drawStage(0);
+    for (const Ground& g : std::as_const(grounds))
+        castReflection(g);
+    for (const Ground& g : std::as_const(grounds))
+        castShadow(g);
+    if (match.superPauseTime() > 0 && match.superDarken())
+        p.fillRect(QRect(QPoint(), Screen), QColor(0, 0, 0, 128));
+    const EnvColor& color = match.envColor();
+    const QColor fill(color.color[0], color.color[1], color.color[2]);
+    if (color.time != 0 && color.under)
+        p.fillRect(QRect(QPoint(), Screen), fill);
+
     std::stable_sort(items.begin(), items.end(), [](const Item& a, const Item& b) { return a.priority < b.priority; });
     for (const Item& item : std::as_const(items))
         item.draw();
@@ -526,8 +666,7 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
                 QColor area = line;
                 area.setAlpha(64);
                 for (const QRectF& box : c->boxes(type)) {
-                    const QPointF topLeft = toScreen(Vec2{float(box.left()), float(box.top())});
-                    const QRectF onScreen(topLeft, box.size());
+                    const QRectF onScreen = world.mapRect(box);
                     p.fillRect(onScreen, area);
                     p.setPen(line);
                     p.drawRect(onScreen.adjusted(0, 0, -1, -1));

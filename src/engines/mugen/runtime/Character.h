@@ -138,6 +138,28 @@ public:
     float screenEdge() const { return m_screenEdge; }
     float screenHeight() const { return m_screenHeight; }
     float screenFloor() const { return m_screenFloor; }
+    struct CameraSettings
+    {
+        float zoomOut = 1;
+        float zoomIn = 1;
+        float startZoom = 1;
+        int zoomInDelay = 0;
+        float tension = 50;
+        float boundHigh = 0;
+    };
+    void setCamera(const CameraSettings& settings);
+    float cameraZoom() const { return m_zoom; }
+    float gameWidth() const { return m_screenWidth / m_zoom; }
+    float gameHeight() const { return m_screenHeight / m_zoom; }
+    ZoomEffect& zoomEffect() { return m_zoomEffect; }
+    const ZoomEffect& zoomEffect() const { return m_zoomEffect; }
+    struct View
+    {
+        float x = 0;
+        float y = 0;
+        float scale = 1;
+    };
+    const View& view() const { return m_view; }
     void setStageInfo(const QString& key, const QString& value) { m_stageInfo.insert(key, value); }
     QString stageInfo(const QString& key) const { return m_stageInfo.value(key); }
     struct Rules
@@ -194,6 +216,8 @@ public:
 private:
     void push();
     void keepOnScreen();
+    void zoomCamera(bool followed, float least, float most);
+    void updateView();
     void removeDestroyed();
     void startRound();
     void stepRound();
@@ -211,6 +235,11 @@ private:
     float m_screenHeight = 240;
     float m_screenFloor = 200;
     float m_cameraX = 0;
+    CameraSettings m_camera;
+    float m_zoom = 1;
+    int m_zoomWait = 0;
+    ZoomEffect m_zoomEffect;
+    View m_view;
     QHash<QString, QString> m_stageInfo;
     Rules m_rules;
     QList<SoundEvent> m_sounds;
@@ -355,6 +384,7 @@ public:
     bool destroyed() const { return m_destroyed; }
     // A helper without ownpal shares its parent's palette, so the parent's PalFX and RemapPal reach it.
     bool ownPal() const { return !m_isHelper || m_ownPal; }
+    PaletteRemap paletteRemap() const;
     int team() const { return m_team; }
     bool isPlayerType() const { return !m_isHelper || m_helperPlayerType; }
     float constant(const QString& name, float fallback) const;
@@ -391,6 +421,8 @@ private:
     void updateHelperBinding();
     bool executeExplod(const Controller& c);
     void readExplod(const Controller& c, Explod& e, bool create);
+    AfterImage readAfterImage(const Controller& c, const QString& prefix);
+    void forceRemap(const Controller& c, PaletteRemap& remap);
     void placeExplod(Explod& e);
     // TargetState from another character waits for this character's next turn.
     void queueState(int number, const CharacterData* owner);

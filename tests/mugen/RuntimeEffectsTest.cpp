@@ -3,6 +3,8 @@
 
 #include <QTest>
 
+#include <array>
+
 using namespace OFS::Mugen::Runtime;
 
 namespace {
@@ -590,6 +592,123 @@ private Q_SLOTS:
         QCOMPARE(match.spawns().size(), 0);
         match.tick();
         QCOMPARE(match.spawns().size(), 1);
+    }
+
+    void cameraZoom()
+    {
+        CharacterData data;
+        data.addStates("[Statedef 0]\n"
+                       "[State 0]\ntype = VarSet\ntrigger1 = 1\nfv = 0\nvalue = CameraZoom\n"
+                       "[State 0]\ntype = VarSet\ntrigger1 = 1\nfv = 1\nvalue = GameWidth\n"
+                       "[State 0]\ntype = VarSet\ntrigger1 = 1\nfv = 2\nvalue = ScreenWidth\n");
+        Match match;
+        match.setBounds(-400, 400);
+        Match::CameraSettings camera;
+        camera.zoomOut = 0.5f;
+        camera.zoomIn = 1;
+        camera.zoomInDelay = 10;
+        match.setCamera(camera);
+        Character a(data, &match);
+        Character b(data, &match);
+        a.setPos({-150, 0});
+        b.setPos({150, 0});
+        b.setFacing(-1);
+        a.start(0);
+        b.start(0);
+        match.tick();
+        QCOMPARE(match.cameraZoom(), 0.8f); // 320 / (300 + 2 * 50)
+        match.tick();
+        QCOMPARE(a.fvar(0), 0.8f);
+        QCOMPARE(a.fvar(1), 400.f);
+        QCOMPARE(a.fvar(2), 320.f);
+        QCOMPARE(match.view().scale, 0.8f);
+        a.setPos({-20, 0});
+        b.setPos({20, 0});
+        for (int i = 0; i < 10; ++i) {
+            match.tick();
+            QCOMPARE(match.cameraZoom(), 0.8f);
+        }
+        match.tick();
+        QVERIFY(match.cameraZoom() > 0.8f && match.cameraZoom() < 1);
+        for (int i = 0; i < 100; ++i)
+            match.tick();
+        QCOMPARE(match.cameraZoom(), 1.f);
+
+        CharacterData zoomer;
+        zoomer.addStates("[Statedef 0]\n"
+                         "[State 0]\ntype = Zoom\ntrigger1 = var(0) = 1\nscale = 2\nlag = 0.5\npos = -400, 0\n");
+        Match other;
+        other.setBounds(-400, 400);
+        Character z(zoomer, &other);
+        z.start(0);
+        z.setVar(0, 1);
+        other.tick();
+        QCOMPARE(other.view().scale, 1.5f);
+        other.tick();
+        QCOMPARE(other.view().scale, 1.75f);
+        QCOMPARE(other.view().x, other.cameraX() - (160 - 160 / 1.75f));
+        QCOMPARE(other.cameraZoom(), 1.f);
+        z.setVar(0, 0);
+        other.tick();
+        QCOMPARE(other.view().scale, 1.f);
+        QVERIFY(!other.zoomEffect().active);
+    }
+
+    void drawingParameters()
+    {
+        CharacterData data;
+        data.setAnimations("[Begin Action 0]\n0,0, 0,0, -1\n");
+        data.addStates("[Statedef 0]\n"
+                       "[State 0, remap]\ntype = RemapPal\ntrigger1 = time = 0\nsource = 1, 1\ndest = 1, 3\n"
+                       "[State 0, ex]\ntype = Explod\ntrigger1 = time = 0\nanim = 0\nxangle = 30\nyangle = 45\n"
+                       "projection = orthographic\nfocallength = 500\nshadow = 0, 0, 200\nownpal = 1\n"
+                       "removetime = -1\n"
+                       "[State 0, ex2]\ntype = Explod\ntrigger1 = time = 0\nanim = 0\nshadow = 1\nownpal = 1\n"
+                       "remappal = 1, 2\nremovetime = -1\n"
+                       "[State 0, proj]\ntype = Projectile\ntrigger1 = time = 0\nprojanim = 0\nprojshadow = -1, 0, 0\n"
+                       "ownpal = 1\nremappal = 1, 4\nafterimage.time = 5\nafterimage.length = 3\n"
+                       "afterimage.framegap = 1\nafterimage.palmul = 0.5, 0.5, 0.5\nvelocity = 2, 0\n"
+                       "[State 0, helper]\ntype = Helper\ntrigger1 = time = 0\nstateno = 100\nownpal = 1\n"
+                       "remappal = 2, 1\n"
+                       "[State 0, later]\ntype = RemapPal\ntrigger1 = time = 1\nsource = 1, 1\ndest = 1, 5\n"
+                       "[Statedef 100]\n[State 100]\ntype = Null\ntrigger1 = 1\n");
+        Match match;
+        Character c(data, &match);
+        c.start(0);
+        match.tick();
+        QCOMPARE(c.explods().size(), 2);
+        const Explod& e = c.explods().at(0);
+        QCOMPARE(e.xAngle, 30.f);
+        QCOMPARE(e.yAngle, 45.f);
+        QVERIFY(e.projection == Projection::Orthographic);
+        QCOMPARE(e.focalLength, 500.f);
+        QVERIFY((e.shadow == std::array<int, 3>{0, 0, 200}));
+        QCOMPARE(e.remap.value({1, 1}), qMakePair(1, 3));
+        const Explod& e2 = c.explods().at(1);
+        QVERIFY(e2.projection == Projection::Perspective);
+        QVERIFY((e2.shadow == std::array<int, 3>{1, 0, 0}));
+        QCOMPARE(e2.remap.value(DrawState::AllPalettes), qMakePair(1, 2));
+        QCOMPARE(c.projectiles().size(), 1);
+        const Projectile& p = c.projectiles().at(0);
+        QCOMPARE(p.shadow[0], -1);
+        QCOMPARE(p.remap.value(DrawState::AllPalettes), qMakePair(1, 4));
+        QCOMPARE(p.afterImage.length, 3);
+        QCOMPARE(p.afterImage.palMul[0], 0.5f);
+        const Character* helper = nullptr;
+        for (const Character* other : match.characters()) {
+            if (other->isHelper())
+                helper = other;
+        }
+        QVERIFY(helper);
+        QCOMPARE(helper->paletteRemap().value(DrawState::AllPalettes), qMakePair(2, 1));
+        match.tick();
+        match.tick();
+        QCOMPARE(c.paletteRemap().value({1, 1}), qMakePair(1, 5));
+        QCOMPARE(c.explods().at(0).remap.value({1, 1}), qMakePair(1, 3));
+        QCOMPARE(helper->paletteRemap().value(DrawState::AllPalettes), qMakePair(2, 1));
+        const QList<AfterImageFrame>& trail = c.projectiles().at(0).afterImages;
+        QCOMPARE(trail.size(), 3);
+        QVERIFY(trail.at(0).pos.x > trail.at(1).pos.x);
     }
 
     void pauseCommandBuffer()

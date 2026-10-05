@@ -202,6 +202,19 @@ QList<BgDrawItem> BgRenderer::render(const BgSimulator& simulator, const BgView&
             break;
         }
 
+        // Lay the element out unzoomed, then scale it by its share of the camera zoom.
+        const QPointF zoom(view.zoom + (1 - view.zoom) * (1 - e.zoomDelta.x()),
+                           view.zoom + (1 - view.zoom) * (1 - e.zoomDelta.y()));
+        const bool zoomed = zoom != QPointF(1, 1) && zoom.x() > 0 && zoom.y() > 0;
+        auto zoomPoint = [&](QPointF p) {
+            return zoomed ? QPointF(cx + (p.x() - cx) * zoom.x(), view.ground + (p.y() - view.ground) * zoom.y()) : p;
+        };
+        const QRectF elementCover = zoomed ? QRectF(QPointF(cx + (cover.left() - cx) / zoom.x(),
+                                                            view.ground + (cover.top() - view.ground) / zoom.y()),
+                                                    QPointF(cx + (cover.right() - cx) / zoom.x(),
+                                                            view.ground + (cover.bottom() - view.ground) / zoom.y()))
+                                           : cover;
+
         // "window" counts from the screen top-left and is inclusive, "maskwindow" from the top centre and
         // exclusive. Both follow the camera by the window delta.
         std::optional<QRectF> clip;
@@ -211,16 +224,19 @@ QList<BgDrawItem> BgRenderer::render(const BgSimulator& simulator, const BgView&
             const double wy = r.top() - camY * e.windowDelta.y();
             const double ww = e.maskWindow ? r.right() - r.left() : r.right() - r.left() + 1;
             const double wh = e.maskWindow ? r.bottom() - r.top() : r.bottom() - r.top() + 1;
-            clip = QRectF(wx, wy, std::max(0.0, ww), std::max(0.0, wh));
+            const QRectF window(wx, wy, std::max(0.0, ww), std::max(0.0, wh));
+            clip = QRectF(zoomPoint(window.topLeft()), zoomPoint(window.bottomRight()));
         }
         auto add = [&](const QImage& picture, QPointF topLeft) {
             BgDrawItem item;
             item.element = i;
             item.image = picture;
-            item.topLeft = topLeft;
+            item.topLeft = zoomPoint(topLeft);
             item.opacity = opacity;
             item.mode = mode;
             item.clip = clip;
+            if (zoomed)
+                item.scale = zoom;
             items << item;
         };
 
@@ -244,8 +260,8 @@ QList<BgDrawItem> BgRenderer::render(const BgSimulator& simulator, const BgView&
             const int rows = std::max(1, int(std::lround(h * ys)));
             const double tileStep = topScale * (w + e.tileSpacingX);
             const double firstLeft = cx + x - axis.x() * topScale;
-            for (double left : tiles(firstLeft, tileStep, w * std::max(topScale, bottomScale), e.tileX, cover.left(),
-                                     cover.right())) {
+            for (double left : tiles(firstLeft, tileStep, w * std::max(topScale, bottomScale), e.tileX,
+                                     elementCover.left(), elementCover.right())) {
                 const double topWidth = w * topScale;
                 const double bottomWidth = w * bottomScale;
                 const double bottomLeft = e.hasWidth && topScale != 0 ? cx + (left - cx) * (bottomScale / topScale)
@@ -263,8 +279,8 @@ QList<BgDrawItem> BgRenderer::render(const BgSimulator& simulator, const BgView&
             image = image.scaled(size, Qt::IgnoreAspectRatio, Qt::FastTransformation);
         }
         const double left = cx + x - axis.x() * xs;
-        for (double ty : tiles(top, stepY, image.height(), tileY, cover.top(), cover.bottom())) {
-            for (double tx : tiles(left, stepX, image.width(), tileX, cover.left(), cover.right()))
+        for (double ty : tiles(top, stepY, image.height(), tileY, elementCover.top(), elementCover.bottom())) {
+            for (double tx : tiles(left, stepX, image.width(), tileX, elementCover.left(), elementCover.right()))
                 add(image, QPointF(tx, ty));
         }
     }

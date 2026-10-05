@@ -4,6 +4,10 @@
 #include "engines/mugen/runtime/Effects.h"
 #include "engines/mugen/runtime/Hits.h"
 
+#include <QList>
+
+#include <array>
+
 namespace OFS::Mugen::Runtime {
 
 class CharacterData;
@@ -59,6 +63,11 @@ struct Projectile
     int superMoveTime = 0;
     int pauseMoveTime = 0;
     bool ownPal = false; // its owner's PalFX and RemapPal do not reach it (1.1)
+    PaletteRemap remap;
+    std::array<int, 3> shadow{0, 0, 0};
+    AfterImage afterImage;
+    QList<AfterImageFrame> afterImages;
+    int afterImageTicks = 0;
 
     int time = 0;
     int hitPause = 0;

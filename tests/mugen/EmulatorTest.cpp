@@ -27,6 +27,7 @@
 #include <QToolButton>
 #include <QWheelEvent>
 
+#include <array>
 #include <cmath>
 #include <functional>
 #include <memory>
@@ -151,6 +152,72 @@ int litPixels(const QImage& image)
         }
     }
     return count;
+}
+
+// Palette 1,1 and 1,2 colours of the test character.
+constexpr QRgb kOwn = qRgb(100, 50, 200);
+constexpr QRgb kOther = qRgb(10, 200, 10);
+
+// `cmd` goes after its [Statedef -1], `cns` after its [Data].
+void writeSquareCharacter(EngineFolder& engine, const QByteArray& cmd, const QByteArray& cns = QByteArray())
+{
+    Formats::Test::FixtureFactory fixtures;
+    SpriteDocument sprites = SpriteDocument::fromSff(fixtures.sff(Formats::SffVersion::V2, 1, 8));
+    Formats::Palette own(256);
+    own[1] = Formats::Rgba{100, 50, 200, 255};
+    Formats::Palette other(256);
+    other[1] = Formats::Rgba{10, 200, 10, 255};
+    sprites.palettes() = {SpriteDocument::makePalette(1, 1, own), SpriteDocument::makePalette(1, 2, other)};
+    SpriteEdits::setImage(sprites, 0, Formats::Image::indexed(10, 10, std::vector<std::uint8_t>(100, 1), own));
+    sprites.sprites()[0].palette = sprites.palettes()[0];
+    SpriteEdits::setIdentifiers(sprites, 0, 0, 0);
+    SpriteEdits::setAxis(sprites, 0, 5, 10);
+    QVERIFY(sprites.toSff().save(engine.dir.filePath("chars/test/test.sff").toStdWString()).ok());
+    writeFile(engine.dir.filePath("chars/test/test.air"), "[Begin Action 0]\n0,0, 0,0, -1\n");
+    writeFile(engine.dir.filePath("chars/test/test.cmd"), "[Statedef -1]\n" + cmd);
+    writeFile(engine.dir.filePath("chars/test/test.cns"), "[Data]\nlife = 1000\n" + cns);
+}
+
+std::unique_ptr<Project> startTraining(const EngineFolder& engine, MugenEngine& mugen, EmulatorSession& session)
+{
+    std::unique_ptr<Project> project(mugen.openProject(engine.def, nullptr));
+    if (!project)
+        return nullptr;
+    EmulatorSession::Options options;
+    options.engineDir = engine.dir.path();
+    options.training = true;
+    QString error;
+    if (!session.start(*project, options, &error)) {
+        qWarning("%s", qPrintable(error));
+        return nullptr;
+    }
+    for (int i = 0; i < 40 && session.match().roundState() < 2; ++i)
+        session.tick({}, {});
+    return project;
+}
+
+int pixelsOf(const QImage& image, QRgb color, const QRect& area)
+{
+    int count = 0;
+    const QRect inside = area & image.rect();
+    for (int y = inside.top(); y <= inside.bottom(); ++y) {
+        for (int x = inside.left(); x <= inside.right(); ++x) {
+            if ((image.pixel(x, y) & 0xffffff) == (color & 0xffffff))
+                ++count;
+        }
+    }
+    return count;
+}
+
+int rowsOf(const QImage& image, QRgb color, int x, int top, int bottom)
+{
+    return pixelsOf(image, color, QRect(QPoint(x, top), QPoint(x, bottom)));
+}
+
+bool near(QRgb actual, QRgb expected)
+{
+    return std::abs(qRed(actual) - qRed(expected)) <= 2 && std::abs(qGreen(actual) - qGreen(expected)) <= 2 &&
+           std::abs(qBlue(actual) - qBlue(expected)) <= 2;
 }
 
 } // namespace
@@ -787,6 +854,245 @@ private Q_SLOTS:
         const Formats::Palette* palette = session.paletteOf(*player.character, entries[1].group(), entries[1].number());
         QVERIFY(palette);
         QCOMPARE(int((*palette)[1].b), 3);
+    }
+
+    void cameraZoom()
+    {
+        EngineFolder engine;
+        writeFile(engine.dir.filePath("stages/stage0.def"),
+                  "[StageInfo]\nzoffset = 200\n[Camera]\nboundleft = -200\nboundright = 200\nzoomout = 0.5\n"
+                  "zoomin = 1\n[PlayerInfo]\np1startx = -150\np2startx = 150\n[BGdef]\nspr = stage0.sff\n"
+                  "[BG back]\ntype = normal\nspriteno = 0, 0\nstart = 0, 0\n");
+        writeStageSprite(engine.dir.filePath("stages/stage0.sff"), qRgb(255, 0, 0));
+        writeSquareCharacter(engine, "[State -1]\ntype = VarSet\ntrigger1 = 1\nfv = 0\nvalue = CameraZoom\n"
+                                     "[State -1]\ntype = Zoom\ntrigger1 = var(10) = 1\nscale = 2\npos = -150, 0\n");
+        MugenEngine mugen;
+        EmulatorSession session;
+        const std::unique_ptr<Project> project = startTraining(engine, mugen, session);
+        QVERIFY(project);
+        QCOMPARE(session.stage().camera.zoomOut, 0.5f);
+        Runtime::Character& p1 = *session.players()[0].character;
+        session.tick({}, {});
+        session.tick({}, {});
+        QCOMPARE(session.match().cameraZoom(), 0.8f); // 320 / (300 + 2 * 50)
+        QCOMPARE(p1.fvar(0), 0.8f);
+        EmulatorRenderer renderer;
+        QImage frame = renderer.render(session);
+        // The stage's 320x240 sprite is 256x192 now: from x 32 to 288, and from y 40 down.
+        QCOMPARE(QColor(frame.pixel(20, 100)), QColor(0, 0, 0));
+        QCOMPARE(QColor(frame.pixel(40, 100)), QColor(255, 0, 0));
+        QCOMPARE(QColor(frame.pixel(160, 30)), QColor(0, 0, 0));
+        QCOMPARE(QColor(frame.pixel(160, 50)), QColor(255, 0, 0));
+        // P1's 10x10 square is 8x8, at 160 + x * 0.8 on the ground line.
+        QCOMPARE(pixelsOf(frame, kOwn, QRect(0, 0, 160, 240)), 64);
+        QCOMPARE(QColor(frame.pixel(40, 196)), QColor(kOwn));
+
+        p1.setVar(10, 1);
+        session.tick({}, {});
+        QCOMPARE(session.match().view().scale, 1.6f);
+        QCOMPARE(session.match().cameraZoom(), 0.8f);
+        frame = renderer.render(session);
+        QCOMPARE(pixelsOf(frame, kOwn, QRect(0, 0, 160, 240)), 256);
+        QCOMPARE(QColor(frame.pixel(80, 190)), QColor(kOwn));
+        p1.setVar(10, 0);
+        session.tick({}, {});
+        QCOMPARE(pixelsOf(renderer.render(session), kOwn, QRect(0, 0, 160, 240)), 64);
+    }
+
+    void shadows()
+    {
+        // Intensity 128 halves the ground's brightness and color = 0,0,100 takes away the blue.
+        EngineFolder engine;
+        writeFile(engine.dir.filePath("stages/stage0.def"),
+                  "[StageInfo]\nzoffset = 200\n[Camera]\nboundleft = -100\nboundright = 100\n"
+                  "[PlayerInfo]\np1startx = -50\np2startx = 50\n[Shadow]\nintensity = 128\ncolor = 0, 0, 100\n"
+                  "yscale = 0.4\nfade.range = -30, -10\n[BGdef]\nspr = stage0.sff\n"
+                  "[BG back]\ntype = normal\nspriteno = 0, 0\nstart = 0, 0\n");
+        writeStageSprite(engine.dir.filePath("stages/stage0.sff"), qRgb(200, 200, 200));
+        writeSquareCharacter(
+            engine, "[State -1]\ntype = AssertSpecial\ntrigger1 = var(10) = 1\nflag = noshadow\n"
+                    "[State -1]\ntype = AssertSpecial\ntrigger1 = var(10) = 2\nflag = globalnoshadow\n"
+                    "[State -1]\ntype = PosSet\ntrigger1 = var(10) = 3\ny = -20\n"
+                    "[State -1]\ntype = PosSet\ntrigger1 = var(10) != 3\ny = 0\n"
+                    "[State -1]\ntype = Explod\ntrigger1 = var(10) = 4 && numexplod = 0\nanim = 0\npos = 40, 0\n"
+                    "shadow = 0, 200, 0\nremovetime = -1\n"
+                    "[State -1]\ntype = Projectile\ntrigger1 = var(10) = 5 && numproj = 0\nprojanim = 0\n"
+                    "offset = 70, 0\nprojshadow = -1, 0, 0\n");
+        MugenEngine mugen;
+        EmulatorSession session;
+        const std::unique_ptr<Project> project = startTraining(engine, mugen, session);
+        QVERIFY(project);
+        Runtime::Character& p1 = *session.players()[0].character;
+        EmulatorRenderer renderer;
+        auto frameWith = [&](int effect) {
+            p1.setVar(10, effect);
+            session.tick({}, {});
+            session.tick({}, {});
+            return renderer.render(session);
+        };
+        const QRgb ground = qRgb(200, 200, 200);
+        const QRgb shadow = qRgb(100, 100, 0);
+        // P1's square is x 105 to 114, y 190 to 199.
+        QImage frame = frameWith(0);
+        QVERIFY(near(frame.pixel(110, 201), shadow));
+        QVERIFY(near(frame.pixel(110, 203), shadow));
+        QCOMPARE(frame.pixel(110, 206), ground);
+        QCOMPARE(frame.pixel(100, 201), ground);
+        QVERIFY(near(frame.pixel(210, 201), shadow));
+        frame = frameWith(1);
+        QCOMPARE(frame.pixel(110, 201), ground);
+        QVERIFY(near(frame.pixel(210, 201), shadow));
+        frame = frameWith(2);
+        QCOMPARE(frame.pixel(110, 201), ground);
+        QCOMPARE(frame.pixel(210, 201), ground);
+        // 20 pixels up, between fade.range's -30 and -10: half the shadow, and lower down.
+        frame = frameWith(3);
+        QVERIFY(near(frame.pixel(110, 209), qRgb(150, 150, 100)));
+        QCOMPARE(frame.pixel(110, 201), ground);
+        // An explod's shadow takes away its own colour (shadow = 0,200,0).
+        frame = frameWith(4);
+        QVERIFY(near(frame.pixel(150, 201), qRgb(100, 0, 100)));
+        // projshadow r -1 uses the stage's shadow.
+        frame = frameWith(5);
+        QVERIFY(near(frame.pixel(180, 201), shadow));
+
+        writeFile(engine.dir.filePath("stages/stage0.def"),
+                  "[Info]\nmugenversion = 1.1\n[StageInfo]\nzoffset = 200\n[Camera]\nboundleft = -100\n"
+                  "boundright = 100\n[PlayerInfo]\np1startx = -50\np2startx = 50\n[Shadow]\nintensity = 0\n"
+                  "color = 0, 0, 100\n[Reflection]\nintensity = 64\n[BGdef]\nspr = stage0.sff\n"
+                  "[BG back]\ntype = normal\nspriteno = 0, 0\nstart = 0, 0\n");
+        EmulatorSession shiny;
+        const std::unique_ptr<Project> again = startTraining(engine, mugen, shiny);
+        QVERIFY(again);
+        QVERIFY((shiny.stage().shadows.color == std::array<int, 3>{0, 0, 0}));
+        QCOMPARE(shiny.stage().shadows.reflection, 64);
+        EmulatorRenderer other;
+        frame = other.render(shiny);
+        QVERIFY(near(frame.pixel(110, 205), qRgb(175, 162, 200)));
+        QCOMPARE(frame.pixel(110, 212), ground);
+        writeFile(engine.dir.filePath("stages/stage0.def"),
+                  "[StageInfo]\nzoffset = 200\n[Reflection]\nreflect = 1\n[BGdef]\nspr = stage0.sff\n");
+        EmulatorSession mirrored;
+        const std::unique_ptr<Project> third = startTraining(engine, mugen, mirrored);
+        QVERIFY(third);
+        QCOMPARE(mirrored.stage().shadows.reflection, 128);
+    }
+
+    void explodRotation()
+    {
+        EngineFolder engine;
+        writeSquareCharacter(
+            engine, "[State -1]\ntype = RemoveExplod\ntrigger1 = var(10) != var(11)\n"
+                    "[State -1]\ntype = Explod\ntrigger1 = var(10) = 1 && var(11) != 1\nanim = 0\npos = 0, -60\n"
+                    "removetime = -1\n"
+                    "[State -1]\ntype = Explod\ntrigger1 = var(10) = 2 && var(11) != 2\nanim = 0\npos = 0, -60\n"
+                    "xangle = 60\nprojection = orthographic\nremovetime = -1\n"
+                    "[State -1]\ntype = Explod\ntrigger1 = var(10) = 3 && var(11) != 3\nanim = 0\npos = 0, -60\n"
+                    "yangle = 60\nfocallength = 20\nremovetime = -1\n"
+                    "[State -1]\ntype = VarSet\ntrigger1 = 1\nv = 11\nvalue = var(10)\n");
+        MugenEngine mugen;
+        EmulatorSession session;
+        const std::unique_ptr<Project> project = startTraining(engine, mugen, session);
+        QVERIFY(project);
+        Runtime::Character& p1 = *session.players()[0].character;
+        EmulatorRenderer renderer;
+        auto frameWith = [&](int explod) {
+            p1.setVar(10, explod);
+            session.tick({}, {});
+            session.tick({}, {});
+            return renderer.render(session);
+        };
+        // At P1 (x -50) 60 pixels up: x 105 to 114, y 130 to 139 unturned.
+        QImage frame = frameWith(1);
+        QCOMPARE(rowsOf(frame, kOwn, 110, 100, 160), 10);
+        QCOMPARE(pixelsOf(frame, kOwn, QRect(80, 100, 60, 60)), 100);
+        frame = frameWith(2);
+        QVERIFY(std::abs(rowsOf(frame, kOwn, 110, 100, 160) - 5) <= 1);
+        QCOMPARE(frame.pixel(110, 138), kOwn);
+        QVERIFY(frame.pixel(110, 131) != kOwn);
+        frame = frameWith(3);
+        const int nearRows = rowsOf(frame, kOwn, 95, 100, 160);
+        const int farRows = rowsOf(frame, kOwn, 119, 100, 160);
+        QVERIFY2(farRows > 0 && nearRows >= farRows + 3,
+                 qPrintable(QStringLiteral("%1 %2").arg(nearRows).arg(farRows)));
+    }
+
+    void ownPalettes()
+    {
+        EngineFolder engine;
+        writeSquareCharacter(
+            engine,
+            "[State -1]\ntype = Helper\ntrigger1 = var(10) = 1 && numhelper(5) = 0\nid = 5\nstateno = 1000\n"
+            "ownpal = 1\nremappal = 1, 2\npos = 60, 0\n"
+            "[State -1]\ntype = Explod\ntrigger1 = var(10) = 1 && numexplod(6) = 0\nid = 6\nanim = 0\npos = 0, -40\n"
+            "ownpal = 1\nremappal = 1, 2\nremovetime = -1\n"
+            "[State -1]\ntype = Explod\ntrigger1 = var(10) = 1 && numexplod(7) = 0\nid = 7\nanim = 0\npos = 20, -40\n"
+            "ownpal = 1\nremovetime = -1\n"
+            "[State -1]\ntype = Explod\ntrigger1 = var(10) = 1 && numexplod(8) = 0\nid = 8\nanim = 0\npos = 40, -40\n"
+            "removetime = -1\n"
+            "[State -1]\ntype = Projectile\ntrigger1 = var(10) = 1 && numproj = 0\nprojanim = 0\noffset = 0, -80\n"
+            "ownpal = 1\nremappal = 1, 2\n"
+            "[State -1]\ntype = RemapPal\ntrigger1 = var(10) = 2\nsource = 1, 1\ndest = 1, 2\n",
+            "[Statedef 1000]\ntype = S\nanim = 0\n[State 1000]\ntype = Null\ntrigger1 = 1\n");
+        MugenEngine mugen;
+        EmulatorSession session;
+        const std::unique_ptr<Project> project = startTraining(engine, mugen, session);
+        QVERIFY(project);
+        Runtime::Character& p1 = *session.players()[0].character;
+        EmulatorRenderer renderer;
+        p1.setVar(10, 1);
+        session.tick({}, {});
+        session.tick({}, {});
+        QImage frame = renderer.render(session);
+        QCOMPARE(frame.pixel(110, 195), kOwn);
+        QCOMPARE(frame.pixel(170, 195), kOther);
+        QCOMPARE(frame.pixel(110, 155), kOther);
+        QCOMPARE(frame.pixel(130, 155), kOwn);
+        QCOMPARE(frame.pixel(150, 155), kOwn);
+        QCOMPARE(frame.pixel(110, 115), kOther);
+        p1.setVar(10, 2);
+        session.tick({}, {});
+        frame = renderer.render(session);
+        QCOMPARE(frame.pixel(110, 195), kOther);
+        QCOMPARE(frame.pixel(170, 195), kOther);
+        QCOMPARE(frame.pixel(130, 155), kOwn);
+        QCOMPARE(frame.pixel(150, 155), kOther);
+        QCOMPARE(frame.pixel(110, 115), kOther);
+    }
+
+    void projectileAfterImages()
+    {
+        EngineFolder engine;
+        writeSquareCharacter(engine,
+                             "[State -1]\ntype = EnvColor\ntrigger1 = 1\nvalue = 200,200,200\ntime = 1\nunder = 1\n"
+                             "[State -1]\ntype = Projectile\ntrigger1 = var(10) = 1 && numproj = 0\nprojanim = 0\n"
+                             "offset = 0, -60\nvelocity = 3, 0\nafterimage.time = -1\nafterimage.length = 10\n"
+                             "afterimage.framegap = 2\n"
+                             "[State -1]\ntype = Projectile\ntrigger1 = var(10) = 2 && numproj = 0\nprojanim = 0\n"
+                             "offset = 0, -60\nvelocity = 3, 0\n");
+        MugenEngine mugen;
+        EmulatorRenderer renderer;
+        auto flight = [&](int kind) {
+            EmulatorSession session;
+            const std::unique_ptr<Project> project = startTraining(engine, mugen, session);
+            if (!project)
+                return std::pair<QRgb, QRgb>();
+            Runtime::Character& p1 = *session.players()[0].character;
+            p1.setVar(10, kind);
+            for (int i = 0; i < 8; ++i)
+                session.tick({}, {});
+            const QImage frame = renderer.render(session);
+            renderer.clearCache();
+            const int x = int(p1.projectiles().at(0).pos.x - session.match().cameraX() + 160);
+            return std::pair(frame.pixel(x, 135), frame.pixel(x - 12, 135));
+        };
+        const auto [shot, trail] = flight(1);
+        QCOMPARE(shot, kOwn);
+        QVERIFY(trail != qRgb(200, 200, 200));
+        QVERIFY(qBlue(trail) < 200 && qRed(trail) < 100);
+        const auto [plainShot, behind] = flight(2);
+        QCOMPARE(plainShot, kOwn);
+        QCOMPARE(behind, qRgb(200, 200, 200));
     }
 
     void debugger()

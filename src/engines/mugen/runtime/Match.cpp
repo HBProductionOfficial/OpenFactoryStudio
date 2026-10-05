@@ -196,6 +196,9 @@ void Match::startRound()
     m_end = RoundEnd::None;
     m_winner = -1;
     m_perfect = false;
+    m_zoom = std::clamp(m_camera.startZoom, m_camera.zoomOut, m_camera.zoomIn);
+    m_zoomWait = m_camera.zoomInDelay;
+    m_zoomEffect = ZoomEffect();
     for (Character* c : std::as_const(m_characters)) {
         if (c->m_isHelper)
             c->m_destroyed = true;
@@ -477,6 +480,7 @@ void Match::tick()
     for (Character* c : std::as_const(m_characters))
         c->updateExplods();
     removeDestroyed();
+    updateView();
     ++m_time;
 }
 
@@ -529,21 +533,109 @@ void Match::keepOnScreen()
         most = followed ? std::max(most, x) : x;
         followed = true;
     }
+    zoomCamera(followed, least, most);
     const float half = m_screenWidth / 2;
-    if (followed)
-        m_cameraX = std::clamp((least + most) / 2, m_left + half, m_right - half);
-    if (m_left + half > m_right - half)
-        m_cameraX = (m_left + m_right) / 2;
+    const float shown = half / m_zoom;
+    const float areaLeft = m_left + half - half / m_camera.zoomOut;
+    const float areaRight = m_right - half + half / m_camera.zoomOut;
+    if (areaLeft + shown > areaRight - shown)
+        m_cameraX = (areaLeft + areaRight) / 2;
+    else if (followed)
+        m_cameraX = std::clamp((least + most) / 2, areaLeft + shown, areaRight - shown);
     for (Character* c : std::as_const(m_characters)) {
         if (!c->screenBound())
             continue;
         const float leftEdge = c->facing() > 0 ? c->backEdgeWidth() : c->frontEdgeWidth();
         const float rightEdge = c->facing() > 0 ? c->frontEdgeWidth() : c->backEdgeWidth();
-        const float low = m_cameraX - half + m_screenEdge + leftEdge;
-        const float high = std::max(low, m_cameraX + half - m_screenEdge - rightEdge);
+        const float low = m_cameraX - shown + m_screenEdge + leftEdge;
+        const float high = std::max(low, m_cameraX + shown - m_screenEdge - rightEdge);
         const float x = std::clamp(float(c->pos().x()), low, high);
         c->moveX(x - float(c->pos().x()));
     }
+}
+
+void Match::setCamera(const CameraSettings& settings)
+{
+    m_camera = settings;
+    m_camera.zoomOut = std::max(0.01f, settings.zoomOut);
+    m_camera.zoomIn = std::max(m_camera.zoomOut, settings.zoomIn);
+    m_zoom = std::clamp(settings.startZoom, m_camera.zoomOut, m_camera.zoomIn);
+    m_zoomWait = m_camera.zoomInDelay;
+}
+
+void Match::zoomCamera(bool followed, float least, float most)
+{
+    if (!followed || (m_camera.zoomOut == 1 && m_camera.zoomIn == 1))
+        return;
+    // Zoom out at once to keep the players on the screen. Zoom in part of the way each tick.
+    const float span = most - least + 2 * m_camera.tension;
+    const float target = std::clamp(m_screenWidth / std::max(1.0f, span), m_camera.zoomOut, m_camera.zoomIn);
+    if (target < m_zoom) {
+        m_zoom = target;
+        m_zoomWait = m_camera.zoomInDelay;
+    } else if (target > m_zoom && m_zoomWait > 0) {
+        --m_zoomWait;
+    } else if (target > m_zoom) {
+        m_zoom = target - m_zoom < 0.001f ? target : m_zoom + (target - m_zoom) * 0.15f;
+    } else {
+        m_zoomWait = m_camera.zoomInDelay;
+    }
+}
+
+void Match::updateView()
+{
+    // The Zoom controller's values ease in and out by lag: each tick moves 1 - lag of the way.
+    ZoomEffect& z = m_zoomEffect;
+    if (z.active) {
+        const bool over = z.time <= 0;
+        const float lag = over ? z.endLag : z.lag;
+        auto ease = [lag](float& current, float target) {
+            if (lag <= 0 || std::abs(target - current) < 0.001f)
+                current = target;
+            else if (lag < 1)
+                current += (target - current) * (1 - lag);
+        };
+        ease(z.curPos.x, over ? 0.0f : z.pos.x);
+        ease(z.curPos.y, over ? 0.0f : z.pos.y);
+        ease(z.curScale, over ? 1.0f : z.scale);
+        if (z.time > 0)
+            --z.time;
+        if (over && std::abs(z.curPos.x) < 0.001f && std::abs(z.curPos.y) < 0.001f && std::abs(z.curScale - 1) < 0.001f)
+            z = ZoomEffect();
+    }
+    m_view = View{m_cameraX, 0, m_zoom};
+    if (!z.active)
+        return;
+    const float half = m_screenWidth / 2;
+    const float above = m_screenFloor;
+    const float below = m_screenHeight - m_screenFloor;
+    const float areaLeft = m_left + half - half / m_camera.zoomOut;
+    const float areaRight = m_right - half + half / m_camera.zoomOut;
+    float scale = z.curScale * m_zoom;
+    if (z.cameraBound)
+        scale = std::max(scale, m_zoom);
+    if (z.stageBound)
+        scale = std::max({scale, m_screenWidth / std::max(1.0f, areaRight - areaLeft),
+                          m_screenHeight / std::max(1.0f, m_screenHeight - m_camera.boundHigh)});
+    float x = m_cameraX + z.curPos.x;
+    float y = z.curPos.y;
+    if (z.cameraBound) {
+        const float slackX = std::max(0.0f, half / m_zoom - half / scale);
+        const float slackY = std::max(0.0f, 1 / m_zoom - 1 / scale);
+        x = std::clamp(x, m_cameraX - slackX, m_cameraX + slackX);
+        y = std::clamp(y, -above * slackY, below * slackY);
+    }
+    if (z.stageBound) {
+        const float low = areaLeft + half / scale;
+        const float high = areaRight - half / scale;
+        x = low <= high ? std::clamp(x, low, high) : (areaLeft + areaRight) / 2;
+        const float top = m_camera.boundHigh - above + above / scale;
+        const float bottom = below - below / scale;
+        if (top <= bottom)
+            y = std::clamp(y, top, bottom);
+    }
+    z.curPos.x = x - m_cameraX;
+    m_view = View{x, y, scale};
 }
 
 } // namespace OFS::Mugen::Runtime

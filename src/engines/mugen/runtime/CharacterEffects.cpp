@@ -259,22 +259,7 @@ bool Character::executeEffect(const Controller& c)
         return true;
     }
     if (type == QLatin1String("afterimage")) {
-        AfterImage a;
-        a.time = intParam(c, QStringLiteral("time"), 1);
-        a.length = intParam(c, QStringLiteral("length"), 20);
-        a.timeGap = std::max(1, intParam(c, QStringLiteral("timegap"), 1));
-        a.frameGap = std::max(1, intParam(c, QStringLiteral("framegap"), 4));
-        if (const QString t = text(QStringLiteral("trans")).trimmed().toLower(); !t.isEmpty())
-            a.trans = t;
-        a.palColor = intParam(c, QStringLiteral("palcolor"), 256);
-        a.palInvertAll = intParam(c, QStringLiteral("palinvertall"), 0) != 0;
-        ints3(QStringLiteral("palbright"), a.palBright);
-        ints3(QStringLiteral("palcontrast"), a.palContrast);
-        ints3(QStringLiteral("palpostbright"), a.palPostBright);
-        ints3(QStringLiteral("paladd"), a.palAdd);
-        for (int i = 0; i < 3; ++i)
-            a.palMul[std::size_t(i)] = floatParam(c, QStringLiteral("palmul"), a.palMul[std::size_t(i)], i);
-        m_draw.afterImage = a;
+        m_draw.afterImage = readAfterImage(c, QString());
         return true;
     }
     if (type == QLatin1String("afterimagetime")) {
@@ -426,9 +411,76 @@ bool Character::executeEffect(const Controller& c)
     }
     if (type == QLatin1String("forcefeedback"))
         return true;
-    if (type == QLatin1String("zoom"))
+    if (type == QLatin1String("zoom")) {
+        // A scale of 0 or less and a lag outside 0 to 1 are not taken.
+        if (!m_match)
+            return true;
+        ZoomEffect& z = m_match->zoomEffect();
+        z.pos = Vec2{floatParam(c, QStringLiteral("pos"), 0, 0), floatParam(c, QStringLiteral("pos"), 0, 1)};
+        const float scale = floatParam(c, QStringLiteral("scale"), 1);
+        z.scale = scale > 0 ? scale : 1;
+        const float lag = floatParam(c, QStringLiteral("lag"), 0);
+        z.lag = lag >= 0 && lag <= 1 ? lag : 0;
+        const float endLag = floatParam(c, QStringLiteral("endlag"), 0);
+        z.endLag = endLag >= 0 && endLag <= 1 ? endLag : 0;
+        z.time = intParam(c, QStringLiteral("time"), 1);
+        if (has(c, QStringLiteral("camerabound")))
+            z.cameraBound = intParam(c, QStringLiteral("camerabound"), 1) != 0;
+        if (has(c, QStringLiteral("stagebound")))
+            z.stageBound = intParam(c, QStringLiteral("stagebound"), 1) != 0;
+        z.active = true;
         return true;
+    }
     return false;
+}
+
+AfterImage Character::readAfterImage(const Controller& c, const QString& prefix)
+{
+    auto name = [&prefix](const char* key) {
+        return prefix + QLatin1String(key);
+    };
+    AfterImage a;
+    a.time = intParam(c, name("time"), 1);
+    a.length = intParam(c, name("length"), 20);
+    a.timeGap = std::max(1, intParam(c, name("timegap"), 1));
+    a.frameGap = std::max(1, intParam(c, name("framegap"), 4));
+    if (const Param* trans = c.param(name("trans"))) {
+        if (const QString t = unquote(trans->text.trimmed()).trimmed().toLower(); !t.isEmpty())
+            a.trans = t;
+    }
+    a.palColor = intParam(c, name("palcolor"), 256);
+    a.palInvertAll = intParam(c, name("palinvertall"), 0) != 0;
+    for (int i = 0; i < 3; ++i) {
+        const auto k = std::size_t(i);
+        a.palBright[k] = intParam(c, name("palbright"), a.palBright[k], i);
+        a.palContrast[k] = intParam(c, name("palcontrast"), a.palContrast[k], i);
+        a.palPostBright[k] = intParam(c, name("palpostbright"), a.palPostBright[k], i);
+        a.palAdd[k] = intParam(c, name("paladd"), a.palAdd[k], i);
+        a.palMul[k] = floatParam(c, name("palmul"), a.palMul[k], i);
+    }
+    return a;
+}
+
+void Character::forceRemap(const Controller& c, PaletteRemap& remap)
+{
+    const int group = intParam(c, QStringLiteral("remappal"), -1, 0);
+    if (group >= 0)
+        remap = PaletteRemap{{DrawState::AllPalettes, {group, intParam(c, QStringLiteral("remappal"), 0, 1)}}};
+}
+
+PaletteRemap Character::paletteRemap() const
+{
+    PaletteRemap remap;
+    for (const Character* c = this; c; c = c->ownPal() ? nullptr : c->m_parent) {
+        for (auto it = c->m_draw.remap.cbegin(); it != c->m_draw.remap.cend(); ++it) {
+            if (!remap.contains(it.key()))
+                remap.insert(it.key(), it.value());
+        }
+        // A remap of every palette leaves nothing to the parent.
+        if (c->m_draw.remap.contains(DrawState::AllPalettes))
+            break;
+    }
+    return remap;
 }
 
 } // namespace OFS::Mugen::Runtime

@@ -25,6 +25,10 @@ namespace OFS {
 class Project;
 }
 
+namespace OFS::Mugen::Runtime {
+class IniText;
+}
+
 namespace OFS::Mugen {
 
 // The match the Emulator shows, run one tick at a time.
@@ -68,6 +72,19 @@ public:
         bool under = false;
     };
 
+    struct Shadows
+    {
+        int intensity = 128;
+        std::array<int, 3> color{0, 0, 0};
+        float yScale = 0.4f; // the shadow's height against the sprite's (below 0: upwards)
+        float xShear = 0;    // the shadow leans left by this much per pixel of height (1.1)
+        // fade.range: above `top` no shadow, below `bottom` all of it, faded in between.
+        bool fade = false;
+        float fadeTop = 0;
+        float fadeBottom = 0;
+        int reflection = 0;
+    };
+
     struct Stage
     {
         QString path;
@@ -83,6 +100,8 @@ public:
         float boundRight = 150;
         float p1x = -70;
         float p2x = 70;
+        Runtime::Match::CameraSettings camera;
+        Shadows shadows;
     };
 
     EmulatorSession();
@@ -104,6 +123,8 @@ public:
     const SpriteDocument* fightFxSprites() const { return m_fightFxSprites.get(); }
     const SpriteDocument* spritesOf(const Runtime::Character& character) const;
     const Formats::Palette* paletteOf(const Runtime::Character& character, int group, int number) const;
+    const Formats::Palette* paletteOf(const Runtime::Character& character, int group, int number,
+                                      const Runtime::PaletteRemap& remap) const;
     std::shared_ptr<const AudioMixer::Sound> sound(int playerId, bool common, int group, int index);
     const SoundDocument* commonSounds() const { return m_commonSounds.get(); }
     std::shared_ptr<const AudioMixer::Sound> soundFrom(const SoundDocument* doc, int group, int index);
@@ -125,6 +146,7 @@ public:
 
 private:
     bool loadStage(const QString& path, const QString& engineDir, QString* error);
+    void loadStageLook(const Runtime::IniText& ini);
     static void loadPalettes(Player& player);
     const Player* playerOf(const Runtime::Character& character) const;
     void loadFightFx(const QString& engineDir);

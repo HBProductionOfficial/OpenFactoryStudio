@@ -60,12 +60,17 @@ struct AfterImageFrame
     Vec2 pos;
     const CharacterData* animData = nullptr;
     int animNo = 0;
+    bool common = false;
     int frame = 0;
     int facing = 1;
+    Vec2 scale{1, 1};
     bool angleDraw = false;
     float angle = 0;
     Vec2 angleScale{1, 1};
 };
+
+// Source palette -> the palette shown instead.
+using PaletteRemap = QHash<QPair<int, int>, QPair<int, int>>;
 
 struct DrawState
 {
@@ -77,7 +82,7 @@ struct DrawState
     Vec2 angleScale{1, 1};
     PalFx palFx;
     AfterImage afterImage;
-    QHash<QPair<int, int>, QPair<int, int>> remap;
+    PaletteRemap remap;
     // The remap source that stands for every palette (RemapPal with source -1).
     static constexpr QPair<int, int> AllPalettes{-1, -1};
 };
@@ -88,6 +93,27 @@ struct EnvShake
     float freq = 60;
     int ampl = -4;
     float phase = 0;
+};
+
+struct ZoomEffect
+{
+    bool active = false;
+    int time = 0;
+    float lag = 0;
+    float endLag = 0;
+    float scale = 1;
+    Vec2 pos;
+    float curScale = 1;
+    Vec2 curPos;
+    bool cameraBound = true;
+    bool stageBound = true;
+};
+
+enum class Projection
+{
+    Orthographic,
+    Perspective,
+    Perspective2,
 };
 
 struct EnvColor
