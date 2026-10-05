@@ -46,6 +46,8 @@ add_library(ofs_mugen_lib STATIC
     MugenSyntax.cpp
     expr/Expression.h
     expr/Expression.cpp
+    emulator/BackgroundMusic.h
+    emulator/BackgroundMusic.cpp
     emulator/EmulatorDebugger.h
     emulator/EmulatorDebugger.cpp
     emulator/EmulatorSession.h

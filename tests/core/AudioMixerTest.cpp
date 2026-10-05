@@ -2,6 +2,7 @@
 
 #include <QTest>
 
+#include <algorithm>
 #include <cmath>
 
 using namespace OFS;
@@ -122,6 +123,72 @@ private Q_SLOTS:
         QCOMPARE(mixer.voices(), 1);
         mixer.stop(0, 1);
         QCOMPARE(mixer.voices(), 0);
+    }
+
+    void music()
+    {
+        AudioMixer mixer(AudioEngine::Backend::Null);
+        // A ramp: each frame a hundredth more than the one before.
+        SampleBuffer ramp(SampleType::Float32, 1, AudioMixer::Rate / 2, 100);
+        for (std::size_t f = 0; f < ramp.frameCount(); ++f)
+            ramp.setSample(f, 0, float(f) / 100);
+        const auto track = std::make_shared<const SampleBuffer>(std::move(ramp));
+        AudioMixer::MusicOptions options;
+        options.volume = 0.5f;
+        options.loopStart = 20;
+        options.loopEnd = 60;
+        QVERIFY(mixer.playMusic(track, options));
+        QVERIFY(mixer.hasMusic());
+        QCOMPARE(mixer.voices(), 0);
+
+        // Two mixer frames per track frame, the ones between interpolated.
+        std::vector<float> out = mixer.mix(4);
+        QVERIFY(near(out[0], 0.f));
+        QVERIFY(near(out[2], 0.005f * 0.5f));
+        QVERIFY(near(out[4], 0.01f * 0.5f));
+        QVERIFY(near(out[5], out[4]));
+        mixer.mix(116);
+        QCOMPARE(mixer.musicPosition(), std::size_t(60));
+        out = mixer.mix(1);
+        QVERIFY(near(out[0], 0.2f * 0.5f));
+        QCOMPARE(mixer.musicPosition(), std::size_t(20));
+
+        mixer.setMusicPaused(true);
+        out = mixer.mix(10);
+        QVERIFY(std::all_of(out.cbegin(), out.cend(), [](float v) { return v == 0; }));
+        QCOMPARE(mixer.musicPosition(), std::size_t(20));
+        QVERIFY(mixer.musicPaused());
+        QVERIFY(mixer.hasMusic());
+        mixer.setMusicPaused(false);
+        mixer.setMusicVolume(1);
+        QCOMPARE(mixer.musicVolume(), 1.f);
+        QVERIFY(near(mixer.mix(1)[0], 0.205f));
+
+        options.loop = false;
+        mixer.playMusic(track, options);
+        QCOMPARE(mixer.musicPosition(), std::size_t(0));
+        mixer.mix(200);
+        QVERIFY(mixer.hasMusic());
+        out = mixer.mix(10);
+        QVERIFY(!mixer.hasMusic());
+        QVERIFY(near(out[0], 0.f));
+
+        options.loop = true;
+        options.loopStart = 500;
+        options.loopEnd = 1000;
+        mixer.playMusic(track, options);
+        mixer.mix(210);
+        QVERIFY(mixer.hasMusic());
+        QCOMPARE(mixer.musicPosition(), std::size_t(5));
+
+        mixer.stopMusic();
+        QVERIFY(!mixer.hasMusic());
+        mixer.playMusic(track);
+        QVERIFY(mixer.musicOptions().loop);
+        mixer.stopAll();
+        QVERIFY(!mixer.hasMusic());
+        QVERIFY(!mixer.playMusic(nullptr));
+        QVERIFY(!mixer.playMusic(std::make_shared<const SampleBuffer>()));
     }
 };
 

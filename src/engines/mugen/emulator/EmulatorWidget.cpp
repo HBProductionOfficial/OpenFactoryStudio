@@ -355,6 +355,8 @@ void EmulatorWidget::onLine(const Character& character, const Controller& contro
 void EmulatorWidget::interrupted()
 {
     m_timer.stop();
+    if (m_mixer)
+        m_mixer->setMusicPaused(true);
     setDebugState(Debug::SessionState::Interrupted);
     const std::optional<EmulatorDebugger::Location>& at = m_debugger.location();
     Q_EMIT debugLineChanged(at ? at->file : QString(), at ? at->line : 0);

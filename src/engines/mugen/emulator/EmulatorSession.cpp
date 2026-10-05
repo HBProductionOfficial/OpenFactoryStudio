@@ -155,6 +155,19 @@ bool EmulatorSession::loadStage(const QString& path, const QString& engineDir, Q
         m_stage.simulator = std::make_unique<BgSimulator>(m_stage.bg.groups()[group]);
     m_stage.animations = AirDocument::parse(text);
     loadStageLook(ini);
+
+    // The music: a file in the engine folder (usually in sound/), else beside the stage. bgmvolume is in
+    // percent. bgvolume (MUGEN 1.0) goes from -255 to 255 and 0 keeps the volume as it is.
+    m_stage.music = BackgroundMusic::Track();
+    if (const IniSection* musicSection = ini.section(QStringLiteral("Music"))) {
+        m_stage.music.file =
+            BackgroundMusic::find(musicSection->value(QStringLiteral("bgmusic")),
+                                  {engineDir, folder, QDir(engineDir).filePath(QStringLiteral("sound"))});
+        const float offset = std::clamp(number(musicSection, "bgvolume", 0), -255.0f, 255.0f);
+        m_stage.music.volume = std::max(0.0f, number(musicSection, "bgmvolume", 100) / 100) * (255 + offset) / 255;
+        m_stage.music.loopStart = musicSection->value(QStringLiteral("bgmloopstart")).toLongLong();
+        m_stage.music.loopEnd = musicSection->value(QStringLiteral("bgmloopend")).toLongLong();
+    }
     return true;
 }
 
@@ -275,6 +288,7 @@ bool EmulatorSession::start(Project& project, const Options& options, QString* e
     m_players.clear();
     m_effects.clear();
     m_soundCache.clear();
+    m_music = BackgroundMusic();
     m_project = &project;
     const QString engineDir = options.engineDir;
     if (engineDir.isEmpty() || !QFileInfo(QDir(engineDir).filePath(QStringLiteral("data/common1.cns"))).isFile()) {
@@ -388,6 +402,9 @@ bool EmulatorSession::start(Project& project, const Options& options, QString* e
     m_players.push_back(std::move(p2));
     setTrainingOptions(options.trainingOptions);
     m_match->startMatch(roundSettings(options));
+    BackgroundMusic::Track stageMusic = m_stage.music;
+    stageMusic.volume *= BackgroundMusic::engineVolume(engineDir);
+    m_music.play(stageMusic);
     m_started = true;
     return true;
 }
@@ -563,6 +580,7 @@ void EmulatorSession::playSounds(AudioMixer& mixer)
         if (auto prepared = soundFrom(m_fightScreen.soundFile(), s.group, s.number))
             mixer.play(prepared, ScreenSounds, -1);
     }
+    m_music.update(mixer, m_match->isAsserted(QStringLiteral("nomusic")));
 }
 
 void EmulatorSession::setTrainingOptions(const TrainingOptions& options)

@@ -39,6 +39,24 @@ public:
     void stopAll();
     void setPan(int owner, int channel, float pan);
     int voices() const;
+
+    struct MusicOptions
+    {
+        float volume = 1;
+        bool loop = true;
+        std::size_t loopStart = 0;
+        std::size_t loopEnd = 0;
+    };
+    bool playMusic(std::shared_ptr<const Formats::SampleBuffer> track, const MusicOptions& options);
+    bool playMusic(std::shared_ptr<const Formats::SampleBuffer> track);
+    void stopMusic();
+    void setMusicPaused(bool paused);
+    void setMusicVolume(float volume);
+    bool hasMusic() const;
+    bool musicPaused() const;
+    float musicVolume() const;
+    std::size_t musicPosition() const;
+    MusicOptions musicOptions() const;
     // For tests. With the Null backend nothing else mixes.
     std::vector<float> mix(std::size_t frames);
 

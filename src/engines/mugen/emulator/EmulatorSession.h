@@ -6,6 +6,7 @@
 #include "core/bg/BgSimulator.h"
 #include "core/sounds/SoundDocument.h"
 #include "core/sprites/SpriteDocument.h"
+#include "engines/mugen/emulator/BackgroundMusic.h"
 #include "engines/mugen/emulator/FightScreen.h"
 #include "engines/mugen/emulator/Training.h"
 #include "engines/mugen/runtime/Character.h"
@@ -102,6 +103,7 @@ public:
         float p2x = 70;
         Runtime::Match::CameraSettings camera;
         Shadows shadows;
+        BackgroundMusic::Track music;
     };
 
     EmulatorSession();
@@ -132,6 +134,7 @@ public:
     std::array<FightScreen::Side, 2> sides() const;
     static constexpr int ScreenSounds = -2;
     void playSounds(AudioMixer& mixer);
+    const BackgroundMusic& music() const { return m_music; }
     // -1 left to 1 right. 0 without stereo.
     float stereoPan(int playerId, float pan, bool absolute) const;
 
@@ -170,6 +173,7 @@ private:
     QMap<std::tuple<const SoundDocument*, int, int>, std::shared_ptr<const AudioMixer::Sound>> m_soundCache;
     bool m_stereo = true;
     float m_panningWidth = 240;
+    BackgroundMusic m_music;
 };
 
 } // namespace OFS::Mugen

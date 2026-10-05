@@ -182,6 +182,27 @@ bool MotifScreen::start(Project& project, const QString& systemDef, const QStrin
             m_stageSimulator = std::make_unique<BgSimulator>(m_stage.groups()[group]);
     }
 
+    // [Music] files are in the engine folder (usually sound/) or the motif's, and loop unless told not to.
+    const char* bgm = screen == Screen::Menu      ? "title.bgm"
+                      : screen == Screen::Versus  ? "vs.bgm"
+                      : screen == Screen::Victory ? "victory.bgm"
+                                                  : nullptr;
+    if (const IniSection* bgmSection = section(QStringLiteral("Music")); bgmSection && bgm) {
+        const QString key = QLatin1String(bgm);
+        BackgroundMusic::Track track;
+        track.file = BackgroundMusic::find(bgmSection->value(key),
+                                           {engineDir, folder, QDir(engineDir).filePath(QStringLiteral("data")),
+                                            QDir(engineDir).filePath(QStringLiteral("sound"))});
+        bool ok = false;
+        const float percent = bgmSection->value(key + QLatin1String(".volume")).toFloat(&ok);
+        track.volume = (ok ? std::max(0.0f, percent / 100) : 1.0f) * BackgroundMusic::engineVolume(engineDir);
+        const QString loop = bgmSection->value(key + QLatin1String(".loop")).trimmed();
+        track.loop = loop.isEmpty() || loop.toInt() != 0;
+        track.loopStart = bgmSection->value(key + QLatin1String(".loopstart")).toLongLong();
+        track.loopEnd = bgmSection->value(key + QLatin1String(".loopend")).toLongLong();
+        m_music.play(track);
+    }
+
     switch (screen) {
     case Screen::Menu: {
         startBackground(QStringLiteral("TitleBG"));
@@ -273,6 +294,7 @@ void MotifScreen::playSounds(AudioMixer& mixer)
             mixer.play(cached.value(), Sounds, -1);
     }
     m_pendingSounds.clear();
+    m_music.update(mixer);
 }
 
 void MotifScreen::drawText(QPainter& painter, const QString& fontSpec, QPointF at, const QString& text)

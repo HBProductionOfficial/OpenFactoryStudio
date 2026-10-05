@@ -6,6 +6,7 @@
 #include "core/bg/BgSimulator.h"
 #include "core/sounds/SoundDocument.h"
 #include "core/sprites/SpriteDocument.h"
+#include "engines/mugen/emulator/BackgroundMusic.h"
 #include "engines/mugen/emulator/FightScreen.h"
 #include "engines/mugen/runtime/Commands.h"
 
@@ -54,6 +55,7 @@ public:
 
     void tick(const Runtime::InputState& keys);
     void playSounds(AudioMixer& mixer);
+    const BackgroundMusic& music() const { return m_music; }
     QImage render();
     QSize canvasSize() const { return m_size; }
 
@@ -106,6 +108,7 @@ private:
     Runtime::InputState m_lastKeys;
     QStringList m_pendingSounds;
     QHash<QString, std::shared_ptr<const AudioMixer::Sound>> m_soundCache;
+    BackgroundMusic m_music;
 };
 
 } // namespace OFS::Mugen

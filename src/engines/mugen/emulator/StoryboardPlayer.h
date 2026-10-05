@@ -6,6 +6,7 @@
 #include "core/bg/BgSimulator.h"
 #include "core/sounds/SoundDocument.h"
 #include "core/sprites/SpriteDocument.h"
+#include "engines/mugen/emulator/BackgroundMusic.h"
 #include "engines/mugen/emulator/FightScreen.h"
 #include "engines/mugen/runtime/AnimPlayer.h"
 
@@ -71,6 +72,9 @@ public:
         QList<Sound> sounds;
         std::optional<QString> bgm; // a file to play from the scene's start ("": stop the music)
         bool bgmLoop = false;
+        float bgmVolume = 1;
+        qint64 bgmLoopStart = 0;
+        qint64 bgmLoopEnd = 0;
         QString bgName;
     };
 
@@ -85,6 +89,7 @@ public:
 
     void tick();
     void playSounds(AudioMixer& mixer);
+    const BackgroundMusic& music() const { return m_music; }
     QImage render();
 
     QSize canvasSize() const { return m_size; }
@@ -93,7 +98,6 @@ public:
     int sceneTime() const { return m_time; }
 
     static constexpr int Sounds = -3;
-    static constexpr int Music = -4;
 
 private:
     void enterScene(int index);
@@ -117,9 +121,9 @@ private:
     QImage m_canvas;
     QHash<QPair<const FightScreen::Font*, int>, QImage> m_fontImages;
     QList<Sound> m_pendingSounds;
-    std::optional<QString> m_pendingBgm;
-    bool m_pendingBgmLoop = false;
     QHash<QPair<int, int>, std::shared_ptr<const AudioMixer::Sound>> m_soundCache;
+    QString m_engineDir;
+    BackgroundMusic m_music;
 };
 
 } // namespace OFS::Mugen

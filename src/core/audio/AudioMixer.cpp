@@ -5,7 +5,9 @@
 #include <miniaudio.h>
 
 #include <algorithm>
+#include <cmath>
 #include <mutex>
+#include <utility>
 
 namespace OFS {
 
@@ -31,6 +33,19 @@ void setGains(Voice& v, float pan)
     v.right = v.volume * std::min(1.0f, 1.0f + pan);
 }
 
+// The music track, read at its own rate: `step` track frames per mixer frame.
+struct Music
+{
+    std::shared_ptr<const Formats::SampleBuffer> track;
+    AudioMixer::MusicOptions options;
+    std::size_t loopStart = 0;
+    std::size_t loopEnd = 0;
+    double position = 0;
+    double step = 1;
+    bool paused = false;
+    bool ended = false; // kept until stopped or replaced, so the samples are not freed while mixing
+};
+
 } // namespace
 
 struct AudioMixer::Impl
@@ -42,11 +57,44 @@ struct AudioMixer::Impl
     std::string error;
     std::mutex mutex;
     std::vector<Voice> voices;
+    Music music;
+
+    void renderMusic(float* out, std::size_t frames)
+    {
+        const Formats::SampleBuffer& track = *music.track;
+        const std::uint16_t second = track.channels() > 1 ? 1 : 0;
+        const bool loop = music.options.loop && music.loopEnd > music.loopStart;
+        const std::size_t end = loop ? music.loopEnd : track.frameCount();
+        const float volume = std::max(0.0f, music.options.volume);
+        for (std::size_t f = 0; f < frames; ++f) {
+            if (music.position >= double(end)) {
+                if (!loop) {
+                    music.ended = true;
+                    return;
+                }
+                music.position = double(music.loopStart) +
+                                 std::fmod(music.position - double(end), double(music.loopEnd - music.loopStart));
+            }
+            // Between two frames of the track (the one after the loop's end is its start).
+            const std::size_t at = std::size_t(music.position);
+            const std::size_t next = at + 1 < end ? at + 1 : loop ? music.loopStart : at;
+            const float part = float(music.position - double(at));
+            auto sample = [&](std::uint16_t channel) {
+                const float a = track.sample(at, channel);
+                return a + (track.sample(next, channel) - a) * part;
+            };
+            out[f * 2] += sample(0) * volume;
+            out[f * 2 + 1] += sample(second) * volume;
+            music.position += music.step;
+        }
+    }
 
     void render(float* out, std::size_t frames)
     {
         std::fill(out, out + frames * 2, 0.0f);
         std::lock_guard lock(mutex);
+        if (music.track && !music.paused && !music.ended)
+            renderMusic(out, frames);
         for (Voice& v : voices) {
             const double length = double(v.sound->frames());
             const std::vector<float>& s = v.sound->samples;
@@ -191,8 +239,10 @@ void AudioMixer::stop(int owner, int channel)
 
 void AudioMixer::stopAll()
 {
+    Music old;
     std::lock_guard lock(d->mutex);
     d->voices.clear();
+    std::swap(old, d->music);
 }
 
 void AudioMixer::setPan(int owner, int channel, float pan)
@@ -208,6 +258,79 @@ int AudioMixer::voices() const
 {
     std::lock_guard lock(d->mutex);
     return int(d->voices.size());
+}
+
+bool AudioMixer::playMusic(std::shared_ptr<const Formats::SampleBuffer> track, const MusicOptions& options)
+{
+    if (!d->deviceReady || !track || track->empty() || track->sampleRate() == 0)
+        return false;
+    Music music;
+    const std::size_t length = track->frameCount();
+    music.loopStart = options.loopStart < length ? options.loopStart : 0;
+    music.loopEnd = options.loopEnd > music.loopStart && options.loopEnd <= length ? options.loopEnd : length;
+    music.step = double(track->sampleRate()) / double(Rate);
+    music.options = options;
+    music.track = std::move(track);
+    Music old;
+    {
+        std::lock_guard lock(d->mutex);
+        old = std::exchange(d->music, std::move(music));
+    }
+    return true; // the old track's samples are freed here, out of the mixing's way
+}
+
+bool AudioMixer::playMusic(std::shared_ptr<const Formats::SampleBuffer> track)
+{
+    return playMusic(std::move(track), MusicOptions());
+}
+
+void AudioMixer::stopMusic()
+{
+    Music old;
+    std::lock_guard lock(d->mutex);
+    std::swap(old, d->music);
+}
+
+void AudioMixer::setMusicPaused(bool paused)
+{
+    std::lock_guard lock(d->mutex);
+    d->music.paused = paused;
+}
+
+void AudioMixer::setMusicVolume(float volume)
+{
+    std::lock_guard lock(d->mutex);
+    d->music.options.volume = std::max(0.0f, volume);
+}
+
+bool AudioMixer::hasMusic() const
+{
+    std::lock_guard lock(d->mutex);
+    return d->music.track && !d->music.ended;
+}
+
+bool AudioMixer::musicPaused() const
+{
+    std::lock_guard lock(d->mutex);
+    return d->music.paused;
+}
+
+float AudioMixer::musicVolume() const
+{
+    std::lock_guard lock(d->mutex);
+    return d->music.options.volume;
+}
+
+std::size_t AudioMixer::musicPosition() const
+{
+    std::lock_guard lock(d->mutex);
+    return std::size_t(d->music.position);
+}
+
+AudioMixer::MusicOptions AudioMixer::musicOptions() const
+{
+    std::lock_guard lock(d->mutex);
+    return d->music.options;
 }
 
 std::vector<float> AudioMixer::mix(std::size_t frames)

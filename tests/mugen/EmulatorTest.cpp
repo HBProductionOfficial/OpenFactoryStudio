@@ -10,6 +10,7 @@
 #include "engines/mugen/emulator/EmulatorSession.h"
 #include "engines/mugen/emulator/EmulatorWidget.h"
 #include "fixtures/FixtureFactory.h"
+#include "formats/audio/AudioCodec.h"
 #include "formats/codecs/Pcx.h"
 #include "formats/palette/PaletteFormats.h"
 
@@ -108,6 +109,28 @@ void writeSounds(const QString& path, const QList<std::tuple<int, int, double>>&
         snd.sounds.push_back(std::move(sound));
     }
     QVERIFY(snd.save(path.toStdWString()).ok());
+}
+
+void writeMusic(const QString& path, std::size_t frames, std::uint32_t rate)
+{
+    QDir().mkpath(QFileInfo(path).absolutePath());
+    Formats::SampleBuffer sine(Formats::SampleType::Float32, 2, rate, frames);
+    for (std::size_t f = 0; f < frames; ++f) {
+        const float v = 0.5f * float(std::sin(double(f) * 0.05));
+        sine.setSample(f, 0, v);
+        sine.setSample(f, 1, v);
+    }
+    Formats::EncodeOptions options;
+    options.format = path.endsWith(".ogg") ? Formats::AudioFileFormat::OggVorbis : Formats::AudioFileFormat::Wav;
+    QVERIFY(Formats::saveAudio(sine, path.toStdWString(), options).ok());
+}
+
+float loudest(const std::vector<float>& samples)
+{
+    float most = 0;
+    for (float v : samples)
+        most = std::max(most, std::abs(v));
+    return most;
 }
 
 // Line numbers on the right.
@@ -227,6 +250,12 @@ class EmulatorTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void initTestCase()
+    {
+        // No sound card needed.
+        qputenv("OFS_AUDIO_BACKEND", "null");
+    }
+
     void session()
     {
         EngineFolder engine;
@@ -574,6 +603,175 @@ private Q_SLOTS:
         QVERIFY(emulator.mixer()->voices() > 0);
         emulator.stop();
         QCOMPARE(emulator.mixer()->voices(), 0);
+    }
+
+    void stageMusic()
+    {
+        EngineFolder engine;
+        writeMusic(engine.dir.filePath("sound/theme.wav"), 4410, 22050);
+        writeFile(engine.dir.filePath("data/mugen.cfg"),
+                  "[Options]\ntime = 5\n[Sound]\nMasterVolume = 50\nBGMVolume = 80\n");
+        const QByteArray stage = "[StageInfo]\nzoffset = 200\n[Camera]\nboundleft = -100\nboundright = 100\n"
+                                 "[PlayerInfo]\np1startx = -50\np2startx = 50\n[BGdef]\nspr = stage0.sff\n";
+        writeFile(engine.dir.filePath("stages/stage0.def"),
+                  stage + "[Music]\nbgmusic = sound/theme.wav\nbgmvolume = 50\nbgmloopstart = 1000\n"
+                          "bgmloopend = 3000\n");
+        writeFile(engine.dir.filePath("chars/test/test.cmd"),
+                  "[Statedef -1]\n[State -1]\ntype = AssertSpecial\ntrigger1 = gametime >= 20\n"
+                  "trigger1 = gametime < 30\nflag = nomusic\n");
+        MugenEngine mugen;
+        std::unique_ptr<Project> project(mugen.openProject(engine.def, nullptr));
+        QVERIFY(project);
+        EmulatorSession session;
+        EmulatorSession::Options options;
+        options.engineDir = engine.dir.path();
+        QString error;
+        QVERIFY2(session.start(*project, options, &error), qPrintable(error));
+        QCOMPARE(QFileInfo(session.stage().music.file).fileName(), QStringLiteral("theme.wav"));
+        QCOMPARE(session.stage().music.volume, 0.5f);
+        QCOMPARE(session.stage().music.loopStart, qint64(1000));
+        QCOMPARE(session.stage().music.loopEnd, qint64(3000));
+
+        AudioMixer mixer(AudioEngine::Backend::Null);
+        QVERIFY(mixer.isAvailable());
+        session.tick({}, {});
+        session.music().waitUntilDecoded();
+        session.playSounds(mixer);
+        QVERIFY(mixer.hasMusic());
+        QVERIFY(!mixer.musicPaused());
+        QCOMPARE(mixer.musicVolume(), 0.5f * 0.5f * 0.8f);
+        const AudioMixer::MusicOptions playing = mixer.musicOptions();
+        QVERIFY(playing.loop);
+        QCOMPARE(playing.loopStart, std::size_t(1000));
+        QCOMPARE(playing.loopEnd, std::size_t(3000));
+        // The file is a fifth of a second long, so after a second it plays in its loop.
+        std::vector<float> out = mixer.mix(AudioMixer::Rate);
+        QVERIFY(loudest(out) > 0.05f && loudest(out) < 0.11f);
+        QVERIFY(mixer.hasMusic());
+        QVERIFY(mixer.musicPosition() >= 1000 && mixer.musicPosition() < 3000);
+
+        while (session.match().gameTime() < 25) {
+            session.tick({}, {});
+            session.playSounds(mixer);
+        }
+        QVERIFY(mixer.musicPaused());
+        const std::size_t held = mixer.musicPosition();
+        QCOMPARE(loudest(mixer.mix(100)), 0.f);
+        QCOMPARE(mixer.musicPosition(), held);
+        while (session.match().gameTime() < 35) {
+            session.tick({}, {});
+            session.playSounds(mixer);
+        }
+        QVERIFY(!mixer.musicPaused());
+        QVERIFY(loudest(mixer.mix(100)) > 0);
+
+        AppContext context;
+        EmulatorWidget emulator(*project, context);
+        QVERIFY2(emulator.start(), qPrintable(emulator.lastError()));
+        emulator.session().music().waitUntilDecoded();
+        emulator.step();
+        QVERIFY(emulator.mixer()->hasMusic());
+        emulator.stop();
+        QVERIFY(!emulator.mixer()->hasMusic());
+
+        // The decoders do not read MIDI.
+        writeFile(engine.dir.filePath("stages/stage0.def"), stage + "[Music]\nbgmusic = sound/missing.mp3\n");
+        QVERIFY2(session.start(*project, options, &error), qPrintable(error));
+        QVERIFY(session.stage().music.file.isEmpty());
+        session.tick({}, {});
+        session.playSounds(mixer);
+        QVERIFY(!mixer.hasMusic());
+        writeFile(engine.dir.filePath("sound/theme.mid"), QByteArray("MThd\0\0\0\6\0\1\0\1\0\x60", 14));
+        writeFile(engine.dir.filePath("stages/stage0.def"), stage + "[Music]\nbgmusic = sound/theme.mid\n");
+        QVERIFY2(session.start(*project, options, &error), qPrintable(error));
+        QVERIFY(!session.stage().music.file.isEmpty());
+        session.tick({}, {});
+        session.music().waitUntilDecoded();
+        session.playSounds(mixer);
+        QVERIFY(!mixer.hasMusic());
+    }
+
+    void storyboardMusic()
+    {
+        EngineFolder engine;
+        writeMusic(engine.dir.filePath("story/theme.ogg"), 22050, 44100);
+        const QString def = engine.dir.filePath("story/intro.def");
+        writeFile(def, "[Info]\nlocalcoord = 320,240\n[SceneDef]\n"
+                       "[Scene 0]\nbgm = theme.ogg\nbgm.loop = 1\nbgm.volume = 50\nbgm.loopstart = 100\n"
+                       "end.time = 3\n"
+                       "[Scene 1]\nend.time = 3\n"
+                       "[Scene 2]\nbgm =\nend.time = 3\n");
+        MugenEngine mugen;
+        QString error;
+        std::unique_ptr<Project> project(mugen.openProject(def, &error));
+        QVERIFY2(project, qPrintable(error));
+        StoryboardPlayer story;
+        QVERIFY2(story.start(*project, def, engine.dir.path(), &error), qPrintable(error));
+        AudioMixer mixer(AudioEngine::Backend::Null);
+        story.music().waitUntilDecoded();
+        story.playSounds(mixer);
+        QVERIFY(mixer.hasMusic());
+        QCOMPARE(mixer.musicVolume(), 0.5f);
+        QVERIFY(mixer.musicOptions().loop);
+        QCOMPARE(mixer.musicOptions().loopStart, std::size_t(100));
+        QVERIFY(loudest(mixer.mix(2000)) > 0.1f);
+        for (int i = 0; i < 3; ++i) {
+            story.tick();
+            story.playSounds(mixer);
+        }
+        QCOMPARE(story.sceneIndex(), 1);
+        QVERIFY(mixer.hasMusic());
+        for (int i = 0; i < 3; ++i) {
+            story.tick();
+            story.playSounds(mixer);
+        }
+        QCOMPARE(story.sceneIndex(), 2);
+        QVERIFY(!mixer.hasMusic());
+    }
+
+    void motifMusic()
+    {
+        EngineFolder engine;
+        writeMusic(engine.dir.filePath("sound/title.wav"), 2205, 22050);
+        const QString system = engine.dir.filePath("data/system.def");
+        writeFile(system, "[Info]\nlocalcoord = 320,240\n[Files]\n"
+                          "[Music]\ntitle.bgm = sound/title.wav\ntitle.bgm.volume = 70\ntitle.bgm.loop =\n"
+                          "title.bgm.loopstart = 100\ntitle.bgm.loopend = 2000\n"
+                          "vs.bgm = sound/title.wav\nvs.bgm.loop = 0\n"
+                          "[Title Info]\nmenu.pos = 160,150\n[TitleBGdef]\n");
+        MugenEngine mugen;
+        QString error;
+        std::unique_ptr<Project> motif(mugen.openProject(system, &error));
+        QVERIFY2(motif, qPrintable(error));
+        auto shown = [&](MotifScreen::Screen screen, AudioMixer& mixer) {
+            MotifScreen s;
+            if (!s.start(*motif, system, engine.dir.path(), screen, &error))
+                return false;
+            s.music().waitUntilDecoded();
+            s.tick({});
+            s.playSounds(mixer);
+            return true;
+        };
+        AudioMixer mixer(AudioEngine::Backend::Null);
+        QVERIFY2(shown(MotifScreen::Screen::Menu, mixer), qPrintable(error));
+        QVERIFY(mixer.hasMusic());
+        QCOMPARE(mixer.musicVolume(), 0.7f);
+        QVERIFY(mixer.musicOptions().loop);
+        QCOMPARE(mixer.musicOptions().loopStart, std::size_t(100));
+        QCOMPARE(mixer.musicOptions().loopEnd, std::size_t(2000));
+        mixer.mix(10000);
+        QVERIFY(mixer.hasMusic());
+
+        AudioMixer versus(AudioEngine::Backend::Null);
+        QVERIFY(shown(MotifScreen::Screen::Versus, versus));
+        QVERIFY(versus.hasMusic());
+        QVERIFY(!versus.musicOptions().loop);
+        versus.mix(5000); // past its end (2205 frames at half the mixer's rate)
+        QVERIFY(!versus.hasMusic());
+
+        AudioMixer continued(AudioEngine::Backend::Null);
+        QVERIFY(shown(MotifScreen::Screen::Continue, continued));
+        QVERIFY(!continued.hasMusic());
     }
 
     void fightScreen()

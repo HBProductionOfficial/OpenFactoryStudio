@@ -8,7 +8,6 @@
 #include "core/widgets/Blending.h"
 #include "engines/mugen/runtime/Files.h"
 #include "engines/mugen/runtime/IniText.h"
-#include "formats/audio/AudioCodec.h"
 #include "formats/sff/SffDocument.h"
 #include "formats/snd/SndDocument.h"
 
@@ -70,6 +69,7 @@ bool StoryboardPlayer::start(Project& project, const QString& defPath, const QSt
     *this = StoryboardPlayer();
     m_project = &project;
     m_path = defPath;
+    m_engineDir = engineDir;
     const QString text = textOf(defPath);
     const IniText ini = IniText::parse(text);
     const IniSection* sceneDef = ini.section(QStringLiteral("SceneDef"));
@@ -211,10 +211,18 @@ bool StoryboardPlayer::start(Project& project, const QString& defPath, const QSt
                     sound.pan = std::clamp(int(v.value(0)), -127, 127);
                 }
             } else if (key == QLatin1String("bgm")) {
-                const QString file = unquote(entry.value).trimmed();
-                scene.bgm = file.isEmpty() ? QString() : QDir(folder).filePath(file);
+                // A missing file stops the music like an empty name does.
+                scene.bgm = BackgroundMusic::find(
+                    entry.value, {folder, engineDir, QDir(engineDir).filePath(QStringLiteral("sound"))});
             } else if (key == QLatin1String("bgm.loop")) {
                 scene.bgmLoop = numbers(entry.value).value(0) != 0;
+            } else if (key == QLatin1String("bgm.volume")) {
+                if (!entry.value.trimmed().isEmpty())
+                    scene.bgmVolume = float(std::max(0.0, numbers(entry.value).value(0)) / 100);
+            } else if (key == QLatin1String("bgm.loopstart")) {
+                scene.bgmLoopStart = entry.value.trimmed().toLongLong();
+            } else if (key == QLatin1String("bgm.loopend")) {
+                scene.bgmLoopEnd = entry.value.trimmed().toLongLong();
             } else if (key == QLatin1String("bg.name")) {
                 scene.bgName = unquote(entry.value).trimmed();
             }
@@ -256,8 +264,13 @@ void StoryboardPlayer::enterScene(int index)
             m_bgSimulator = std::make_unique<BgSimulator>(m_bg.groups()[group]);
     }
     if (scene.bgm) {
-        m_pendingBgm = scene.bgm;
-        m_pendingBgmLoop = scene.bgmLoop;
+        BackgroundMusic::Track track;
+        track.file = *scene.bgm;
+        track.volume = scene.bgmVolume * BackgroundMusic::engineVolume(m_engineDir);
+        track.loop = scene.bgmLoop;
+        track.loopStart = scene.bgmLoopStart;
+        track.loopEnd = scene.bgmLoopEnd;
+        m_music.play(track);
     }
     for (const Sound& sound : std::as_const(scene.sounds)) {
         if (sound.group >= 0 && sound.startTime == 0)
@@ -311,14 +324,7 @@ void StoryboardPlayer::playSounds(AudioMixer& mixer)
             mixer.play(cached.value(), Sounds, -1, s.volume, s.pan / 127.0f);
     }
     m_pendingSounds.clear();
-    if (m_pendingBgm) {
-        mixer.stop(Music, -1);
-        if (!m_pendingBgm->isEmpty()) {
-            if (auto music = Formats::loadAudio(m_pendingBgm->toStdWString()))
-                mixer.play(AudioMixer::prepare(music.value().buffer), Music, 0, 1, 0, m_pendingBgmLoop);
-        }
-        m_pendingBgm.reset();
-    }
+    m_music.update(mixer);
 }
 
 QImage StoryboardPlayer::render()
