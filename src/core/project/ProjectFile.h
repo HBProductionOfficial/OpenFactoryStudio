@@ -32,6 +32,8 @@ public:
     bool isCopy() const { return m_copy; }
     void markAsCopy();
     void markUntitled() { m_untitled = true; }
+    // While a background save runs, changes on disk are our own.
+    bool isSaving() const { return m_saving; }
 
     virtual bool load(QString* error) = 0;
 
@@ -53,6 +55,7 @@ Q_SIGNALS:
 protected:
     void setPath(const QString& path);
     void setUntitled(bool untitled) { m_untitled = untitled; }
+    void setSaving(bool saving) { m_saving = saving; }
 
 private:
     QString m_path;
@@ -60,6 +63,7 @@ private:
     bool m_untitled = false;
     bool m_nameless = false;
     bool m_copy = false;
+    bool m_saving = false;
 };
 
 // A text file (definitions, commands, states, animations...). The text lives in a QTextDocument

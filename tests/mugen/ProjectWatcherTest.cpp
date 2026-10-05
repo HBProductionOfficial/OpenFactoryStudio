@@ -73,6 +73,46 @@ private Q_SLOTS:
         writeFile(dir.filePath("w.cmd"), "; on again\n");
         QTRY_COMPARE(changed.count(), 4);
     }
+
+    void backgroundSaveIsOwn()
+    {
+        struct File : ProjectFile
+        {
+            using ProjectFile::ProjectFile;
+            bool load(QString*) override { return true; }
+            bool saveAs(const QString&, QString*) override { return true; }
+            bool isModified() const override { return false; }
+            void beginSave() { setSaving(true); }
+            void endSave()
+            {
+                setSaving(false);
+                Q_EMIT saved();
+            }
+        };
+        struct OneFileProject : Project
+        {
+            using Project::addFile;
+            using Project::Project;
+        };
+        QTemporaryDir dir;
+        writeFile(dir.filePath("a.sff"), "one");
+        OneFileProject project(nullptr, dir.filePath("a.def"));
+        auto* file = new File(dir.filePath("a.sff"), QStringLiteral("sprites"), &project);
+        project.addFile(file);
+        ProjectWatcher watcher(&project);
+        QSignalSpy changed(&watcher, &ProjectWatcher::fileChanged);
+        QTest::qWait(1000);
+
+        file->beginSave();
+        writeFile(dir.filePath("a.sff"), "two");
+        QTest::qWait(800); // longer than the watcher lets a file settle
+        QCOMPARE(changed.count(), 0);
+        file->endSave();
+        QTest::qWait(400);
+        QCOMPARE(changed.count(), 0);
+        writeFile(dir.filePath("a.sff"), "three");
+        QTRY_COMPARE(changed.count(), 1);
+    }
 };
 
 QTEST_MAIN(ProjectWatcherTest)

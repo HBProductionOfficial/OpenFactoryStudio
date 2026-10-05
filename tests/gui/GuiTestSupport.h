@@ -90,12 +90,25 @@ inline QStringList menuIds(const QMenu* menu)
     return ids;
 }
 
+// Name of the timers that wait to answer a window. dropPendingAnswers() stops the ones a test
+// function left behind, so they cannot answer the next function's windows.
+inline constexpr const char* AnswerTimerName = "guiTestAnswer";
+
+inline void dropPendingAnswers()
+{
+    for (QTimer* timer : qApp->findChildren<QTimer*>(QLatin1String(AnswerTimerName), Qt::FindDirectChildrenOnly)) {
+        timer->stop();
+        timer->deleteLater();
+    }
+}
+
 // Runs `answer` on the next modal window of type T once it is open. Another modal window may
 // close first.
 template <typename T>
 void whenModal(std::function<void(T*)> answer)
 {
     auto* timer = new QTimer(qApp);
+    timer->setObjectName(AnswerTimerName);
     timer->setInterval(5);
     QObject::connect(timer, &QTimer::timeout, qApp, [timer, answer] {
         if (auto* window = qobject_cast<T*>(QApplication::activeModalWidget()); window && window->isVisible()) {
@@ -110,6 +123,7 @@ void whenModal(std::function<void(T*)> answer)
 inline void answerBoxes(QList<QMessageBox::StandardButton> buttons, QStringList* texts)
 {
     auto* timer = new QTimer(qApp);
+    timer->setObjectName(AnswerTimerName);
     timer->setInterval(5);
     QObject::connect(timer, &QTimer::timeout, qApp, [timer, buttons, texts]() mutable {
         auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
@@ -130,6 +144,7 @@ inline void answerDiscard(QMessageBox::StandardButton button)
 {
     // Waits for the box to show because a busy machine may fire the timer first.
     auto* timer = new QTimer(qApp);
+    timer->setObjectName(AnswerTimerName);
     timer->setInterval(5);
     QObject::connect(timer, &QTimer::timeout, qApp, [timer, button] {
         auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());

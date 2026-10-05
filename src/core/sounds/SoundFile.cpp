@@ -99,10 +99,12 @@ void SoundFile::saveAsync(std::function<void(bool ok, const QString& error)> don
     const int index = m_undo->index();
     AppContext* context = AppContext::instance();
     const int task = context ? context->tasks().begin(tr("Saving %1").arg(fileName())) : 0;
+    setSaving(true);
     auto* watcher = new QFutureWatcher<Result>(this);
     connect(watcher, &QFutureWatcher<Result>::finished, this, [this, watcher, done, index, task] {
         const Result result = watcher->result();
         watcher->deleteLater();
+        setSaving(false);
         if (AppContext* ctx = AppContext::instance())
             ctx->tasks().end(task);
         if (result.ok) {

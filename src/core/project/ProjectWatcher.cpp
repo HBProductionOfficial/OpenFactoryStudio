@@ -107,6 +107,13 @@ void ProjectWatcher::check()
         ProjectFile* file = m_files.value(path);
         if (!file)
             continue;
+        // Still saving it ourselves. Look again after the save, when its stamp is taken, so our
+        // own writes never count as a change.
+        if (file->isSaving()) {
+            m_pending.insert(path);
+            m_settle->start();
+            continue;
+        }
         if (!m_watcher->files().contains(path) && QFileInfo::exists(path))
             m_watcher->addPath(path);
         const Stamp now = stampOf(path);

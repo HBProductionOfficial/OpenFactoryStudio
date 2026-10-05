@@ -86,6 +86,7 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QScopeGuard>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSlider>
@@ -172,6 +173,7 @@ private Q_SLOTS:
     }
 
     void cleanupTestCase() { delete m_context; }
+    void cleanup() { dropPendingAnswers(); }
 
     void noProject()
     {
@@ -4919,6 +4921,9 @@ private Q_SLOTS:
         const QByteArray original = "[Command]\nname = \"x\"\ncommand = x\n";
         writeFile(dir.filePath("bk.def"), "[Info]\nname = \"Backed\"\nmugenversion = 1.0\n[Files]\ncmd = bk.cmd\n");
         writeFile(dir.filePath("bk.cmd"), original);
+        // The file is changed on disk below, so turn the watcher off to skip its question.
+        m_context->config().setValue("enable_file_watcher", false);
+        const auto watcherBack = qScopeGuard([this] { m_context->config().setValue("enable_file_watcher", true); });
         MainWindow window(*m_context);
         window.show();
         ActionRegistry& actions = m_context->actions();
