@@ -9,6 +9,8 @@
 #include <QFileInfo>
 #include <QRegularExpression>
 
+#include <utility>
+
 namespace OFS::Mugen::Runtime {
 
 namespace {
@@ -111,10 +113,12 @@ CharacterData::CharacterData()
         m_constants.insert(QString::fromLatin1(name), value);
 }
 
-bool CharacterData::isMugen11() const
+namespace {
+
+// "1.0", "1.1b1"...: a major and minor version, or -1 for an old engine's date (year or month first).
+std::pair<int, int> engineVersion(const QString& text)
 {
-    // "1.0", "1.1b1"...: a major and minor version, or -1 for an old engine's date (year or month first).
-    const QStringList parts = m_mugenVersion.split(QLatin1Char('.'));
+    const QStringList parts = text.split(QLatin1Char('.'));
     bool majorOk = false;
     const int major = parts.value(0).trimmed().toInt(&majorOk);
     int minor = 0;
@@ -123,7 +127,22 @@ bool CharacterData::isMugen11() const
             break;
         minor = minor * 10 + ch.digitValue();
     }
-    return majorOk && major >= 1 && major < 10 && (major > 1 || minor >= 1);
+    if (!majorOk || major < 1 || major >= 10)
+        return {-1, 0};
+    return {major, minor};
+}
+
+} // namespace
+
+bool CharacterData::isMugen10() const
+{
+    return engineVersion(m_mugenVersion).first >= 1;
+}
+
+bool CharacterData::isMugen11() const
+{
+    const auto [major, minor] = engineVersion(m_mugenVersion);
+    return major > 1 || (major == 1 && minor >= 1);
 }
 
 bool CharacterData::load(const QString& defPath, const QString& engineDir, QString* error)

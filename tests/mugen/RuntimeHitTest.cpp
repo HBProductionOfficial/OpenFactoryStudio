@@ -3,6 +3,9 @@
 
 #include <QTest>
 
+#include <cmath>
+#include <numeric>
+
 using namespace OFS::Mugen::Runtime;
 
 namespace {
@@ -297,6 +300,167 @@ private Q_SLOTS:
         }
         QCOMPARE(b.stateNo(), 5120);
         QVERIFY2(lying >= 10 && lying <= 12, qPrintable(QString::number(lying)));
+    }
+
+    void cornerPushDefaults()
+    {
+        // 1.3 times guard.velocity (itself ground.velocity's x), none for air attacks.
+        Fight ground(QStringLiteral("attr = S, NA\nground.velocity = -4"));
+        ground.match.tick();
+        const HitDef& g = ground.a.hitDef();
+        QCOMPARE(g.cornerPush, -4 * 1.3f);
+        QCOMPARE(g.airCornerPush, g.cornerPush);
+        QCOMPARE(g.downCornerPush, g.cornerPush);
+        QCOMPARE(g.guardCornerPush, g.cornerPush);
+        QCOMPARE(g.airGuardCornerPush, g.cornerPush);
+        Fight guard(QStringLiteral("attr = C, NA\nground.velocity = -4\nguard.velocity = -10\n"
+                                   "guard.cornerpush.veloff = -3"));
+        guard.match.tick();
+        QCOMPARE(guard.a.hitDef().cornerPush, -13.f);
+        QCOMPARE(guard.a.hitDef().guardCornerPush, -3.f);
+        QCOMPARE(guard.a.hitDef().airGuardCornerPush, -3.f);
+        Fight air(QStringLiteral("attr = A, NA\nground.velocity = -4\nair.cornerpush.veloff = -2"));
+        air.match.tick();
+        QCOMPARE(air.a.hitDef().cornerPush, 0.f);
+        QCOMPARE(air.a.hitDef().airCornerPush, -2.f);
+        QCOMPARE(air.a.hitDef().downCornerPush, 0.f);
+        QVERIFY(!air.a.hitDef().downBounce);
+    }
+
+    void cornerPush()
+    {
+        auto cornered = [](const QString& hitdef, float bX, bool guarding, QList<float>* moves) {
+            Fight f(hitdef);
+            f.match.setBounds(-160, 160);
+            f.a.setPos({bX - 35, 0});
+            f.b.setPos({bX, 0});
+            if (guarding) {
+                InputState back;
+                back.right = true;
+                f.b.setInput(back);
+            }
+            if (f.untilHit() < 0)
+                return false;
+            float x = float(f.a.pos().x());
+            for (int i = 0; i < 12; ++i) {
+                f.match.tick();
+                moves->append(float(f.a.pos().x()) - x);
+                x = float(f.a.pos().x());
+            }
+            return true;
+        };
+        QList<float> moves;
+        QVERIFY(cornered(QStringLiteral("attr = S, NA\ndamage = 10\npausetime = 5, 8\nground.velocity = -4"), 145,
+                         false, &moves));
+        // The pause of 5 ticks (the hit's tick counts), then 1.3 * -4 backwards, 70% of it each tick
+        // while it is a unit or more.
+        QList<float> expected{0, 0, 0, 0};
+        for (float v = -5.2f; std::abs(v) >= 1; v *= 0.7f)
+            expected << v;
+        while (expected.size() < 12)
+            expected << 0;
+        QCOMPARE(moves.size(), expected.size());
+        for (int i = 0; i < moves.size(); ++i)
+            QVERIFY2(std::abs(moves[i] - expected[i]) < 0.001f,
+                     qPrintable(QStringLiteral("tick %1: %2 (expected %3)").arg(i).arg(moves[i]).arg(expected[i])));
+
+        moves.clear();
+        QVERIFY(cornered(QStringLiteral("attr = S, NA\ndamage = 10\nground.velocity = -4"), 100, false, &moves));
+        QCOMPARE(std::accumulate(moves.cbegin(), moves.cend(), 0.f), 0.f);
+        moves.clear();
+        QVERIFY(cornered(QStringLiteral("attr = S, NA\ndamage = 10\nground.velocity = -4\n"
+                                        "ground.cornerpush.veloff = 0"),
+                         145, false, &moves));
+        QCOMPARE(std::accumulate(moves.cbegin(), moves.cend(), 0.f), 0.f);
+
+        moves.clear();
+        QVERIFY(cornered(QStringLiteral("attr = S, NA\ndamage = 10\nguardflag = MA\nground.velocity = -4\n"
+                                        "guard.cornerpush.veloff = -2"),
+                         142, true, &moves));
+        QVERIFY(std::abs(std::accumulate(moves.cbegin(), moves.cend(), 0.f) - (-2.f - 1.4f)) < 0.001f);
+    }
+
+    void downBounce()
+    {
+        const QString downStates = QStringLiteral(
+            "[Statedef 5080]\ntype = L\nmovetype = H\nphysics = N\nvelset = 0,0\n"
+            "[State 5080, a]\ntype = VarSet\ntrigger1 = time = 0\nv = 20\nvalue = GetHitVar(yvel) * 10\n"
+            "[State 5080, b]\ntype = ChangeState\ntrigger1 = HitShakeOver\ntrigger1 = GetHitVar(yvel) != 0\n"
+            "value = 5030\n"
+            "[Statedef 5030]\ntype = A\nmovetype = H\nphysics = N\n"
+            "[State 5030, a]\ntype = HitVelSet\ntrigger1 = time = 0\n"
+            "[State 5030, b]\ntype = VelAdd\ntrigger1 = time > 0\ny = .5\n"
+            "[State 5030, c]\ntype = ChangeState\ntrigger1 = vel y > 0\ntrigger1 = pos y >= 0\nvalue = 5100\n"
+            "[Statedef 5100]\ntype = L\nmovetype = H\nphysics = N\n"
+            "[State 5100, a]\ntype = VarSet\ntrigger1 = time = 0\nv = 21\nvalue = GetHitVar(fall.yvel) * 10\n"
+            "[State 5100, b]\ntype = PosSet\ntrigger1 = time = 0\ny = 0\n"
+            "[State 5100, c]\ntype = VelSet\ntrigger1 = time = 0\ny = 0\n"
+            "[State 5100, d]\ntype = ChangeState\ntrigger1 = time = 0\ntrigger1 = GetHitVar(fall.yvel) = 0\n"
+            "value = 5110\n"
+            "[State 5100, e]\ntype = ChangeState\ntrigger1 = time = 1\nvalue = 5101\n"
+            "[Statedef 5101]\ntype = L\nmovetype = H\nphysics = N\n"
+            "[State 5101, a]\ntype = HitFallVel\ntrigger1 = time = 0\n"
+            "[State 5101, b]\ntype = VarSet\ntrigger1 = time = 0\nv = 22\nvalue = vel y * 10\n"
+            "[State 5101, c]\ntype = VelAdd\ntrigger1 = 1\ny = .4\n"
+            "[State 5101, d]\ntype = ChangeState\ntrigger1 = vel y > 0\ntrigger1 = pos y >= 0\nvalue = 5110\n"
+            "[Statedef 5110]\ntype = L\nmovetype = H\nphysics = N\nanim = 0\n"
+            "[State 5110]\ntype = VarAdd\ntrigger1 = time = 0\nv = 23\nvalue = 1\n");
+        struct Result
+        {
+            int yvel = 0; // var(20): GetHitVar(yvel) * 10 when hit
+            float fallYVel = 0;
+            int landingFallY = 0; // var(21): GetHitVar(fall.yvel) * 10 on landing
+            int bounced = 0;      // var(22): the bounce's y velocity * 10 (0: none)
+            int lowered = 0;      // how far below the floor B waited to fly
+            int downs = 0;
+        };
+        auto knockUp = [&downStates](const QString& velocity) {
+            CharacterData data;
+            data.setAnimations(kAir);
+            data.addStates(states(QStringLiteral("attr = S, NA\ndamage = 10\nhitflag = MAFD\npausetime = 0, 4\n"
+                                                 "fall.yvelocity = -3\n") +
+                                  velocity) +
+                           downStates);
+            Match match;
+            Character a(data, &match);
+            Character b(data, &match);
+            a.setPos({-20, 0});
+            b.setPos({20, 0});
+            b.setFacing(-1);
+            a.start(200);
+            b.start(5110);
+            Result r;
+            for (int t = 0; t < 120 && b.var(23) < 2; ++t) {
+                match.tick();
+                if (b.stateNo() == 5080) {
+                    r.lowered = std::max(r.lowered, int(b.pos().y()));
+                    r.fallYVel = b.getHitVars().fallYVelocity;
+                }
+            }
+            r.yvel = b.var(20);
+            r.landingFallY = b.var(21);
+            r.bounced = b.var(22);
+            r.downs = b.var(23);
+            return r;
+        };
+        const Result stays = knockUp(QStringLiteral("down.velocity = -2, -6"));
+        QCOMPARE(stays.yvel, -60);
+        QCOMPARE(stays.lowered, 15); // the engine lowers a character knocked up off the floor
+        QCOMPARE(stays.fallYVel, 0.f);
+        QCOMPARE(stays.landingFallY, 0);
+        QCOMPARE(stays.bounced, 0);
+        QCOMPARE(stays.downs, 2);
+        const Result bounces = knockUp(QStringLiteral("down.velocity = -2, -6\ndown.bounce = 1"));
+        QCOMPARE(bounces.yvel, -60);
+        QCOMPARE(bounces.fallYVel, -3.f);
+        QCOMPARE(bounces.landingFallY, -30);
+        QCOMPARE(bounces.bounced, -30);
+        QCOMPARE(bounces.downs, 2);
+
+        const Result slides = knockUp(QStringLiteral("down.velocity = -3, 0"));
+        QCOMPARE(slides.yvel, 0);
+        QCOMPARE(slides.lowered, 0);
+        QCOMPARE(slides.fallYVel, -3.f);
     }
 
     void priority()

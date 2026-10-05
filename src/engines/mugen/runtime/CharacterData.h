@@ -85,6 +85,7 @@ public:
     void setAuthor(const QString& author) { m_author = author; }
     QString mugenVersion() const { return m_mugenVersion; }
     void setMugenVersion(const QString& version) { m_mugenVersion = version; }
+    bool isMugen10() const;
     bool isMugen11() const;
     int localCoordWidth() const { return m_localCoordWidth; }
     QString spriteFile() const { return m_spriteFile; }

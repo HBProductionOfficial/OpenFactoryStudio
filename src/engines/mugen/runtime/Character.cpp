@@ -79,6 +79,8 @@ void Character::resetForRound(Vec2 pos, int facing, bool firstRound)
 {
     m_pos = pos;
     m_vel = Vec2();
+    m_velOff = 0;
+    m_downHitOffset = 0;
     m_facing = facing;
     m_life = int(m_data.lifeMax());
     m_ko = false;
@@ -456,6 +458,10 @@ void Character::runActions()
     if (!m_isHelper && (!m_frozen || pauseLeft <= match->endCmdBufTime()))
         m_commands.update(m_input, m_facing);
     m_wasHit = false;
+    if (m_downHitOffset != 0) {
+        m_pos.y += m_downHitOffset;
+        m_downHitOffset = 0;
+    }
     if (m_unhittableTime > 0)
         --m_unhittableTime;
     if (m_frozen) {
@@ -512,6 +518,13 @@ void Character::runActions()
     if (!m_posFreeze)
         updatePosition();
     m_posFreeze = false;
+    // The corner push moves the character even when its position is frozen. It waits during a SuperPause.
+    if (m_velOff != 0 && !(m_match && m_match->superPauseTime() > 0)) {
+        m_pos.x += m_velOff;
+        m_velOff *= 0.7f;
+        if (std::abs(m_velOff) < 1)
+            m_velOff = 0;
+    }
     if (m_physics == QLatin1Char('A') && m_vel.y > 0 && m_pos.y >= 0 && m_stateNo != 105)
         changeState(52);
     ++m_time;

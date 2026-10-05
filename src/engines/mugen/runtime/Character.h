@@ -437,6 +437,7 @@ private:
     int juggleCost(const HitDef& hd, bool projectile) const { return hd.airJuggle + (projectile ? 0 : m_stateJuggle); }
     bool deliverHit(Character& target, const HitDef& hd, int facing, int overrideSlot = -1, bool projectile = false);
     void destroy(bool recursive, bool removeExplods);
+    bool cornered(const Character& target) const;
     void showHit(Character& target, const HitDef& hd, int facing, bool guarded);
     bool executeProjectile(const Controller& c);
     const CharacterData* projectileAnimData(const Projectile::Anim& anim) const;
@@ -478,6 +479,8 @@ private:
 
     Vec2 m_pos;
     Vec2 m_vel;
+    float m_velOff = 0;
+    float m_downHitOffset = 0; // MUGEN moves a character hit up off the floor this much lower on the next tick
     int m_facing = 1;
     int m_animNo = -1;
     AnimPlayer m_anim;

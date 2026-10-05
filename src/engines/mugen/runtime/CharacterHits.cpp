@@ -26,9 +26,12 @@ void Character::enterGetHitState()
         changeState(m_stateType == QLatin1Char('S') ? 150 : m_stateType == QLatin1Char('C') ? 152 : 154, -1, 0);
         return;
     }
-    if (m_stateType == QLatin1Char('L') && m_pos.y == 0)
+    if (m_stateType == QLatin1Char('L') && m_pos.y == 0) {
         changeState(5080, -1, 0);
-    else if (m_ghv.type == HitType::Trip)
+        // MUGEN moves a character hit up off the floor 15 pixels lower on the next tick.
+        if (m_ghv.yvel != 0)
+            m_downHitOffset = 15.0f * float(m_data.localCoordWidth()) / 320.0f;
+    } else if (m_ghv.type == HitType::Trip)
         changeState(5070, -1, 0);
     else if (m_stateType == QLatin1Char('S') || (m_stateType == QLatin1Char('C') && m_life <= 0))
         changeState(5000, -1, 0);
@@ -214,7 +217,16 @@ bool Character::attack(Character& target)
         return false;
     const bool first = !m_hitDefLanded;
     m_hitDefLanded = true;
+    const QChar targetType = target.m_stateType;
     const bool guarded = deliverHit(target, hd, m_facing, slot);
+    if (slot < 0 && cornered(target)) {
+        const bool air = targetType == QLatin1Char('A');
+        const bool down = targetType == QLatin1Char('L');
+        if (!guarded)
+            m_velOff = (air ? hd.airCornerPush : down ? hd.downCornerPush : hd.cornerPush) * float(m_facing);
+        else if (!down)
+            m_velOff = (air ? hd.airGuardCornerPush : hd.guardCornerPush) * float(m_facing);
+    }
     if (slot >= 0) {
         if (hd.pauseTime[0] > 0)
             m_hitPauseTime = hd.pauseTime[0];
@@ -260,6 +272,16 @@ bool Character::attack(Character& target)
         }
     }
     return true;
+}
+
+bool Character::cornered(const Character& target) const
+{
+    // Within 2 units of the edge the attacker faces (4 for characters of the older engines).
+    if (!m_match || !target.m_screenBound)
+        return false;
+    const float margin = m_stateData->isMugen10() ? 2 : 4;
+    const float half = m_match->screenWidth() / 2 - m_match->screenEdge() - margin;
+    return m_facing < 0 ? target.m_pos.x <= m_match->cameraX() - half : target.m_pos.x >= m_match->cameraX() + half;
 }
 
 void Character::showHit(Character& target, const HitDef& hd, int facing, bool guarded)
@@ -393,9 +415,19 @@ bool Character::deliverHit(Character& target, const HitDef& hd, int facing, int 
         } else if (type == QLatin1Char('L')) {
             ghv.hitTime = hd.downHitTime;
             ghv.ctrlTime = hd.downHitTime;
-            ghv.xvel = hd.downVelocity[0] * side;
-            ghv.yvel = hd.downVelocity[1];
             ghv.fall = ghv.fall || hd.fall;
+            if (target.m_pos.y == 0) {
+                // Knocked up without down.bounce, a lying target stays down when it lands.
+                ghv.xvel = hd.downVelocity[0] * side;
+                ghv.yvel = hd.downVelocity[1];
+                if (!hd.downBounce && ghv.yvel != 0) {
+                    ghv.fallXVelocity = std::nanf("");
+                    ghv.fallYVelocity = 0;
+                }
+            } else {
+                ghv.xvel = hd.airVelocity[0] * side;
+                ghv.yvel = hd.airVelocity[1];
+            }
         } else {
             ghv.ctrlTime = hd.groundHitTime;
             ghv.xvel = hd.groundVelocity[0] * side;
@@ -546,6 +578,14 @@ HitDef Character::hitDefFrom(const Controller& c)
     hd.downVelocity[0] = floatParam(c, QStringLiteral("down.velocity"), hd.airVelocity[0], 0);
     hd.downVelocity[1] = floatParam(c, QStringLiteral("down.velocity"), hd.airVelocity[1], 1);
     hd.downHitTime = intParam(c, QStringLiteral("down.hittime"), 20);
+    hd.downBounce = intParam(c, QStringLiteral("down.bounce"), 0) != 0;
+    // The corner push defaults to 1.3 times the guard velocity, and 0 for an air attack.
+    hd.cornerPush = floatParam(c, QStringLiteral("ground.cornerpush.veloff"),
+                               hd.attrStates.contains(QLatin1Char('A')) ? 0 : hd.guardVelocity * 1.3f);
+    hd.airCornerPush = floatParam(c, QStringLiteral("air.cornerpush.veloff"), hd.cornerPush);
+    hd.downCornerPush = floatParam(c, QStringLiteral("down.cornerpush.veloff"), hd.cornerPush);
+    hd.guardCornerPush = floatParam(c, QStringLiteral("guard.cornerpush.veloff"), hd.cornerPush);
+    hd.airGuardCornerPush = floatParam(c, QStringLiteral("airguard.cornerpush.veloff"), hd.guardCornerPush);
     hd.yAccel = floatParam(c, QStringLiteral("yaccel"), 0.35f);
     hd.fall = intParam(c, QStringLiteral("fall"), 0) != 0;
     hd.airFall = intParam(c, QStringLiteral("air.fall"), hd.fall ? 1 : 0) != 0;

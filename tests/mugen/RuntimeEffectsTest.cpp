@@ -234,6 +234,33 @@ private Q_SLOTS:
         QCOMPARE(match.sounds().at(0).pan, -40.f);
     }
 
+    void forceFeedback()
+    {
+        CharacterData data;
+        data.addStates("[Statedef 0]\ntype = S\nphysics = N\n"
+                       "[State 0, a]\ntype = ForceFeedback\ntrigger1 = 1\nwaveform = sinesquare\n"
+                       "ampl = 128,-3,-.2,.005\ntime = 20\n"
+                       "[State 0, b]\ntype = ForceFeedback\ntrigger1 = time = 1\nwaveform = square\n"
+                       "freq = 128, 0, 0, 0\nampl = 200, 7, -.467\ntime = 30\nself = 0\n"
+                       "[State 0, c]\ntype = ForceFeedback\ntrigger1 = time = 2\nwaveform = off\n",
+                       "rumble.cns");
+        QVERIFY(data.issues().isEmpty());
+        Match match;
+        Character c(data, &match);
+        c.setPos({10, 0});
+        c.start(0);
+        for (int i = 0; i < 4; ++i) {
+            match.tick();
+            QVERIFY(match.sounds().isEmpty());
+            QVERIFY(match.spawns().isEmpty());
+        }
+        QCOMPARE(c.stateNo(), 0);
+        QCOMPARE(c.pos(), QPointF(10, 0));
+        QCOMPARE(c.vel(), QPointF(0, 0));
+        QCOMPARE(match.envShake().time, 0);
+        QVERIFY2(c.messages().isEmpty(), qPrintable(c.messages().join('\n')));
+    }
+
     void drawing()
     {
         CharacterData data;

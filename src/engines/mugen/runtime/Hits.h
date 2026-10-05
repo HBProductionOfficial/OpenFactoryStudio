@@ -75,6 +75,12 @@ struct HitDef
     float airVelocity[2] = {0, 0};
     float airGuardVelocity[2] = {0, 0};
     float downVelocity[2] = {0, 0};
+    bool downBounce = false;
+    float cornerPush = 0;
+    float airCornerPush = 0;
+    float downCornerPush = 0;
+    float guardCornerPush = 0;
+    float airGuardCornerPush = 0;
     float yAccel = 0.35f;
     bool fall = false;
     bool airFall = false;
