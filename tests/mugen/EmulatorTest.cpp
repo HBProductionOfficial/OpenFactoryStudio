@@ -1085,13 +1085,14 @@ private Q_SLOTS:
         QCOMPARE(pixelsOf(frame, kOwn, QRect(0, 0, 160, 240)), 64);
         QCOMPARE(QColor(frame.pixel(40, 196)), QColor(kOwn));
 
+        // The Zoom controller looks at P1 twice as close, so P1 is in the middle at 16x16.
         p1.setVar(10, 1);
         session.tick({}, {});
         QCOMPARE(session.match().view().scale, 1.6f);
         QCOMPARE(session.match().cameraZoom(), 0.8f);
         frame = renderer.render(session);
-        QCOMPARE(pixelsOf(frame, kOwn, QRect(0, 0, 160, 240)), 256);
-        QCOMPARE(QColor(frame.pixel(80, 190)), QColor(kOwn));
+        QCOMPARE(pixelsOf(frame, kOwn, QRect(0, 0, 320, 240)), 256);
+        QCOMPARE(QColor(frame.pixel(160, 190)), QColor(kOwn));
         p1.setVar(10, 0);
         session.tick({}, {});
         QCOMPARE(pixelsOf(renderer.render(session), kOwn, QRect(0, 0, 160, 240)), 64);
@@ -1184,9 +1185,9 @@ private Q_SLOTS:
                     "[State -1]\ntype = Explod\ntrigger1 = var(10) = 1 && var(11) != 1\nanim = 0\npos = 0, -60\n"
                     "removetime = -1\n"
                     "[State -1]\ntype = Explod\ntrigger1 = var(10) = 2 && var(11) != 2\nanim = 0\npos = 0, -60\n"
-                    "xangle = 60\nprojection = orthographic\nremovetime = -1\n"
+                    "xangle = 60\nremovetime = -1\n"
                     "[State -1]\ntype = Explod\ntrigger1 = var(10) = 3 && var(11) != 3\nanim = 0\npos = 0, -60\n"
-                    "yangle = 60\nfocallength = 20\nremovetime = -1\n"
+                    "yangle = 60\nremovetime = -1\n"
                     "[State -1]\ntype = VarSet\ntrigger1 = 1\nv = 11\nvalue = var(10)\n");
         MugenEngine mugen;
         EmulatorSession session;
@@ -1209,10 +1210,11 @@ private Q_SLOTS:
         QCOMPARE(frame.pixel(110, 138), kOwn);
         QVERIFY(frame.pixel(110, 131) != kOwn);
         frame = frameWith(3);
-        const int nearRows = rowsOf(frame, kOwn, 95, 100, 160);
-        const int farRows = rowsOf(frame, kOwn, 119, 100, 160);
-        QVERIFY2(farRows > 0 && nearRows >= farRows + 3,
-                 qPrintable(QStringLiteral("%1 %2").arg(nearRows).arg(farRows)));
+        QCOMPARE(rowsOf(frame, kOwn, 110, 100, 160), 10);
+        const int pixels = pixelsOf(frame, kOwn, QRect(80, 100, 60, 60));
+        QVERIFY2(pixels >= 40 && pixels <= 60, qPrintable(QString::number(pixels)));
+        QVERIFY(frame.pixel(106, 135) != kOwn);
+        QVERIFY(frame.pixel(113, 135) != kOwn);
     }
 
     void ownPalettes()

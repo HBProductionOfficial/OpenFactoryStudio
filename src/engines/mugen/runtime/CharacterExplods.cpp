@@ -33,14 +33,6 @@ void Character::readExplod(const Controller& c, Explod& e, bool create)
     e.angle = floatParam(c, QStringLiteral("angle"), e.angle);
     e.xAngle = floatParam(c, QStringLiteral("xangle"), e.xAngle);
     e.yAngle = floatParam(c, QStringLiteral("yangle"), e.yAngle);
-    if (const Param* projection = c.param(QStringLiteral("projection"))) {
-        const QString kind = unquote(projection->text.trimmed()).toLower();
-        e.projection = kind == QLatin1String("orthographic")   ? Projection::Orthographic
-                       : kind == QLatin1String("perspective2") ? Projection::Perspective2
-                                                               : Projection::Perspective;
-    }
-    const float focalLength = floatParam(c, QStringLiteral("focallength"), e.focalLength);
-    e.focalLength = focalLength > 0 ? focalLength : 2048;
     // shadow = r, g, b (1.0), or one number that is not 0 (1.1).
     for (int i = 0; i < 3; ++i)
         e.shadow[std::size_t(i)] = intParam(c, QStringLiteral("shadow"), e.shadow[std::size_t(i)], i);

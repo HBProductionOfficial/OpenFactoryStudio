@@ -421,13 +421,7 @@ bool Character::executeEffect(const Controller& c)
         z.scale = scale > 0 ? scale : 1;
         const float lag = floatParam(c, QStringLiteral("lag"), 0);
         z.lag = lag >= 0 && lag <= 1 ? lag : 0;
-        const float endLag = floatParam(c, QStringLiteral("endlag"), 0);
-        z.endLag = endLag >= 0 && endLag <= 1 ? endLag : 0;
         z.time = intParam(c, QStringLiteral("time"), 1);
-        if (has(c, QStringLiteral("camerabound")))
-            z.cameraBound = intParam(c, QStringLiteral("camerabound"), 1) != 0;
-        if (has(c, QStringLiteral("stagebound")))
-            z.stageBound = intParam(c, QStringLiteral("stagebound"), 1) != 0;
         z.active = true;
         return true;
     }

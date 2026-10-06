@@ -588,8 +588,7 @@ void Match::updateView()
     ZoomEffect& z = m_zoomEffect;
     if (z.active) {
         const bool over = z.time <= 0;
-        const float lag = over ? z.endLag : z.lag;
-        auto ease = [lag](float& current, float target) {
+        auto ease = [lag = z.lag](float& current, float target) {
             if (lag <= 0 || std::abs(target - current) < 0.001f)
                 current = target;
             else if (lag < 1)
@@ -603,39 +602,7 @@ void Match::updateView()
         if (over && std::abs(z.curPos.x) < 0.001f && std::abs(z.curPos.y) < 0.001f && std::abs(z.curScale - 1) < 0.001f)
             z = ZoomEffect();
     }
-    m_view = View{m_cameraX, 0, m_zoom};
-    if (!z.active)
-        return;
-    const float half = m_screenWidth / 2;
-    const float above = m_screenFloor;
-    const float below = m_screenHeight - m_screenFloor;
-    const float areaLeft = m_left + half - half / m_camera.zoomOut;
-    const float areaRight = m_right - half + half / m_camera.zoomOut;
-    float scale = z.curScale * m_zoom;
-    if (z.cameraBound)
-        scale = std::max(scale, m_zoom);
-    if (z.stageBound)
-        scale = std::max({scale, m_screenWidth / std::max(1.0f, areaRight - areaLeft),
-                          m_screenHeight / std::max(1.0f, m_screenHeight - m_camera.boundHigh)});
-    float x = m_cameraX + z.curPos.x;
-    float y = z.curPos.y;
-    if (z.cameraBound) {
-        const float slackX = std::max(0.0f, half / m_zoom - half / scale);
-        const float slackY = std::max(0.0f, 1 / m_zoom - 1 / scale);
-        x = std::clamp(x, m_cameraX - slackX, m_cameraX + slackX);
-        y = std::clamp(y, -above * slackY, below * slackY);
-    }
-    if (z.stageBound) {
-        const float low = areaLeft + half / scale;
-        const float high = areaRight - half / scale;
-        x = low <= high ? std::clamp(x, low, high) : (areaLeft + areaRight) / 2;
-        const float top = m_camera.boundHigh - above + above / scale;
-        const float bottom = below - below / scale;
-        if (top <= bottom)
-            y = std::clamp(y, top, bottom);
-    }
-    z.curPos.x = x - m_cameraX;
-    m_view = View{x, y, scale};
+    m_view = View{m_cameraX + z.curPos.x, z.curPos.y, m_zoom * z.curScale};
 }
 
 } // namespace OFS::Mugen::Runtime

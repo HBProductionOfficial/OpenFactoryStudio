@@ -418,7 +418,7 @@ private Q_SLOTS:
             CharacterData data;
             data.setAnimations(kAir);
             data.addStates(states(QStringLiteral("attr = S, NA\ndamage = 10\nhitflag = MAFD\npausetime = 0, 4\n"
-                                                 "fall.yvelocity = -3\n") +
+                                                 "fall = 1\nfall.yvelocity = -3\n") +
                                   velocity) +
                            downStates);
             Match match;

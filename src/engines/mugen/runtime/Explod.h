@@ -55,10 +55,9 @@ struct Explod
 
     Vec2 scale{1, 1};
     float angle = 0;
+    // Turned about its x and y axes (1.1), in the engine's fixed perspective.
     float xAngle = 0;
     float yAngle = 0;
-    Projection projection = Projection::Perspective;
-    float focalLength = 2048;
     int sprPriority = 0;
     bool onTop = false;
     bool ownPal = false;

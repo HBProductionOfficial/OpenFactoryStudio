@@ -663,7 +663,7 @@ private Q_SLOTS:
 
         CharacterData zoomer;
         zoomer.addStates("[Statedef 0]\n"
-                         "[State 0]\ntype = Zoom\ntrigger1 = var(0) = 1\nscale = 2\nlag = 0.5\npos = -400, 0\n");
+                         "[State 0]\ntype = Zoom\ntrigger1 = var(0) = 1\nscale = 2\nlag = 0.5\npos = -40, 0\n");
         Match other;
         other.setBounds(-400, 400);
         Character z(zoomer, &other);
@@ -673,10 +673,13 @@ private Q_SLOTS:
         QCOMPARE(other.view().scale, 1.5f);
         other.tick();
         QCOMPARE(other.view().scale, 1.75f);
-        QCOMPARE(other.view().x, other.cameraX() - (160 - 160 / 1.75f));
+        QCOMPARE(other.view().x, other.cameraX() - 30);
         QCOMPARE(other.cameraZoom(), 1.f);
         z.setVar(0, 0);
         other.tick();
+        QCOMPARE(other.view().scale, 1.375f);
+        for (int i = 0; i < 30; ++i)
+            other.tick();
         QCOMPARE(other.view().scale, 1.f);
         QVERIFY(!other.zoomEffect().active);
     }
@@ -688,8 +691,7 @@ private Q_SLOTS:
         data.addStates("[Statedef 0]\n"
                        "[State 0, remap]\ntype = RemapPal\ntrigger1 = time = 0\nsource = 1, 1\ndest = 1, 3\n"
                        "[State 0, ex]\ntype = Explod\ntrigger1 = time = 0\nanim = 0\nxangle = 30\nyangle = 45\n"
-                       "projection = orthographic\nfocallength = 500\nshadow = 0, 0, 200\nownpal = 1\n"
-                       "removetime = -1\n"
+                       "shadow = 0, 0, 200\nownpal = 1\nremovetime = -1\n"
                        "[State 0, ex2]\ntype = Explod\ntrigger1 = time = 0\nanim = 0\nshadow = 1\nownpal = 1\n"
                        "remappal = 1, 2\nremovetime = -1\n"
                        "[State 0, proj]\ntype = Projectile\ntrigger1 = time = 0\nprojanim = 0\nprojshadow = -1, 0, 0\n"
@@ -707,12 +709,9 @@ private Q_SLOTS:
         const Explod& e = c.explods().at(0);
         QCOMPARE(e.xAngle, 30.f);
         QCOMPARE(e.yAngle, 45.f);
-        QVERIFY(e.projection == Projection::Orthographic);
-        QCOMPARE(e.focalLength, 500.f);
         QVERIFY((e.shadow == std::array<int, 3>{0, 0, 200}));
         QCOMPARE(e.remap.value({1, 1}), qMakePair(1, 3));
         const Explod& e2 = c.explods().at(1);
-        QVERIFY(e2.projection == Projection::Perspective);
         QVERIFY((e2.shadow == std::array<int, 3>{1, 0, 0}));
         QCOMPARE(e2.remap.value(DrawState::AllPalettes), qMakePair(1, 2));
         QCOMPARE(c.projectiles().size(), 1);

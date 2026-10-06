@@ -95,25 +95,16 @@ struct EnvShake
     float phase = 0;
 };
 
+// Zoom controller (1.1): the camera eases to pos and scale for `time` ticks and back, by lag.
 struct ZoomEffect
 {
     bool active = false;
     int time = 0;
     float lag = 0;
-    float endLag = 0;
     float scale = 1;
     Vec2 pos;
     float curScale = 1;
     Vec2 curPos;
-    bool cameraBound = true;
-    bool stageBound = true;
-};
-
-enum class Projection
-{
-    Orthographic,
-    Perspective,
-    Perspective2,
 };
 
 struct EnvColor

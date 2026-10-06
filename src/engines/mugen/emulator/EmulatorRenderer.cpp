@@ -340,8 +340,6 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
         QPointF angleScale{1, 1};
         double xAngle = 0;
         double yAngle = 0;
-        Projection projection = Projection::Perspective;
-        double focalLength = 2048;
         bool screen = false;
         const Formats::Palette* palette = nullptr;
         QList<ColorFx> fx;
@@ -388,10 +386,8 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
         const double yAngle = qDegreesToRadians(look.yAngle) * ((look.facing < 0) != (look.vfacing < 0) ? -1 : 1);
         const double xAngle = qDegreesToRadians(look.xAngle);
         const double zoom = look.screen ? 1.0 : double(view.scale);
-        const double focal = look.focalLength * zoom;
-        const QPointF eye = look.projection == Projection::Perspective2
-                                ? space.map(at)
-                                : QPointF(Screen.width() / 2.0, Screen.height() / 2.0);
+        const double focal = 2048 * zoom;
+        const QPointF eye(Screen.width() / 2.0, Screen.height() / 2.0);
         const QRectF rect(placed.image.rect());
         const QPolygonF square({rect.topLeft(), rect.topRight(), rect.bottomRight(), rect.bottomLeft()});
         QPolygonF corners;
@@ -401,13 +397,10 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
             const double zy = -r.x() * std::sin(yAngle);
             const double y = r.y() * std::cos(xAngle) - zy * std::sin(xAngle);
             const double z = (r.y() * std::sin(xAngle) + zy * std::cos(xAngle)) * zoom;
-            QPointF onScreen = space.map(at + QPointF(x, y));
-            if (look.projection != Projection::Orthographic) {
-                if (z >= focal * 0.99)
-                    return std::nullopt;
-                onScreen = eye + (onScreen - eye) * (focal / (focal - z));
-            }
-            corners << onScreen;
+            if (z >= focal * 0.99)
+                return std::nullopt;
+            const QPointF flatOnScreen = space.map(at + QPointF(x, y));
+            corners << eye + (flatOnScreen - eye) * (focal / (focal - z));
         }
         if (!QTransform::quadToQuad(square, corners, placed.transform))
             return std::nullopt;
@@ -551,8 +544,6 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
             look.angle = e.angle;
             look.xAngle = e.xAngle;
             look.yAngle = e.yAngle;
-            look.projection = e.projection;
-            look.focalLength = e.focalLength;
             look.screen = e.screen;
             look.trans = e.trans;
             look.alpha = e.alpha;

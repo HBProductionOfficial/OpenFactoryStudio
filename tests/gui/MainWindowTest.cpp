@@ -5747,7 +5747,8 @@ private Q_SLOTS:
         QVERIFY(!QFileInfo::exists(engineDir.filePath("chars/ofs_0")));
         QVERIFY(actions.action("debug_start_engine")->isEnabled());
         QCOMPARE(editor->currentDebugLine(), -1);
-        QVERIFY2(output->toPlainText().contains("Arguments: ofs_0 kfm"), qPrintable(output->toPlainText()));
+        // The log comes when the process ends, which can be late on a busy machine.
+        QTRY_VERIFY2(output->toPlainText().contains("Arguments: ofs_0 kfm"), qPrintable(output->toPlainText()));
 
         // A new engine starts unpaused.
         breakpoints->removeAll();
