@@ -127,4 +127,17 @@ void update(QWidget* surface)
         surface->update();
 }
 
+void prepareWindow(QWidget* window)
+{
+    if (g_backend != Backend::OpenGL || !window)
+        return;
+    // A hidden OpenGL widget makes Qt create the window the OpenGL way from the start.
+    auto* keeper = new QOpenGLWidget(window);
+    keeper->setObjectName(QStringLiteral("openGLWindowKeeper"));
+    keeper->setAttribute(Qt::WA_TransparentForMouseEvents);
+    keeper->setFocusPolicy(Qt::NoFocus);
+    keeper->setGeometry(0, 0, 0, 0);
+    keeper->hide();
+}
+
 } // namespace OFS::Rendering

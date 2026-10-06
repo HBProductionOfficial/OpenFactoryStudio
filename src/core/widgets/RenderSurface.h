@@ -33,6 +33,9 @@ OFS_CORE_EXPORT QString backendName();
 // With OpenGL, covers `owner` with a surface that draws through `paint`. Returns nullptr with Native.
 OFS_CORE_EXPORT QWidget* attachSurface(QWidget* owner, std::function<void(QPainter&)> paint);
 OFS_CORE_EXPORT void update(QWidget* surface);
+// With OpenGL, call before a window is first shown. Qt draws a window holding an OpenGL surface
+// differently, and switching a shown window over recreates it, so it vanishes and comes back.
+OFS_CORE_EXPORT void prepareWindow(QWidget* window);
 
 } // namespace Rendering
 

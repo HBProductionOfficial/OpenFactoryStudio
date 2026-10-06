@@ -141,6 +141,8 @@ MainWindow::MainWindow(AppContext& context, QWidget* parent)
 {
     setObjectName(QStringLiteral("MainWindow"));
     setWindowIcon(QIcon(Paths::dataDir() + QStringLiteral("/icons/ofs.png")));
+    // Projects opened later draw their graphic workspaces through OpenGL.
+    Rendering::prepareWindow(this);
 
     // Add every action to the window so its shortcut works even outside menus and toolbars.
     for (const QString& id : m_context.actions().ids())
