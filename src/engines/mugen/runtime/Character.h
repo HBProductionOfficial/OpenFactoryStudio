@@ -143,7 +143,6 @@ public:
         float zoomOut = 1;
         float zoomIn = 1;
         float startZoom = 1;
-        int zoomInDelay = 0;
         float tension = 50;
         float boundHigh = 0;
     };
@@ -237,7 +236,6 @@ private:
     float m_cameraX = 0;
     CameraSettings m_camera;
     float m_zoom = 1;
-    int m_zoomWait = 0;
     ZoomEffect m_zoomEffect;
     View m_view;
     QHash<QString, QString> m_stageInfo;

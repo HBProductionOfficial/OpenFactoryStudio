@@ -192,7 +192,6 @@ void EmulatorSession::loadStageLook(const IniText& ini)
     zoom.zoomOut = number(camera, "zoomout", 1);
     zoom.zoomIn = number(camera, "zoomin", 1);
     zoom.startZoom = number(camera, "startzoom", 1);
-    zoom.zoomInDelay = int(number(camera, "zoomindelay", 0));
     zoom.tension = number(camera, "tension", 50);
     zoom.boundHigh = number(camera, "boundhigh", 0);
 

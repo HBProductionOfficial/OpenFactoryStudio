@@ -197,7 +197,6 @@ void Match::startRound()
     m_winner = -1;
     m_perfect = false;
     m_zoom = std::clamp(m_camera.startZoom, m_camera.zoomOut, m_camera.zoomIn);
-    m_zoomWait = m_camera.zoomInDelay;
     m_zoomEffect = ZoomEffect();
     for (Character* c : std::as_const(m_characters)) {
         if (c->m_isHelper)
@@ -560,7 +559,6 @@ void Match::setCamera(const CameraSettings& settings)
     m_camera.zoomOut = std::max(0.01f, settings.zoomOut);
     m_camera.zoomIn = std::max(m_camera.zoomOut, settings.zoomIn);
     m_zoom = std::clamp(settings.startZoom, m_camera.zoomOut, m_camera.zoomIn);
-    m_zoomWait = m_camera.zoomInDelay;
 }
 
 void Match::zoomCamera(bool followed, float least, float most)
@@ -570,16 +568,10 @@ void Match::zoomCamera(bool followed, float least, float most)
     // Zoom out at once to keep the players on the screen. Zoom in part of the way each tick.
     const float span = most - least + 2 * m_camera.tension;
     const float target = std::clamp(m_screenWidth / std::max(1.0f, span), m_camera.zoomOut, m_camera.zoomIn);
-    if (target < m_zoom) {
+    if (target < m_zoom)
         m_zoom = target;
-        m_zoomWait = m_camera.zoomInDelay;
-    } else if (target > m_zoom && m_zoomWait > 0) {
-        --m_zoomWait;
-    } else if (target > m_zoom) {
+    else if (target > m_zoom)
         m_zoom = target - m_zoom < 0.001f ? target : m_zoom + (target - m_zoom) * 0.15f;
-    } else {
-        m_zoomWait = m_camera.zoomInDelay;
-    }
 }
 
 void Match::updateView()

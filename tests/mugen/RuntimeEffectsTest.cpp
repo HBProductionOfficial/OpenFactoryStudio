@@ -633,7 +633,6 @@ private Q_SLOTS:
         Match::CameraSettings camera;
         camera.zoomOut = 0.5f;
         camera.zoomIn = 1;
-        camera.zoomInDelay = 10;
         match.setCamera(camera);
         Character a(data, &match);
         Character b(data, &match);
@@ -651,10 +650,6 @@ private Q_SLOTS:
         QCOMPARE(match.view().scale, 0.8f);
         a.setPos({-20, 0});
         b.setPos({20, 0});
-        for (int i = 0; i < 10; ++i) {
-            match.tick();
-            QCOMPARE(match.cameraZoom(), 0.8f);
-        }
         match.tick();
         QVERIFY(match.cameraZoom() > 0.8f && match.cameraZoom() < 1);
         for (int i = 0; i < 100; ++i)
