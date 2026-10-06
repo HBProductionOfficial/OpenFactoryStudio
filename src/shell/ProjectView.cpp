@@ -104,7 +104,8 @@ QString iconForFile(const QString& path)
 
 } // namespace
 
-ProjectView::ProjectView(Project* project, AppContext& context, QWidget* parent)
+ProjectView::ProjectView(Project* project, AppContext& context, QWidget* parent,
+                         const std::function<void(int done, int total)>& progress)
     : QWidget(parent)
     , m_project(project)
     , m_context(context)
@@ -184,8 +185,21 @@ ProjectView::ProjectView(Project* project, AppContext& context, QWidget* parent)
         connect(m_engineSession, &EngineDebugSession::debugVariablesChanged, this, &ProjectView::debugVariablesChanged);
     }
 
+    if (progress) {
+        int total = 0;
+        for (const QString& id : m_project->editorIds()) {
+            ++total;
+            for (const QString& file : m_project->editorFiles(id))
+                total += file.isEmpty() ? 0 : 1;
+        }
+        progress(0, total);
+        m_loadStep = [progress, total, done = 0]() mutable {
+            progress(++done, total);
+        };
+    }
     for (const QString& id : m_project->editorIds())
         createEditor(engine()->editor(id));
+    m_loadStep = nullptr;
     fillProjectExplorer();
     connect(this, &ProjectView::modifiedChanged, this, &ProjectView::updateTabTitles);
 
@@ -260,6 +274,8 @@ void ProjectView::createEditor(const EditorInfo& info)
             continue;
         const int index = tabs->addTab(createFilePage(info, file), tabCaption(file));
         tabs->setTabToolTip(index, tabToolTip(file));
+        if (m_loadStep)
+            m_loadStep();
     }
     if (info.id == EditorId::Sprites) {
         m_sprites = new SpritesEditor(m_context, this);
@@ -323,6 +339,8 @@ void ProjectView::createEditor(const EditorInfo& info)
     }
     m_center->addWidget(tabs);
     m_fileTabs.insert(info.id, tabs);
+    if (m_loadStep)
+        m_loadStep();
 
     if (!info.extraPanel.isEmpty() && !m_extraPanels.contains(info.extraPanel)) {
         QScrollArea* extra = makeScrollArea(m_rightStack);
@@ -395,10 +413,11 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
         });
         const QStringList templateDirs = engine()->codeTemplateDirs(info.id);
         if (!templateDirs.isEmpty()) {
+            // Put it in the page before it shows, because a widget shown on its own becomes a window.
             auto* templates = new ControllerTemplatesWidget(m_context.actions(), templateDirs);
-            templates->setVisible(m_context.config().boolValue(QStringLiteral("show_sctrl_list"), true));
             connect(templates, &ControllerTemplatesWidget::insertRequested, page, &CodePage::insertText);
             page->setSidePanel(templates);
+            templates->setVisible(m_context.config().boolValue(QStringLiteral("show_sctrl_list"), true));
         }
         configureCodeEditor(editor, info.id);
         connect(editor, &CodeEditor::breakpointToggled, this, [this, page](int line) {

@@ -38,6 +38,7 @@
 #include "shell/AnimationsEditor.h"
 #include "shell/BackgroundsEditor.h"
 #include "shell/BackgroundsPage.h"
+#include "shell/BusyWindow.h"
 #include "shell/CodePage.h"
 #include "shell/ControllerTemplatesWidget.h"
 #include "shell/DebuggerPanels.h"
@@ -84,6 +85,7 @@
 #include <QMessageBox>
 #include <QMimeData>
 #include <QPlainTextEdit>
+#include <QProgressDialog>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QScopeGuard>
@@ -219,6 +221,60 @@ private Q_SLOTS:
                                        "Welcome screen",
                                        "|",
                                        "Exit"}));
+    }
+
+    void openingShowsNoStrayWindows()
+    {
+        struct Watcher : QObject
+        {
+            QWidget* main = nullptr;
+            QStringList shown;
+            QString loading;
+            bool eventFilter(QObject* watched, QEvent* event) override
+            {
+                auto* widget = qobject_cast<QWidget*>(watched);
+                if (event->type() == QEvent::Hide && widget && widget->objectName() == QLatin1String("busyWindow")) {
+                    if (auto* busy = qobject_cast<QProgressDialog*>(widget))
+                        loading =
+                            QStringLiteral("%1 %2/%3").arg(busy->windowTitle()).arg(busy->value()).arg(busy->maximum());
+                }
+                if (event->type() == QEvent::Show && widget && widget->isWindow() && widget != main &&
+                    widget->objectName() != QLatin1String("busyWindow") && !qobject_cast<QMenu*>(widget) &&
+                    !widget->inherits("QTipLabel"))
+                    shown << QStringLiteral("%1 '%2' %3x%4")
+                                 .arg(QLatin1String(widget->metaObject()->className()), widget->objectName())
+                                 .arg(widget->width())
+                                 .arg(widget->height());
+                return false;
+            }
+        };
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        Watcher watcher;
+        watcher.main = &window;
+        qApp->installEventFilter(&watcher);
+        const bool opened = window.openProject(m_dir.filePath("fighter.def"));
+        QTest::qWait(200);
+        qApp->removeEventFilter(&watcher);
+        QVERIFY(opened);
+        QVERIFY2(watcher.shown.isEmpty(), qPrintable(watcher.shown.join(QLatin1String(", "))));
+        // One step per editor and file, so more than 8 for this character.
+        QVERIFY2(watcher.loading.startsWith(QLatin1String("Loading project... ")), qPrintable(watcher.loading));
+        const QStringList steps = watcher.loading.section(QLatin1Char(' '), -1).split(QLatin1Char('/'));
+        QCOMPARE(steps.value(0), steps.value(1));
+        QVERIFY(steps.value(1).toInt() > 8);
+    }
+
+    void dialogHelpButtons()
+    {
+        installDialogHelpButtons(*qobject_cast<QApplication*>(qApp));
+        QDialog dialog;
+        dialog.show();
+        QVERIFY(dialog.windowFlags().testFlag(Qt::WindowContextHelpButtonHint));
+        QMessageBox box;
+        box.show();
+        QVERIFY(!box.windowFlags().testFlag(Qt::WindowContextHelpButtonHint));
     }
 
     void characterProject()
@@ -4616,6 +4672,7 @@ private Q_SLOTS:
         answerDialog("[State 0, Width]\ntype = Width\ntrigger1 = 1\n");
         actions.action("st_sctrl_edit")->trigger();
         QVERIFY(templates->templatePath("Width") != shipped);
+        // The user copy of a shipped template keeps its CRLF line ends.
         QFile copy(templates->templatePath("Width"));
         QVERIFY(copy.open(QIODevice::ReadOnly));
         QCOMPARE(copy.readAll(), QByteArray("[State 0, Width]\r\ntype = Width\r\ntrigger1 = 1\r\n"));

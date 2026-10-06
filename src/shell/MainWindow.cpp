@@ -1845,15 +1845,15 @@ bool MainWindow::openProject(const QString& filePath)
         return false;
     }
     QString error;
-    auto busy = std::make_unique<BusyWindow>(tr("Loading project..."), this);
+    auto busy = std::make_unique<BusyWindow>(tr("Loading project..."), this, BusyWindow::Focus::Take);
     Project* project = engine->openProject(path, &error);
-    busy.reset();
     if (!project) {
+        busy.reset();
         QMessageBox::warning(this, tr("Open project"), error);
         m_context.history().remove(path);
         return false;
     }
-    addProjectView(project, QString());
+    addProjectView(project, QString(), busy.get());
     m_context.history().add(project->name(), path);
     m_context.config().setValue(QStringLiteral("project_path"), project->directory());
     backupOnLoad(project);
@@ -1932,15 +1932,17 @@ bool MainWindow::openArchive(const QString& archivePath)
             break;
         }
     }
+    auto busy = std::make_unique<BusyWindow>(tr("Loading project..."), this, BusyWindow::Focus::Take);
     Project* project = engine ? engine->openProject(mainPath, &error) : nullptr;
     if (!project) {
+        busy.reset();
         QMessageBox::warning(this, tr("Open archive"),
                              error.isEmpty() ? tr("'%1' is not a project of any supported engine.").arg(main) : error);
         return false;
     }
     extracted.setAutoRemove(false);
     project->setArchive(archive, extracted.path());
-    addProjectView(project, QString());
+    addProjectView(project, QString(), busy.get());
     const int index = m_projectTabs->currentIndex();
     m_projectTabs->setTabToolTip(index, QDir::toNativeSeparators(archive));
     m_context.history().add(project->name(), archive);
@@ -2289,9 +2291,18 @@ void MainWindow::newProject()
     addProjectView(project, EditorId::Definitions);
 }
 
-void MainWindow::addProjectView(Project* project, const QString& editorId)
+void MainWindow::addProjectView(Project* project, const QString& editorId, BusyWindow* loading)
 {
-    auto* view = new ProjectView(project, m_context, m_stack);
+    std::function<void(int, int)> progress;
+    if (loading) {
+        progress = [loading](int done, int total) {
+            if (done == 0)
+                loading->setSteps(total);
+            else
+                loading->step();
+        };
+    }
+    auto* view = new ProjectView(project, m_context, m_stack, progress);
     view->setBreakpoints(m_breakpoints);
     view->applyPreset(m_preset);
     view->setLeftPanelVisible(m_context.config().boolValue(QStringLiteral("show_left_panel"), true));

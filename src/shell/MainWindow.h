@@ -26,6 +26,8 @@ class QToolBar;
 
 namespace OFS {
 
+class BusyWindow;
+
 class AppContext;
 class BottomDock;
 class DebuggerPanels;
@@ -100,7 +102,8 @@ private:
     void restoreWindowGeometry();
     void saveWindowGeometry();
 
-    void addProjectView(Project* project, const QString& editorId);
+    // `editorId` is the editor shown first, empty for the last one used.
+    void addProjectView(Project* project, const QString& editorId, BusyWindow* loading = nullptr);
     void onCurrentTabChanged(int index);
     void refreshForCurrent();
     void updateTaskbarTabs();

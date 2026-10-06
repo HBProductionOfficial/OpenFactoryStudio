@@ -4,17 +4,19 @@
 #include "core/settings/Config.h"
 #include "core/settings/SettingsFiles.h"
 #include "core/widgets/RenderSurface.h"
+#include "shell/BusyWindow.h"
 #include "shell/MainWindow.h"
 #include "shell/dialogs/FirstRunDialog.h"
 
 #include <QApplication>
 #include <QStringList>
 #include <QStyleFactory>
+#include <QStyleHints>
 
 int main(int argc, char* argv[])
 {
+    // No display name, because Qt would add it to every window title.
     QApplication::setApplicationName(QStringLiteral(OFS_DISPLAY_NAME));
-    QApplication::setApplicationDisplayName(QStringLiteral(OFS_DISPLAY_NAME));
     QApplication::setApplicationVersion(QStringLiteral(OFS_VERSION_STRING));
     QApplication::setOrganizationName(QStringLiteral(OFS_ORGANIZATION));
     QApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
@@ -26,10 +28,13 @@ int main(int argc, char* argv[])
     }
 
     QApplication app(argc, argv);
+    OFS::installDialogHelpButtons(app);
 #if defined(Q_OS_WIN)
     // The interface styles are designed on top of the classic Windows look.
     if (QStyleFactory::keys().contains(QStringLiteral("windowsvista"), Qt::CaseInsensitive))
         QApplication::setStyle(QStringLiteral("windowsvista"));
+    // Light title bars in any system color mode. Same as Fighter Factory.
+    QGuiApplication::styleHints()->setColorScheme(Qt::ColorScheme::Light);
 #endif
 
     OFS::AppContext context;

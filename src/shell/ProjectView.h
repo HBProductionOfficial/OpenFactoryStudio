@@ -13,6 +13,8 @@
 #include <QSet>
 #include <QWidget>
 
+#include <functional>
+
 class EPanelWidget;
 class QMenu;
 class QScrollArea;
@@ -51,7 +53,9 @@ class ProjectView : public QWidget
     Q_OBJECT
 
 public:
-    ProjectView(Project* project, AppContext& context, QWidget* parent = nullptr);
+    // `progress` gets the steps done of the total (each file shown and each editor) for the loading window.
+    ProjectView(Project* project, AppContext& context, QWidget* parent = nullptr,
+                const std::function<void(int done, int total)>& progress = {});
     ~ProjectView() override;
 
     Project* project() const { return m_project; }
@@ -133,6 +137,7 @@ Q_SIGNALS:
 private:
     QSet<QString> m_closedEditors;
     void createEditor(const EditorInfo& info);
+    std::function<void()> m_loadStep;
     QWidget* createFilePage(const EditorInfo& info, const QString& filePath);
     void addFileTab(const EditorInfo& info, const QString& filePath);
     void fileRenamed(QWidget* page, const QString& oldPath, const QString& newPath);
