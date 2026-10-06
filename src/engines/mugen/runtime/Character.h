@@ -309,7 +309,7 @@ public:
     float frontEdgeWidth() const { return m_edge[1]; }
     int jugglePoints() const { return m_juggle; }
     bool pushes() const { return m_push; }
-    void moveX(float dx) { m_pos.x += dx; }
+    void moveX(float dx) { m_pos.x += dx / scale(); }
     void releaseTargets();
     void updateBindings();
     void tickBinding();
@@ -355,6 +355,12 @@ public:
     bool ctrl() const { return m_ctrl; }
     QPointF pos() const { return QPointF(m_pos.x, m_pos.y); }
     QPointF vel() const { return QPointF(m_vel.x, m_vel.y); }
+    // Its values are in the localcoord of the states it is in, its sprites and boxes in that of the
+    // animations it shows. These give game units (the match's 320 wide space) per unit of each.
+    float scale() const { return m_stateData->localScale(); }
+    float animScale() const { return m_animData->localScale(); }
+    QPointF gamePos() const { return QPointF(m_pos.x * scale(), m_pos.y * scale()); }
+    void setGamePos(const QPointF& pos) { m_pos = Vec2{float(pos.x()) / scale(), float(pos.y()) / scale()}; }
     int facing() const { return m_facing; }
     int animNo() const { return m_animNo; }
     const AnimPlayer& anim() const { return m_anim; }
@@ -406,6 +412,7 @@ public:
     Value trigger(const TriggerCall& call) override;
     Context* redirect(Redirect kind, const Value& argument) override;
     Value assign(Trigger kind, std::int32_t index, const Value& value) override;
+    float unitScale() const override { return scale(); }
 
 private:
     void prepare();
@@ -424,6 +431,7 @@ private:
     void placeExplod(Explod& e);
     // TargetState from another character waits for this character's next turn.
     void queueState(int number, const CharacterData* owner);
+    void setStateOwner(const CharacterData* owner);
     QList<Character*> targetsWithId(int id) const;
     bool triggered(const Controller& controller);
     bool execute(const Controller& controller);

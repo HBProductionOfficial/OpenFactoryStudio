@@ -274,7 +274,7 @@ bool Character::executeEffect(const Controller& c)
             EnvShake& shake = m_match->envShake();
             shake.time = intParam(c, QStringLiteral("time"), 1);
             shake.freq = std::max(0.f, floatParam(c, QStringLiteral("freq"), 60));
-            shake.ampl = intParam(c, QStringLiteral("ampl"), -4);
+            shake.ampl = int(std::lround(float(intParam(c, QStringLiteral("ampl"), -4)) * scale()));
             shake.phase = floatParam(c, QStringLiteral("phase"), shake.freq >= 90 ? 90 : 0);
         }
         return true;
@@ -284,7 +284,7 @@ bool Character::executeEffect(const Controller& c)
             EnvShake& shake = m_match->envShake();
             shake.time = m_ghv.fallEnvShakeTime;
             shake.freq = m_ghv.fallEnvShakeFreq;
-            shake.ampl = m_ghv.fallEnvShakeAmpl;
+            shake.ampl = int(std::lround(float(m_ghv.fallEnvShakeAmpl) * scale()));
             shake.phase = m_ghv.fallEnvShakePhase;
             m_ghv.fallEnvShakeTime = 0;
         }
@@ -339,8 +339,9 @@ bool Character::executeEffect(const Controller& c)
         }
         auto at = [this, &c, &event, shift](const QString& name) {
             SpawnEvent e = event;
-            e.pos = Vec2{m_pos.x + (floatParam(c, name, 0, 0) + shift.x) * float(m_facing),
-                         m_pos.y + floatParam(c, name, 0, 1) + shift.y};
+            e.pos = Vec2{(m_pos.x + (floatParam(c, name, 0, 0) + shift.x) * float(m_facing)) * scale(),
+                         (m_pos.y + floatParam(c, name, 0, 1) + shift.y) * scale()};
+            e.scale = e.common ? 1 : m_data.localScale();
             return e;
         };
         m_match->addSpawn(at(QStringLiteral("pos")));
@@ -394,8 +395,9 @@ bool Character::executeEffect(const Controller& c)
             event.playerId = m_id;
             event.anim = animNo;
             event.common = !(anim && anim->prefix == QLatin1Char('S'));
-            event.pos = Vec2{m_pos.x + floatParam(c, QStringLiteral("pos"), 0, 0) * float(m_facing),
-                             m_pos.y + floatParam(c, QStringLiteral("pos"), 0, 1)};
+            event.scale = event.common ? 1 : m_data.localScale();
+            event.pos = Vec2{(m_pos.x + floatParam(c, QStringLiteral("pos"), 0, 0) * float(m_facing)) * scale(),
+                             (m_pos.y + floatParam(c, QStringLiteral("pos"), 0, 1)) * scale()};
             m_match->addSpawn(event);
         }
         if (const Param* sound = c.param(QStringLiteral("sound"));
@@ -416,7 +418,8 @@ bool Character::executeEffect(const Controller& c)
         if (!m_match)
             return true;
         ZoomEffect& z = m_match->zoomEffect();
-        z.pos = Vec2{floatParam(c, QStringLiteral("pos"), 0, 0), floatParam(c, QStringLiteral("pos"), 0, 1)};
+        z.pos = Vec2{floatParam(c, QStringLiteral("pos"), 0, 0) * scale(),
+                     floatParam(c, QStringLiteral("pos"), 0, 1) * scale()};
         const float scale = floatParam(c, QStringLiteral("scale"), 1);
         z.scale = scale > 0 ? scale : 1;
         const float lag = floatParam(c, QStringLiteral("lag"), 0);

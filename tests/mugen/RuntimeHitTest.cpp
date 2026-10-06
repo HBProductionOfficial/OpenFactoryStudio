@@ -380,6 +380,36 @@ private Q_SLOTS:
         QVERIFY(std::abs(std::accumulate(moves.cbegin(), moves.cend(), 0.f) - (-2.f - 1.4f)) < 0.001f);
     }
 
+    void localCoord()
+    {
+        const QString hitdef =
+            QStringLiteral("attr = S, NA\ndamage = 50\npausetime = 0, 0\nground.velocity = -8\nground.hittime = 12");
+        CharacterData big;
+        big.setLocalCoordWidth(640);
+        big.setAnimations(kAir);
+        big.addStates(states(hitdef));
+        CharacterData small;
+        small.setAnimations(kAir);
+        small.addStates(states(hitdef));
+        auto fight = [&](float targetX) {
+            Match match(3);
+            Character a(big, &match);
+            Character b(small, &match);
+            a.setPos({-20, 0}); // game -10: its attack box reaches game 10
+            b.setPos({targetX, 0});
+            b.setFacing(-1);
+            a.start(200);
+            b.start(0);
+            for (int t = 0; t < 40 && b.stateNo() != 5001; ++t)
+                match.tick();
+            return std::pair(b.stateNo(), b.var(4));
+        };
+        // At 16 its body (6 to 26) meets the attack. At 26 (16 to 36) the attack falls short,
+        // though in the attacker's own units its box would reach 30.
+        QCOMPARE(fight(16), std::pair(5001, -4));
+        QCOMPARE(fight(26).first, 0);
+    }
+
     void downBounce()
     {
         const QString downStates = QStringLiteral(

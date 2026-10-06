@@ -47,8 +47,9 @@ Character* Match::enemyNear(const Character* of, int index) const
         if (!c->m_isHelper && c->m_team != of->m_team)
             near << c;
     }
-    std::stable_sort(near.begin(), near.end(), [of](const Character* a, const Character* b) {
-        return std::abs(a->m_pos.x - of->m_pos.x) < std::abs(b->m_pos.x - of->m_pos.x);
+    const double x = of->gamePos().x();
+    std::stable_sort(near.begin(), near.end(), [x](const Character* a, const Character* b) {
+        return std::abs(a->gamePos().x() - x) < std::abs(b->gamePos().x() - x);
     });
     return index >= 0 && index < near.size() ? near[index] : nullptr;
 }
@@ -180,7 +181,7 @@ void Match::resetPositions()
     for (Character* c : std::as_const(m_characters)) {
         if (c->m_isHelper)
             continue;
-        c->m_pos = Vec2{c->m_team == 0 ? m_settings.p1x : m_settings.p2x, 0};
+        c->setGamePos(QPointF(c->m_team == 0 ? m_settings.p1x : m_settings.p2x, 0));
         c->m_vel = Vec2();
         c->m_facing = c->m_team == 0 ? 1 : -1;
     }
@@ -261,6 +262,7 @@ bool Match::decideRound()
 
 const Character* Match::attackerNear(const Character* c) const
 {
+    const float x = float(c->gamePos().x());
     for (const Character* other : std::as_const(m_characters)) {
         if (other->m_team == c->m_team || other->m_destroyed)
             continue;
@@ -271,7 +273,7 @@ const Character* Match::attackerNear(const Character* c) const
             const float reach = p.hitDef.guardDist >= 0
                                     ? float(p.hitDef.guardDist)
                                     : other->data().constant(QStringLiteral("size.proj.attack.dist"), 90);
-            if (std::abs(p.pos.x - c->m_pos.x) <= reach)
+            if (std::abs(p.pos.x - x) <= reach * p.unit)
                 return other;
         }
         if (other->moveType() != QLatin1Char('A'))
@@ -279,7 +281,7 @@ const Character* Match::attackerNear(const Character* c) const
         const int guardDist = other->hitDef().active ? other->hitDef().guardDist : -1;
         const float reach =
             guardDist >= 0 ? float(guardDist) : other->data().constant(QStringLiteral("size.attack.dist"), 160);
-        if (std::abs(other->pos().x() - c->pos().x()) <= reach)
+        if (std::abs(float(other->gamePos().x()) - x) <= reach * other->scale())
             return other;
     }
     return nullptr;
@@ -332,7 +334,7 @@ void Match::stepRound()
                     continue;
                 c->m_ctrl = true;
                 if (c->m_stateNo != 0) {
-                    c->m_stateData = &c->m_data;
+                    c->setStateOwner(&c->m_data);
                     c->m_minus = 3;
                     c->changeState(0, -1, 1);
                 }
@@ -365,7 +367,7 @@ void Match::stepRound()
                 continue;
             c->m_posed = true;
             const int state = m_winner == c->m_team ? 180 : (m_winner == 0 || m_winner == 1) ? 170 : 175;
-            c->m_stateData = &c->m_data;
+            c->setStateOwner(&c->m_data);
             c->m_minus = 3;
             c->changeState(state, -1, -1);
         }
@@ -491,21 +493,24 @@ void Match::push()
             Character* b = m_characters[j];
             if (!a->pushes() || !b->pushes() || a->m_team == b->m_team || a->m_destroyed || b->m_destroyed)
                 continue;
-            const float aHeight = a->constant(QStringLiteral("size.height"), 60);
-            const float bHeight = b->constant(QStringLiteral("size.height"), 60);
-            if (a->pos().y() - aHeight >= b->pos().y() || b->pos().y() - bHeight >= a->pos().y())
+            const QPointF aAt = a->gamePos();
+            const QPointF bAt = b->gamePos();
+            const double aHeight = double(a->constant(QStringLiteral("size.height"), 60) * a->scale());
+            const double bHeight = double(b->constant(QStringLiteral("size.height"), 60) * b->scale());
+            if (aAt.y() - aHeight >= bAt.y() || bAt.y() - bHeight >= aAt.y())
                 continue;
             auto span = [](const Character* c) {
-                const float x = float(c->pos().x());
-                return c->facing() > 0 ? std::pair(x - c->backWidth(), x + c->frontWidth())
-                                       : std::pair(x - c->frontWidth(), x + c->backWidth());
+                const float x = float(c->gamePos().x());
+                const float back = c->backWidth() * c->scale();
+                const float front = c->frontWidth() * c->scale();
+                return c->facing() > 0 ? std::pair(x - back, x + front) : std::pair(x - front, x + back);
             };
             const auto [aLeft, aRight] = span(a);
             const auto [bLeft, bRight] = span(b);
             const float overlap = std::min(aRight, bRight) - std::max(aLeft, bLeft);
             if (overlap <= 0)
                 continue;
-            const bool aOnLeft = a->pos().x() < b->pos().x() || (a->pos().x() == b->pos().x() && a->facing() > 0);
+            const bool aOnLeft = aAt.x() < bAt.x() || (aAt.x() == bAt.x() && a->facing() > 0);
             a->moveX(aOnLeft ? -overlap / 2 : overlap / 2);
             b->moveX(aOnLeft ? overlap / 2 : -overlap / 2);
         }
@@ -521,10 +526,10 @@ void Match::keepOnScreen()
     float most = 0;
     bool followed = false;
     for (Character* c : std::as_const(m_characters)) {
-        float x = float(c->pos().x());
+        float x = float(c->gamePos().x());
         if (c->screenBound()) {
             x = std::clamp(x, m_left, m_right);
-            c->moveX(x - float(c->pos().x()));
+            c->moveX(x - float(c->gamePos().x()));
         }
         if (!c->movesCamera())
             continue;
@@ -544,12 +549,12 @@ void Match::keepOnScreen()
     for (Character* c : std::as_const(m_characters)) {
         if (!c->screenBound())
             continue;
-        const float leftEdge = c->facing() > 0 ? c->backEdgeWidth() : c->frontEdgeWidth();
-        const float rightEdge = c->facing() > 0 ? c->frontEdgeWidth() : c->backEdgeWidth();
+        const float leftEdge = (c->facing() > 0 ? c->backEdgeWidth() : c->frontEdgeWidth()) * c->scale();
+        const float rightEdge = (c->facing() > 0 ? c->frontEdgeWidth() : c->backEdgeWidth()) * c->scale();
         const float low = m_cameraX - shown + m_screenEdge + leftEdge;
         const float high = std::max(low, m_cameraX + shown - m_screenEdge - rightEdge);
-        const float x = std::clamp(float(c->pos().x()), low, high);
-        c->moveX(x - float(c->pos().x()));
+        const float x = std::clamp(float(c->gamePos().x()), low, high);
+        c->moveX(x - float(c->gamePos().x()));
     }
 }
 

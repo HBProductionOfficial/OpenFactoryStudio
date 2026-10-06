@@ -36,11 +36,12 @@ struct Explod
     bool screen = false;
     bool screenSpace = false;
     int bindId = -2; // 1.1 bindID: the player or helper it follows, -1 its owner, -2 none
-    Vec2 pos;                 // a character's position or the screen's corner, in game units
+    Vec2 pos;        // a character's position or the screen's corner, in game units
     Vec2 relative;
     Vec2 next;
     Vec2 vel;
     Vec2 accel;
+    float unit = 1; // game units per unit of relative, vel and accel (its maker's localcoord)
     int facing = 1;
     int relativeFacing = 1;
     int vFacing = 1;
@@ -69,7 +70,7 @@ struct Explod
     int time = 0;
     bool paused = false;
 
-    Vec2 drawPos() const { return Vec2{pos.x + relative.x, pos.y + relative.y}; }
+    Vec2 drawPos() const { return Vec2{pos.x + relative.x * unit, pos.y + relative.y * unit}; }
     int drawFacing() const { return facing * relativeFacing; }
 };
 

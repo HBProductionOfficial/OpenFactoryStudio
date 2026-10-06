@@ -776,7 +776,9 @@ QList<FightScreen::Item> FightScreen::items(const Match& match, const std::array
         const Bar& power = m_power[side];
         addItems(out, power.counter, power.pos, nullptr, std::nullopt, QString::number(s.character->power() / 1000));
         addItems(out, m_face[side].bg, m_face[side].pos);
-        addItems(out, m_face[side].face, m_face[side].pos, s.sprites);
+        Element face = m_face[side].face;
+        face.scale *= s.faceScale;
+        addItems(out, face, m_face[side].pos, s.sprites);
         addItems(out, m_name[side], m_namePos[side], nullptr, std::nullopt, s.name);
         const WinIcon& wi = m_winIcon[side];
         const QList<RoundWin>& won = match.roundWins(side);

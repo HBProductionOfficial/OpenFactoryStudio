@@ -105,7 +105,8 @@ void Character::resetForRound(Vec2 pos, int facing, bool firstRound)
     m_projectiles.clear();
     m_projContactTime = -1;
     m_draw = DrawState();
-    m_stateData = &m_data;
+    setStateOwner(&m_data);
+    setGamePos(QPointF(pos.x, pos.y));
     m_minus = 3;
     if (firstRound && m_data.animation(0))
         changeAnim(0);
@@ -117,7 +118,7 @@ void Character::start(int state)
     m_nesting = 0;
     m_prevStateNo = m_stateNo = std::max(0, state);
     m_time = 0;
-    m_stateData = &m_data;
+    setStateOwner(&m_data);
     const StateDef* def = m_data.state(m_stateNo);
     m_counters.assign(def ? def->controllers.size() : 0, 0);
     m_pending = true; // entered at the next tick
@@ -142,7 +143,7 @@ void Character::changeAnim(int number, const CharacterData* owner)
 
 void Character::queueState(int number, const CharacterData* owner)
 {
-    m_stateData = owner ? owner : &m_data;
+    setStateOwner(owner ? owner : &m_data);
     m_prevStateNo = m_stateNo;
     m_stateNo = std::max(0, number);
     m_time = 0;
@@ -151,6 +152,35 @@ void Character::queueState(int number, const CharacterData* owner)
         m_messages << QStringLiteral("changed to invalid state %1 (from state %2)").arg(number).arg(m_prevStateNo);
     m_counters.assign(def ? def->controllers.size() : 0, 0);
     m_pending = true;
+}
+
+void Character::setStateOwner(const CharacterData* owner)
+{
+    const float ratio = scale() / owner->localScale();
+    m_stateData = owner;
+    if (ratio == 1)
+        return;
+    auto convert = [ratio](Vec2& v) {
+        v.x *= ratio;
+        v.y *= ratio;
+    };
+    convert(m_pos);
+    convert(m_vel);
+    m_velOff *= ratio;
+    m_downHitOffset *= ratio;
+    m_ghv.xvel *= ratio;
+    m_ghv.yvel *= ratio;
+    m_ghv.fallXVelocity *= ratio;
+    m_ghv.fallYVelocity *= ratio;
+    m_ghv.yAccel *= ratio;
+    for (float& w : m_width) {
+        if (w >= 0)
+            w *= ratio;
+    }
+    m_edge[0] *= ratio;
+    m_edge[1] *= ratio;
+    if (!m_bindIsTarget)
+        convert(m_bindPos);
 }
 
 QList<Character*> Character::targetsWithId(int id) const
@@ -236,7 +266,7 @@ void Character::enterState()
     };
     if (keep("facep2")) {
         const Character* enemy = m_match ? m_match->enemy(this) : nullptr;
-        if (enemy && (enemy->m_pos.x - m_pos.x) * float(m_facing) < 0)
+        if (enemy && (enemy->gamePos().x() - gamePos().x()) * m_facing < 0)
             m_facing = -m_facing;
     }
     // Without juggle an attack carries on the points of the attack state before it that did not juggle.
@@ -405,7 +435,7 @@ void Character::autoTurn()
     if (m_asserted.contains(QStringLiteral("noautoturn")))
         return;
     const Character* enemy = m_match ? m_match->enemy(this) : nullptr;
-    if (!enemy || (enemy->m_pos.x - m_pos.x) * float(m_facing) >= 0)
+    if (!enemy || (enemy->gamePos().x() - gamePos().x()) * m_facing >= 0)
         return;
     if (m_stateType == QLatin1Char('S') && m_animNo != 5 && m_data.animation(5))
         changeAnim(5);
@@ -503,7 +533,7 @@ void Character::runActions()
         m_ctrl = false;
         if (!m_pending && !m_isHelper && m_moveType != QLatin1Char('H')) {
             m_ghv.fall = true;
-            m_stateData = &m_data;
+            setStateOwner(&m_data);
             changeState(5030, -1, 0);
             m_time = 1;
         }
@@ -579,7 +609,8 @@ void Character::finishTick()
     if (ai.time != 0) {
         if (m_afterImageTicks++ % std::max(1, ai.timeGap) == 0) {
             AfterImageFrame f;
-            f.pos = Vec2{m_pos.x + m_draw.offset.x, m_pos.y + m_draw.offset.y};
+            f.pos = Vec2{(m_pos.x + m_draw.offset.x) * scale(), (m_pos.y + m_draw.offset.y) * scale()};
+            f.scale = Vec2{animScale(), animScale()};
             f.animData = m_animData;
             f.animNo = m_animNo;
             f.frame = m_anim.frame();
@@ -610,10 +641,11 @@ void Character::updateBindings()
             t->m_bindTo = nullptr;
             continue;
         }
-        t->m_vel.x = float(t->m_facing * m_facing) * m_vel.x;
-        t->m_vel.y = m_vel.y;
-        t->m_pos.x = m_pos.x + float(t->m_bindFacing) * t->m_bindPos.x;
-        t->m_pos.y = m_pos.y + t->m_bindPos.y;
+        const float ratio = scale() / t->scale();
+        t->m_vel.x = float(t->m_facing * m_facing) * m_vel.x * ratio;
+        t->m_vel.y = m_vel.y * ratio;
+        t->m_pos.x = (m_pos.x + float(t->m_bindFacing) * t->m_bindPos.x) * ratio;
+        t->m_pos.y = (m_pos.y + t->m_bindPos.y) * ratio;
     }
 }
 
@@ -622,8 +654,8 @@ void Character::updateHelperBinding()
     if (m_bindIsTarget || !m_bindTo || m_bindTime == 0)
         return;
     const int f = m_bindTo->m_facing;
-    m_pos.x = m_bindTo->m_pos.x + float(f) * m_bindPos.x;
-    m_pos.y = m_bindTo->m_pos.y + m_bindPos.y;
+    const QPointF at = m_bindTo->gamePos();
+    setGamePos(QPointF(at.x() + double(float(f) * m_bindPos.x * scale()), at.y() + double(m_bindPos.y * scale())));
     if (m_bindTurn != 0)
         m_facing = m_bindTurn > 0 ? f : -f;
 }
@@ -641,7 +673,7 @@ void Character::tickBinding()
         m_bindTo = nullptr;
         m_bindTime = 0;
         m_minus = 2;
-        m_stateData = &m_data;
+        setStateOwner(&m_data);
         changeState(5050);
         m_minus = 3;
         return;
@@ -660,7 +692,7 @@ void Character::updatePosition()
     } else if (m_physics == QLatin1Char('C')) {
         m_vel.x *= m_data.constant(QStringLiteral("movement.crouch.friction"), 0.82f);
     } else if (m_physics == QLatin1Char('A')) {
-        m_vel.y += m_data.yAccel();
+        m_vel.y += m_data.yAccel() * m_data.localScale() / scale();
     }
 }
 

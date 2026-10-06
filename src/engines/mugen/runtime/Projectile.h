@@ -41,6 +41,7 @@ struct Projectile
     const CharacterData* animData = nullptr;
     AnimPlayer player;
 
+    // In game units. Its bounds are in its maker's units (`unit` game units each).
     Vec2 pos;
     Vec2 vel;
     Vec2 remVel;
@@ -48,6 +49,7 @@ struct Projectile
     Vec2 velMul{1, 1};
     Vec2 scale{1, 1};
     int facing = 1;
+    float unit = 1;
 
     int hits = 1;
     int missTime = 0;

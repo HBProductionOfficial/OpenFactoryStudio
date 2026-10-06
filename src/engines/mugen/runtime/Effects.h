@@ -148,8 +148,9 @@ struct SpawnEvent
     int playerId = 0;
     int anim = 0;
     bool common = true;
-    Vec2 pos;           // on the stage, in game units
+    Vec2 pos; // on the stage, in game units
     bool under = false;
+    float scale = 1;
 };
 
 } // namespace OFS::Mugen::Runtime

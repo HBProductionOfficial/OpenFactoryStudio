@@ -15,13 +15,13 @@ void Character::enterGetHitState()
     if (m_hitStateNo >= 0) {
         const int state = m_hitStateNo;
         m_hitStateNo = -1;
-        m_stateData = m_hitStateOwner ? m_hitStateOwner : &m_data;
+        setStateOwner(m_hitStateOwner ? m_hitStateOwner : &m_data);
         m_hitStateOwner = nullptr;
         changeState(state, -1, 0);
         m_moveType = QLatin1Char('H');
         return;
     }
-    m_stateData = &m_data;
+    setStateOwner(&m_data);
     if (m_ghv.guarded && m_life > 0) {
         changeState(m_stateType == QLatin1Char('S') ? 150 : m_stateType == QLatin1Char('C') ? 152 : 154, -1, 0);
         return;
@@ -30,7 +30,7 @@ void Character::enterGetHitState()
         changeState(5080, -1, 0);
         // MUGEN moves a character hit up off the floor 15 pixels lower on the next tick.
         if (m_ghv.yvel != 0)
-            m_downHitOffset = 15.0f * float(m_data.localCoordWidth()) / 320.0f;
+            m_downHitOffset = 15.0f / scale();
     } else if (m_ghv.type == HitType::Trip)
         changeState(5070, -1, 0);
     else if (m_stateType == QLatin1Char('S') || (m_stateType == QLatin1Char('C') && m_life <= 0))
@@ -43,7 +43,9 @@ void Character::enterGetHitState()
 
 QList<QRectF> Character::boxes(int type) const
 {
-    return clsnBoxes(m_animData->animation(m_animNo), m_anim, type, m_pos, m_facing);
+    const QPointF at = gamePos();
+    return clsnBoxes(m_animData->animation(m_animNo), m_anim, type, Vec2{float(at.x()), float(at.y())}, m_facing,
+                     animScale());
 }
 
 bool Character::canGuard(const HitDef& hit) const
@@ -281,7 +283,8 @@ bool Character::cornered(const Character& target) const
         return false;
     const float margin = m_stateData->isMugen10() ? 2 : 4;
     const float half = m_match->screenWidth() / 2 - m_match->screenEdge() - margin;
-    return m_facing < 0 ? target.m_pos.x <= m_match->cameraX() - half : target.m_pos.x >= m_match->cameraX() + half;
+    const float x = float(target.gamePos().x());
+    return m_facing < 0 ? x <= m_match->cameraX() - half : x >= m_match->cameraX() + half;
 }
 
 void Character::showHit(Character& target, const HitDef& hd, int facing, bool guarded)
@@ -299,8 +302,10 @@ void Character::showHit(Character& target, const HitDef& hd, int facing, bool gu
         event.playerId = m_id;
         event.anim = spark;
         event.common = !ownSpark;
-        event.pos = Vec2{target.m_pos.x + target.frontWidth() * float(target.m_facing) - hd.sparkX * float(facing),
-                         m_pos.y + hd.sparkY};
+        event.scale = ownSpark ? m_data.localScale() : 1;
+        event.pos = Vec2{float(target.gamePos().x()) + (target.frontWidth() * target.scale()) * float(target.m_facing) -
+                             hd.sparkX * scale() * float(facing),
+                         (m_pos.y + hd.sparkY) * scale()};
         m_match->addSpawn(event);
     }
     const int* sound = guarded ? hd.guardSound : hd.hitSound;
@@ -318,7 +323,7 @@ void Character::showHit(Character& target, const HitDef& hd, int facing, bool gu
         EnvShake& shake = m_match->envShake();
         shake.time = hd.envShakeTime;
         shake.freq = hd.envShakeFreq;
-        shake.ampl = hd.envShakeAmpl;
+        shake.ampl = int(std::lround(float(hd.envShakeAmpl) * scale()));
         shake.phase = hd.envShakePhase;
     }
     if (hd.palFxTime != 0) {
@@ -364,12 +369,13 @@ bool Character::deliverHit(Character& target, const HitDef& hd, int facing, int 
     GetHitVars& ghv = target.m_ghv;
     const bool combo = target.m_moveType == QLatin1Char('H') && !ghv.guarded;
     const float side = float(-facing); // velocities are given towards the attacker's front
+    const float ratio = scale() / target.scale();
     ghv.damage = damage;
     ghv.kill = kill;
     ghv.groundType = hd.groundType;
     ghv.airType = hd.airType;
     ghv.type = type == QLatin1Char('A') ? hd.airType : hd.groundType;
-    ghv.yAccel = hd.yAccel;
+    ghv.yAccel = hd.yAccel * ratio;
     ghv.hitId = hd.id;
     ghv.hitBy = (m_root ? m_root : this)->m_id;
     if (guarded) {
@@ -379,11 +385,11 @@ bool Character::deliverHit(Character& target, const HitDef& hd, int facing, int 
         ghv.slideTime = hd.guardSlideTime;
         if (type == QLatin1Char('A')) {
             ghv.ctrlTime = hd.airGuardCtrlTime;
-            ghv.xvel = hd.airGuardVelocity[0] * side;
-            ghv.yvel = hd.airGuardVelocity[1];
+            ghv.xvel = hd.airGuardVelocity[0] * side * ratio;
+            ghv.yvel = hd.airGuardVelocity[1] * ratio;
         } else {
             ghv.ctrlTime = hd.guardCtrlTime;
-            ghv.xvel = hd.guardVelocity * side;
+            ghv.xvel = hd.guardVelocity * side * ratio;
             ghv.yvel = 0;
         }
         ghv.fall = false;
@@ -391,15 +397,15 @@ bool Character::deliverHit(Character& target, const HitDef& hd, int facing, int 
         ghv.guarded = false;
         ghv.hitShakeTime = std::max(0, hd.pauseTime[1]);
         ghv.slideTime = hd.groundSlideTime;
-        ghv.fallXVelocity = hd.fallXVelocity;
-        ghv.fallYVelocity = hd.fallYVelocity;
+        ghv.fallXVelocity = hd.fallXVelocity * ratio;
+        ghv.fallYVelocity = hd.fallYVelocity * ratio;
         ghv.fallRecover = hd.fallRecover;
         ghv.fallRecoverTime = hd.fallRecoverTime;
         ghv.fallDamage = hd.fallDamage;
         ghv.fallKill = hd.fallKill;
         ghv.fallEnvShakeTime = hd.fallEnvShakeTime;
         ghv.fallEnvShakeFreq = hd.fallEnvShakeFreq;
-        ghv.fallEnvShakeAmpl = hd.fallEnvShakeAmpl;
+        ghv.fallEnvShakeAmpl = int(std::lround(float(hd.fallEnvShakeAmpl) * ratio));
         ghv.fallEnvShakePhase = hd.fallEnvShakePhase;
         ghv.downRecover = hd.downRecover;
         const int down = hd.downRecoverTime >= 0 ? hd.downRecoverTime
@@ -409,8 +415,8 @@ bool Character::deliverHit(Character& target, const HitDef& hd, int facing, int 
         if (type == QLatin1Char('A')) {
             ghv.hitTime = hd.airHitTime;
             ghv.ctrlTime = hd.airHitTime;
-            ghv.xvel = hd.airVelocity[0] * side;
-            ghv.yvel = hd.airVelocity[1];
+            ghv.xvel = hd.airVelocity[0] * side * ratio;
+            ghv.yvel = hd.airVelocity[1] * ratio;
             ghv.fall = ghv.fall || hd.airFall;
         } else if (type == QLatin1Char('L')) {
             ghv.hitTime = hd.downHitTime;
@@ -418,20 +424,20 @@ bool Character::deliverHit(Character& target, const HitDef& hd, int facing, int 
             ghv.fall = ghv.fall || hd.fall;
             if (target.m_pos.y == 0) {
                 // Knocked up without down.bounce, a lying target stays down when it lands.
-                ghv.xvel = hd.downVelocity[0] * side;
-                ghv.yvel = hd.downVelocity[1];
+                ghv.xvel = hd.downVelocity[0] * side * ratio;
+                ghv.yvel = hd.downVelocity[1] * ratio;
                 if (!hd.downBounce && ghv.yvel != 0) {
                     ghv.fallXVelocity = std::nanf("");
                     ghv.fallYVelocity = 0;
                 }
             } else {
-                ghv.xvel = hd.airVelocity[0] * side;
-                ghv.yvel = hd.airVelocity[1];
+                ghv.xvel = hd.airVelocity[0] * side * ratio;
+                ghv.yvel = hd.airVelocity[1] * ratio;
             }
         } else {
             ghv.ctrlTime = hd.groundHitTime;
-            ghv.xvel = hd.groundVelocity[0] * side;
-            ghv.yvel = hd.groundVelocity[1];
+            ghv.xvel = hd.groundVelocity[0] * side * ratio;
+            ghv.yvel = hd.groundVelocity[1] * ratio;
             ghv.fall = ghv.fall || hd.fall;
             if (ghv.fall && ghv.yvel == 0)
                 ghv.yvel = -0.001f; // the engine lifts falling characters a little
@@ -459,15 +465,19 @@ bool Character::deliverHit(Character& target, const HitDef& hd, int facing, int 
             target.m_stateType = QLatin1Char('S');
         const float ahead = float(facing);
         auto place = [&](int axis, float offset) {
+            QPointF at = target.gamePos();
             if (axis == 0)
-                target.m_pos.x = m_pos.x + offset * ahead;
+                at.setX(double((m_pos.x + offset * ahead) * scale()));
             else
-                target.m_pos.y = m_pos.y + offset;
+                at.setY(double((m_pos.y + offset) * scale()));
+            target.setGamePos(at);
         };
         for (int axis = 0; axis < 2; ++axis) {
             if (!std::isnan(hd.snap[axis]))
                 place(axis, hd.snap[axis]);
-            const float distance = axis == 0 ? (target.m_pos.x - m_pos.x) * ahead : target.m_pos.y - m_pos.y;
+            const QPointF at = target.gamePos();
+            const float distance =
+                axis == 0 ? (float(at.x()) / scale() - m_pos.x) * ahead : float(at.y()) / scale() - m_pos.y;
             if (!std::isnan(hd.minDist[axis]) && distance < hd.minDist[axis])
                 place(axis, hd.minDist[axis]);
             else if (!std::isnan(hd.maxDist[axis]) && distance > hd.maxDist[axis])

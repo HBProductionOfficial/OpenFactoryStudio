@@ -136,6 +136,7 @@ public:
     {
         const Runtime::Character* character = nullptr;
         const SpriteDocument* sprites = nullptr;
+        float faceScale = 1;
         QString name;
     };
 

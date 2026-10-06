@@ -72,6 +72,7 @@ public:
         int anim = 0;
         Runtime::AnimPlayer player;
         bool under = false;
+        float scale = 1;
     };
 
     struct Shadows

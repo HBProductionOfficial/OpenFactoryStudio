@@ -14,6 +14,9 @@ Value Character::trigger(const TriggerCall& call)
     auto arg = [&call](int i) {
         return i < int(call.args.size()) ? call.args[std::size_t(i)] : Value::undefined();
     };
+    // The match works in game units. The character reads its own (its states' localcoord).
+    const float unit = scale();
+    const float gameX = m_pos.x * unit;
     auto special = [&call](bool match) {
         return Value::boolean(match != call.negate);
     };
@@ -70,26 +73,28 @@ Value Character::trigger(const TriggerCall& call)
     }
     case Trigger::Pos:
         // X from the centre of the screen.
-        return Value::real(call.keyword == QLatin1String("y") ? m_pos.y : m_pos.x - (m_match ? m_match->cameraX() : 0));
+        return Value::real(call.keyword == QLatin1String("y") ? m_pos.y
+                                                              : (gameX - (m_match ? m_match->cameraX() : 0)) / unit);
     case Trigger::ScreenPos: {
         // From the top-left corner of the screen, in screen pixels (zoomed about the ground line).
         const float left = m_match ? m_match->cameraX() - m_match->gameWidth() / 2 : -160;
         const float floor = m_match ? m_match->screenFloor() : 200;
         const float zoom = m_match ? m_match->cameraZoom() : 1;
-        return Value::real(call.keyword == QLatin1String("y") ? m_pos.y * zoom + floor : (m_pos.x - left) * zoom);
+        return Value::real(call.keyword == QLatin1String("y") ? (m_pos.y * unit * zoom + floor) / unit
+                                                              : (gameX - left) * zoom / unit);
     }
     case Trigger::CameraPos:
-        return Value::real(call.keyword == QLatin1String("y") ? 0.f : (m_match ? m_match->cameraX() : 0.f));
+        return Value::real(call.keyword == QLatin1String("y") ? 0.f : (m_match ? m_match->cameraX() : 0.f) / unit);
     case Trigger::CameraZoom:
         return Value::real(m_match ? m_match->cameraZoom() : 1);
     case Trigger::ScreenWidth:
-        return Value::real(m_match ? m_match->screenWidth() : 320);
+        return Value::real((m_match ? m_match->screenWidth() : 320) / unit);
     case Trigger::ScreenHeight:
-        return Value::real(m_match ? m_match->screenHeight() : 240);
+        return Value::real((m_match ? m_match->screenHeight() : 240) / unit);
     case Trigger::GameWidth:
-        return Value::real(m_match ? m_match->gameWidth() : 320);
+        return Value::real((m_match ? m_match->gameWidth() : 320) / unit);
     case Trigger::GameHeight:
-        return Value::real(m_match ? m_match->gameHeight() : 240);
+        return Value::real((m_match ? m_match->gameHeight() : 240) / unit);
     case Trigger::LeftEdge:
     case Trigger::RightEdge:
     case Trigger::BackEdge:
@@ -99,12 +104,13 @@ Value Character::trigger(const TriggerCall& call)
         bool right = call.trigger == Trigger::RightEdge;
         if (call.trigger == Trigger::BackEdge || call.trigger == Trigger::FrontEdge)
             right = (m_facing > 0) == (call.trigger == Trigger::FrontEdge);
-        return Value::real(right ? camera + half : camera - half);
+        return Value::real((right ? camera + half : camera - half) / unit);
     }
     case Trigger::TopEdge:
     case Trigger::BottomEdge: {
         const float top = m_match ? -m_match->screenFloor() / m_match->cameraZoom() : -200;
-        return Value::real(call.trigger == Trigger::TopEdge ? top : top + (m_match ? m_match->gameHeight() : 240));
+        return Value::real((call.trigger == Trigger::TopEdge ? top : top + (m_match ? m_match->gameHeight() : 240)) /
+                           unit);
     }
     case Trigger::BackEdgeDist:
     case Trigger::FrontEdgeDist:
@@ -117,7 +123,7 @@ Value Character::trigger(const TriggerCall& call)
         const bool back = call.trigger == Trigger::BackEdgeDist || call.trigger == Trigger::BackEdgeBodyDist;
         const bool body = call.trigger == Trigger::BackEdgeBodyDist || call.trigger == Trigger::FrontEdgeBodyDist;
         const bool towardsLeft = back == (m_facing > 0);
-        float distance = towardsLeft ? m_pos.x - leftEdge : rightEdge - m_pos.x;
+        float distance = (towardsLeft ? gameX - leftEdge : rightEdge - gameX) / unit;
         if (body)
             distance -= back ? backWidth() : frontWidth();
         return Value::integer(int(std::floor(distance)));
@@ -155,11 +161,11 @@ Value Character::trigger(const TriggerCall& call)
         return Value::real(value);
     }
     case Trigger::Const240p:
-        return Value::real(float(m_data.localCoordWidth()) / 320 * arg(0).toFloat());
+        return Value::real(arg(0).toFloat() / unit);
     case Trigger::Const480p:
-        return Value::real(float(m_data.localCoordWidth()) / 640 * arg(0).toFloat());
+        return Value::real(arg(0).toFloat() / (2 * unit));
     case Trigger::Const720p:
-        return Value::real(float(m_data.localCoordWidth()) / 1280 * arg(0).toFloat());
+        return Value::real(arg(0).toFloat() / (4 * unit));
     case Trigger::Life:
         return Value::integer(m_life);
     case Trigger::LifeMax:
@@ -381,8 +387,8 @@ Value Character::trigger(const TriggerCall& call)
         if (!to)
             return Value::undefined();
         if (call.keyword == QLatin1String("y"))
-            return Value::real(to->m_pos.y - m_pos.y);
-        return Value::real((to->m_pos.x - m_pos.x) * float(m_facing));
+            return Value::real(float(to->gamePos().y()) / unit - m_pos.y);
+        return Value::real((float(to->gamePos().x()) - gameX) / unit * float(m_facing));
     }
     case Trigger::MatchOver:
         return Value::boolean(m_match && m_match->matchOver());
@@ -435,13 +441,15 @@ Value Character::trigger(const TriggerCall& call)
         const Character* enemy = m_match ? m_match->enemy(this) : nullptr;
         if (!enemy)
             return Value::undefined();
+        const QPointF there = enemy->gamePos();
         if (call.keyword == QLatin1String("y"))
-            return Value::real(enemy->m_pos.y - m_pos.y);
-        float distance = (enemy->m_pos.x - m_pos.x) * float(m_facing);
+            return Value::real(float(there.y()) / unit - m_pos.y);
+        float distance = (float(there.x()) - gameX) / unit * float(m_facing);
         // Between the fronts of the bodies (the opponent's back when it looks away).
         if (call.trigger == Trigger::P2BodyDist) {
-            const bool facesMe = (m_pos.x - enemy->m_pos.x) * float(enemy->m_facing) >= 0;
-            distance -= frontWidth() + (facesMe ? enemy->frontWidth() : enemy->backWidth());
+            const bool facesMe = (gameX - float(there.x())) * float(enemy->m_facing) >= 0;
+            const float theirs = facesMe ? enemy->frontWidth() : enemy->backWidth();
+            distance -= frontWidth() + theirs * enemy->scale() / unit;
         }
         return Value::real(distance);
     }

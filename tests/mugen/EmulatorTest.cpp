@@ -1151,6 +1151,30 @@ private Q_SLOTS:
         QCOMPARE(raised.stage().zoffset, 215.f);
     }
 
+    void characterLocalCoord()
+    {
+        EngineFolder engine;
+        writeSquareCharacter(engine, QByteArray());
+        QFile file(engine.def);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QString def = QString::fromUtf8(file.readAll());
+        file.close();
+        def.replace(QStringLiteral("[Info]\n"), QStringLiteral("[Info]\nlocalcoord = 640, 480\n"));
+        QVERIFY(def.contains(QStringLiteral("localcoord")));
+        writeFile(engine.def, def.toUtf8());
+        MugenEngine mugen;
+        EmulatorSession session;
+        const std::unique_ptr<Project> project = startTraining(engine, mugen, session);
+        QVERIFY(project);
+        const Runtime::Character& p1 = *session.players()[0].character;
+        QCOMPARE(p1.scale(), 0.5f);
+        QCOMPARE(p1.gamePos().x(), -50.0); // in game units
+        QCOMPARE(p1.pos().x(), -100.0);    // in its own units
+        EmulatorRenderer renderer;
+        const QImage frame = renderer.render(session);
+        QCOMPARE(pixelsOf(frame, kOwn, QRect(0, 0, 160, 240)), 25);
+    }
+
     void shadows()
     {
         // Intensity 128 halves the ground's brightness and color = 0,0,100 takes away the blue.

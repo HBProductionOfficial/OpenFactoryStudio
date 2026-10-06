@@ -523,6 +523,7 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
             const AirAnimation* animation = c->animationData().animation(c->animNo());
             Look look;
             look.facing = c->facing();
+            look.scale = QPointF(c->animScale(), c->animScale());
             if (draw.angleDraw) {
                 look.angle = draw.angle;
                 look.angleScale = QPointF(draw.angleScale.x, draw.angleScale.y);
@@ -531,12 +532,14 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
             look.fx = ownFx;
             look.trans = draw.trans;
             look.alpha = draw.alpha;
-            const QPointF at(c->pos().x() + draw.offset.x, c->pos().y() + draw.offset.y);
+            const QPointF at((c->pos().x() + double(draw.offset.x)) * double(c->scale()),
+                             (c->pos().y() + double(draw.offset.y)) * double(c->scale()));
             const std::optional<Placed> placed =
                 place(sprites, animation, c->anim().isEmpty() ? -1 : c->anim().frame(), at, look);
             add(c->sprPriority(), placed);
             if (placed && shadows && !c->isAsserted(QStringLiteral("noshadow")))
-                grounds << Ground{*placed, at.y(), c->constant(QStringLiteral("size.shadowoffset"), 0), {-1, 0, 0}};
+                grounds << Ground{
+                    *placed, at.y(), c->constant(QStringLiteral("size.shadowoffset"), 0) * c->scale(), {-1, 0, 0}};
         }
         for (const Explod& e : c->explods()) {
             const SpriteDocument* explodSprites = e.common ? session.fightFxSprites() : session.spritesOf(*c);
@@ -547,7 +550,8 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
             look.fx << allFx;
             look.facing = e.drawFacing();
             look.vfacing = e.vFacing;
-            look.scale = QPointF(e.scale.x, e.scale.y);
+            const double explodSize = e.animData ? double(e.animData->localScale()) : 1.0;
+            look.scale = QPointF(e.scale.x * explodSize, e.scale.y * explodSize);
             look.angle = e.angle;
             look.xAngle = e.xAngle;
             look.yAngle = e.yAngle;
@@ -581,7 +585,8 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
             const AirAnimation* animation = pr.animData ? pr.animData->animation(pr.shown.number) : nullptr;
             Look look;
             look.facing = pr.facing;
-            look.scale = QPointF(pr.scale.x, pr.scale.y);
+            const double projSize = pr.animData ? double(pr.animData->localScale()) : 1.0;
+            look.scale = QPointF(pr.scale.x * projSize, pr.scale.y * projSize);
             const int frameNo = pr.player.isEmpty() ? -1 : pr.player.frame();
             if (!pr.shown.common)
                 look.palette = paletteOf(animation, frameNo, projRemap);
@@ -601,6 +606,7 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
                                                       : nullptr;
         Look look;
         look.fx = allFx;
+        look.scale = QPointF(effect.scale, effect.scale);
         add(effect.under ? -1000 : 500,
             place(sprites, data ? data->animation(effect.anim) : nullptr,
                   effect.player.isEmpty() ? -1 : effect.player.frame(), QPointF(effect.pos.x, effect.pos.y), look));
@@ -683,7 +689,7 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
         for (const Character* c : match.characters()) {
             if (c->destroyed())
                 continue;
-            const QPointF at = toScreen(Vec2{float(c->pos().x()), float(c->pos().y())});
+            const QPointF at = toScreen(Vec2{float(c->gamePos().x()), float(c->gamePos().y())});
             p.drawText(at + QPointF(-20, 10),
                        QStringLiteral("%1 S%2 A%3").arg(c->id()).arg(c->stateNo()).arg(c->animNo()));
         }

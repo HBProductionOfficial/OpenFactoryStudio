@@ -7,21 +7,22 @@ namespace OFS::Mugen::Runtime {
 
 using namespace Detail;
 
-QList<QRectF> Detail::clsnBoxes(const AirAnimation* animation, const AnimPlayer& player, int type, Vec2 pos, int facing)
+QList<QRectF> Detail::clsnBoxes(const AirAnimation* animation, const AnimPlayer& player, int type, Vec2 pos, int facing,
+                                float scale)
 {
     QList<QRectF> rects;
     if (!animation || player.isEmpty())
         return rects;
     for (const AirBox& box : animation->boxes(player.frame(), type)) {
-        float left = float(std::min(box.left, box.right));
-        float right = float(std::max(box.left, box.right));
+        float left = float(std::min(box.left, box.right)) * scale;
+        float right = float(std::max(box.left, box.right)) * scale;
         if (facing < 0) {
             const float l = -right;
             right = -left;
             left = l;
         }
-        const float top = float(std::min(box.top, box.bottom));
-        const float bottom = float(std::max(box.top, box.bottom));
+        const float top = float(std::min(box.top, box.bottom)) * scale;
+        const float bottom = float(std::max(box.top, box.bottom)) * scale;
         rects << QRectF(pos.x + left, pos.y + top, right - left, bottom - top);
     }
     return rects;
@@ -63,7 +64,7 @@ bool Character::showProjectileAnim(Projectile& p, const Projectile::Anim& anim)
 QList<QRectF> Character::projectileBoxes(const Projectile& p, int type) const
 {
     const AirAnimation* animation = p.animData ? p.animData->animation(p.shown.number) : nullptr;
-    return clsnBoxes(animation, p.player, type, p.pos, p.facing);
+    return clsnBoxes(animation, p.player, type, p.pos, p.facing, p.animData ? p.animData->localScale() : 1);
 }
 
 bool Character::executeProjectile(const Controller& c)
@@ -91,9 +92,15 @@ bool Character::executeProjectile(const Controller& c)
     p.scale = pair(QStringLiteral("projscale"), p.scale);
     p.remove = intParam(c, QStringLiteral("projremove"), 1) != 0;
     p.removeTime = intParam(c, QStringLiteral("projremovetime"), -1);
-    p.vel = pair(QStringLiteral("velocity"), Vec2());
-    p.remVel = pair(QStringLiteral("remvelocity"), Vec2());
-    p.accel = pair(QStringLiteral("accel"), Vec2());
+    const float unit = scale();
+    p.unit = unit;
+    auto moving = [&pair, unit](const QString& name) {
+        const Vec2 v = pair(name, Vec2());
+        return Vec2{v.x * unit, v.y * unit};
+    };
+    p.vel = moving(QStringLiteral("velocity"));
+    p.remVel = moving(QStringLiteral("remvelocity"));
+    p.accel = moving(QStringLiteral("accel"));
     p.velMul = pair(QStringLiteral("velmul"), p.velMul);
     p.hits = intParam(c, QStringLiteral("projhits"), 1);
     p.missTime = intParam(c, QStringLiteral("projmisstime"), 0);
@@ -119,7 +126,7 @@ bool Character::executeProjectile(const Controller& c)
         }
     }
 
-    const Vec2 offset = pair(QStringLiteral("offset"), Vec2());
+    const Vec2 offset = moving(QStringLiteral("offset"));
     const QString posType = c.param(QStringLiteral("postype"))
                                 ? c.param(QStringLiteral("postype"))->text.trimmed().toLower()
                                 : QStringLiteral("p1");
@@ -128,14 +135,16 @@ bool Character::executeProjectile(const Controller& c)
     p.facing = m_facing;
     if (posType == QLatin1String("p2") && m_match && m_match->enemy(this)) {
         const Character* p2 = m_match->enemy(this);
-        p.pos = Vec2{p2->m_pos.x + offset.x * float(p2->m_facing), p2->m_pos.y + offset.y};
+        const QPointF at = p2->gamePos();
+        p.pos = Vec2{float(at.x()) + offset.x * float(p2->m_facing), float(at.y()) + offset.y};
     } else if (posType == QLatin1String("front") || posType == QLatin1String("back")) {
         const bool right = (m_facing > 0) == (posType == QLatin1String("front"));
         p.pos = Vec2{camera + (right ? half : -half) + offset.x * float(m_facing), offset.y};
     } else if (posType == QLatin1String("left") || posType == QLatin1String("right")) {
         p.pos = Vec2{camera + (posType == QLatin1String("left") ? -half : half) + offset.x, offset.y};
     } else {
-        p.pos = Vec2{m_pos.x + offset.x * float(m_facing), m_pos.y + offset.y};
+        const QPointF at = gamePos();
+        p.pos = Vec2{float(at.x()) + offset.x * float(m_facing), float(at.y()) + offset.y};
     }
     if (!showProjectileAnim(p, p.anim))
         m_messages
@@ -162,12 +171,14 @@ void Character::updateProjectiles()
                 const float right = camera + half;
                 const float stageLeft = m_match ? m_match->stageLeft() : -1000;
                 const float stageRight = m_match ? m_match->stageRight() : 1000;
-                if (p.removeTime == 0 || (p.removeTime <= -2 && p.player.ended()) ||
-                    p.pos.x < left - float(p.edgeBound) || p.pos.x > right + float(p.edgeBound) ||
-                    (p.vel.x * float(p.facing) < 0 && p.pos.x < stageLeft - float(p.stageBound)) ||
-                    (p.vel.x * float(p.facing) > 0 && p.pos.x > stageRight + float(p.stageBound)) ||
-                    (p.vel.y > 0 && p.pos.y > float(p.heightBound[1])) ||
-                    (p.vel.y < 0 && p.pos.y < float(p.heightBound[0])))
+                const float edgeBound = float(p.edgeBound) * p.unit;
+                const float stageBound = float(p.stageBound) * p.unit;
+                if (p.removeTime == 0 || (p.removeTime <= -2 && p.player.ended()) || p.pos.x < left - edgeBound ||
+                    p.pos.x > right + edgeBound ||
+                    (p.vel.x * float(p.facing) < 0 && p.pos.x < stageLeft - stageBound) ||
+                    (p.vel.x * float(p.facing) > 0 && p.pos.x > stageRight + stageBound) ||
+                    (p.vel.y > 0 && p.pos.y > float(p.heightBound[1]) * p.unit) ||
+                    (p.vel.y < 0 && p.pos.y < float(p.heightBound[0]) * p.unit))
                     p.status = Projectile::Status::Removed;
             }
             if (p.status != Projectile::Status::Active && !p.removeStarted) {
@@ -294,7 +305,8 @@ void Character::tickProjectiles()
             f.common = p.shown.common;
             f.frame = p.player.frame();
             f.facing = p.facing;
-            f.scale = p.scale;
+            const float size = p.animData ? p.animData->localScale() : 1;
+            f.scale = Vec2{p.scale.x * size, p.scale.y * size};
             p.afterImages.prepend(f);
             while (p.afterImages.size() > std::clamp(ai.length, 1, 60))
                 p.afterImages.removeLast();

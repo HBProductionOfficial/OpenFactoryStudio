@@ -161,9 +161,15 @@ bool MotifScreen::start(Project& project, const QString& systemDef, const QStrin
     const QString character = EmulatorSession::defaultCharacter(engineDir);
     if (!character.isEmpty()) {
         const IniText def = IniText::parse(textOf(character));
-        if (const IniSection* charInfo = def.section(QStringLiteral("Info")))
+        if (const IniSection* charInfo = def.section(QStringLiteral("Info"))) {
             m_characterName =
                 unquote(charInfo->value(QStringLiteral("displayname"), charInfo->value(QStringLiteral("name"))));
+            const double width = numbers(charInfo->value(QStringLiteral("localcoord"))).value(0);
+            if (width > 0)
+                m_characterScale = m_size.width() / width;
+            else
+                m_characterScale = m_size.width() / 320.0;
+        }
         if (const IniSection* charFiles = def.section(QStringLiteral("Files")))
             m_character = spritesFrom(&project, QDir(QFileInfo(character).absolutePath())
                                                     .filePath(unquote(charFiles->value(QStringLiteral("sprite")))));
@@ -403,7 +409,7 @@ QImage MotifScreen::render()
             const QPointF spr = pointOf(vs, prefix + QLatin1String("spr"), QPointF(9000, 1));
             drawSprite(p, m_character.get(), int(spr.x()), int(spr.y()), pointOf(vs, prefix + QLatin1String("offset")),
                        intOf(vs, prefix + QLatin1String("facing"), side == 1 ? 1 : -1),
-                       pointOf(vs, prefix + QLatin1String("scale"), QPointF(1, 1)));
+                       pointOf(vs, prefix + QLatin1String("scale"), QPointF(1, 1)) * m_characterScale);
             drawText(p, vs ? vs->value(prefix + QLatin1String("name.font")) : QString(),
                      pointOf(vs, prefix + QLatin1String("name.offset")), m_characterName);
         }
@@ -443,7 +449,7 @@ QImage MotifScreen::render()
             p.setClipRect(QRectF(QPointF(window[0], window[1]), QPointF(window[2] + 1, window[3] + 1)));
         drawSprite(p, m_character.get(), int(spr.x()), int(spr.y()), pointOf(victory, QStringLiteral("p1.offset")),
                    intOf(victory, QStringLiteral("p1.facing"), 1),
-                   pointOf(victory, QStringLiteral("p1.scale"), QPointF(1, 1)));
+                   pointOf(victory, QStringLiteral("p1.scale"), QPointF(1, 1)) * m_characterScale);
         p.restore();
         drawText(p, victory ? victory->value(QStringLiteral("p1.name.font")) : QString(),
                  pointOf(victory, QStringLiteral("p1.name.offset")), m_characterName);

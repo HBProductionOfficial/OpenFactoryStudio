@@ -46,8 +46,8 @@ bool Character::executeHelper(const Controller& c)
         }
 
         // facing -1 faces away from the way it is placed.
-        const float x = floatParam(c, QStringLiteral("pos"), 0, 0);
-        const float y = floatParam(c, QStringLiteral("pos"), 0, 1);
+        const float x = floatParam(c, QStringLiteral("pos"), 0, 0) * scale();
+        const float y = floatParam(c, QStringLiteral("pos"), 0, 1) * scale();
         const int turn = intParam(c, QStringLiteral("facing"), 1) < 0 ? -1 : 1;
         const QString posType = c.param(QStringLiteral("postype"))
                                     ? c.param(QStringLiteral("postype"))->text.trimmed().toLower()
@@ -59,7 +59,7 @@ bool Character::executeHelper(const Controller& c)
         int facing = turn;
         if (posType == QLatin1String("p2") && m_match->enemy(this)) {
             const Character* p2 = m_match->enemy(this);
-            at = Vec2{p2->m_pos.x + x * float(p2->m_facing), p2->m_pos.y + y};
+            at = Vec2{float(p2->gamePos().x()) + x * float(p2->m_facing), float(p2->gamePos().y()) + y};
             facing *= p2->m_facing;
         } else if (posType == QLatin1String("front") || posType == QLatin1String("back")) {
             const bool onRight = (m_facing > 0) == (posType == QLatin1String("front"));
@@ -68,10 +68,10 @@ bool Character::executeHelper(const Controller& c)
         } else if (posType == QLatin1String("left") || posType == QLatin1String("right")) {
             at = Vec2{(posType == QLatin1String("left") ? left : right) + x, y};
         } else {
-            at = Vec2{m_pos.x + x * float(m_facing), m_pos.y + y};
+            at = Vec2{float(gamePos().x()) + x * float(m_facing), float(gamePos().y()) + y};
             facing *= m_facing;
         }
-        h->m_pos = at;
+        h->setGamePos(QPointF(at.x, at.y));
         h->m_vel = Vec2();
         h->m_facing = facing;
 
@@ -105,8 +105,9 @@ bool Character::executeHelper(const Controller& c)
         const Param* pos = c.param(QStringLiteral("pos"));
         const QString part = pos ? pos->tail : QString();
         if (part == QLatin1String("mid") || part == QLatin1String("head")) {
-            offset.x += t->constant(QStringLiteral("size.") + part + QStringLiteral(".pos.x"), 0);
-            offset.y += t->constant(QStringLiteral("size.") + part + QStringLiteral(".pos.y"), 0);
+            const float ratio = t->scale() / scale();
+            offset.x += t->constant(QStringLiteral("size.") + part + QStringLiteral(".pos.x"), 0) * ratio;
+            offset.y += t->constant(QStringLiteral("size.") + part + QStringLiteral(".pos.y"), 0) * ratio;
         }
         m_bindTo = t;
         m_bindIsTarget = false;

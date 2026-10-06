@@ -92,6 +92,7 @@ private:
     std::unique_ptr<Ini> m_ini;
     std::shared_ptr<const SpriteDocument> m_character;
     QString m_characterName;
+    double m_characterScale = 1;
     BgDocument m_stage;
     std::shared_ptr<const SpriteDocument> m_stageSprites;
     AirDocument m_stageAnimations;

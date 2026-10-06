@@ -194,6 +194,9 @@ public:
     virtual Value trigger(const TriggerCall& call) = 0;
     virtual Context* redirect(Redirect kind, const Value& argument) = 0;
     virtual Value assign(Trigger kind, std::int32_t index, const Value& value) = 0;
+    // Game units per unit of the context's localcoord. Positions, distances, velocities and sizes read
+    // through a redirection come in the asker's units.
+    virtual float unitScale() const { return 1; }
 };
 
 struct Node;

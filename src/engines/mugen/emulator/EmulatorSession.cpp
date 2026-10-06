@@ -583,7 +583,7 @@ float EmulatorSession::stereoPan(int playerId, float pan, bool absolute) const
         const Character* who = m_match ? m_match->playerById(playerId) : nullptr;
         if (!who)
             return 0;
-        x = float(who->pos().x()) + pan * float(who->facing()) - m_match->cameraX();
+        x = float(who->gamePos().x()) + pan * who->scale() * float(who->facing()) - m_match->cameraX();
     }
     return std::clamp(x / (m_panningWidth / 2), -1.0f, 1.0f);
 }
@@ -634,6 +634,7 @@ std::array<FightScreen::Side, 2> EmulatorSession::sides() const
     for (std::size_t i = 0; i < out.size() && i < m_players.size(); ++i) {
         out[i].character = m_players[i].character.get();
         out[i].sprites = m_players[i].sprites;
+        out[i].faceScale = m_players[i].character->data().localScale();
         out[i].name = m_players[i].name;
     }
     return out;
@@ -666,6 +667,7 @@ void EmulatorSession::tick(const InputState& p1, const InputState& p2)
         e.playerId = spawn.playerId;
         e.anim = spawn.anim;
         e.under = spawn.under;
+        e.scale = spawn.scale;
         const CharacterData* source = nullptr;
         if (spawn.common) {
             source = m_fightFx.get();

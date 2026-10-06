@@ -18,7 +18,7 @@ bool Character::execute(const Controller& c)
         return false;
     if (type == QLatin1String("changestate") || type == QLatin1String("selfstate")) {
         if (type == QLatin1String("selfstate"))
-            m_stateData = &m_data;
+            setStateOwner(&m_data);
         changeState(intParam(c, QStringLiteral("value"), m_stateNo), intParam(c, QStringLiteral("anim"), -1),
                     intParam(c, QStringLiteral("ctrl"), -1));
         return true;
@@ -88,7 +88,7 @@ bool Character::execute(const Controller& c)
         return false;
     }
     if (type == QLatin1String("gravity")) {
-        m_vel.y += m_data.yAccel();
+        m_vel.y += m_data.yAccel() * m_data.localScale() / scale();
         return false;
     }
     if (type == QLatin1String("varset") || type == QLatin1String("varadd") || type == QLatin1String("parentvarset") ||
@@ -253,10 +253,11 @@ bool Character::execute(const Controller& c)
         } else if (type == QLatin1String("targetvelset") || type == QLatin1String("targetveladd")) {
             const bool add = type == QLatin1String("targetveladd");
             for (Character* t : targets) {
+                const float ratio = scale() / t->scale();
                 if (has(c, QStringLiteral("x")))
-                    t->m_vel.x = (add ? t->m_vel.x : 0) + floatParam(c, QStringLiteral("x"), 0);
+                    t->m_vel.x = (add ? t->m_vel.x : 0) + floatParam(c, QStringLiteral("x"), 0) * ratio;
                 if (has(c, QStringLiteral("y")))
-                    t->m_vel.y = (add ? t->m_vel.y : 0) + floatParam(c, QStringLiteral("y"), 0);
+                    t->m_vel.y = (add ? t->m_vel.y : 0) + floatParam(c, QStringLiteral("y"), 0) * ratio;
             }
         } else if (type == QLatin1String("targetdrop")) {
             // All but those hit with excludeid (only one of them with keepone). The dropped ones are let go.

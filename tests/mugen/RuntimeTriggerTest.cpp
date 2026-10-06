@@ -35,6 +35,41 @@ class RuntimeTriggerTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void localCoord()
+    {
+        // Each character reads positions and the screen in its own units, also through a redirection.
+        CharacterData big;
+        big.setLocalCoordWidth(640);
+        big.addStates(kIdle);
+        CharacterData small;
+        small.addStates(kIdle);
+        Match match;
+        Character a(big, &match);
+        Character b(small, &match);
+        a.start(0);
+        b.start(0);
+        a.setPos({-100, 0}); // its own units: 50 game units left of the middle
+        b.setPos({50, 0});
+        b.setFacing(-1);
+        match.tick();
+        QCOMPARE(a.gamePos().x(), -50.0);
+        QVERIFY(isFloat(eval(a, "Pos X"), -100));
+        QVERIFY(isFloat(eval(b, "Pos X"), 50));
+        QVERIFY(isFloat(eval(a, "P2Dist X"), 200));
+        QVERIFY(isFloat(eval(b, "P2Dist X"), 100));
+        QVERIFY(isFloat(eval(a, "enemy, Pos X"), 100));
+        QVERIFY(isFloat(eval(b, "enemy, Pos X"), -50));
+        QVERIFY(isFloat(eval(a, "ScreenWidth"), 640));
+        QVERIFY(isFloat(eval(a, "GameWidth"), 640));
+        QVERIFY(isFloat(eval(b, "GameWidth"), 320));
+        QVERIFY(isFloat(eval(a, "RightEdge"), 320));
+        QVERIFY(isFloat(eval(a, "Const240p(10)"), 20));
+        QVERIFY(isFloat(eval(a, "Const720p(40)"), 20));
+        QVERIFY(isFloat(eval(b, "Const720p(40)"), 10));
+        QVERIFY(isInt(eval(a, "enemy, Const(size.ground.front)"), 32)); // 16 of the smaller one
+        QVERIFY(isFloat(eval(a, "enemy, Const(size.xscale)"), 1));
+    }
+
     void names()
     {
         CharacterData kfm;

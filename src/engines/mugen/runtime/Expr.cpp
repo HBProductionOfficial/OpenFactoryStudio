@@ -298,6 +298,53 @@ Value math(const Node& node, Context& context)
     }
 }
 
+// Triggers in the character's coordinate space: positions, distances, velocities and sizes.
+bool inSpace(const Node& node)
+{
+    const QString& key = node.keyword;
+    switch (node.trigger) {
+    case Trigger::Pos:
+    case Trigger::Vel:
+    case Trigger::ScreenPos:
+    case Trigger::CameraPos:
+    case Trigger::P2Dist:
+    case Trigger::P2BodyDist:
+    case Trigger::ParentDist:
+    case Trigger::RootDist:
+    case Trigger::BackEdgeDist:
+    case Trigger::FrontEdgeDist:
+    case Trigger::BackEdgeBodyDist:
+    case Trigger::FrontEdgeBodyDist:
+    case Trigger::LeftEdge:
+    case Trigger::RightEdge:
+    case Trigger::BackEdge:
+    case Trigger::FrontEdge:
+    case Trigger::TopEdge:
+    case Trigger::BottomEdge:
+    case Trigger::ScreenWidth:
+    case Trigger::ScreenHeight:
+    case Trigger::GameWidth:
+    case Trigger::GameHeight:
+    case Trigger::HitVel:
+    case Trigger::Const240p:
+    case Trigger::Const480p:
+    case Trigger::Const720p:
+        return true;
+    case Trigger::GetHitVar:
+        return key == QLatin1String("xvel") || key == QLatin1String("yvel") || key == QLatin1String("yaccel") ||
+               key == QLatin1String("fall.xvel") || key == QLatin1String("fall.yvel");
+    case Trigger::Const:
+        if (key.startsWith(QLatin1String("size.")))
+            return key != QLatin1String("size.xscale") && key != QLatin1String("size.yscale") &&
+                   key != QLatin1String("size.proj.doscale");
+        if (key.startsWith(QLatin1String("movement.")))
+            return !key.endsWith(QLatin1String(".friction")) && key != QLatin1String("movement.airjump.num");
+        return key.startsWith(QLatin1String("velocity."));
+    default:
+        return false;
+    }
+}
+
 Value evaluateNode(const Node& node, Context& context)
 {
     switch (node.kind) {
@@ -377,7 +424,12 @@ Value evaluateNode(const Node& node, Context& context)
         Context* other = context.redirect(node.redirect, argument);
         if (!other)
             return Value::undefined();
-        return evaluateNode(*node.kids.back(), *other);
+        const Node& read = *node.kids.back();
+        const Value value = evaluateNode(read, *other);
+        const float ratio = other->unitScale() / context.unitScale();
+        if (ratio == 1 || value.isUndefined() || read.kind != Node::Kind::Trigger || !inSpace(read))
+            return value;
+        return value.isFloat() ? Value::real(value.f * ratio) : Value::integer(std::int32_t(float(value.i) * ratio));
     }
     case Node::Kind::Assign: {
         const Value index = evaluateNode(*node.kids[0], context);

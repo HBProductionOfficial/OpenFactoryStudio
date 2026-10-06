@@ -109,7 +109,7 @@ void Character::placeExplod(Explod& e)
         e.bindTo = at;
         e.facing = at->m_facing;
         e.relative.x *= float(at->m_facing);
-        e.pos = at->m_pos;
+        e.pos = Vec2{float(at->gamePos().x()), float(at->gamePos().y())};
         break;
     }
     case Explod::PosType::Front:
@@ -138,7 +138,7 @@ void Character::placeExplod(Explod& e)
             at = e.bindId == -1 ? this : m_match ? m_match->playerById(e.bindId) : nullptr;
         if (at) {
             e.bindTo = at;
-            e.pos = at->m_pos;
+            e.pos = Vec2{float(at->gamePos().x()), float(at->gamePos().y())};
         }
         break;
     }
@@ -173,6 +173,7 @@ bool Character::executeExplod(const Controller& c)
             return true;
         }
         e.anim = animPlayerFor(*animation);
+        e.unit = scale();
         readExplod(c, e, true);
         m_explods << e;
         return true;
@@ -214,11 +215,12 @@ void Character::updateExplods()
             paused = true;
         e.paused = paused;
         if (!paused) {
-            e.pos = e.bindTime != 0 && e.bindTo ? e.bindTo->m_pos : e.next;
+            e.pos = e.bindTime != 0 && e.bindTo ? Vec2{float(e.bindTo->gamePos().x()), float(e.bindTo->gamePos().y())}
+                                                : e.next;
             ++e.time;
             if (e.bindTime > 0)
                 --e.bindTime;
-            e.next = Vec2{e.pos.x + e.vel.x * float(e.facing), e.pos.y + e.vel.y};
+            e.next = Vec2{e.pos.x + e.vel.x * e.unit * float(e.facing), e.pos.y + e.vel.y * e.unit};
             e.vel.x += e.accel.x;
             e.vel.y += e.accel.y;
             e.anim.step();

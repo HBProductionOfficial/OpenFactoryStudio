@@ -88,6 +88,8 @@ public:
     bool isMugen10() const;
     bool isMugen11() const;
     int localCoordWidth() const { return m_localCoordWidth; }
+    void setLocalCoordWidth(int width) { m_localCoordWidth = width > 0 ? width : 320; }
+    float localScale() const { return 320.0f / float(m_localCoordWidth); }
     QString spriteFile() const { return m_spriteFile; }
     QString soundFile() const { return m_soundFile; }
     const QStringList& paletteFiles() const { return m_paletteFiles; }
