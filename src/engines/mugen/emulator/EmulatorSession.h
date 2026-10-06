@@ -14,6 +14,7 @@
 
 #include <QList>
 #include <QMap>
+#include <QPointF>
 #include <QSet>
 #include <QString>
 
@@ -104,6 +105,11 @@ public:
         Runtime::Match::CameraSettings camera;
         Shadows shadows;
         BackgroundMusic::Track music;
+        // For a stage made for another [StageInfo] localcoord: game units per stage unit, and how far its
+        // drawing moves so its bottom (or overdrawlow) meets the screen's.
+        float localScale = 1;
+        float drawShift = 0;
+        QPointF bgScale{1, 1};
     };
 
     EmulatorSession();

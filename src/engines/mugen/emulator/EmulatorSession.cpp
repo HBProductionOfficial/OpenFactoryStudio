@@ -130,16 +130,51 @@ bool EmulatorSession::loadStage(const QString& path, const QString& engineDir, Q
     const IniSection* info = ini.section(QStringLiteral("StageInfo"));
     const IniSection* camera = ini.section(QStringLiteral("Camera"));
     const IniSection* players = ini.section(QStringLiteral("PlayerInfo"));
-    m_stage.zoffset = number(info, "zoffset", 200);
+    // A stage made for another localcoord is scaled to the game's 320 wide space. A wider stage is drawn
+    // from the screen's bottom, raised to show up to overdrawlow pixels below it. For a taller one cuthigh
+    // and cutlow share what is cut, else the engine keeps 5% of its height below the ground line.
+    QSizeF local(320, 240);
+    if (info && info->has(QStringLiteral("localcoord"))) {
+        const QStringList size = info->value(QStringLiteral("localcoord")).split(QLatin1Char(','));
+        const double width = size.value(0).trimmed().toDouble();
+        const double height = size.value(1).trimmed().toDouble();
+        if (width > 0 && height > 0)
+            local = QSizeF(width, height);
+    }
+    const float scale = float(320 / local.width());
+    m_stage.localScale = scale;
+    auto scaled = [scale](const IniSection* section, const char* key, float fallback) {
+        return section && section->has(QLatin1String(key)) ? number(section, key, fallback) * scale : fallback;
+    };
+    const float zoffset = scaled(info, "zoffset", 200);
+    const float height = float(local.height()) * scale;
+    const float screen = 240;
+    m_stage.drawShift = 0;
+    if (height < screen) {
+        m_stage.drawShift = (screen - height) - std::min((screen - height) / 2, scaled(camera, "overdrawlow", 0));
+    } else if (height > screen) {
+        const float cut = std::ceil(height) - screen;
+        const float cutHigh = std::ceil(scaled(camera, "cuthigh", 0));
+        const float cutLow =
+            std::ceil(scaled(camera, "cutlow", (float(local.height()) * 0.95f - zoffset / scale) * scale));
+        if (cutHigh + cutLow <= 0)
+            m_stage.drawShift = -cut;
+        else if (const float top = cutHigh * cut / (cutHigh + cutLow); cut - top <= cutLow)
+            m_stage.drawShift = -top;
+        else
+            m_stage.drawShift = -(cut - cutLow);
+    }
+    m_stage.bgScale = QPointF(number(info, "xscale", 1), number(info, "yscale", 1));
+    m_stage.zoffset = zoffset + m_stage.drawShift;
     const IniSection* about = ini.section(QStringLiteral("Info"));
     m_stage.name = about ? unquote(about->value(QStringLiteral("name"))) : QString();
     m_stage.displayName =
         about ? unquote(about->value(QStringLiteral("displayname"), about->value(QStringLiteral("name")))) : QString();
     m_stage.author = about ? unquote(about->value(QStringLiteral("author"))) : QString();
-    m_stage.boundLeft = number(camera, "boundleft", -150);
-    m_stage.boundRight = number(camera, "boundright", 150);
-    m_stage.p1x = number(players, "p1startx", -70);
-    m_stage.p2x = number(players, "p2startx", 70);
+    m_stage.boundLeft = scaled(camera, "boundleft", -150);
+    m_stage.boundRight = scaled(camera, "boundright", 150);
+    m_stage.p1x = scaled(players, "p1startx", -70);
+    m_stage.p2x = scaled(players, "p2startx", 70);
     const QString folder = QFileInfo(path).absolutePath();
     const IniSection* bgdef = ini.section(QStringLiteral("BGdef"));
     if (bgdef) {
@@ -192,8 +227,8 @@ void EmulatorSession::loadStageLook(const IniText& ini)
     zoom.zoomOut = number(camera, "zoomout", 1);
     zoom.zoomIn = number(camera, "zoomin", 1);
     zoom.startZoom = number(camera, "startzoom", 1);
-    zoom.tension = number(camera, "tension", 50);
-    zoom.boundHigh = number(camera, "boundhigh", 0);
+    zoom.tension = number(camera, "tension", 50 / m_stage.localScale) * m_stage.localScale;
+    zoom.boundHigh = number(camera, "boundhigh", 0) * m_stage.localScale;
 
     Shadows& look = m_stage.shadows;
     look = Shadows();
@@ -213,9 +248,10 @@ void EmulatorSession::loadStageLook(const IniText& ini)
     if (shadow && shadow->has(QStringLiteral("fade.range"))) {
         const QList<float> range = numbers(shadow, "fade.range", 2, 0);
         look.fade = range[0] < range[1];
-        look.fadeTop = range[0];
-        look.fadeBottom = range[1];
+        look.fadeTop = range[0] * m_stage.localScale;
+        look.fadeBottom = range[1] * m_stage.localScale;
     }
+    // Reflections: [Reflection] intensity, or reflect = 1 (in [Reflection] or [Shadow]) at half strength.
     const IniSection* reflection = ini.section(QStringLiteral("Reflection"));
     const bool reflect = number(reflection, "reflect", 0) != 0 || number(shadow, "reflect", 0) != 0;
     look.reflection = std::clamp(int(number(reflection, "intensity", reflect ? 128 : 0)), 0, 256);

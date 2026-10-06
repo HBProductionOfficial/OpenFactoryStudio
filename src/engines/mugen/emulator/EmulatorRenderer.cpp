@@ -313,12 +313,18 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
     auto drawStage = [&](int layer) {
         if (!stage.simulator || match.isAsserted(layer == 0 ? QStringLiteral("nobg") : QStringLiteral("nofg")))
             return;
+        const double sx = double(stage.localScale) * stage.bgScale.x();
+        const double sy = double(stage.localScale) * stage.bgScale.y();
         BgView bgView;
-        bgView.screen = QSizeF(Screen);
-        bgView.camera = QPointF(view.x, view.y);
+        bgView.screen = QSizeF(Screen.width() / sx, Screen.height() / sy);
+        bgView.cover = QRectF(0, -stage.drawShift / sy, Screen.width() / sx, Screen.height() / sy);
+        bgView.camera = QPointF(view.x / sx, view.y / sy);
         bgView.zoom = view.scale;
-        bgView.ground = stage.zoffset;
+        bgView.ground = (stage.zoffset - stage.drawShift) / sy;
         bgView.layer = layer;
+        p.save();
+        p.translate(0, stage.drawShift);
+        p.scale(sx, sy);
         for (const BgDrawItem& item : m_stage->render(*stage.simulator, bgView)) {
             p.save();
             if (item.clip)
@@ -329,6 +335,7 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
                         image, item.mode, item.opacity);
             p.restore();
         }
+        p.restore();
     };
 
     struct Look

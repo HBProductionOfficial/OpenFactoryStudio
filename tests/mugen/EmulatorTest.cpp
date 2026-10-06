@@ -80,16 +80,16 @@ struct EngineFolder
     }
 };
 
-void writeStageSprite(const QString& path, QRgb color)
+void writeStageSprite(const QString& path, QRgb color, int width = 320, int height = 240)
 {
     SpriteDocument sprites;
     Formats::Palette colors(256);
     colors[1] = Formats::rgb(std::uint8_t(qRed(color)), std::uint8_t(qGreen(color)), std::uint8_t(qBlue(color)));
     sprites.palettes() << SpriteDocument::makePalette(1, 1, colors);
     SpriteEntry entry;
-    entry.header.axisX = 160;
-    entry.pixels =
-        SpriteDocument::makePixels(Formats::Image::indexed(320, 240, std::vector<std::uint8_t>(320 * 240, 1), colors));
+    entry.header.axisX = std::int16_t(width / 2);
+    entry.pixels = SpriteDocument::makePixels(Formats::Image::indexed(
+        width, height, std::vector<std::uint8_t>(std::size_t(width) * std::size_t(height), 1), colors));
     entry.palette = sprites.palettes().first();
     sprites.sprites() << entry;
     QVERIFY(sprites.toSff().save(path.toStdWString()).ok());
@@ -1096,6 +1096,59 @@ private Q_SLOTS:
         p1.setVar(10, 0);
         session.tick({}, {});
         QCOMPARE(pixelsOf(renderer.render(session), kOwn, QRect(0, 0, 160, 240)), 64);
+    }
+
+    void stageLocalCoord()
+    {
+        EngineFolder engine;
+        writeFile(engine.dir.filePath("stages/stage0.def"),
+                  "[StageInfo]\nzoffset = 400\nlocalcoord = 640, 480\n[Camera]\nboundleft = -300\n"
+                  "boundright = 300\n[PlayerInfo]\np1startx = -140\np2startx = 140\n[BGdef]\nspr = stage0.sff\n"
+                  "[BG back]\ntype = normal\nspriteno = 0, 0\nstart = 0, 0\n");
+        writeStageSprite(engine.dir.filePath("stages/stage0.sff"), qRgb(255, 0, 0), 640, 480);
+        writeSquareCharacter(engine, QByteArray());
+        MugenEngine mugen;
+        EmulatorSession session;
+        std::unique_ptr<Project> project = startTraining(engine, mugen, session);
+        QVERIFY(project);
+        QCOMPARE(session.stage().localScale, 0.5f);
+        QCOMPARE(session.stage().zoffset, 200.f);
+        QCOMPARE(session.stage().boundLeft, -150.f);
+        QCOMPARE(session.stage().p1x, -70.f);
+        EmulatorRenderer renderer;
+        QImage frame = renderer.render(session);
+        QCOMPARE(QColor(frame.pixel(1, 1)), QColor(255, 0, 0));
+        QCOMPARE(QColor(frame.pixel(318, 238)), QColor(255, 0, 0));
+        QCOMPARE(QColor(frame.pixel(90, 195)), QColor(kOwn));
+
+        // A 1280x720 stage is 320x180 in the game, drawn from the screen's bottom, its ground line 60
+        // lower.
+        writeFile(engine.dir.filePath("stages/stage0.def"),
+                  "[StageInfo]\nzoffset = 640\nlocalcoord = 1280, 720\n[Camera]\nboundleft = -400\n"
+                  "boundright = 400\n[PlayerInfo]\np1startx = -280\np2startx = 280\n[BGdef]\nspr = stage0.sff\n"
+                  "[BG back]\ntype = normal\nspriteno = 0, 0\nstart = 0, 0\n");
+        writeStageSprite(engine.dir.filePath("stages/stage0.sff"), qRgb(0, 0, 255), 1280, 720);
+        EmulatorSession wide;
+        project = startTraining(engine, mugen, wide);
+        QVERIFY(project);
+        QCOMPARE(wide.stage().drawShift, 60.f);
+        QCOMPARE(wide.stage().zoffset, 220.f); // 640 / 4 + 60
+        QCOMPARE(wide.stage().p1x, -70.f);
+        frame = renderer.render(wide);
+        QCOMPARE(QColor(frame.pixel(160, 50)), QColor(0, 0, 0));
+        QCOMPARE(QColor(frame.pixel(160, 70)), QColor(0, 0, 255));
+        QCOMPARE(QColor(frame.pixel(1, 238)), QColor(0, 0, 255));
+        QCOMPARE(QColor(frame.pixel(90, 215)), QColor(kOwn));
+
+        // overdrawlow 20 shows 5 more game rows.
+        writeFile(engine.dir.filePath("stages/stage0.def"),
+                  "[StageInfo]\nzoffset = 640\nlocalcoord = 1280, 720\n[Camera]\noverdrawlow = 20\n[BGdef]\n"
+                  "spr = stage0.sff\n[BG back]\ntype = normal\nspriteno = 0, 0\nstart = 0, 0\n");
+        EmulatorSession raised;
+        project = startTraining(engine, mugen, raised);
+        QVERIFY(project);
+        QCOMPARE(raised.stage().drawShift, 55.f);
+        QCOMPARE(raised.stage().zoffset, 215.f);
     }
 
     void shadows()
