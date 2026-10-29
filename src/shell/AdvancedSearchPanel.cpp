@@ -15,6 +15,7 @@
 #include <QFileInfo>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QHelpEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
@@ -24,6 +25,7 @@
 #include <QStandardItemModel>
 #include <QStyledItemDelegate>
 #include <QTextDocument>
+#include <QToolTip>
 #include <QTreeView>
 #include <QVBoxLayout>
 
@@ -86,6 +88,19 @@ public:
         size.setWidth(int(doc.idealWidth()) + (index.data(LineRole).toInt() > 0 ? kLineCellWidth : 0) + 8);
         size.setHeight(qMax(size.height(), int(doc.size().height()) + 2));
         return size;
+    }
+
+    // The tooltip shows the row as it is drawn: the file in bold, or the line number and the line.
+    bool helpEvent(QHelpEvent* event, QAbstractItemView* view, const QStyleOptionViewItem& option,
+                   const QModelIndex& index) override
+    {
+        if (event->type() != QEvent::ToolTip || !index.isValid())
+            return QStyledItemDelegate::helpEvent(event, view, option, index);
+        QString html = index.data(HtmlRole).toString();
+        if (const int line = index.data(LineRole).toInt(); line > 0)
+            html = QStringLiteral("<table><tr><td><b>%1</b></td><td>%2</td></tr></table>").arg(line).arg(html);
+        QToolTip::showText(event->globalPos(), html, view->viewport(), option.rect);
+        return true;
     }
 
 private:

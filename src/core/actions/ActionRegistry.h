@@ -54,7 +54,9 @@ public:
 
     // Menus show the shortcut in parentheses in the shortcut column: "Open...", tab, " (Ctrl+O)".
     static QString displayText(const QString& caption, const QKeySequence& keys);
-    static QString toolTipText(const QString& caption, const QKeySequence& keys);
+    // Buttons show the description (or the caption) without the shortcut. The status bar shows the
+    // same text.
+    static QString toolTipText(const QString& caption, const QString& description);
 
     QKeySequence keys(const QString& id) const;
     void setKeys(const QString& id, const QKeySequence& keys);

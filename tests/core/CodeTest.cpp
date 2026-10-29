@@ -779,6 +779,38 @@ private Q_SLOTS:
         editor.unfoldAll();
         QVERIFY(editor.document()->findBlockByNumber(1).isVisible());
     }
+
+    void markerToolTip()
+    {
+        CodeEditor editor;
+        editor.resize(500, 300);
+        editor.setPlainText("[Data]\nvolume = 0\nanimtype = Med\n");
+        CodeEditor::Marker warning;
+        warning.line = 1;
+        warning.length = 6;
+        warning.error = false;
+        warning.message = QStringLiteral("Parameter deprecated in M.U.G.E.N 1.0");
+        CodeEditor::Marker error;
+        error.line = 2;
+        error.column = 11;
+        error.length = 3;
+        error.message = QStringLiteral("Unknown keyword 'Med'");
+        editor.setMarkers({warning, error});
+
+        auto pointAt = [&editor](int line, int column) {
+            QTextCursor c(editor.document()->findBlockByNumber(line));
+            c.setPosition(c.position() + column);
+            const QRect r = editor.cursorRect(c);
+            return QPoint(r.left() + 2, r.center().y());
+        };
+        // Only the underlined characters show the message.
+        QCOMPARE(editor.markerMessageAt(pointAt(1, 2)), warning.message);
+        QCOMPARE(editor.markerMessageAt(pointAt(2, 12)), error.message);
+        QVERIFY(editor.markerMessageAt(pointAt(1, 8)).isEmpty());
+        QVERIFY(editor.markerMessageAt(pointAt(2, 3)).isEmpty());
+        QVERIFY(editor.markerMessageAt(pointAt(0, 2)).isEmpty());
+    }
+
     void variableUsageLog()
     {
         VariableUsage usage;

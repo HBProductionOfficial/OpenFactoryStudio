@@ -1,7 +1,10 @@
 #include "core/widgets/PaletteWidget.h"
 
+#include <QApplication>
+#include <QHelpEvent>
 #include <QSignalSpy>
 #include <QTest>
+#include <QToolTip>
 
 using namespace OFS;
 
@@ -26,6 +29,36 @@ private Q_SLOTS:
         QCOMPARE(grid.columns(), 49);
         grid.resize(193, 200);
         QCOMPARE(grid.columns(), 16);
+    }
+
+    void colorToolTip()
+    {
+        PaletteWidget grid;
+        grid.resize(240, 200);
+        // Without colors every slot is opaque black.
+        QCOMPARE(grid.colorText(0), QStringLiteral("0, 0, 0, 255"));
+        Formats::Palette colors(32, Formats::Rgba{0, 0, 0, 255});
+        colors[0] = Formats::Rgba{255, 255, 255, 0};
+        colors[17] = Formats::Rgba{66, 99, 165, 255};
+        grid.setColors(colors);
+        QCOMPARE(grid.colorText(0), QStringLiteral("255, 255, 255, 0"));
+        QCOMPARE(grid.colorText(17), QStringLiteral("66, 99, 165, 255"));
+        QVERIFY(grid.colorText(32).isEmpty());
+
+        // The side margins answer for the nearest column of the row. Below the last row nothing does.
+        const int row = grid.cellRect(16).center().y();
+        QCOMPARE(grid.toolTipSlotAt(grid.cellRect(17).center()), 17);
+        QCOMPARE(grid.toolTipSlotAt(QPoint(0, row)), 16);
+        QCOMPARE(grid.toolTipSlotAt(QPoint(239, row)), 31);
+        QCOMPARE(grid.toolTipSlotAt(QPoint(grid.cellRect(0).center().x(), grid.cellRect(31).bottom() + 4)), -1);
+
+        grid.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&grid));
+        const QPoint at = grid.cellRect(17).center();
+        QHelpEvent help(QEvent::ToolTip, at, grid.mapToGlobal(at));
+        QApplication::sendEvent(&grid, &help);
+        QTRY_COMPARE(QToolTip::text(), QStringLiteral("66, 99, 165, 255"));
+        QToolTip::hideText();
     }
 
     void layoutAndGestures()

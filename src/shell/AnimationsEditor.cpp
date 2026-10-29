@@ -163,14 +163,6 @@ void AnimationsEditor::bindPanel(QWidget* panel)
     m_onionSelector = control<QScrollBar>(panel, "anim_onion_sel");
     m_onionFrameSelector = control<QScrollBar>(panel, "anim_onion_framesel");
     m_onionLabel = control<QLabel>(panel, "anim_onion_lb");
-    // Status tips repeat the captions, same as Fighter Factory.
-    for (QCheckBox* box : {m_loop.data(), m_interpolate[0].data(), m_interpolate[1].data(), m_interpolate[2].data(),
-                           m_interpolate[3].data()}) {
-        if (box)
-            box->setStatusTip(box->text());
-    }
-    if (m_onion)
-        m_onion->setStatusTip(tr("Enable OnionSkin"));
 
     if (m_selector)
         connect(m_selector, &QScrollBar::valueChanged, this, [this](int value) {

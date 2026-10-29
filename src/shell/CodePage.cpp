@@ -26,6 +26,7 @@ CodePage::CodePage(ActionRegistry& actions, QWidget* parent)
     setObjectName(QStringLiteral("codePage"));
     m_toolBar->setObjectName(QStringLiteral("codeToolBar"));
     m_snippets->setObjectName(QStringLiteral("codeSnippets"));
+    m_snippets->setToolTip(tr("Code snippets"));
     m_snippets->setMinimumWidth(200);
     m_snippets->setMaxVisibleItems(10);
     m_snippets->installEventFilter(this);
@@ -110,6 +111,7 @@ void CodePage::setIssues(const IssueList& issues, const IconSet& icons)
         m.column = issue.column;
         m.length = issue.length;
         m.error = issue.severity == Issue::Severity::Error;
+        m.message = issue.message;
         markers << m;
     }
     m_editor->setMarkers(markers);

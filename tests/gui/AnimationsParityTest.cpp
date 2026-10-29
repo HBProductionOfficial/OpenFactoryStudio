@@ -228,7 +228,7 @@ private Q_SLOTS:
             QVERIFY2(button, b.id);
             const QString caption = QString::fromLatin1(b.caption);
             const QString tip = b.tip ? QString::fromLatin1(b.tip) : caption;
-            QCOMPARE(button->toolTip(), *b.keys ? caption + "  (" + keyText(b.keys) + ")" : caption);
+            QCOMPARE(button->toolTip(), tip);
             QCOMPARE(button->statusTip(), tip);
             QCOMPARE(hoverTip(window, button), tip);
         }
@@ -236,6 +236,7 @@ private Q_SLOTS:
                                  "anim_frame_intp_scale", "anim_frame_intp_angle"}) {
             auto* box = view->findChild<QCheckBox*>(QLatin1String(name));
             QVERIFY2(box, name);
+            QCOMPARE(box->toolTip(), box->text());
             QCOMPARE(hoverTip(window, box), box->text());
         }
         QCOMPARE(view->findChild<QCheckBox*>("anim_frame_loop")->text(), QStringLiteral("Start loop in this frame"));

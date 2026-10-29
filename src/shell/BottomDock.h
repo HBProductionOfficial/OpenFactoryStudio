@@ -37,6 +37,10 @@ public:
 
     void showPage(int page);
 
+    // The tooltip of the Issues tab.
+    void setIssueCounts(int errors, int warnings);
+    QString issuesToolTip() const;
+
     QTextEdit* engineOutput() const { return m_engineOutput; }
     QTableView* issuesView() const { return m_issues; }
     AdvancedSearchPanel* advancedSearch() const { return m_advancedSearch; }

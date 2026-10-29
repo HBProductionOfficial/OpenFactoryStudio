@@ -26,6 +26,10 @@ public:
 
     int slotAt(const QPoint& pos) const;
     QRect cellRect(int slot) const;
+    // The slot whose color the tooltip shows: the nearest column of the row in the side margins.
+    int toolTipSlotAt(const QPoint& pos) const;
+    // "R, G, B, A", the tooltip of a slot.
+    QString colorText(int slot) const;
 
     // Options > Graphics > Colors fit available space: as many columns as fit, at least 16.
     void setFitWidth(bool fit);
@@ -43,6 +47,7 @@ Q_SIGNALS:
     void slotMoved(int from, int to);
 
 protected:
+    bool event(QEvent* event) override;
     void paintEvent(QPaintEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;

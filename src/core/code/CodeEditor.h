@@ -56,8 +56,11 @@ public:
         int column = 0;
         int length = 0;
         bool error = true;
+        QString message; // the tooltip over the underlined text
     };
     void setMarkers(const QList<Marker>& markers);
+    // The message of the marker under a viewport point, and the area where it applies.
+    QString markerMessageAt(const QPoint& pos, QRect* area = nullptr) const;
 
     enum class BreakpointMark
     {
@@ -127,6 +130,7 @@ protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void contextMenuEvent(QContextMenuEvent* event) override;
+    bool viewportEvent(QEvent* event) override;
 
 private:
     friend class CodeGutter;

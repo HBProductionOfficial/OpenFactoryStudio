@@ -1,8 +1,10 @@
 #include "core/widgets/PaletteWidget.h"
 
 #include <QApplication>
+#include <QHelpEvent>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QToolTip>
 
 #include <algorithm>
 #include <vector>
@@ -89,6 +91,48 @@ int PaletteWidget::slotAt(const QPoint& pos) const
     const int column = p.x() / kPitch;
     const int slot = (p.y() / kPitch) * n + column;
     return column < n && slot < slotCount() ? slot : -1;
+}
+
+int PaletteWidget::toolTipSlotAt(const QPoint& pos) const
+{
+    const QPoint p = pos - gridOrigin();
+    if (p.y() < 0)
+        return -1;
+    const int n = columns();
+    const int column = std::clamp(p.x() < 0 ? 0 : p.x() / kPitch, 0, n - 1);
+    const int slot = (p.y() / kPitch) * n + column;
+    return slot < slotCount() ? slot : -1;
+}
+
+QString PaletteWidget::colorText(int slot) const
+{
+    if (slot < 0 || slot >= slotCount())
+        return {};
+    const Formats::Rgba c = m_colors.empty() ? Formats::Rgba{} : m_colors[std::size_t(slot)];
+    return QStringLiteral("%1, %2, %3, %4").arg(c.r).arg(c.g).arg(c.b).arg(c.a);
+}
+
+bool PaletteWidget::event(QEvent* event)
+{
+    if (event->type() == QEvent::ToolTip) {
+        const auto* help = static_cast<QHelpEvent*>(event);
+        const int slot = toolTipSlotAt(help->pos());
+        if (slot < 0) {
+            QToolTip::hideText();
+            event->ignore();
+            return true;
+        }
+        // The tip stays while the pointer is on the same cell, side margins included.
+        const QPoint origin = gridOrigin();
+        const int n = columns();
+        const int column = slot % n;
+        const int left = column == 0 ? 0 : origin.x() + column * kPitch;
+        const int right = column == n - 1 ? width() : origin.x() + (column + 1) * kPitch;
+        const QRect area(left, origin.y() + (slot / n) * kPitch, right - left, kPitch);
+        QToolTip::showText(help->globalPos(), colorText(slot), this, area);
+        return true;
+    }
+    return QWidget::event(event);
 }
 
 QSize PaletteWidget::sizeHint() const

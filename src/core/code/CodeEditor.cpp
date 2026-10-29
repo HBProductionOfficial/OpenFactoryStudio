@@ -13,6 +13,7 @@
 #include <QAbstractTextDocumentLayout>
 #include <QCompleter>
 #include <QContextMenuEvent>
+#include <QHelpEvent>
 #include <QMenu>
 #include <QMouseEvent>
 #include <QPainter>
@@ -20,6 +21,7 @@
 #include <QScrollBar>
 #include <QStringListModel>
 #include <QTextBlock>
+#include <QToolTip>
 #include <QWheelEvent>
 
 namespace OFS {
@@ -50,6 +52,14 @@ constexpr int kBreakpointWidth = 14;
 // The revision of the blocks of a loaded text. Qt gives an edited block the document's revision
 // (never negative) and an undone one its revision from before.
 constexpr int kUnchangedRevision = -1;
+
+// The document positions a marker underlines.
+std::pair<int, int> markerSpan(const CodeEditor::Marker& m, const QTextBlock& block)
+{
+    const int start = qBound(0, m.column, block.length() - 1);
+    const int length = m.length > 0 ? m.length : qMax(1, block.length() - 1 - start);
+    return {block.position() + start, block.position() + qMin(start + length, block.length() - 1)};
+}
 
 bool isOpen(QChar c)
 {
@@ -192,6 +202,43 @@ void CodeEditor::setMarkers(const QList<Marker>& markers)
 {
     m_markers = markers;
     updateExtraSelections();
+}
+
+QString CodeEditor::markerMessageAt(const QPoint& pos, QRect* area) const
+{
+    const QTextBlock block = cursorForPosition(pos).block();
+    for (const Marker& m : m_markers) {
+        if (m.line != block.blockNumber() || m.message.isEmpty())
+            continue;
+        const auto [start, end] = markerSpan(m, block);
+        QTextCursor cursor(block);
+        cursor.setPosition(start);
+        const QRect first = cursorRect(cursor);
+        cursor.setPosition(end);
+        const QRect last = cursorRect(cursor);
+        const QRect underlined(first.left(), first.top(), last.left() - first.left(), first.height());
+        if (underlined.contains(pos)) {
+            if (area)
+                *area = underlined;
+            return m.message;
+        }
+    }
+    return {};
+}
+
+bool CodeEditor::viewportEvent(QEvent* event)
+{
+    if (event->type() == QEvent::ToolTip) {
+        const auto* help = static_cast<QHelpEvent*>(event);
+        QRect area;
+        const QString message = markerMessageAt(help->pos(), &area);
+        if (message.isEmpty())
+            QToolTip::hideText();
+        else
+            QToolTip::showText(help->globalPos(), message, viewport(), area);
+        return true;
+    }
+    return QPlainTextEdit::viewportEvent(event);
 }
 
 int CodeEditor::cursorLine() const
@@ -903,10 +950,9 @@ void CodeEditor::updateExtraSelections()
         s.format.setUnderlineStyle(QTextCharFormat::WaveUnderline);
         s.format.setUnderlineColor(m.error ? QColor(230, 40, 40) : QColor(240, 160, 0));
         s.cursor = QTextCursor(block);
-        const int start = qBound(0, m.column, block.length() - 1);
-        const int length = m.length > 0 ? m.length : qMax(1, block.length() - 1 - start);
-        s.cursor.setPosition(block.position() + start);
-        s.cursor.setPosition(block.position() + qMin(start + length, block.length() - 1), QTextCursor::KeepAnchor);
+        const auto [start, end] = markerSpan(m, block);
+        s.cursor.setPosition(start);
+        s.cursor.setPosition(end, QTextCursor::KeepAnchor);
         selections << s;
     }
 

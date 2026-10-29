@@ -212,10 +212,27 @@ private Q_SLOTS:
         for (const auto& b : buttons) {
             auto* button = visibleChild<QToolButton>(view, b.id);
             QVERIFY2(button, b.id);
-            const QString caption = QLatin1String(b.caption) +
-                                    (b.keys ? QStringLiteral("  (") + keyText(b.keys) + QLatin1Char(')') : QString());
-            QCOMPARE(button->toolTip(), caption);
+            QCOMPARE(button->toolTip(), QLatin1String(b.tip));
             QCOMPARE(button->defaultAction()->statusTip(), QLatin1String(b.tip));
+        }
+        // Check boxes show the caption, the status bar a longer text.
+        const struct
+        {
+            const char* id;
+            const char* caption;
+            const char* tip;
+        } checks[] = {
+            {"spr_dec_load", "Decompress on load", "Decompress on load (M.U.G.E.N. 1.x only)"},
+            {"spr_trans_color", "Show transparency color", "Display the current sprite without transparency"},
+            {"spr_onion_skin", "OnionSkin", "Enable OnionSkin"},
+            {"spr_switch_pal", "Switch to the sprite palette",
+             "Switch the current palette to the palette of the sprite"},
+        };
+        for (const auto& c : checks) {
+            auto* box = visibleChild<QCheckBox>(view, c.id);
+            QVERIFY2(box, c.id);
+            QCOMPARE(box->toolTip(), QLatin1String(c.caption));
+            QCOMPARE(box->statusTip(), QLatin1String(c.tip));
         }
         QVERIFY(!view->findChild<QToolButton*>("spr_prev"));
         QVERIFY(!view->findChild<QToolButton*>("spr_next"));
@@ -1124,11 +1141,11 @@ private Q_SLOTS:
         for (const auto& c : controls) {
             auto* button = visibleChild<QToolButton>(projectView, c.id);
             QVERIFY2(button, c.id);
-            QCOMPARE(button->toolTip(),
-                     QLatin1String(c.caption) +
-                         (c.keys ? QStringLiteral("  (") + keyText(c.keys) + QLatin1Char(')') : QString()));
+            QCOMPARE(button->toolTip(), QLatin1String(c.tip));
             QCOMPARE(button->defaultAction()->statusTip(), QLatin1String(c.tip));
         }
+        QCOMPARE(visibleChild<QWidget>(projectView, "spr_foreground")->toolTip(), QStringLiteral("Foreground color"));
+        QCOMPARE(visibleChild<QWidget>(projectView, "spr_background")->toolTip(), QStringLiteral("Background color"));
         auto* layersButton = visibleChild<QToolButton>(projectView, "spr_layers_menu");
         QVERIFY(layersButton && layersButton->menu());
         QCOMPARE(layersButton->popupMode(), QToolButton::InstantPopup);

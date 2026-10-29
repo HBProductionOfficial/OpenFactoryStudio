@@ -196,35 +196,45 @@ AdvancedPaletteEditor::AdvancedPaletteEditor(AppContext& context, SpriteFile* fi
         const char* name;
         const char* icon;
         const char* text;
+        const char* tip = nullptr; // the text when empty
     };
     static const Function list[] = {
-        {"openPal", "advpal_open", QT_TR_NOOP("Open palette")},
-        {"savePal", "advpal_save", QT_TR_NOOP("Save current palette")},
-        {"savGrpIdx", "advpal_save_new", QT_TR_NOOP("Add to sprites editor")},
-        {"zoomOut", "advpal_zoom_out", QT_TR_NOOP("Decrease zoom")},
-        {"zoomIn", "advpal_zoom_in", QT_TR_NOOP("Increase zoom")},
-        {"openImg", "advpal_open_img", QT_TR_NOOP("Open image")},
-        {"saveImg", "advpal_save_img", QT_TR_NOOP("Save image")},
-        {"undo", "advpal_undo", QT_TR_NOOP("Undo")},
-        {"redo", "advpal_redo", QT_TR_NOOP("Redo")},
-        {"genPal", "advpal_gen_pal_imgs", QT_TR_NOOP("Generate palette from images")},
-        {"insPal", "advpal_insert_pal_imgs", QT_TR_NOOP("Insert the current palette in the images")},
+        {"openPal", "advpal_open", QT_TR_NOOP("Open palette"), QT_TR_NOOP("Open palette from a file...")},
+        {"savePal", "advpal_save", QT_TR_NOOP("Save current palette"),
+         QT_TR_NOOP("Save current palette to a new file...")},
+        {"savGrpIdx", "advpal_save_new", QT_TR_NOOP("Add to sprites editor"),
+         QT_TR_NOOP("Add to sprites editor by identifier...")},
+        {"zoomOut", "advpal_zoom_out", QT_TR_NOOP("Decrease zoom"), QT_TR_NOOP("Decrease the zoom level")},
+        {"zoomIn", "advpal_zoom_in", QT_TR_NOOP("Increase zoom"), QT_TR_NOOP("Increase the zoom level")},
+        {"openImg", "advpal_open_img", QT_TR_NOOP("Open image"), QT_TR_NOOP("Load the current image from a file...")},
+        {"saveImg", "advpal_save_img", QT_TR_NOOP("Save image"), QT_TR_NOOP("Save the current image to a file...")},
+        {"undo", "advpal_undo", QT_TR_NOOP("Undo"), QT_TR_NOOP("Undo the last change in the current palette")},
+        {"redo", "advpal_redo", QT_TR_NOOP("Redo"), QT_TR_NOOP("Redo the last change in the current palette")},
+        {"genPal", "advpal_gen_pal_imgs", QT_TR_NOOP("Generate palette from images"),
+         QT_TR_NOOP("Generate palette from images...")},
+        {"insPal", "advpal_insert_pal_imgs", QT_TR_NOOP("Insert the current palette in the images"),
+         QT_TR_NOOP("Insert the current palette in the images...")},
         {"optPal", "advpal_optimize", QT_TR_NOOP("Optimized palette for the current image")},
         {"grayScale", "advpal_grayscale", QT_TR_NOOP("Generate a minimal grayscale palette")},
         {"corGrad", "advpal_gradient", QT_TR_NOOP("Interval of selected colors in gradient")},
         {"setCor", "advpal_set_color", QT_TR_NOOP("Sets the color of the selected slots")},
         {"delDupl", "advpal_del_duplicate", QT_TR_NOOP("Remove the duplicate colors")},
         {"addDiff", "advpal_add_diff", QT_TR_NOOP("Add different colors from the other palette")},
-        {"adaptImg", "advpal_adapt_image", QT_TR_NOOP("Adapt image to the palette")},
+        {"adaptImg", "advpal_adapt_image", QT_TR_NOOP("Adapt image to the palette"),
+         QT_TR_NOOP("Adapt image to match the colors of the palette")},
         {"autoOrg", "advpal_auto_sort", QT_TR_NOOP("Sort colors by tones")},
         {"swPos", "advpal_switch_pos", QT_TR_NOOP("Exchange position of selected colors")},
-        {"invPal", "advpal_invert_all", QT_TR_NOOP("Invert all colors")},
-        {"commChanges", "advpal_commit_changes", QT_TR_NOOP("Commit changes")},
-        {"commSprChanges", "advpal_commit_spr_changes", QT_TR_NOOP("Commit sprite changes")},
+        {"invPal", "advpal_invert_all", QT_TR_NOOP("Invert all colors"),
+         QT_TR_NOOP("Invert all colors of the palette (keep first and last Alphas)")},
+        {"commChanges", "advpal_commit_changes", QT_TR_NOOP("Commit changes"),
+         QT_TR_NOOP("Commit changes to the current palette")},
+        {"commSprChanges", "advpal_commit_spr_changes", QT_TR_NOOP("Commit sprite changes"),
+         QT_TR_NOOP("Commit image changes to the current sprite")},
     };
     for (int i = 0; i < int(std::size(list)); ++i) {
         const QString name = QString::fromLatin1(list[i].name);
-        QToolButton* button = toolButton(name, QString::fromLatin1(list[i].icon), tr(list[i].text));
+        QToolButton* button = toolButton(name, QString::fromLatin1(list[i].icon), tr(list[i].text),
+                                         list[i].tip ? tr(list[i].tip) : QString());
         connect(button, &QToolButton::clicked, this, [this, name] { run(name); });
         functions->addWidget(button, i / 7, i % 7);
     }
@@ -232,8 +242,8 @@ AdvancedPaletteEditor::AdvancedPaletteEditor(AppContext& context, SpriteFile* fi
     m_effects = new QComboBox(this);
     m_effects->setObjectName(QStringLiteral("effects"));
     m_effects->addItems(PaletteOps::effectNames());
-    QToolButton* effectApply =
-        toolButton(QStringLiteral("effApply"), QStringLiteral("advpal_effect_apply"), tr("Apply"));
+    QToolButton* effectApply = toolButton(QStringLiteral("effApply"), QStringLiteral("advpal_effect_apply"),
+                                          tr("Apply"), tr("Apply the changes"));
     connect(effectApply, &QToolButton::clicked, this, [this] { run(QStringLiteral("effApply")); });
     auto* effectRow = new QHBoxLayout;
     effectRow->addWidget(m_effects, 1);
@@ -247,7 +257,8 @@ AdvancedPaletteEditor::AdvancedPaletteEditor(AppContext& context, SpriteFile* fi
     maskColor->setObjectName(QStringLiteral("maskCor"));
     maskColor->setText(tr("Mask's color"));
     maskColor->setToolTip(tr("Mask's color"));
-    m_picker = toolButton(QStringLiteral("pickCor"), QStringLiteral("advpal_pick_color"), tr("Color picker"));
+    m_picker = toolButton(QStringLiteral("pickCor"), QStringLiteral("advpal_pick_color"), tr("Color picker"),
+                          tr("Enable the Color picker for quick selection"));
     m_picker->setParent(selectionGroup);
     m_picker->setCheckable(true);
     connect(m_mask, &QCheckBox::toggled, this, [this] {
@@ -288,8 +299,10 @@ AdvancedPaletteEditor::AdvancedPaletteEditor(AppContext& context, SpriteFile* fi
     hueGroup->setObjectName(QStringLiteral("hue_grp"));
     m_hue = slider(hueGroup, "hueHue", 360, &m_hueLabel, "hueLb");
     m_saturation = slider(hueGroup, "hueSat", 100, &m_saturationLabel, "satLb");
-    QToolButton* hueReset = toolButton(QStringLiteral("hueNo"), QStringLiteral("advpal_huesat_reset"), tr("Reset"));
-    QToolButton* hueApply = toolButton(QStringLiteral("hueYes"), QStringLiteral("advpal_huesat_apply"), tr("Apply"));
+    QToolButton* hueReset = toolButton(QStringLiteral("hueNo"), QStringLiteral("advpal_huesat_reset"), tr("Reset"),
+                                       tr("Reset the changes to default"));
+    QToolButton* hueApply = toolButton(QStringLiteral("hueYes"), QStringLiteral("advpal_huesat_apply"), tr("Apply"),
+                                       tr("Apply the changes"));
     auto* hueLayout = new QGridLayout(hueGroup);
     hueLayout->addWidget(hueReset, 0, 3);
     hueLayout->addWidget(hueApply, 0, 4);
@@ -304,8 +317,10 @@ AdvancedPaletteEditor::AdvancedPaletteEditor(AppContext& context, SpriteFile* fi
     m_red = slider(rgbGroup, "rgbR", 255, &m_redLabel, "rLb");
     m_green = slider(rgbGroup, "rgbG", 255, &m_greenLabel, "gLb");
     m_blue = slider(rgbGroup, "rgbB", 255, &m_blueLabel, "bLb");
-    QToolButton* rgbReset = toolButton(QStringLiteral("rgbNo"), QStringLiteral("advpal_rgb_reset"), tr("Reset"));
-    QToolButton* rgbApply = toolButton(QStringLiteral("rgbYes"), QStringLiteral("advpal_rgb_apply"), tr("Apply"));
+    QToolButton* rgbReset = toolButton(QStringLiteral("rgbNo"), QStringLiteral("advpal_rgb_reset"), tr("Reset"),
+                                       tr("Reset the changes to default"));
+    QToolButton* rgbApply =
+        toolButton(QStringLiteral("rgbYes"), QStringLiteral("advpal_rgb_apply"), tr("Apply"), tr("Apply the changes"));
     auto* rgbLayout = new QGridLayout(rgbGroup);
     rgbLayout->addWidget(rgbReset, 0, 3);
     rgbLayout->addWidget(rgbApply, 0, 4);
@@ -487,11 +502,12 @@ AdvancedPaletteEditor::~AdvancedPaletteEditor()
     m_context.config().setValue(QStringLiteral("advpal_geometry"), Config::encodeRect(QRect(pos(), size())));
 }
 
-QToolButton* AdvancedPaletteEditor::toolButton(const QString& name, const QString& icon, const QString& text)
+QToolButton* AdvancedPaletteEditor::toolButton(const QString& name, const QString& icon, const QString& text,
+                                               const QString& tip)
 {
     auto* button = new QToolButton(this);
     button->setObjectName(name);
-    button->setToolTip(text);
+    button->setToolTip(tip.isEmpty() ? text : tip);
     button->setText(text);
     button->setIcon(m_context.theme().iconSet().icon(icon));
     button->setIconSize(QSize(24, 24));

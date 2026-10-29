@@ -221,9 +221,7 @@ private Q_SLOTS:
         for (const auto& b : buttons) {
             auto* button = visibleChild<QToolButton>(view, b.id);
             QVERIFY2(button, b.id);
-            QCOMPARE(button->toolTip(),
-                     QLatin1String(b.caption) +
-                         (b.keys ? QStringLiteral("  (") + keyText(b.keys) + QLatin1Char(')') : QString()));
+            QCOMPARE(button->toolTip(), QLatin1String(b.tip));
             QCOMPARE(button->defaultAction()->statusTip(), QLatin1String(b.tip));
         }
         auto* page = view->findChild<SpritePage*>();
@@ -537,29 +535,29 @@ private Q_SLOTS:
             return b;
         };
         const char* const functions[][2] = {
-            {"openPal", "Open palette"},
-            {"savePal", "Save current palette"},
-            {"savGrpIdx", "Add to sprites editor"},
-            {"zoomOut", "Decrease zoom"},
-            {"zoomIn", "Increase zoom"},
-            {"openImg", "Open image"},
-            {"saveImg", "Save image"},
-            {"undo", "Undo"},
-            {"redo", "Redo"},
-            {"genPal", "Generate palette from images"},
-            {"insPal", "Insert the current palette in the images"},
+            {"openPal", "Open palette from a file..."},
+            {"savePal", "Save current palette to a new file..."},
+            {"savGrpIdx", "Add to sprites editor by identifier..."},
+            {"zoomOut", "Decrease the zoom level"},
+            {"zoomIn", "Increase the zoom level"},
+            {"openImg", "Load the current image from a file..."},
+            {"saveImg", "Save the current image to a file..."},
+            {"undo", "Undo the last change in the current palette"},
+            {"redo", "Redo the last change in the current palette"},
+            {"genPal", "Generate palette from images..."},
+            {"insPal", "Insert the current palette in the images..."},
             {"optPal", "Optimized palette for the current image"},
             {"grayScale", "Generate a minimal grayscale palette"},
             {"corGrad", "Interval of selected colors in gradient"},
             {"setCor", "Sets the color of the selected slots"},
             {"delDupl", "Remove the duplicate colors"},
             {"addDiff", "Add different colors from the other palette"},
-            {"adaptImg", "Adapt image to the palette"},
+            {"adaptImg", "Adapt image to match the colors of the palette"},
             {"autoOrg", "Sort colors by tones"},
             {"swPos", "Exchange position of selected colors"},
-            {"invPal", "Invert all colors"},
-            {"commChanges", "Commit changes"},
-            {"commSprChanges", "Commit sprite changes"},
+            {"invPal", "Invert all colors of the palette (keep first and last Alphas)"},
+            {"commChanges", "Commit changes to the current palette"},
+            {"commSprChanges", "Commit image changes to the current sprite"},
         };
         QGridLayout* grid = nullptr;
         for (QGridLayout* layout : editor.findChildren<QGridLayout*>()) {
@@ -588,7 +586,11 @@ private Q_SLOTS:
         QCOMPARE(selection->findChild<QToolButton*>("maskCor")->text(), QStringLiteral("Mask's color"));
         QToolButton* picker = selection->findChild<QToolButton*>("pickCor");
         QVERIFY(picker && picker->isCheckable() && !picker->isChecked());
-        QCOMPARE(picker->toolTip(), QStringLiteral("Color picker"));
+        QCOMPARE(picker->toolTip(), QStringLiteral("Enable the Color picker for quick selection"));
+        for (const char* name : {"effApply", "hueYes", "rgbYes"})
+            QCOMPARE(button(name)->toolTip(), QStringLiteral("Apply the changes"));
+        for (const char* name : {"hueNo", "rgbNo"})
+            QCOMPARE(button(name)->toolTip(), QStringLiteral("Reset the changes to default"));
         const struct
         {
             const char* name;
@@ -778,11 +780,10 @@ private Q_SLOTS:
         for (const auto& b : buttons) {
             auto* button = visibleChild<QToolButton>(view, b.id);
             QVERIFY2(button, b.id);
-            QCOMPARE(button->toolTip(),
-                     QLatin1String(b.caption) +
-                         (b.keys ? QStringLiteral("  (") + keyText(b.keys) + QLatin1Char(')') : QString()));
+            QCOMPARE(button->toolTip(), QLatin1String(b.tip));
             QCOMPARE(button->defaultAction()->statusTip(), QLatin1String(b.tip));
         }
+        QCOMPARE(view->findChild<QSlider*>("snd_volume")->toolTip(), QStringLiteral("Volume"));
         QVERIFY(!view->findChild<QToolButton*>("snd_prev"));
         QVERIFY(!view->findChild<QToolButton*>("snd_next"));
         QCOMPARE(actions.action("snd_prev")->shortcut(), QKeySequence("Ctrl+Left"));

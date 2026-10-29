@@ -1,15 +1,23 @@
 #include "core/actions/ActionRegistry.h"
 #include "core/preset/ControlRegistry.h"
+#include "core/preset/ControlTable.h"
 #include "core/preset/PresetBuilder.h"
 #include "core/preset/PresetEngine.h"
 
 #include <QAction>
+#include <QApplication>
 #include <QGridLayout>
+#include <QHelpEvent>
 #include <QLabel>
 #include <QSlider>
+#include <QStandardItemModel>
 #include <QTest>
 #include <QToolBar>
 #include <QToolButton>
+#include <QToolTip>
+#include <QTreeView>
+
+#include <memory>
 
 using namespace OFS;
 
@@ -162,7 +170,9 @@ private Q_SLOTS:
 
         actions.setKeys("file_open", QKeySequence("Ctrl+O"));
         QCOMPARE(open->text(), "Open...\t (" + keyText("Ctrl+O") + ')');
-        QCOMPARE(open->toolTip(), "Open  (" + keyText("Ctrl+O") + ')');
+        // Buttons show the description without the shortcut, and so does the status bar.
+        QCOMPARE(open->toolTip(), QStringLiteral("Open a project"));
+        QCOMPARE(open->statusTip(), QStringLiteral("Open a project"));
         QCOMPARE(actions.caption("file_open"), QStringLiteral("Open..."));
         QCOMPARE(actions.description("file_open"), QStringLiteral("Open a project"));
 
@@ -170,6 +180,49 @@ private Q_SLOTS:
         actions.setKeys("spr_add", QKeySequence("Ctrl+A"));
         QVERIFY(add->shortcut().isEmpty());
         QCOMPARE(add->text(), "Add\t (" + keyText("Ctrl+A") + ')');
+        // Without a description they show the caption.
+        QCOMPARE(add->toolTip(), QStringLiteral("Add"));
+        QCOMPARE(add->statusTip(), QStringLiteral("Add"));
+        QAction* save = actions.add("file_saveas", "Save &as...");
+        QCOMPARE(save->toolTip(), QStringLiteral("Save as"));
+    }
+
+    void panelControlTips()
+    {
+        const ControlDef check{"c", ControlKind::Check, "OnionSkin", 0, 0, false, nullptr, "Enable OnionSkin"};
+        std::unique_ptr<QWidget> box(createControlWidget(check, nullptr));
+        QCOMPARE(box->toolTip(), QStringLiteral("OnionSkin"));
+        QCOMPARE(box->statusTip(), QStringLiteral("Enable OnionSkin"));
+        const ControlDef plainCheck{"p", ControlKind::Check, "Masked", 0, 0, false};
+        std::unique_ptr<QWidget> plain(createControlWidget(plainCheck, nullptr));
+        QCOMPARE(plain->toolTip(), QStringLiteral("Masked"));
+        QCOMPARE(plain->statusTip(), QStringLiteral("Masked"));
+        const ControlDef buttonDef{
+            "b", ControlKind::Button, "Start emulator", 0, 0, false, "Start debugger on built-in emulator"};
+        std::unique_ptr<QWidget> button(createControlWidget(buttonDef, nullptr));
+        QCOMPARE(button->toolTip(), QStringLiteral("Start debugger on built-in emulator"));
+        QCOMPARE(button->statusTip(), QStringLiteral("Start debugger on built-in emulator"));
+        const ControlDef sliderDef{"s", ControlKind::Slider, "", 0, 100, false, "Volume"};
+        std::unique_ptr<QWidget> slider(createControlWidget(sliderDef, nullptr));
+        QCOMPARE(slider->toolTip(), QStringLiteral("Volume"));
+        QVERIFY(slider->statusTip().isEmpty());
+
+        // Tree items show their text as the tooltip.
+        const ControlDef treeDef{"t", ControlKind::Tree, "", 0, 0, false};
+        std::unique_ptr<QWidget> widget(createControlWidget(treeDef, nullptr));
+        auto* tree = qobject_cast<QTreeView*>(widget.get());
+        QVERIFY(tree);
+        QStandardItemModel model;
+        model.appendRow(new QStandardItem(QStringLiteral("810 - Kung Fu Throw - Throwing the opponent")));
+        tree->setModel(&model);
+        tree->resize(120, 80);
+        tree->show();
+        QVERIFY(QTest::qWaitForWindowExposed(tree));
+        const QPoint at = tree->visualRect(model.index(0, 0)).center();
+        QHelpEvent help(QEvent::ToolTip, at, tree->viewport()->mapToGlobal(at));
+        QApplication::sendEvent(tree->viewport(), &help);
+        QTRY_COMPARE(QToolTip::text(), QStringLiteral("810 - Kung Fu Throw - Throwing the opponent"));
+        QToolTip::hideText();
     }
 
     void rebuildingReplacesContent()

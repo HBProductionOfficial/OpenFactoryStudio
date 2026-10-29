@@ -9,6 +9,7 @@
 #include <QDoubleSpinBox>
 #include <QFrame>
 #include <QGroupBox>
+#include <QHelpEvent>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
@@ -18,17 +19,23 @@
 #include <QSlider>
 #include <QSpinBox>
 #include <QToolButton>
+#include <QToolTip>
 #include <QTreeView>
 
 namespace OFS {
 
 namespace {
 
+QString translated(const char* text)
+{
+    if (!text || !*text)
+        return {};
+    return QCoreApplication::translate("Controls", text);
+}
+
 QString caption(const ControlDef& def)
 {
-    if (!def.caption || !*def.caption)
-        return {};
-    return QCoreApplication::translate("Controls", def.caption);
+    return translated(def.caption);
 }
 
 // Up and Down move the focus like Left and Right, same as Fighter Factory on Qt 5. Qt 6 hands
@@ -50,6 +57,31 @@ protected:
     }
 };
 
+// Items show their text as the tooltip, also when it isn't cut off. Same as Fighter Factory's
+// code trees and debug variables.
+class PanelTreeView : public QTreeView
+{
+public:
+    using QTreeView::QTreeView;
+
+protected:
+    bool viewportEvent(QEvent* event) override
+    {
+        if (event->type() != QEvent::ToolTip)
+            return QTreeView::viewportEvent(event);
+        const auto* help = static_cast<QHelpEvent*>(event);
+        const QModelIndex index = indexAt(help->pos());
+        QString text = index.data(Qt::ToolTipRole).toString();
+        if (text.isEmpty())
+            text = index.data(Qt::DisplayRole).toString();
+        if (text.isEmpty())
+            QToolTip::hideText();
+        else
+            QToolTip::showText(help->globalPos(), text, viewport(), visualRect(index));
+        return true;
+    }
+};
+
 } // namespace
 
 QWidget* createControlWidget(const ControlDef& def, QWidget* parent)
@@ -60,7 +92,8 @@ QWidget* createControlWidget(const ControlDef& def, QWidget* parent)
     case ControlKind::Button: {
         auto* b = new QToolButton(parent);
         b->setText(caption(def));
-        b->setToolTip(caption(def));
+        b->setToolTip(def.toolTip ? translated(def.toolTip) : caption(def));
+        b->setStatusTip(def.statusTip ? translated(def.statusTip) : b->toolTip());
         w = b;
         break;
     }
@@ -101,6 +134,8 @@ QWidget* createControlWidget(const ControlDef& def, QWidget* parent)
     case ControlKind::Check: {
         auto* c = new PanelCheckBox(caption(def), parent);
         c->setChecked(def.checked);
+        c->setToolTip(caption(def));
+        c->setStatusTip(def.statusTip ? translated(def.statusTip) : caption(def));
         w = c;
         break;
     }
@@ -117,7 +152,7 @@ QWidget* createControlWidget(const ControlDef& def, QWidget* parent)
         w = new QGroupBox(caption(def), parent);
         break;
     case ControlKind::Tree: {
-        auto* t = new QTreeView(parent);
+        auto* t = new PanelTreeView(parent);
         t->setHeaderHidden(true);
         w = t;
         break;
@@ -132,6 +167,8 @@ QWidget* createControlWidget(const ControlDef& def, QWidget* parent)
         w = new QWidget(parent);
         break;
     }
+    if (def.toolTip && w->toolTip().isEmpty())
+        w->setToolTip(translated(def.toolTip));
     w->setObjectName(QString::fromLatin1(def.id));
     return w;
 }

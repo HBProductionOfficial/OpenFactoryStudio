@@ -74,7 +74,7 @@ private:
     void commitSprite();
     void openImage();
     void transferColors(int from, int to);
-    QToolButton* toolButton(const QString& name, const QString& icon, const QString& text);
+    QToolButton* toolButton(const QString& name, const QString& icon, const QString& text, const QString& tip = {});
     QString folder() const;
 
     AppContext& m_context;

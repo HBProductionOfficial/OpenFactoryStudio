@@ -91,6 +91,7 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QHelpEvent>
 #include <QInputDialog>
 #include <QLineEdit>
 #include <QListWidget>
@@ -107,6 +108,7 @@
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QToolBar>
+#include <QToolTip>
 #include <QTreeView>
 #include <QUndoStack>
 #include <QUrl>
@@ -131,6 +133,28 @@ QString workspaceToolBarName(WorkspaceType type)
     }
     return {};
 }
+
+// The menu titles show themselves as the tooltip, same as Fighter Factory.
+class MenuTitleTips : public QObject
+{
+public:
+    using QObject::QObject;
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override
+    {
+        auto* bar = qobject_cast<QMenuBar*>(watched);
+        if (!bar || event->type() != QEvent::ToolTip)
+            return false;
+        const auto* help = static_cast<QHelpEvent*>(event);
+        QAction* action = bar->actionAt(help->pos());
+        if (action)
+            QToolTip::showText(help->globalPos(), action->toolTip(), bar, bar->actionGeometry(action));
+        else
+            QToolTip::hideText();
+        return true;
+    }
+};
 
 } // namespace
 
@@ -267,6 +291,7 @@ void MainWindow::buildMenus()
     }
     for (const MenuSpec& spec : applicationMenusAfterEngine())
         menuBar()->addMenu(m_menus->build(spec, this));
+    menuBar()->installEventFilter(new MenuTitleTips(menuBar()));
 }
 
 void MainWindow::buildToolBars()
@@ -1501,10 +1526,16 @@ void MainWindow::refreshIssues()
         return;
     model->removeRows(0, model->rowCount());
     const IconSet& icons = m_context.theme().iconSet();
+    int errors = 0;
+    int warnings = 0;
     for (ProjectView* view : projectViews()) {
         const auto& all = view->issues();
         for (auto it = all.cbegin(); it != all.cend(); ++it) {
             for (const Issue& issue : it.value()) {
+                if (issue.severity == Issue::Severity::Error)
+                    ++errors;
+                else
+                    ++warnings;
                 QString icon = QStringLiteral("error");
                 if (issue.severity == Issue::Severity::Warning || issue.severity == Issue::Severity::Deprecation)
                     icon = QStringLiteral("warning");
@@ -1521,6 +1552,7 @@ void MainWindow::refreshIssues()
             }
         }
     }
+    m_dock->setIssueCounts(errors, warnings);
 }
 
 void MainWindow::saveFile(ProjectFile* file, bool asUtf8)
@@ -1944,7 +1976,7 @@ bool MainWindow::openArchive(const QString& archivePath)
     project->setArchive(archive, extracted.path());
     addProjectView(project, QString(), busy.get());
     const int index = m_projectTabs->currentIndex();
-    m_projectTabs->setTabToolTip(index, QDir::toNativeSeparators(archive));
+    m_projectTabs->setTabToolTip(index, QDir::fromNativeSeparators(archive));
     m_context.history().add(project->name(), archive);
     backupOnLoad(project);
     return true;
@@ -1976,7 +2008,7 @@ void MainWindow::openSingleFileDialog()
             continue;
         }
         addProjectView(project, project->editorIds().value(0));
-        m_projectTabs->setTabToolTip(m_projectTabs->currentIndex(), QDir::toNativeSeparators(project->filePath()));
+        m_projectTabs->setTabToolTip(m_projectTabs->currentIndex(), project->filePath());
     }
 }
 
@@ -2393,7 +2425,7 @@ void MainWindow::addProjectView(Project* project, const QString& editorId, BusyW
     connect(project, &Project::filePathChanged, this, [this, view] {
         for (int i = 0; i < m_projectTabs->count(); ++i) {
             if (m_projectTabs->tabData(i).value<QObject*>() == view)
-                m_projectTabs->setTabToolTip(i, QDir::toNativeSeparators(view->project()->filePath()));
+                m_projectTabs->setTabToolTip(i, view->project()->filePath());
         }
         m_context.config().setValue(QStringLiteral("project_path"), view->project()->directory());
         refreshActionStates();
@@ -2403,7 +2435,7 @@ void MainWindow::addProjectView(Project* project, const QString& editorId, BusyW
     const int index = m_projectTabs->addTab(project->name());
     m_projectTabs->setTabData(index, QVariant::fromValue<QObject*>(view));
     if (!project->isMemoryOnly())
-        m_projectTabs->setTabToolTip(index, QDir::toNativeSeparators(project->filePath()));
+        m_projectTabs->setTabToolTip(index, project->filePath());
     m_projectTabs->setCurrentIndex(index);
     refreshForCurrent();
 }

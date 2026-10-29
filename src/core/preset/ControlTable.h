@@ -36,6 +36,10 @@ struct ControlDef
     int minimum;         // 0..0 = default range
     int maximum;
     bool checked;
+    // Buttons and check boxes show the caption when these are empty. A check box's tooltip is
+    // always its caption.
+    const char* toolTip = nullptr;
+    const char* statusTip = nullptr;
 };
 
 OFS_CORE_EXPORT QWidget* createControlWidget(const ControlDef& def, QWidget* parent);

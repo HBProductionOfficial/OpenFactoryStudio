@@ -209,7 +209,7 @@ void WelcomePage::refresh()
         auto* button = new RecentButton(e.name, QDir::toNativeSeparators(e.file), this);
         button->setProperty("fontRole", QStringLiteral("system"));
         button->setObjectName(QStringLiteral("recentProject%1").arg(i + 1));
-        button->setToolTip(QDir::toNativeSeparators(e.file));
+        button->setToolTip(QDir::fromNativeSeparators(e.file));
         button->setCheckable(isEditing());
         button->setProperty("file", e.file);
         button->setMinimumHeight(50);

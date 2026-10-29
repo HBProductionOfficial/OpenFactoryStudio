@@ -1153,7 +1153,7 @@ void ProjectView::addFileTab(const EditorInfo& info, const QString& filePath)
         tabs->tabBar()->show();
     }
     const int index = tabs->addTab(createFilePage(info, filePath), QFileInfo(filePath).fileName());
-    tabs->setTabToolTip(index, QDir::toNativeSeparators(filePath));
+    tabs->setTabToolTip(index, QDir::fromNativeSeparators(filePath));
     setCurrentEditor(info.id);
     tabs->setCurrentIndex(index);
     updateTabTitles();
@@ -1342,8 +1342,8 @@ QString ProjectView::tabToolTip(const QString& path) const
     if (f && f->isNameless())
         return {};
     if (!m_project->archivePath().isEmpty() && (!f || f->isUntitled()))
-        return QDir::toNativeSeparators(m_project->archivePath());
-    return QDir::toNativeSeparators(path);
+        return QDir::fromNativeSeparators(m_project->archivePath());
+    return QDir::fromNativeSeparators(path);
 }
 
 void ProjectView::fillProjectExplorer()

@@ -1000,8 +1000,8 @@ private Q_SLOTS:
         QVERIFY(tabs->isMovable());
         QCOMPARE(tabs->tabText(0), QStringLiteral("Shell"));
         QCOMPARE(tabs->tabText(1), QStringLiteral("Stage"));
-        QCOMPARE(tabs->tabToolTip(0), QDir::toNativeSeparators(QDir::cleanPath(m_dir.filePath("c/c.def"))));
-        QCOMPARE(tabs->tabToolTip(1), QDir::toNativeSeparators(QDir::cleanPath(m_dir.filePath("s/s.def"))));
+        QCOMPARE(tabs->tabToolTip(0), QDir::cleanPath(m_dir.filePath("c/c.def")));
+        QCOMPARE(tabs->tabToolTip(1), QDir::cleanPath(m_dir.filePath("s/s.def")));
         tabs->moveTab(1, 0);
         QCOMPARE(window.projectViews(), (QList<ProjectView*>{stage, character}));
         tabs->setCurrentIndex(1);

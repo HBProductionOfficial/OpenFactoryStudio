@@ -31,6 +31,7 @@ BottomDock::BottomDock(QWidget* parent)
     m_tabs->addTab(tr("Engine Output"));
     m_tabs->addTab(tr("Debugger"));
     m_tabs->addTab(tr("Watch"));
+    setIssueCounts(0, 0);
 
     m_arrow->setObjectName(QStringLiteral("bottomArrow"));
     m_arrow->setAutoRaise(true);
@@ -119,6 +120,22 @@ void BottomDock::setExpanded(bool expanded)
 int BottomDock::currentPage() const
 {
     return m_tabs->currentIndex();
+}
+
+void BottomDock::setIssueCounts(int errors, int warnings)
+{
+    // Warnings are only counted when there are no errors, same as Fighter Factory.
+    QString tip = tr("No issues found!");
+    if (errors > 0)
+        tip = tr("%1 error(s) found!").arg(errors);
+    else if (warnings > 0)
+        tip = tr("%1 warning(s) found!").arg(warnings);
+    m_tabs->setTabToolTip(Issues, tip);
+}
+
+QString BottomDock::issuesToolTip() const
+{
+    return m_tabs->tabToolTip(Issues);
 }
 
 void BottomDock::showPage(int page)

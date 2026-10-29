@@ -75,6 +75,7 @@
 #include <QDoubleSpinBox>
 #include <QDropEvent>
 #include <QFile>
+#include <QHelpEvent>
 #include <QInputDialog>
 #include <QLabel>
 #include <QLayout>
@@ -104,6 +105,7 @@
 #include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
+#include <QToolTip>
 #include <QTreeView>
 #include <QUndoStack>
 #include <QWizard>
@@ -516,6 +518,9 @@ private Q_SLOTS:
                                            "[State 200, 1]\ntype = ChangeState\ntrigger1 = 1\nvalue = 0\nbogus = 1\n");
         MainWindow window(*m_context);
         window.show();
+        auto* bottomTabs = window.findChild<QTabBar*>("bottomTabs");
+        QVERIFY(bottomTabs);
+        QCOMPARE(bottomTabs->tabToolTip(0), QStringLiteral("No issues found!"));
         QVERIFY(window.openProject(dir.filePath("bad.def")));
         ActionRegistry& actions = m_context->actions();
         actions.action("editor_st")->trigger();
@@ -532,8 +537,19 @@ private Q_SLOTS:
         QCOMPARE(messages, (QStringList{"Unknown keyword 'Q'", "Unknown parameter 'bogus' for 'ChangeState' block"}));
         QCOMPARE(issues->model()->index(0, 1).data().toString(), QStringLiteral("bad.cns"));
         QCOMPARE(window.ofsStatusBar()->section(1), QStringLiteral("Syntax error count: 2"));
+        QCOMPARE(bottomTabs->tabToolTip(0), QStringLiteral("2 error(s) found!"));
 
         CodeEditor* editor = view->currentCodeEditor();
+        // Resting on the underlined word shows its message.
+        {
+            QTextCursor q(editor->document()->findBlockByNumber(3));
+            q.setPosition(q.position() + int(q.block().text().indexOf(QLatin1Char('Q'))));
+            editor->setTextCursor(q);
+            editor->ensureCursorVisible();
+            const QRect r = editor->cursorRect(q);
+            QCOMPARE(editor->markerMessageAt(QPoint(r.left() + 2, r.center().y())),
+                     QStringLiteral("Unknown keyword 'Q'"));
+        }
         editor->goToLine(1);
         actions.action("code_next_error")->trigger();
         QCOMPARE(editor->cursorLine(), 4);
@@ -555,7 +571,24 @@ private Q_SLOTS:
         cursor.insertText("ctrl = 1");
         QTRY_COMPARE(issues->model()->rowCount(), 1);
         QTRY_COMPARE(window.ofsStatusBar()->section(1), QStringLiteral("Syntax error count: 1"));
+        QCOMPARE(bottomTabs->tabToolTip(0), QStringLiteral("1 error(s) found!"));
         editor->document()->setModified(false);
+    }
+
+    void menuTitleTips()
+    {
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        QMenuBar* bar = window.menuBar();
+        if (bar->isNativeMenuBar())
+            QSKIP("The menu bar belongs to the system");
+        QAction* project = bar->actions().first();
+        const QPoint at = bar->actionGeometry(project).center();
+        QHelpEvent help(QEvent::ToolTip, at, bar->mapToGlobal(at));
+        QApplication::sendEvent(bar, &help);
+        QTRY_COMPARE(QToolTip::text(), QStringLiteral("Project"));
+        QToolTip::hideText();
     }
 
     void documentationPopup()
@@ -1150,7 +1183,7 @@ private Q_SLOTS:
         QVERIFY(!created->isUntitled());
         QVERIFY(QFileInfo::exists(dir.filePath("brand.cns")));
         QCOMPARE(tabs->tabText(1), QStringLiteral("brand.cns"));
-        QCOMPARE(tabs->tabToolTip(1), QDir::toNativeSeparators(QDir::fromNativeSeparators(dir.filePath("brand.cns"))));
+        QCOMPARE(tabs->tabToolTip(1), QDir::fromNativeSeparators(dir.filePath("brand.cns")));
         QVERIFY(view->project()->editorFiles("states").contains(QDir::fromNativeSeparators(dir.filePath("brand.cns"))));
 
         editor->moveCursor(QTextCursor::End);
@@ -4797,7 +4830,7 @@ private Q_SLOTS:
         QCOMPARE(m_context->history().entries().first().file, archive);
         auto* tabs = view->findChild<QTabWidget*>("fileTabs_definitions");
         QCOMPARE(tabs->tabText(0), QStringLiteral("fighter.def"));
-        QCOMPARE(tabs->tabToolTip(0), QDir::toNativeSeparators(archive));
+        QCOMPARE(tabs->tabToolTip(0), QDir::fromNativeSeparators(archive));
         auto* explorer = view->findChild<QTreeView*>("projectExplorer");
         QCOMPARE(explorer->model()->rowCount(), 3);
         const int tabCount = window.findChild<QTabBar*>()->count();

@@ -37,8 +37,6 @@ QAction* ActionRegistry::add(const Spec& spec)
     action->setObjectName(spec.id);
     action->setCheckable(spec.checkable);
     action->setShortcutContext(isWindowScope(spec.scope) ? Qt::WindowShortcut : Qt::ApplicationShortcut);
-    if (!spec.description.isEmpty())
-        action->setStatusTip(spec.description);
 
     Entry entry;
     entry.action = action;
@@ -107,15 +105,15 @@ QString ActionRegistry::displayText(const QString& caption, const QKeySequence& 
            QLatin1Char(')');
 }
 
-QString ActionRegistry::toolTipText(const QString& caption, const QKeySequence& keys)
+QString ActionRegistry::toolTipText(const QString& caption, const QString& description)
 {
+    if (!description.isEmpty() && description != caption)
+        return description;
     QString text = caption;
     text.remove(QLatin1Char('&'));
     if (text.endsWith(QLatin1String("...")))
         text.chop(3);
-    if (keys.isEmpty())
-        return text;
-    return text + QStringLiteral("  (") + keys.toString(QKeySequence::NativeText) + QLatin1Char(')');
+    return text;
 }
 
 QKeySequence ActionRegistry::keys(const QString& id) const
@@ -175,7 +173,8 @@ void ActionRegistry::refreshText(const QString& id)
 {
     const Entry& e = m_actions[id];
     e.action->setText(displayText(e.caption, e.keys));
-    e.action->setToolTip(toolTipText(e.caption, e.keys));
+    e.action->setToolTip(toolTipText(e.caption, e.description));
+    e.action->setStatusTip(e.action->toolTip());
     QString iconText = e.caption;
     iconText.remove(QLatin1Char('&'));
     if (iconText.endsWith(QLatin1String("...")))
