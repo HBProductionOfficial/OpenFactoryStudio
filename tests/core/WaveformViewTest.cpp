@@ -11,6 +11,38 @@ class WaveformViewTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    // The pointer follows the tool, same as Fighter Factory.
+    void pointers()
+    {
+        WaveformView view;
+        view.resize(500, 200);
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        view.setBuffer(SampleBuffer::fromInt16(std::vector<std::int16_t>(1000), 1, 11025));
+        view.setSelection(SampleRange{200, 100}); // x 100 to 150
+        auto shapeAt = [&view](int x) {
+            QTest::mouseMove(&view, QPoint(x, 100));
+            return view.QWidget::cursor().shape();
+        };
+        QCOMPARE(shapeAt(300), Qt::ArrowCursor);
+        view.setTool(WaveformView::Tool::Zoom);
+        QCOMPARE(shapeAt(300), Qt::PointingHandCursor);
+        view.setTool(WaveformView::Tool::MoveSelection);
+        QCOMPARE(shapeAt(120), Qt::SizeAllCursor);
+        QCOMPARE(shapeAt(300), Qt::ArrowCursor);
+        view.setTool(WaveformView::Tool::HorizontalResize);
+        QCOMPARE(shapeAt(120), Qt::SizeHorCursor);
+        view.setTool(WaveformView::Tool::VerticalResize);
+        QCOMPARE(shapeAt(120), Qt::SizeVerCursor);
+        view.setTool(WaveformView::Tool::MoveView);
+        QCOMPARE(shapeAt(300), Qt::OpenHandCursor);
+        // Any button pans with this tool, and the hand closes at once.
+        QTest::mousePress(&view, Qt::RightButton, {}, QPoint(300, 100));
+        QCOMPARE(view.QWidget::cursor().shape(), Qt::ClosedHandCursor);
+        QTest::mouseRelease(&view, Qt::RightButton, {}, QPoint(300, 100));
+        QCOMPARE(view.QWidget::cursor().shape(), Qt::OpenHandCursor);
+    }
+
     void viewing()
     {
         WaveformView view;

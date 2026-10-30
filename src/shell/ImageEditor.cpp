@@ -287,6 +287,13 @@ void ImageEditor::updateOptions()
     }
     m_canvas->setPanning(m_tool == Tool::CanvasMove);
     m_canvas->setBrushSize(sized ? brushSize(m_tool) : 0);
+    // The brush tools show their size on the pixels, the others a small cross.
+    ImageCanvas::Pointer pointer = sized ? ImageCanvas::Pointer::Square : ImageCanvas::Pointer::Cross;
+    if (m_tool == Tool::CanvasMove)
+        pointer = ImageCanvas::Pointer::Hand;
+    else if (m_tool == Tool::SelectionMove)
+        pointer = ImageCanvas::Pointer::Move;
+    m_canvas->setPointer(pointer);
 }
 
 void ImageEditor::setForeground(const PaintColor& color)

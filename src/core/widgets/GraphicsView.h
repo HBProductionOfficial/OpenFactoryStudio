@@ -73,6 +73,10 @@ public:
 
     void setImages(const QList<Image>& images);
     const QList<Image>& images() const { return m_images; }
+    // With the Color picker on, draggable images show a cross over their whole rectangle and a
+    // press doesn't drag them.
+    void setColorPicker(bool on);
+    bool colorPicker() const { return m_colorPicker; }
     void setBoxes(const QList<Box>& boxes);
     const QList<Box>& boxes() const { return m_boxes; }
     void setDrawingBoxes(bool drawing, const QColor& color = Qt::red);
@@ -202,6 +206,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
+    void keyReleaseEvent(QKeyEvent* event) override;
 
 private:
     WheelSteps m_wheel;
@@ -216,7 +221,11 @@ private:
         BoxMove,
         BoxResize,
         BoxDraw,
+        Pick, // an image under the Color picker, never dragged
     };
+    // The mouse pointer for what is under pos, or for the drag going on.
+    void updatePointer(const QPoint& pos, Qt::KeyboardModifiers modifiers);
+    static Qt::CursorShape pointerFor(Drag drag, int handle);
     void zoomTo(int index, const QPointF& anchor);
     QPointF zoomAnchor() const;
     void drawCross(QPainter& p, const QPointF& at, const QColor& fill, const QColor& outline, int which = 0);
@@ -272,6 +281,8 @@ private:
     int m_dragHandle = -1; // 0 top-left, clockwise to 7 left
     QRect m_dragBoxStart;
     QRect m_drawnBox;
+    bool m_ctrlPan = false; // a Ctrl+drag pans with the hand kept open
+    bool m_colorPicker = false;
 };
 
 } // namespace OFS

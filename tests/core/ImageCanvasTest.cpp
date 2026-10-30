@@ -25,6 +25,39 @@ class ImageCanvasTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    // The drawing tools hide the pointer and draw their own mark. The move tools show hands and
+    // the four-way arrow, same as Fighter Factory.
+    void pointers()
+    {
+        ImageCanvas canvas;
+        canvas.resize(400, 300);
+        const ImageDocument doc = document(12, 10);
+        canvas.setDocument(&doc);
+        canvas.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&canvas));
+        const QPoint middle(200, 150);
+        canvas.setPointer(ImageCanvas::Pointer::Square);
+        QTest::mouseMove(&canvas, middle);
+        QCOMPARE(canvas.cursor().shape(), Qt::BlankCursor);
+        canvas.setPointer(ImageCanvas::Pointer::Move);
+        QCOMPARE(canvas.cursor().shape(), Qt::SizeAllCursor);
+        canvas.setPointer(ImageCanvas::Pointer::Hand);
+        canvas.setPanning(true);
+        QCOMPARE(canvas.cursor().shape(), Qt::OpenHandCursor);
+        QTest::mousePress(&canvas, Qt::LeftButton, {}, middle);
+        QCOMPARE(canvas.cursor().shape(), Qt::ClosedHandCursor);
+        QTest::mouseRelease(&canvas, Qt::LeftButton, {}, middle);
+        QCOMPARE(canvas.cursor().shape(), Qt::OpenHandCursor);
+
+        // Ctrl+drag pans with any tool.
+        canvas.setPanning(false);
+        canvas.setPointer(ImageCanvas::Pointer::Cross);
+        QTest::mousePress(&canvas, Qt::LeftButton, Qt::ControlModifier, middle);
+        QCOMPARE(canvas.cursor().shape(), Qt::ClosedHandCursor);
+        QTest::mouseRelease(&canvas, Qt::LeftButton, Qt::ControlModifier, middle);
+        QCOMPARE(canvas.cursor().shape(), Qt::BlankCursor);
+    }
+
     void zoomLimits()
     {
         ImageCanvas canvas;

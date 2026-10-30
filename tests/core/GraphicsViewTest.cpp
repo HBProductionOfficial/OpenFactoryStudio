@@ -2,6 +2,7 @@
 #include "core/settings/Config.h"
 #include "core/widgets/RenderSurface.h"
 #include "core/widgets/Rulers.h"
+#include "core/widgets/TimelineWidget.h"
 
 #include <QApplication>
 #include <QFile>
@@ -331,6 +332,97 @@ private Q_SLOTS:
         QVERIFY(guides.count() > 0);
     }
 
+    // Same shapes as Fighter Factory: an open hand where a drag pans, the four-way arrow over what
+    // a drag moves.
+    void pointers()
+    {
+        GraphicsView view;
+        view.resize(400, 300);
+        view.setOrigin(QPoint(200, 150));
+        view.setImages({{block(20, 10), QPoint(-10, -10), 1.0, true, {}, {}, {}}});
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        auto shape = [&view] {
+            return view.cursor().shape();
+        };
+        // A plain move event, so no button or key state from an earlier step counts.
+        auto hover = [&view](const QPoint& at, Qt::KeyboardModifiers modifiers = {}) {
+            QMouseEvent move(QEvent::MouseMove, QPointF(at), view.mapToGlobal(QPointF(at)), Qt::NoButton, Qt::NoButton,
+                             modifiers);
+            QApplication::sendEvent(&view, &move);
+            return view.cursor().shape();
+        };
+
+        QTest::mouseMove(&view, QPoint(60, 250));
+        QCOMPARE(shape(), Qt::OpenHandCursor);
+        QTest::mousePress(&view, Qt::LeftButton, {}, QPoint(60, 250));
+        QCOMPARE(shape(), Qt::OpenHandCursor);
+        QTest::mouseMove(&view, QPoint(70, 240));
+        QCOMPARE(shape(), Qt::ClosedHandCursor);
+        QTest::mouseRelease(&view, Qt::LeftButton, {}, QPoint(70, 240));
+        QCOMPARE(shape(), Qt::OpenHandCursor);
+
+        // A drag on the rulers pans too.
+        QPoint origin = view.origin();
+        QTest::mousePress(&view, Qt::LeftButton, {}, QPoint(100, 5));
+        QTest::mouseMove(&view, QPoint(110, 5));
+        QTest::mouseRelease(&view, Qt::LeftButton, {}, QPoint(110, 5));
+        QCOMPARE(view.origin(), origin + QPoint(10, 0));
+
+        const QPoint sprite = view.toWidget(QPointF(0, -5)).toPoint();
+        QCOMPARE(hover(sprite), Qt::SizeAllCursor);
+        QCOMPARE(hover(sprite, Qt::ControlModifier), Qt::OpenHandCursor);
+        // Ctrl+drag pans with the hand kept open.
+        origin = view.origin();
+        QSignalSpy dragged(&view, &GraphicsView::imageDragged);
+        QTest::mousePress(&view, Qt::LeftButton, Qt::ControlModifier, sprite);
+        QTest::mouseMove(&view, sprite + QPoint(6, 0));
+        QCOMPARE(shape(), Qt::OpenHandCursor);
+        QTest::mouseRelease(&view, Qt::LeftButton, Qt::ControlModifier, sprite + QPoint(6, 0));
+        QCOMPARE(view.origin(), origin + QPoint(6, 0));
+        QCOMPARE(dragged.count(), 0);
+
+        // The Color picker shows a cross on the image and doesn't drag it.
+        view.setColorPicker(true);
+        const QPoint picked = view.toWidget(QPointF(0, -5)).toPoint();
+        QCOMPARE(hover(picked), Qt::CrossCursor);
+        origin = view.origin();
+        QTest::mousePress(&view, Qt::LeftButton, {}, picked);
+        QTest::mouseMove(&view, picked + QPoint(5, 5));
+        QTest::mouseRelease(&view, Qt::LeftButton, {}, picked + QPoint(5, 5));
+        QCOMPARE(dragged.count(), 0);
+        QCOMPARE(view.origin(), origin);
+        view.setColorPicker(false);
+
+        view.setGuidesVisible(true);
+        view.setGuides(QPoint(-60, 40));
+        const QPointF guide = view.toWidget(QPointF(-60, 40));
+        QCOMPARE(hover(QPoint(int(guide.x()), 60)), Qt::SizeHorCursor);
+        QCOMPARE(hover(QPoint(320, int(guide.y()))), Qt::SizeVerCursor);
+    }
+
+    void timelinePlayhead()
+    {
+        // 8 px per tick from x 120: frame 0 is x 120 to 200, frame 1 x 200 to 280.
+        TimelineWidget timeline;
+        timeline.resize(600, 60);
+        timeline.setAnimation(QStringLiteral("a"), {{10, false}, {10, false}});
+        timeline.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&timeline));
+        QSignalSpy clicked(&timeline, &TimelineWidget::frameClicked);
+        const int head = int(timeline.playheadX());
+        QTest::mouseMove(&timeline, QPoint(head + 2, 40));
+        QCOMPARE(timeline.cursor().shape(), Qt::SizeHorCursor);
+        QTest::mouseMove(&timeline, QPoint(head + 40, 40));
+        QCOMPARE(timeline.cursor().shape(), Qt::ArrowCursor);
+        // Dragging goes through the frames.
+        QTest::mousePress(&timeline, Qt::LeftButton, {}, QPoint(head + 2, 40));
+        QTest::mouseMove(&timeline, QPoint(240, 40));
+        QTest::mouseRelease(&timeline, Qt::LeftButton, {}, QPoint(240, 40));
+        QCOMPARE(clicked.size(), 2);
+        QCOMPARE(clicked.last().at(0).toInt(), 1);
+    }
+
     void fit()
     {
         GraphicsView view;
@@ -378,6 +470,15 @@ private Q_SLOTS:
 
         view.setBoxes({{moved, Qt::blue, true, true}});
         const QPoint corner = view.toWidget(QPointF(13, 2)).toPoint();
+        // The handles of the selected box show resize arrows, its inside the four-way arrow.
+        QTest::mouseMove(&view, corner + QPoint(4, 4));
+        QCOMPARE(view.cursor().shape(), Qt::SizeFDiagCursor);
+        QTest::mouseMove(&view, view.toWidget(QPointF(13, -18)).toPoint());
+        QCOMPARE(view.cursor().shape(), Qt::SizeBDiagCursor);
+        QTest::mouseMove(&view, view.toWidget(QPointF(3, -18)).toPoint());
+        QCOMPARE(view.cursor().shape(), Qt::SizeVerCursor);
+        QTest::mouseMove(&view, view.toWidget(QPointF(0, -10)).toPoint());
+        QCOMPARE(view.cursor().shape(), Qt::SizeAllCursor);
         QTest::mousePress(&view, Qt::LeftButton, {}, corner);
         QTest::mouseMove(&view, corner + QPoint(20, 0));
         QTest::mouseRelease(&view, Qt::LeftButton, {}, corner + QPoint(20, 0));
@@ -400,8 +501,11 @@ private Q_SLOTS:
         QSignalSpy drawn(&view, &GraphicsView::boxDrawn);
         QSignalSpy right(&view, &GraphicsView::rightClicked);
         view.setDrawingBoxes(true, Qt::red);
+        QTest::mouseMove(&view, QPoint(100, 100));
+        QCOMPARE(view.cursor().shape(), Qt::CrossCursor);
         QTest::mousePress(&view, Qt::LeftButton, {}, view.toWidget(QPointF(2.5, -3.5)).toPoint());
         QTest::mouseMove(&view, view.toWidget(QPointF(8.5, 1.5)).toPoint());
+        QCOMPARE(view.cursor().shape(), Qt::SizeFDiagCursor);
         QTest::mouseRelease(&view, Qt::LeftButton, {}, view.toWidget(QPointF(8.5, 1.5)).toPoint());
         QCOMPARE(drawn.size(), 1);
         QRect box;

@@ -35,7 +35,7 @@ public:
     const Formats::SampleBuffer& buffer() const { return m_buffer; }
 
     Tool tool() const { return m_tool; }
-    void setTool(Tool tool) { m_tool = tool; }
+    void setTool(Tool tool);
 
     double framesPerPixel() const { return m_framesPerPixel; }
     void setFramesPerPixel(double frames);
@@ -87,6 +87,8 @@ private:
     QRect waveArea() const;
     void updateScrollBar();
     double fitFramesPerPixel() const;
+    // The mouse pointer for the tool, and for where the pointer is or the drag started.
+    void updatePointer(int pointerX);
 
     Formats::SampleBuffer m_buffer;
     Formats::WaveformPeaks m_peaks;
@@ -100,6 +102,7 @@ private:
     qint64 m_play = -1;
     QColor m_waveColor{230, 200, 40};
     bool m_dragging = false;
+    Qt::MouseButton m_dragButton = Qt::NoButton;
     QPoint m_pressPos;
     qint64 m_anchor = 0;
     double m_firstAtPress = 0;

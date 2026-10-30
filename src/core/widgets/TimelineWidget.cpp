@@ -25,6 +25,7 @@ TimelineWidget::TimelineWidget(QWidget* parent)
     : QWidget(parent)
 {
     setObjectName(QStringLiteral("timeline"));
+    setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus); // a click takes the keyboard from the panel, like Fighter Factory
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     setFixedHeight(60);
@@ -135,24 +136,46 @@ void TimelineWidget::paintEvent(QPaintEvent* event)
         }
         x += block.width();
     }
-    const double head = left + (m_playhead - first) * unit;
     p.setPen(QPen(QColor(255, 220, 0), 2));
-    p.drawLine(QPointF(head, 0), QPointF(head, height()));
+    p.drawLine(QPointF(playheadX(), 0), QPointF(playheadX(), height()));
+}
+
+double TimelineWidget::playheadX() const
+{
+    return trackLeft() + (m_playhead - (m_tickMode ? m_firstTick : 0)) * tickWidth();
+}
+
+void TimelineWidget::scrubTo(int x)
+{
+    const int target = m_tickMode ? tickAt(x) : frameAt(x);
+    if (target < 0 || target == m_scrubbed)
+        return;
+    m_scrubbed = target;
+    if (m_tickMode)
+        Q_EMIT tickClicked(target);
+    else
+        Q_EMIT frameClicked(target);
 }
 
 void TimelineWidget::mousePressEvent(QMouseEvent* event)
 {
-    if (m_tickMode) {
-        const int tick = tickAt(event->position().toPoint().x());
-        if (event->button() == Qt::LeftButton && tick >= 0)
-            Q_EMIT tickClicked(tick);
-        QWidget::mousePressEvent(event);
-        return;
+    if (event->button() == Qt::LeftButton) {
+        m_scrubbed = -1;
+        scrubTo(event->position().toPoint().x());
     }
-    const int frame = frameAt(event->position().toPoint().x());
-    if (event->button() == Qt::LeftButton && frame >= 0)
-        Q_EMIT frameClicked(frame);
     QWidget::mousePressEvent(event);
+}
+
+void TimelineWidget::mouseMoveEvent(QMouseEvent* event)
+{
+    const int x = event->position().toPoint().x();
+    if (event->buttons() & Qt::LeftButton)
+        scrubTo(x);
+    // Same as Fighter Factory: left-right arrows over the play-head only.
+    const bool onHead = std::abs(x - playheadX()) <= 4;
+    if (onHead != (cursor().shape() == Qt::SizeHorCursor))
+        setCursor(onHead ? Qt::SizeHorCursor : Qt::ArrowCursor);
+    QWidget::mouseMoveEvent(event);
 }
 
 } // namespace OFS

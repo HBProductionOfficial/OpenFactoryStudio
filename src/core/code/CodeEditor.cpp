@@ -34,12 +34,22 @@ public:
         , m_editor(editor)
     {
         setObjectName(QStringLiteral("codeGutter"));
+        setMouseTracking(true);
     }
     QSize sizeHint() const override { return QSize(m_editor->gutterWidth(), 0); }
 
 protected:
     void paintEvent(QPaintEvent* event) override { m_editor->paintGutter(event); }
     void mousePressEvent(QMouseEvent* event) override { m_editor->gutterClicked(event->pos()); }
+    void mouseMoveEvent(QMouseEvent* event) override
+    {
+        // A click on the breakpoint strip toggles a breakpoint.
+        const bool strip = event->pos().x() < m_editor->breakpointStripWidth();
+        const Qt::CursorShape shape = strip ? Qt::PointingHandCursor : Qt::ArrowCursor;
+        if (cursor().shape() != shape)
+            setCursor(shape);
+        QWidget::mouseMoveEvent(event);
+    }
 
 private:
     CodeEditor* m_editor;
@@ -94,6 +104,7 @@ CodeEditor::CodeEditor(QWidget* parent)
     , m_gutter(new CodeGutter(this))
 {
     setObjectName(QStringLiteral("codeEditor"));
+    viewport()->setMouseTracking(true); // the pointer changes with Ctrl over documented words
     setLineWrapMode(QPlainTextEdit::NoWrap);
     setWordWrapMode(QTextOption::NoWrap);
     setFont(configuredFont(nullptr));
@@ -681,6 +692,21 @@ void CodeEditor::contextMenuEvent(QContextMenuEvent* event)
     releaseContextMenu(menu);
 }
 
+void CodeEditor::mouseMoveEvent(QMouseEvent* event)
+{
+    // A pointing hand over the words Ctrl+click opens the documentation for. Moving also brings
+    // back the pointer hidden while typing.
+    if (event->buttons() == Qt::NoButton) {
+        Qt::CursorShape shape = textInteractionFlags() & Qt::TextSelectableByMouse ? Qt::IBeamCursor : Qt::ArrowCursor;
+        if ((event->modifiers() & Qt::ControlModifier) &&
+            !documentationTarget(cursorForPosition(event->position().toPoint()).position()).first.isEmpty())
+            shape = Qt::PointingHandCursor;
+        if (viewport()->cursor().shape() != shape)
+            viewport()->setCursor(shape);
+    }
+    QPlainTextEdit::mouseMoveEvent(event);
+}
+
 void CodeEditor::mouseReleaseEvent(QMouseEvent* event)
 {
     if (event->button() == Qt::LeftButton && (event->modifiers() & Qt::ControlModifier)) {
@@ -712,6 +738,9 @@ bool CodeEditor::eventFilter(QObject* watched, QEvent* event)
 
 void CodeEditor::keyPressEvent(QKeyEvent* event)
 {
+    // Same as Fighter Factory: the pointer hides while typing over the text.
+    if (viewport()->underMouse())
+        viewport()->setCursor(Qt::BlankCursor);
     if (isCompleting()) {
         switch (event->key()) {
         case Qt::Key_Return:

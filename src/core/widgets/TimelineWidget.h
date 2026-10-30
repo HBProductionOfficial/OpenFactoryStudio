@@ -29,6 +29,8 @@ public:
     bool tickMode() const { return m_tickMode; }
     int tickAt(int x) const;
     int firstTick() const { return m_firstTick; }
+    // Where the play-head is drawn, in widget pixels.
+    double playheadX() const;
     static constexpr int EndlessLength = 30;
 
     QSize sizeHint() const override { return {640, 60}; }
@@ -41,16 +43,20 @@ Q_SIGNALS:
 protected:
     void paintEvent(QPaintEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
 
 private:
     double tickWidth() const;
     int trackLeft() const;
+    // A click or drag moves the play-head to the frame or tick under x.
+    void scrubTo(int x);
 
     QString m_name;
     QList<Frame> m_frames;
     int m_playhead = 0;
     bool m_tickMode = false;
     int m_firstTick = 0;
+    int m_scrubbed = -1; // the frame or tick the drag went to last
 };
 
 } // namespace OFS

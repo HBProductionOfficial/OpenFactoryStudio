@@ -39,12 +39,20 @@ public:
 
 protected:
     void paintEvent(QPaintEvent* event) override;
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
 
 private:
     QRect viewport() const;
 
     QList<Figure> m_figures;
     QSize m_screen{640, 480};
+    // A left drag moves the view, same as Fighter Factory.
+    QPointF m_pan;
+    QPointF m_panAtStart;
+    QPoint m_panStart;
+    bool m_panning = false;
 };
 
 } // namespace OFS::Mugen

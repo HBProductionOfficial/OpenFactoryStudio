@@ -118,6 +118,56 @@ void ImageCanvas::setBrushSize(int size)
     update();
 }
 
+void ImageCanvas::setPointer(Pointer pointer)
+{
+    m_pointer = pointer;
+    updatePointer();
+    update();
+}
+
+void ImageCanvas::updatePointer()
+{
+    // Same as Fighter Factory: the drawing tools hide the pointer over the canvas and show a mark.
+    Qt::CursorShape shape = Qt::BlankCursor;
+    if (m_dragPan)
+        shape = Qt::ClosedHandCursor;
+    else if (m_pointer == Pointer::Hand)
+        shape = Qt::OpenHandCursor;
+    else if (m_pointer == Pointer::Move)
+        shape = Qt::SizeAllCursor;
+    else if (!m_document || !editArea().contains(m_hoverPos))
+        shape = Qt::ArrowCursor;
+    if (cursor().shape() != shape)
+        setCursor(shape);
+}
+
+void ImageCanvas::drawMark(QPainter& p) const
+{
+    if (!m_hovering || m_dragPan || (m_pointer != Pointer::Square && m_pointer != Pointer::Cross))
+        return;
+    p.save();
+    p.setBrush(Qt::NoBrush);
+    if (m_pointer == Pointer::Square) {
+        // The pixels the brush covers, from the one under the pointer to the right and down.
+        const int size = std::max(1, m_brushSize);
+        const QRect r = QRectF(toWidget(m_hover), QSizeF(size, size) * m_zoom).toAlignedRect();
+        p.setPen(QPen(Qt::white, 1));
+        p.drawRect(r.adjusted(-1, -1, 0, 0));
+        p.setPen(QPen(Qt::black, 1));
+        p.drawRect(r.adjusted(-2, -2, 1, 1));
+    } else {
+        // White arms with a black outline, open in the middle.
+        const QPoint c = toWidget(QPointF(m_hover) + QPointF(0.5, 0.5)).toPoint();
+        const QRect arms[] = {QRect(c.x() - 6, c.y(), 5, 1), QRect(c.x() + 2, c.y(), 5, 1),
+                              QRect(c.x(), c.y() - 6, 1, 5), QRect(c.x(), c.y() + 2, 1, 5)};
+        for (const QRect& arm : arms)
+            p.fillRect(arm.adjusted(-1, -1, 1, 1), Qt::black);
+        for (const QRect& arm : arms)
+            p.fillRect(arm, Qt::white);
+    }
+    p.restore();
+}
+
 void ImageCanvas::setOriginalShown(bool shown)
 {
     m_original = shown;
@@ -205,10 +255,7 @@ void ImageCanvas::paintContent(QPainter& p)
     p.save();
     p.setClipRect(editArea());
     drawCanvas(p, canvasArea());
-    if (m_brushSize > 0 && m_document->contains(m_hover.x(), m_hover.y())) {
-        p.setPen(QPen(Qt::white, 1, Qt::DotLine));
-        p.drawRect(QRectF(toWidget(m_hover), QSizeF(m_brushSize, m_brushSize) * m_zoom));
-    }
+    drawMark(p);
     p.restore();
 }
 
@@ -221,6 +268,8 @@ void ImageCanvas::mousePressEvent(QMouseEvent* event)
     if (m_dragPan) {
         m_panStart = event->position();
         m_centerAtStart = m_center;
+        updatePointer();
+        update();
         return;
     }
     Q_EMIT pressed(pixelAt(event->position()), gridPointAt(event->position()), event->button(), event->modifiers());
@@ -231,11 +280,13 @@ void ImageCanvas::mouseMoveEvent(QMouseEvent* event)
     if (!m_document)
         return;
     const QPoint hover = pixelAt(event->position());
-    if (hover != m_hover && m_brushSize > 0) {
+    m_hoverPos = event->position();
+    if (hover != m_hover || !m_hovering) {
         m_hover = hover;
-        update();
+        m_hovering = true;
+        update(); // the mark follows the pointer
     }
-    m_hover = hover;
+    updatePointer();
     if (!m_pressed)
         return;
     if (m_dragPan) {
@@ -253,6 +304,8 @@ void ImageCanvas::mouseReleaseEvent(QMouseEvent* event)
     m_pressed = false;
     if (m_dragPan) {
         m_dragPan = false;
+        updatePointer();
+        update();
         return;
     }
     Q_EMIT released(pixelAt(event->position()), gridPointAt(event->position()));
@@ -270,6 +323,7 @@ void ImageCanvas::wheelEvent(QWheelEvent* event)
 void ImageCanvas::leaveEvent(QEvent* event)
 {
     m_hover = QPoint(-1, -1);
+    m_hovering = false;
     update();
     QWidget::leaveEvent(event);
 }

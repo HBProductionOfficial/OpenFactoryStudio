@@ -3,6 +3,7 @@
 #include "core/GameTime.h"
 #include "core/widgets/Rulers.h"
 
+#include <QCursor>
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QPainter>
@@ -272,9 +273,12 @@ void WaveformView::mousePressEvent(QMouseEvent* event)
         setFirstFrame(anchor - x * m_framesPerPixel);
         return;
     }
-    if (event->button() != Qt::LeftButton)
+    // Any button pans with the Move view offset tool, same as Fighter Factory.
+    if (event->button() != Qt::LeftButton && m_tool != Tool::MoveView)
         return QWidget::mousePressEvent(event);
     m_dragging = true;
+    m_dragButton = event->button();
+    updatePointer(event->position().toPoint().x());
     if (m_tool == Tool::Select) {
         m_anchor = (event->modifiers() & Qt::ShiftModifier) ? m_cursor : frame;
         setCursor(frame);
@@ -284,6 +288,7 @@ void WaveformView::mousePressEvent(QMouseEvent* event)
 
 void WaveformView::mouseMoveEvent(QMouseEvent* event)
 {
+    updatePointer(event->position().toPoint().x());
     if (!m_dragging)
         return;
     const int x = event->position().toPoint().x();
@@ -297,9 +302,11 @@ void WaveformView::mouseMoveEvent(QMouseEvent* event)
 
 void WaveformView::mouseReleaseEvent(QMouseEvent* event)
 {
-    if (event->button() != Qt::LeftButton || !m_dragging)
+    if (event->button() != m_dragButton || !m_dragging)
         return QWidget::mouseReleaseEvent(event);
     m_dragging = false;
+    m_dragButton = Qt::NoButton;
+    updatePointer(event->position().toPoint().x());
     const QPoint delta = event->position().toPoint() - m_pressPos;
     if (m_selection.empty())
         return;
@@ -339,6 +346,7 @@ void WaveformView::keyPressEvent(QKeyEvent* event)
     if (event->key() == Qt::Key_Control && !event->isAutoRepeat() && !m_toolBeforeCtrl) {
         m_toolBeforeCtrl = m_tool;
         m_tool = Tool::MoveView;
+        updatePointer(mapFromGlobal(QCursor::pos()).x());
         return;
     }
     const bool left = event->key() == Qt::Key_Left;
@@ -362,9 +370,47 @@ void WaveformView::keyReleaseEvent(QKeyEvent* event)
     if (event->key() == Qt::Key_Control && !event->isAutoRepeat() && m_toolBeforeCtrl) {
         m_tool = *m_toolBeforeCtrl;
         m_toolBeforeCtrl.reset();
+        updatePointer(mapFromGlobal(QCursor::pos()).x());
         return;
     }
     QWidget::keyReleaseEvent(event);
+}
+
+void WaveformView::setTool(Tool tool)
+{
+    m_tool = tool;
+    updatePointer(mapFromGlobal(QCursor::pos()).x());
+}
+
+void WaveformView::updatePointer(int pointerX)
+{
+    // During a drag the place where it started counts, so the pointer doesn't change on the way.
+    const int x = m_dragging ? m_pressPos.x() : pointerX;
+    const bool inSelection =
+        !m_selection.empty() && x >= xAt(double(m_selection.start)) && x < xAt(double(m_selection.end()));
+    Qt::CursorShape shape = Qt::ArrowCursor;
+    switch (m_tool) {
+    case Tool::MoveView:
+        shape = m_dragging ? Qt::ClosedHandCursor : Qt::OpenHandCursor;
+        break;
+    case Tool::Zoom:
+        shape = Qt::PointingHandCursor;
+        break;
+    case Tool::Select:
+        break;
+    case Tool::MoveSelection:
+        shape = inSelection ? Qt::SizeAllCursor : Qt::ArrowCursor;
+        break;
+    case Tool::HorizontalResize:
+        shape = inSelection ? Qt::SizeHorCursor : Qt::ArrowCursor;
+        break;
+    case Tool::VerticalResize:
+        shape = inSelection ? Qt::SizeVerCursor : Qt::ArrowCursor;
+        break;
+    }
+    // This class's setCursor and cursor are about the play cursor, so call QWidget's.
+    if (QWidget::cursor().shape() != shape)
+        QWidget::setCursor(shape);
 }
 
 void WaveformView::wheelEvent(QWheelEvent* event)

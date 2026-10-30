@@ -6,8 +6,10 @@
 #include "core/widgets/RenderSurface.h"
 #include "core/widgets/Rulers.h"
 
+#include <QCursor>
 #include <QDateTime>
 #include <QFileInfo>
+#include <QGuiApplication>
 #include <QHash>
 #include <QKeyEvent>
 #include <QLinearGradient>
@@ -25,6 +27,7 @@ namespace {
 constexpr int RulerSize = 20;
 constexpr int GuideGrab = 3;
 constexpr int HandleSize = 7;
+constexpr double HandleGrab = 2.5; // a handle reacts in a 12 px square
 
 } // namespace
 
@@ -75,6 +78,7 @@ GraphicsView::GraphicsView(QWidget* parent)
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    setCursor(Qt::OpenHandCursor);
     m_surface = Rendering::attachSurface(this, [this](QPainter& p) { paintContent(p); });
 }
 
@@ -82,6 +86,14 @@ void GraphicsView::setImages(const QList<Image>& images)
 {
     m_images = images;
     update();
+}
+
+void GraphicsView::setColorPicker(bool on)
+{
+    m_colorPicker = on;
+    if (m_drag == Drag::Image)
+        m_drag = Drag::None;
+    updatePointer(mapFromGlobal(QCursor::pos()), QGuiApplication::keyboardModifiers());
 }
 
 void GraphicsView::setBoxes(const QList<Box>& boxes)
@@ -628,7 +640,7 @@ GraphicsView::Drag GraphicsView::hitTest(const QPoint& pos, int* box, int* handl
     if (const int selected = selectedBox(); selected >= 0) {
         const QList<QRectF> grips = handles(m_boxes.at(selected).rect);
         for (int h = 0; h < grips.size(); ++h) {
-            if (grips.at(h).contains(pos)) {
+            if (grips.at(h).adjusted(-HandleGrab, -HandleGrab, HandleGrab, HandleGrab).contains(pos)) {
                 if (box)
                     *box = selected;
                 if (handle)
@@ -659,10 +671,11 @@ GraphicsView::Drag GraphicsView::hitTest(const QPoint& pos, int* box, int* handl
             continue;
         const QPointF mapped = image.transform.inverted().map(units) - QPointF(image.topLeft);
         const QPoint local(int(std::floor(mapped.x())), int(std::floor(mapped.y())));
-        if (QRect(QPoint(), image.image.size()).contains(local) && image.image.pixelColor(local).alpha() > 0) {
+        if (QRect(QPoint(), image.image.size()).contains(local) &&
+            (m_colorPicker || image.image.pixelColor(local).alpha() > 0)) {
             if (imageIndex)
                 *imageIndex = int(i);
-            return Drag::Image;
+            return m_colorPicker ? Drag::Pick : Drag::Image;
         }
     }
     return Drag::Pan;
@@ -674,17 +687,23 @@ void GraphicsView::mousePressEvent(QMouseEvent* event)
         Q_EMIT rightClicked();
         return;
     }
-    if (event->button() != Qt::LeftButton || !contentRect().contains(event->position().toPoint())) {
+    if (event->button() != Qt::LeftButton) {
         QWidget::mousePressEvent(event);
         return;
     }
     setFocus(Qt::MouseFocusReason);
-    Q_EMIT pressed(toUnits(event->position()));
+    // A drag that starts on the rulers pans, same as Fighter Factory.
+    const bool onRulers = !contentRect().contains(event->position().toPoint());
+    if (!onRulers)
+        Q_EMIT pressed(toUnits(event->position()));
     int box = -1;
     int handle = -1;
     int pressedImage = -1;
     const bool ctrl = event->modifiers() & Qt::ControlModifier;
-    m_drag = ctrl ? Drag::Pan : hitTest(event->position().toPoint(), &box, &handle, &pressedImage);
+    m_drag = ctrl || onRulers ? Drag::Pan : hitTest(event->position().toPoint(), &box, &handle, &pressedImage);
+    m_ctrlPan = ctrl;
+    if (m_drag == Drag::Pick)
+        m_drag = Drag::None;
     if (m_drag == Drag::Image)
         Q_EMIT imagePressed(pressedImage);
     m_dragStart = event->position().toPoint();
@@ -696,9 +715,10 @@ void GraphicsView::mousePressEvent(QMouseEvent* event)
     if (m_drag == Drag::BoxMove || m_drag == Drag::BoxResize) {
         m_dragBoxStart = m_boxes.at(box).rect;
         Q_EMIT boxPressed(box);
-    } else if (m_drag != Drag::BoxDraw && !ctrl) {
+    } else if (m_drag != Drag::BoxDraw && !ctrl && !onRulers) {
         Q_EMIT boxPressed(-1);
     }
+    updatePointer(m_dragStart, event->modifiers());
 }
 
 void GraphicsView::mouseMoveEvent(QMouseEvent* event)
@@ -707,21 +727,10 @@ void GraphicsView::mouseMoveEvent(QMouseEvent* event)
     // Rounded down like Fighter Factory, so -0.5 is unit -1.
     const QPointF under = toUnits(pos);
     Q_EMIT cursorMoved(QPoint(int(std::floor(under.x())), int(std::floor(under.y()))));
+    updatePointer(pos.toPoint(), event->modifiers());
     switch (m_drag) {
     case Drag::None:
-        switch (hitTest(pos.toPoint())) {
-        case Drag::VerticalGuide:
-            setCursor(Qt::SizeHorCursor);
-            break;
-        case Drag::HorizontalGuide:
-            setCursor(Qt::SizeVerCursor);
-            break;
-        case Drag::Image:
-            setCursor(Qt::SizeAllCursor);
-            break;
-        default:
-            unsetCursor();
-        }
+    case Drag::Pick:
         break;
     case Drag::Pan:
         setOrigin(m_originAtStart + (pos.toPoint() - m_dragStart));
@@ -801,12 +810,77 @@ void GraphicsView::mouseReleaseEvent(QMouseEvent* event)
             if (drawn.isValid() && (event->position().toPoint() - m_dragStart).manhattanLength() > 2)
                 Q_EMIT boxDrawn(drawn);
         }
+        updatePointer(event->position().toPoint(), event->modifiers());
     }
     QWidget::mouseReleaseEvent(event);
 }
 
+void GraphicsView::keyReleaseEvent(QKeyEvent* event)
+{
+    if (event->key() == Qt::Key_Control)
+        updatePointer(mapFromGlobal(QCursor::pos()), event->modifiers() & ~Qt::ControlModifier);
+    QWidget::keyReleaseEvent(event);
+}
+
+Qt::CursorShape GraphicsView::pointerFor(Drag drag, int handle)
+{
+    switch (drag) {
+    case Drag::Image:
+    case Drag::BoxMove:
+        return Qt::SizeAllCursor;
+    case Drag::VerticalGuide:
+        return Qt::SizeHorCursor;
+    case Drag::HorizontalGuide:
+        return Qt::SizeVerCursor;
+    case Drag::BoxResize: {
+        // Handles from the top-left corner, clockwise.
+        static const Qt::CursorShape shapes[] = {Qt::SizeFDiagCursor, Qt::SizeVerCursor,   Qt::SizeBDiagCursor,
+                                                 Qt::SizeHorCursor,   Qt::SizeFDiagCursor, Qt::SizeVerCursor,
+                                                 Qt::SizeBDiagCursor, Qt::SizeHorCursor};
+        return handle >= 0 && handle < 8 ? shapes[handle] : Qt::SizeAllCursor;
+    }
+    case Drag::BoxDraw:
+    case Drag::Pick:
+        return Qt::CrossCursor;
+    case Drag::None:
+    case Drag::Pan:
+        break;
+    }
+    return Qt::OpenHandCursor;
+}
+
+void GraphicsView::updatePointer(const QPoint& pos, Qt::KeyboardModifiers modifiers)
+{
+    // Same as Fighter Factory: an open hand where a drag pans, closing once the view moves. Ctrl
+    // pans from anywhere and keeps the hand open.
+    const bool moved = pos != m_dragStart;
+    Qt::CursorShape shape = Qt::OpenHandCursor;
+    switch (m_drag) {
+    case Drag::None:
+    case Drag::Pick:
+        if (!(modifiers & Qt::ControlModifier) && contentRect().contains(pos)) {
+            int handle = -1;
+            shape = pointerFor(hitTest(pos, nullptr, &handle), handle);
+        }
+        break;
+    case Drag::Pan:
+        shape = m_ctrlPan || !moved ? Qt::OpenHandCursor : Qt::ClosedHandCursor;
+        break;
+    case Drag::BoxDraw:
+        shape = moved ? Qt::SizeFDiagCursor : Qt::CrossCursor;
+        break;
+    default:
+        shape = pointerFor(m_drag, m_dragHandle);
+        break;
+    }
+    if (cursor().shape() != shape)
+        setCursor(shape);
+}
+
 void GraphicsView::keyPressEvent(QKeyEvent* event)
 {
+    if (event->key() == Qt::Key_Control)
+        updatePointer(mapFromGlobal(QCursor::pos()), event->modifiers() | Qt::ControlModifier);
     if (selectedBox() >= 0 && event->modifiers() == Qt::NoModifier) {
         switch (event->key()) {
         case Qt::Key_Left:

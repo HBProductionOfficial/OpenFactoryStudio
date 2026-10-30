@@ -236,7 +236,7 @@ void SpritePage::setDisplayPalette(SpritePalettePtr palette)
 void SpritePage::setColorPicker(bool on)
 {
     m_picker = on;
-    refresh(); // the sprite cannot be dragged while picking
+    m_view->setColorPicker(on); // the sprite shows a cross and can't be dragged while picking
 }
 
 void SpritePage::setShowTransparent(bool show)
@@ -280,8 +280,7 @@ void SpritePage::refresh()
                                       {},
                                       {}};
     if (m_current >= 0 && m_current < doc.spriteCount())
-        images << GraphicsView::Image{
-            spriteImage(m_current), place(m_current) + m_dragOffset, 1.0, !m_picker, {}, {}, {}};
+        images << GraphicsView::Image{spriteImage(m_current), place(m_current) + m_dragOffset, 1.0, true, {}, {}, {}};
     m_view->setImages(images);
 }
 

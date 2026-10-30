@@ -3,6 +3,7 @@
 #include "core/widgets/Rulers.h"
 
 #include <QLinearGradient>
+#include <QMouseEvent>
 #include <QPainter>
 
 #include <cmath>
@@ -23,6 +24,7 @@ AnimationPreview::AnimationPreview(QWidget* parent)
 {
     setMinimumSize(320, 200);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    setCursor(Qt::OpenHandCursor);
 }
 
 void AnimationPreview::setFigures(const QList<Figure>& figures)
@@ -53,7 +55,36 @@ QPointF AnimationPreview::origin() const
     // The screen puts the players half way across and on the floor, at 170/240 of its height.
     const double x = std::min(m_screen.width() / 2.0, width() / 2.0);
     const double y = std::min(std::round(m_screen.height() * 170.0 / 240.0) + 1, height() - 24.0);
-    return {std::max(x, double(RulerSize) + 24), std::max(y, double(RulerSize) + 24)};
+    return QPointF(std::max(x, double(RulerSize) + 24), std::max(y, double(RulerSize) + 24)) + m_pan;
+}
+
+void AnimationPreview::mousePressEvent(QMouseEvent* event)
+{
+    if (event->button() != Qt::LeftButton)
+        return QWidget::mousePressEvent(event);
+    m_panning = true;
+    m_panStart = event->position().toPoint();
+    m_panAtStart = m_pan;
+}
+
+void AnimationPreview::mouseMoveEvent(QMouseEvent* event)
+{
+    if (!m_panning)
+        return QWidget::mouseMoveEvent(event);
+    // The hand closes once the view moves.
+    const QPoint delta = event->position().toPoint() - m_panStart;
+    if (!delta.isNull() && cursor().shape() != Qt::ClosedHandCursor)
+        setCursor(Qt::ClosedHandCursor);
+    m_pan = m_panAtStart + delta;
+    update();
+}
+
+void AnimationPreview::mouseReleaseEvent(QMouseEvent* event)
+{
+    if (event->button() != Qt::LeftButton || !m_panning)
+        return QWidget::mouseReleaseEvent(event);
+    m_panning = false;
+    setCursor(Qt::OpenHandCursor);
 }
 
 QPointF AnimationPreview::toWidget(const QPointF& units) const

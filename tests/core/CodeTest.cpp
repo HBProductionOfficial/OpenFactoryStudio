@@ -811,6 +811,33 @@ private Q_SLOTS:
         QVERIFY(editor.markerMessageAt(pointAt(0, 2)).isEmpty());
     }
 
+    void pointers()
+    {
+        CodeEditor editor;
+        CodeEditor::Options options;
+        options.breakpoints = true;
+        editor.setOptions(options);
+        editor.resize(400, 200);
+        editor.setPlainText("[Data]\nlife = 1000\n");
+        editor.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&editor));
+        // A pointing hand over the breakpoint strip.
+        auto* gutter = editor.findChild<QWidget*>("codeGutter");
+        QVERIFY(gutter);
+        QTest::mouseMove(gutter, QPoint(3, 5));
+        QCOMPARE(gutter->cursor().shape(), Qt::PointingHandCursor);
+        QTest::mouseMove(gutter, QPoint(gutter->width() - 2, 5));
+        QCOMPARE(gutter->cursor().shape(), Qt::ArrowCursor);
+
+        // Typing hides the pointer over the text until the mouse moves.
+        QTest::mouseMove(editor.viewport(), QPoint(50, 10));
+        QTRY_VERIFY(editor.viewport()->underMouse());
+        QTest::keyClick(&editor, Qt::Key_A);
+        QCOMPARE(editor.viewport()->cursor().shape(), Qt::BlankCursor);
+        QTest::mouseMove(editor.viewport(), QPoint(60, 10));
+        QCOMPARE(editor.viewport()->cursor().shape(), Qt::IBeamCursor);
+    }
+
     void variableUsageLog()
     {
         VariableUsage usage;

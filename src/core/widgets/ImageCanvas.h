@@ -30,6 +30,17 @@ public:
     void zoomFit();
     void setPanning(bool panning) { m_panning = panning; }
     void setBrushSize(int size);
+    // The mouse pointer over the canvas. Square and Cross hide the system pointer and draw a mark
+    // on the pixel grid instead: the brush outline, or a small cross on the pixel.
+    enum class Pointer
+    {
+        Hand,
+        Move,
+        Square,
+        Cross,
+    };
+    void setPointer(Pointer pointer);
+    Pointer pointer() const { return m_pointer; }
     void setOriginalShown(bool shown);
     bool originalShown() const { return m_original; }
 
@@ -71,6 +82,8 @@ private:
     QRectF canvasArea() const;
     QRectF editArea() const;
     void drawCanvas(QPainter& p, const QRectF& target) const;
+    void drawMark(QPainter& p) const;
+    void updatePointer();
 
     const ImageDocument* m_document = nullptr;
     // Rebuilt lazily on paint, so a drag costs one rebuild per frame.
@@ -83,7 +96,10 @@ private:
     bool m_panning = false;
     bool m_original = false;
     int m_brushSize = 0;
+    Pointer m_pointer = Pointer::Cross;
     QPoint m_hover{-1, -1};
+    QPointF m_hoverPos;
+    bool m_hovering = false;
     bool m_dragPan = false;
     bool m_pressed = false;
     QPointF m_panStart;
