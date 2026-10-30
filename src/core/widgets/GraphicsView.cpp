@@ -860,7 +860,8 @@ void GraphicsView::updatePointer(const QPoint& pos, Qt::KeyboardModifiers modifi
     case Drag::Pick:
         if (!(modifiers & Qt::ControlModifier) && contentRect().contains(pos)) {
             int handle = -1;
-            shape = pointerFor(hitTest(pos, nullptr, &handle), handle);
+            const Drag hit = hitTest(pos, nullptr, &handle); // fills in handle, so it runs first
+            shape = pointerFor(hit, handle);
         }
         break;
     case Drag::Pan:

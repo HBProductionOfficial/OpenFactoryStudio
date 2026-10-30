@@ -24,6 +24,15 @@ QImage block(int width, int height)
     return image;
 }
 
+// The pointer after a plain move event, so no button or key state from an earlier step counts.
+Qt::CursorShape pointerAt(GraphicsView& view, const QPoint& at, Qt::KeyboardModifiers modifiers = {},
+                          Qt::MouseButtons buttons = Qt::NoButton)
+{
+    QMouseEvent move(QEvent::MouseMove, QPointF(at), view.mapToGlobal(QPointF(at)), Qt::NoButton, buttons, modifiers);
+    QApplication::sendEvent(&view, &move);
+    return view.cursor().shape();
+}
+
 } // namespace
 
 class GraphicsViewTest : public QObject
@@ -345,12 +354,8 @@ private Q_SLOTS:
         auto shape = [&view] {
             return view.cursor().shape();
         };
-        // A plain move event, so no button or key state from an earlier step counts.
         auto hover = [&view](const QPoint& at, Qt::KeyboardModifiers modifiers = {}) {
-            QMouseEvent move(QEvent::MouseMove, QPointF(at), view.mapToGlobal(QPointF(at)), Qt::NoButton, Qt::NoButton,
-                             modifiers);
-            QApplication::sendEvent(&view, &move);
-            return view.cursor().shape();
+            return pointerAt(view, at, modifiers);
         };
 
         QTest::mouseMove(&view, QPoint(60, 250));
@@ -471,14 +476,10 @@ private Q_SLOTS:
         view.setBoxes({{moved, Qt::blue, true, true}});
         const QPoint corner = view.toWidget(QPointF(13, 2)).toPoint();
         // The handles of the selected box show resize arrows, its inside the four-way arrow.
-        QTest::mouseMove(&view, corner + QPoint(4, 4));
-        QCOMPARE(view.cursor().shape(), Qt::SizeFDiagCursor);
-        QTest::mouseMove(&view, view.toWidget(QPointF(13, -18)).toPoint());
-        QCOMPARE(view.cursor().shape(), Qt::SizeBDiagCursor);
-        QTest::mouseMove(&view, view.toWidget(QPointF(3, -18)).toPoint());
-        QCOMPARE(view.cursor().shape(), Qt::SizeVerCursor);
-        QTest::mouseMove(&view, view.toWidget(QPointF(0, -10)).toPoint());
-        QCOMPARE(view.cursor().shape(), Qt::SizeAllCursor);
+        QCOMPARE(pointerAt(view, corner + QPoint(4, 4)), Qt::SizeFDiagCursor);
+        QCOMPARE(pointerAt(view, view.toWidget(QPointF(13, -18)).toPoint()), Qt::SizeBDiagCursor);
+        QCOMPARE(pointerAt(view, view.toWidget(QPointF(3, -18)).toPoint()), Qt::SizeVerCursor);
+        QCOMPARE(pointerAt(view, view.toWidget(QPointF(0, -10)).toPoint()), Qt::SizeAllCursor);
         QTest::mousePress(&view, Qt::LeftButton, {}, corner);
         QTest::mouseMove(&view, corner + QPoint(20, 0));
         QTest::mouseRelease(&view, Qt::LeftButton, {}, corner + QPoint(20, 0));
@@ -501,11 +502,9 @@ private Q_SLOTS:
         QSignalSpy drawn(&view, &GraphicsView::boxDrawn);
         QSignalSpy right(&view, &GraphicsView::rightClicked);
         view.setDrawingBoxes(true, Qt::red);
-        QTest::mouseMove(&view, QPoint(100, 100));
-        QCOMPARE(view.cursor().shape(), Qt::CrossCursor);
+        QCOMPARE(pointerAt(view, QPoint(100, 100)), Qt::CrossCursor);
         QTest::mousePress(&view, Qt::LeftButton, {}, view.toWidget(QPointF(2.5, -3.5)).toPoint());
-        QTest::mouseMove(&view, view.toWidget(QPointF(8.5, 1.5)).toPoint());
-        QCOMPARE(view.cursor().shape(), Qt::SizeFDiagCursor);
+        QCOMPARE(pointerAt(view, view.toWidget(QPointF(8.5, 1.5)).toPoint(), {}, Qt::LeftButton), Qt::SizeFDiagCursor);
         QTest::mouseRelease(&view, Qt::LeftButton, {}, view.toWidget(QPointF(8.5, 1.5)).toPoint());
         QCOMPARE(drawn.size(), 1);
         QRect box;
