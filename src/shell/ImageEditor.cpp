@@ -31,41 +31,52 @@ class RemapSlotsWidget : public QWidget
 {
 public:
     static constexpr int Cell = 12;
-    static constexpr int Half = Cell / 2;
 
     explicit RemapSlotsWidget(ImageEditor* editor)
         : QWidget(editor)
         , m_editor(editor)
     {
-        setFixedSize(ImageEditor::RemapSlotCount * Cell + 2, 2 * Cell + 2);
+        setFixedSize(ImageEditor::RemapSlotCount * Cell, 2 * Cell);
     }
 
 protected:
+    // Same look as Fighter Factory: every cell has its own sunken frame, so the slots stay apart. The top cell is the
+    // colour to replace, the bottom one the colour that replaces it.
     void paintEvent(QPaintEvent*) override
     {
         QPainter p(this);
-        const QColor empty(192, 192, 192);
+        const QColor shadow(128, 128, 128);
+        const QColor light(Qt::white);
+        const QColor checker(160, 160, 164);
+        const QColor current = palette().color(QPalette::Highlight);
         for (int i = 0; i < ImageEditor::RemapSlotCount; ++i) {
             const ImageEditor::RemapSlot& slot = m_editor->remapSlots()[std::size_t(i)];
+            const bool isCurrent = i == m_editor->currentSlot();
             for (int row = 0; row < 2; ++row) {
-                const QRect cell(1 + i * Cell, 1 + row * Cell, Cell, Cell);
+                const QRect cell(i * Cell, row * Cell, Cell, Cell);
+                p.fillRect(QRect(cell.left(), cell.top(), Cell, 1), isCurrent ? current : shadow);
+                p.fillRect(QRect(cell.left(), cell.top(), 1, Cell), isCurrent ? current : shadow);
+                p.fillRect(QRect(cell.left(), cell.bottom(), Cell, 1), isCurrent ? current : light);
+                p.fillRect(QRect(cell.right(), cell.top(), 1, Cell), isCurrent ? current : light);
+                const QRect inside = cell.adjusted(1, 1, -1, -1);
                 const std::optional<PaintColor>& color = row == 0 ? slot.source : slot.replacement;
                 if (color) {
-                    p.fillRect(cell, m_editor->displayColor(*color));
+                    p.fillRect(inside, m_editor->displayColor(*color));
                 } else {
-                    p.fillRect(cell, Qt::white);
-                    p.fillRect(QRect(cell.topLeft(), QSize(Half, Half)), empty);
-                    p.fillRect(QRect(cell.topLeft() + QPoint(Half, Half), QSize(Half, Half)), empty);
+                    // Four squares with a thin gap between them.
+                    const int x = inside.left(), y = inside.top();
+                    p.fillRect(QRect(x, y, 4, 4), checker);
+                    p.fillRect(QRect(x + 5, y, 5, 4), light);
+                    p.fillRect(QRect(x, y + 5, 4, 5), light);
+                    p.fillRect(QRect(x + 5, y + 5, 5, 5), checker);
                 }
             }
         }
-        p.setPen(QPen(palette().color(QPalette::Highlight), 2));
-        p.drawRect(QRect(1 + m_editor->currentSlot() * Cell, 1, Cell, 2 * Cell));
     }
     void mousePressEvent(QMouseEvent* event) override
     {
         if (event->button() == Qt::LeftButton) {
-            m_editor->setCurrentSlot(int(event->position().x() - 1) / Cell);
+            m_editor->setCurrentSlot(int(event->position().x()) / Cell);
             update();
         }
     }
@@ -100,6 +111,9 @@ private:
         const ImageDocument& now = m_editor->document();
         document.selection =
             now.width == document.width && now.height == document.height ? now.selection : std::vector<std::uint8_t>();
+        // The palette is the one chosen in the panel, not part of the edit.
+        if (now.indexed && document.indexed)
+            document.palette = now.palette;
         m_editor->setDocument(document);
     }
 
@@ -203,6 +217,17 @@ void ImageEditor::setDocument(const ImageDocument& document)
 {
     m_document = document;
     refresh();
+}
+
+void ImageEditor::setPalette(const Formats::Palette& colors)
+{
+    if (m_document.palette == colors)
+        return;
+    m_document.palette = colors;
+    m_before.palette = colors; // a stroke going on
+    refresh();
+    m_remap->update();
+    Q_EMIT colorsChanged();
 }
 
 void ImageEditor::refresh()
@@ -310,9 +335,35 @@ void ImageEditor::setBackground(const PaintColor& color)
 
 QColor ImageEditor::displayColor(const PaintColor& color) const
 {
-    if (color.rgba.a == 0)
+    // An 8-bit canvas shows an index through the current palette, so a palette change shows at once.
+    Formats::Rgba rgba = color.rgba;
+    if (m_document.indexed && color.index >= 0 && color.index < int(m_document.palette.size()))
+        rgba = color.index == 0 ? Formats::Rgba{0, 0, 0, 0} : m_document.palette[std::size_t(color.index)];
+    if (rgba.a == 0)
         return QColor(Qt::gray);
-    return QColor(color.rgba.r, color.rgba.g, color.rgba.b);
+    return QColor(rgba.r, rgba.g, rgba.b);
+}
+
+QList<QPair<PaintColor, PaintColor>> ImageEditor::remapPairs(bool reverse) const
+{
+    // Colours as the current palette shows them, for canvases that compare colours instead of indexes.
+    auto shown = [this](PaintColor color) {
+        if (color.index >= 0 && color.index < int(m_document.palette.size())) {
+            color.rgba = m_document.palette[std::size_t(color.index)];
+            color.rgba.a = color.index == 0 ? 0 : 255;
+        }
+        return color;
+    };
+    // A slot without the colour to write turns its pixels transparent, same as Fighter Factory.
+    const PaintColor transparent{0, Formats::Rgba{0, 0, 0, 0}};
+    QList<QPair<PaintColor, PaintColor>> pairs;
+    for (const RemapSlot& slot : m_slots) {
+        const std::optional<PaintColor>& from = reverse ? slot.replacement : slot.source;
+        const std::optional<PaintColor>& to = reverse ? slot.source : slot.replacement;
+        if (from)
+            pairs << qMakePair(shown(*from), to ? shown(*to) : transparent);
+    }
+    return pairs;
 }
 
 PaintColor ImageEditor::sample(const QPoint& pixel) const
@@ -375,7 +426,7 @@ void ImageEditor::press(const QPoint& pixel, const QPoint& grid, Qt::MouseButton
         break;
     }
     case Tool::Picker:
-        if (m_document.contains(pixel.x(), pixel.y())) {
+        if (m_document.contains(pixel.x(), pixel.y()) && button != Qt::MiddleButton) {
             const PaintColor color = sample(pixel);
             left ? setForeground(color) : setBackground(color);
         }
@@ -395,22 +446,18 @@ void ImageEditor::press(const QPoint& pixel, const QPoint& grid, Qt::MouseButton
             if (m_document.contains(pixel.x(), pixel.y()))
                 setSlotColor(!left, sample(pixel));
             m_button = Qt::NoButton;
-        } else if (left) {
-            QList<QPair<PaintColor, PaintColor>> slots;
-            for (const RemapSlot& slot : m_slots)
-                if (slot.source && slot.replacement)
-                    slots << qMakePair(*slot.source, *slot.replacement);
-            m_stroking = ImageEdits::remap(m_document, pixel, pixel, brushSize(m_tool), slots);
+        } else {
+            m_stroking = ImageEdits::remap(m_document, pixel, pixel, brushSize(m_tool), remapPairs(!left));
             refresh();
         }
         break;
-    case Tool::PaintBucket:
-        if (left) {
-            ImageDocument doc = m_document;
-            if (ImageEdits::fill(doc, pixel, m_foreground, contiguous(m_tool)))
-                apply(tr("Paint bucket"), doc);
-        }
+    case Tool::PaintBucket: {
+        // Any button fills with the foreground colour, same as Fighter Factory.
+        ImageDocument doc = m_document;
+        if (ImageEdits::fill(doc, pixel, m_foreground, contiguous(m_tool)))
+            apply(tr("Paint bucket"), doc);
         break;
+    }
     }
 }
 
@@ -419,7 +466,7 @@ void ImageEditor::drag(const QPoint& pixel, const QPoint& grid)
     const bool left = m_button == Qt::LeftButton;
     switch (m_tool) {
     case Tool::SelectionMove: {
-        if (!left)
+        if (m_button == Qt::NoButton)
             break;
         ImageDocument doc = m_before;
         ImageEdits::moveSelection(doc, pixel.x() - m_start.x(), pixel.y() - m_start.y(), m_background);
@@ -449,12 +496,8 @@ void ImageEditor::drag(const QPoint& pixel, const QPoint& grid)
         }
         break;
     case Tool::RemapPen:
-        if (left) {
-            QList<QPair<PaintColor, PaintColor>> slots;
-            for (const RemapSlot& slot : m_slots)
-                if (slot.source && slot.replacement)
-                    slots << qMakePair(*slot.source, *slot.replacement);
-            m_stroking |= ImageEdits::remap(m_document, m_last, pixel, brushSize(m_tool), slots);
+        if (m_button != Qt::NoButton) {
+            m_stroking |= ImageEdits::remap(m_document, m_last, pixel, brushSize(m_tool), remapPairs(!left));
             refresh();
         }
         break;
@@ -468,7 +511,8 @@ void ImageEditor::release(const QPoint& pixel, const QPoint& grid)
 {
     switch (m_tool) {
     case Tool::SelectionMove: {
-        if (m_button != Qt::LeftButton)
+        // Any button moves the selection, same as Fighter Factory.
+        if (m_button == Qt::NoButton)
             break;
         ImageDocument after = m_before;
         if (ImageEdits::moveSelection(after, pixel.x() - m_start.x(), pixel.y() - m_start.y(), m_background)) {

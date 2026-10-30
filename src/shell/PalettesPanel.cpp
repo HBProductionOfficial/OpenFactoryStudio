@@ -165,6 +165,11 @@ void PalettesPanel::setImageMode(bool on)
     if (m_page) {
         QAction* picker = m_context.actions().action(QStringLiteral("pal_pick_color"));
         m_page->setColorPicker(!on && picker && picker->isChecked());
+        // Entering the image editor loads the sprite again, so the switch picks its palette.
+        if (on) {
+            followSprite();
+            updateDisplay();
+        }
     }
 }
 
@@ -227,17 +232,15 @@ void PalettesPanel::updateDisplay()
         return;
     const SpriteDocument& doc = m_page->file()->document();
     const int index = current();
-    SpritePalettePtr display;
-    if (m_switch && !m_switch->isChecked() && index >= 0 && index < doc.palettes().size()) {
-        display = doc.palettes()[index];
-    } else if (const int sprite = m_page->current(); sprite >= 0 && sprite < doc.spriteCount()) {
-        // Remap: the first row whose source is the sprite's palette.
-        const SpritePalettePtr own = doc.sprites()[sprite].palette;
+    // Same as Fighter Factory: 8-bit sprites are drawn with the palette chosen in the panel, in both modes. With the
+    // switch on that is the sprite's own palette until another one is chosen. A Remap row whose source is that palette
+    // draws with its destination instead.
+    SpritePalettePtr display = index >= 0 && index < doc.palettes().size() ? doc.palettes()[index] : nullptr;
+    if (display) {
         const QList<RemapRow> rows = m_remap ? m_remap->rows() : m_remapRows;
         for (const RemapRow& row : rows) {
-            if (own && own->palette.group == row.sourceGroup && own->palette.number == row.sourceNumber) {
-                const int target = doc.findPalette(row.targetGroup, row.targetNumber);
-                if (target >= 0)
+            if (display->palette.group == row.sourceGroup && display->palette.number == row.sourceNumber) {
+                if (const int target = doc.findPalette(row.targetGroup, row.targetNumber); target >= 0)
                     display = doc.palettes()[target];
                 break;
             }

@@ -201,6 +201,24 @@ private Q_SLOTS:
         QVERIFY(selected(doc, 4, 4) && !selected(doc, 0, 2));
     }
 
+    // The bucket fills with the foreground for any button, the picker ignores the middle one, same as Fighter Factory.
+    void otherButtons()
+    {
+        ImageEditor editor;
+        setUp(editor);
+        const ImageDocument& doc = editor.document();
+        editor.setForeground(PaintColor{2, {}});
+        editor.setBackground(PaintColor{3, {}});
+        editor.setTool(ImageEditor::Tool::PaintBucket);
+        QTest::mouseClick(editor.canvas(), Qt::RightButton, {}, pixel(editor, 0, 0));
+        QCOMPARE(doc.pixel(0, 0).index, 2);
+        editor.setTool(ImageEditor::Tool::Picker);
+        QTest::mouseClick(editor.canvas(), Qt::MiddleButton, {}, pixel(editor, 5, 0));
+        QCOMPARE(editor.background().index, 3);
+        QTest::mouseClick(editor.canvas(), Qt::RightButton, {}, pixel(editor, 5, 0));
+        QCOMPARE(editor.background().index, 2);
+    }
+
     void remapAndOptions()
     {
         ImageEditor editor;

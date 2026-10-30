@@ -61,6 +61,7 @@ Q_SIGNALS:
 
 private:
     void refresh();
+    void updateEditorPalette();
     QImage spriteImage(int index) const;
 
     QPointer<SpriteFile> m_file;

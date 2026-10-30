@@ -39,8 +39,13 @@ SpritePage::SpritePage(SpriteFile* file, QWidget* parent)
         if (imageMode() && !m_savingImage) {
             const bool has = m_current < count;
             const SpriteEntry* entry = has ? &m_file->document().sprites()[m_current] : nullptr;
-            if (!entry || entry->pixels != m_openedPixels || entry->palette != m_openedPalette)
+            // A palette edit only redraws the canvas and keeps its changes, same as Fighter Factory.
+            if (!entry || entry->pixels != m_openedPixels) {
                 reloadImage();
+            } else {
+                m_openedPalette = entry->palette;
+                updateEditorPalette();
+            }
         }
         if (moved)
             Q_EMIT currentChanged(m_current);
@@ -159,6 +164,28 @@ void SpritePage::reloadImage()
     m_openedPixels = entry.pixels;
     m_openedPalette = entry.palette;
     m_editor->open(doc.image(m_current), QStringLiteral("%1,%2").arg(entry.group()).arg(entry.number()));
+    updateEditorPalette();
+}
+
+void SpritePage::updateEditorPalette()
+{
+    // The canvas holds palette indexes and shows them through the palette chosen in the panel. Indexes past the end of
+    // a shorter palette keep the sprite's own colours.
+    const SpriteDocument& doc = m_file->document();
+    if (m_current < 0 || m_current >= doc.spriteCount())
+        return;
+    const SpritePalettePtr own = doc.sprites()[m_current].palette;
+    Formats::Palette colors = own ? own->palette.colors : m_editor->document().palette;
+    if (m_displayPalette) {
+        const Formats::Palette& chosen = m_displayPalette->palette.colors;
+        for (std::size_t i = 0; i < chosen.size(); ++i) {
+            if (i < colors.size())
+                colors[i] = chosen[i];
+            else
+                colors.push_back(chosen[i]);
+        }
+    }
+    m_editor->setPalette(colors);
 }
 
 void SpritePage::saveImage(bool allInstances)
@@ -168,8 +195,11 @@ void SpritePage::saveImage(bool allInstances)
         image.height <= 0)
         return;
     Formats::Image flat = ImageEdits::flatten(image);
-    if (flat.isIndexed())
-        flat.setPalette(image.palette);
+    // Only the indexes are saved: the sprite keeps its own palette whatever the panel shows, same as Fighter Factory.
+    if (flat.isIndexed()) {
+        const SpritePalettePtr own = m_file->document().sprites()[m_current].palette;
+        flat.setPalette(own ? own->palette.colors : image.palette);
+    }
     SpriteDocument doc = m_file->document();
     SpriteEdits::setImage(doc, m_current, std::move(flat), allInstances);
     // The canvas grew around the sprite's image: the axis moves with it.
@@ -231,6 +261,8 @@ void SpritePage::setDisplayPalette(SpritePalettePtr palette)
         return;
     m_displayPalette = std::move(palette);
     refresh();
+    if (imageMode())
+        updateEditorPalette();
 }
 
 void SpritePage::setColorPicker(bool on)

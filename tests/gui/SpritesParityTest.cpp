@@ -1189,7 +1189,7 @@ private Q_SLOTS:
         QVERIFY(shownInBar(size));
         QCOMPARE(editor->currentSlot(), 0);
         auto clickSlot = [slots](int slot, Qt::MouseButton button, QEvent::Type type = QEvent::MouseButtonPress) {
-            const QPoint at(1 + slot * 12 + 6, 8);
+            const QPoint at(slot * 12 + 6, 8);
             QMouseEvent event(type, at, slots->mapToGlobal(at), button, button, Qt::NoModifier);
             QCoreApplication::sendEvent(slots, &event);
         };
@@ -1206,6 +1206,79 @@ private Q_SLOTS:
         actions.action("spr_edit_img")->trigger();
         QVERIFY(!page->imageMode());
         actions.action("file_close")->trigger();
+    }
+
+    // The Remap pen takes its colours from the palette on the right: a left click sets the colour to replace, a right
+    // click the colour that replaces it. Several pairs apply at once.
+    void remapPenFromPalette()
+    {
+        QTemporaryDir dir;
+        SpriteDocument doc;
+        doc.palettes() << SpriteDocument::makePalette(1, 1, ramp(0)) << SpriteDocument::makePalette(1, 2, ramp(1));
+        SpriteEntry sprite = indexedSprite(0, 0, 4, 1, 1, doc.palettes()[0]);
+        sprite.pixels = SpriteDocument::makePixels(Formats::Image::indexed(4, 1, {1, 2, 3, 4}));
+        doc.sprites() << sprite;
+        writeProject(dir, "rp", doc);
+        MainWindow window(*m_context);
+        window.resize(1100, 800);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("rp.def")));
+        ActionRegistry& actions = m_context->actions();
+        actions.action("editor_spr")->trigger();
+        ProjectView* view = window.currentProjectView();
+        auto* page = view->findChild<SpritePage*>();
+        QVERIFY(page);
+        actions.action("spr_edit_img")->trigger();
+        QVERIFY(page->imageMode());
+        actions.action("spr_tool_remap_pen")->trigger();
+        ImageEditor* editor = page->imageEditor();
+        QCOMPARE(editor->tool(), ImageEditor::Tool::RemapPen);
+        auto* grid = visibleChild<PaletteWidget>(view, "pal_view");
+        QVERIFY(grid);
+        // The canvas is drawn with the palette chosen in the panel.
+        QCOMPARE(editor->document().palette, ramp(0));
+        actions.action("pal_next")->trigger();
+        QCOMPARE(editor->document().palette, ramp(1));
+        auto clickColor = [grid](int slot, Qt::MouseButton button) {
+            QTest::mouseClick(grid, button, {}, grid->cellRect(slot).center());
+        };
+        clickColor(1, Qt::LeftButton);
+        clickColor(3, Qt::RightButton);
+        QVERIFY(editor->remapSlots()[0].source && editor->remapSlots()[0].replacement);
+        QCOMPARE(editor->remapSlots()[0].source->index, 1);
+        QCOMPARE(editor->remapSlots()[0].replacement->index, 3);
+        editor->setCurrentSlot(1);
+        clickColor(2, Qt::LeftButton);
+        clickColor(4, Qt::RightButton);
+
+        editor->setBrushSize(ImageEditor::Tool::RemapPen, 4);
+        ImageCanvas* canvas = editor->canvas();
+        const QPoint start = canvas->toWidget(QPointF(0.5, 0.5)).toPoint();
+        const ImageDocument& image = editor->document();
+        auto row = [&image] {
+            QList<int> indexes;
+            for (int x = 0; x < 4; ++x)
+                indexes << image.pixel(x, 0).index;
+            return indexes;
+        };
+        QTest::mouseClick(canvas, Qt::LeftButton, {}, start);
+        QCOMPARE(row(), (QList<int>{3, 4, 3, 4}));
+        // The right button paints the other way round.
+        QTest::mouseClick(canvas, Qt::RightButton, {}, start);
+        QCOMPARE(row(), (QList<int>{1, 2, 1, 2}));
+        // A slot with only the colour to replace makes it transparent. It comes after slot 0, so it wins.
+        editor->setCurrentSlot(2);
+        clickColor(1, Qt::LeftButton);
+        QTest::mouseClick(canvas, Qt::LeftButton, {}, start);
+        QCOMPARE(row(), (QList<int>{0, 4, 0, 4}));
+
+        // Saving keeps the sprite's own palette, whatever the panel shows.
+        actions.action("spr_saveimg")->trigger();
+        const SpriteDocument& saved = page->file()->document();
+        QCOMPARE(saved.sprites()[0].palette, saved.palettes()[0]);
+        const Formats::Image savedImage = saved.image(0);
+        const std::vector<std::uint8_t> pixels(savedImage.pixels().begin(), savedImage.pixels().end());
+        QCOMPARE(pixels, (std::vector<std::uint8_t>{0, 4, 0, 4}));
     }
 
     void imageLayersAndSaving()

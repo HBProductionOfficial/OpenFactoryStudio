@@ -2540,6 +2540,10 @@ private Q_SLOTS:
         QCOMPARE(grid->colors(), ramp(0));
         QVERIFY(follow->isChecked());
         QCOMPARE(shown(1), QColor(1, 0, 0));
+        // Choosing another palette draws the sprite with it, also with the switch on.
+        actions.action("pal_next")->trigger();
+        QCOMPARE(label->text(), QStringLiteral("2 / 2"));
+        QCOMPARE(shown(1), QColor(0, 1, 0));
 
         actions.action("spr_next")->trigger();
         actions.action("spr_next")->trigger();
