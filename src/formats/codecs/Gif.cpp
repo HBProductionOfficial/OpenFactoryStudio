@@ -100,7 +100,9 @@ Result<GifDocument> parseGif(ByteSpan data, DecodeMode mode, std::size_t maxFram
     if (!r.ok())
         return Error{"GIF header is truncated"};
 
-    std::optional<GraphicControl> control;
+    // Not std::optional: GCC 11 wrongly warns that its fields may be uninitialized.
+    GraphicControl control;
+    bool hasControl = false;
     std::vector<ByteSpan> blocks;
     std::uint64_t totalPixels = 0;
     bool ended = false;
@@ -144,6 +146,7 @@ Result<GifDocument> parseGif(ByteSpan data, DecodeMode mode, std::size_t maxFram
                 gc.delay = gce[1] | (gce[2] << 8);
                 gc.transparentIndex = (gce[0] & 0x01) ? int{gce[3]} : -1;
                 control = gc;
+                hasControl = true;
             } else if (label == kApplication) {
                 if (blocks.size() >= 2 && blocks[0].size() == 11) {
                     const std::string id = toText(blocks[0]);
@@ -152,7 +155,7 @@ Result<GifDocument> parseGif(ByteSpan data, DecodeMode mode, std::size_t maxFram
                         gif.loopCount = sub[1] | (sub[2] << 8);
                 }
             } else if (label == kPlainText) {
-                control.reset(); // a graphic control extension applies to the next rendering block
+                hasControl = false; // a graphic control extension applies to the next rendering block
             }
             continue;
         }
@@ -190,11 +193,11 @@ Result<GifDocument> parseGif(ByteSpan data, DecodeMode mode, std::size_t maxFram
             return Error{"GIF image is too large to decode"};
         if (palette.empty())
             palette = gif.globalPalette.empty() ? grayscalePalette() : gif.globalPalette;
-        if (control) {
-            frame.delay = control->delay;
-            frame.disposal = control->disposal;
-            frame.transparentIndex = control->transparentIndex;
-            control.reset();
+        if (hasControl) {
+            frame.delay = control.delay;
+            frame.disposal = control.disposal;
+            frame.transparentIndex = control.transparentIndex;
+            hasControl = false;
         }
         if (frame.transparentIndex >= 0 && static_cast<std::size_t>(frame.transparentIndex) < palette.size())
             palette[static_cast<std::size_t>(frame.transparentIndex)].a = 0;

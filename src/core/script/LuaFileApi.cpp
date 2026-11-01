@@ -19,6 +19,14 @@ using Rgb = ScriptRgb;
 
 struct Rgba
 {
+    // Lua builds it with parentheses, which older compilers only allow with a constructor.
+    Rgba() = default;
+    Rgba(int red, int green, int blue, int alpha)
+        : r(red)
+        , g(green)
+        , b(blue)
+        , a(alpha)
+    {}
     int r = 0;
     int g = 0;
     int b = 0;

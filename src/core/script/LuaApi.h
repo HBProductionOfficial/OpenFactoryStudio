@@ -54,6 +54,13 @@ Engine* findEngine(const Session& session, const QString& name);
 
 struct ScriptRgb
 {
+    // Lua builds it with parentheses, which older compilers only allow with a constructor.
+    ScriptRgb() = default;
+    ScriptRgb(int red, int green, int blue)
+        : r(red)
+        , g(green)
+        , b(blue)
+    {}
     int r = 0;
     int g = 0;
     int b = 0;
