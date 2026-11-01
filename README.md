@@ -2,7 +2,7 @@
 
 A free editor for M.U.G.E.N characters, stages and screenpacks. It looks and works like Fighter Factory Studio 3.7, so if you've used that, you'll find your way around.
 
-It has editors for sprites, animations, palettes, sounds, backgrounds and code, and a built-in emulator to try characters without leaving the editor. It runs on Windows, Linux and macOS.
+It has editors for sprites, animations, palettes, sounds, backgrounds and code, and a built-in emulator to try characters without leaving the editor. It runs on Windows and Linux.
 
 <p align="center">
   <img src="docs/screenshots/sprites.png" width="49%" alt="Sprites editor">

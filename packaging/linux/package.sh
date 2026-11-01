@@ -20,6 +20,9 @@ rm -rf "$appdir"
 DESTDIR="$appdir" cmake --install "$build" --prefix /usr
 install -Dm644 packaging/linux/openfactorystudio.desktop "$appdir/usr/share/applications/openfactorystudio.desktop"
 install -Dm644 packaging/linux/openfactorystudio.svg "$appdir/usr/share/icons/hicolor/scalable/apps/openfactorystudio.svg"
+# appimagetool wants a PNG icon at the top of the AppDir as well.
+install -Dm644 data/icons/ofs.png "$appdir/usr/share/icons/hicolor/256x256/apps/openfactorystudio.png"
+install -Dm644 data/icons/ofs.png "$appdir/openfactorystudio.png"
 
 # linuxdeploy finds libraries through LD_LIBRARY_PATH, so add Qt's lib folder to it.
 qtlibs="$("${QMAKE:-qmake6}" -query QT_INSTALL_LIBS 2>/dev/null || true)"
@@ -31,8 +34,9 @@ mkdir -p build/dist
 # The engine plugins load at run time, so deploy their dependencies too.
 plugins=()
 while IFS= read -r -d '' dir; do plugins+=(--deploy-deps-only "$dir"); done < <(find "$appdir/usr/lib" -type d -path '*/engines/*' -print0)
-QMAKE="${QMAKE:-qmake6}" OUTPUT="build/dist/OpenFactoryStudio-$version-linux-x86_64.AppImage" \
+out="build/dist/OpenFactoryStudio-$version-linux-x86_64.AppImage"
+QMAKE="${QMAKE:-qmake6}" OUTPUT="$out" LDAI_OUTPUT="$out" \
     "$linuxdeploy" --appdir "$appdir" --executable "$appdir/usr/bin/ofs" "${plugins[@]}" \
     --desktop-file "$appdir/usr/share/applications/openfactorystudio.desktop" \
     --plugin qt --output appimage
-echo "AppImage: build/dist/OpenFactoryStudio-$version-linux-x86_64.AppImage"
+echo "AppImage: $out"
