@@ -76,6 +76,8 @@ private Q_SLOTS:
         QVERIFY(licenses.contains(QStringLiteral("Lua")));
         QVERIFY(licenses.contains(QStringLiteral("Third party notices.pdf")));
         QVERIFY(licenses.contains(QStringLiteral("GNU GENERAL PUBLIC LICENSE")));
+        QVERIFY(licenses.trimmed().endsWith(QStringLiteral("END OF TERMS AND CONDITIONS")));
+        QVERIFY(!licenses.contains(QStringLiteral("<name of author>")));
 
         QStringList texts;
         for (const QLabel* label : dialog.findChildren<QLabel*>())

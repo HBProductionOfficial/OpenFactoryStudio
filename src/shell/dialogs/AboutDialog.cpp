@@ -108,7 +108,11 @@ AboutDialog::AboutDialog(QWidget* parent)
     QString licenses = tr("<p>%1 uses Qt, Lua, sol2 and other open source parts. Their licenses are in <a "
                           "href=\"%2\">Third party notices.pdf</a>, which comes with the program.</p>")
                            .arg(QStringLiteral(OFS_DISPLAY_NAME), noticesLink());
-    const QString gpl = licenseText();
+    // The terms only. The part after them is a template for authors applying the GPL to their own programs.
+    QString gpl = licenseText();
+    const QString end = QStringLiteral("END OF TERMS AND CONDITIONS");
+    if (const qsizetype at = gpl.indexOf(end); at >= 0)
+        gpl.truncate(at + end.size());
     if (!gpl.isEmpty())
         licenses += QStringLiteral("<h3>GNU General Public License v3.0</h3><pre>") + gpl.toHtmlEscaped() +
                     QStringLiteral("</pre>");
