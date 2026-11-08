@@ -1,6 +1,7 @@
 name: Release
 
 # A version tag (v1.2.3) publishes the packages as a GitHub release, which the update check reads.
+# The release notes are the version's entry in CHANGELOG.md, so the tag needs one.
 on:
   push:
     tags: ['v*']
@@ -64,8 +65,7 @@ jobs:
           path: dist
           merge-multiple: true
       - name: Release notes
-        run: |
-          echo "Open Factory Studio ${GITHUB_REF_NAME#v}. Changelog.pdf lists what changed." > notes.md
+        run: python3 tools/release_notes.py "$GITHUB_REF_NAME" > notes.md
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
