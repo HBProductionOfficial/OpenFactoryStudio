@@ -1,5 +1,6 @@
 #include "core/sounds/SoundTransfer.h"
 
+#include "core/project/ContentPaths.h"
 #include "core/sprites/SpriteImages.h"
 
 #include <QCoreApplication>
@@ -142,7 +143,13 @@ QList<int> importFfe(SoundDocument& doc, int after, const QString& path, const S
         if (section.kind != QLatin1String("sounddef"))
             continue;
         QString readError;
-        Bytes data = readBytes(dir.filePath(section.values.value(QStringLiteral("file"))), &readError);
+        const QString listed = section.values.value(QStringLiteral("file"));
+        if (isUnsafeName(listed))
+            return fail(SoundTransferTexts::tr("%1, line %2: %3 can lead to another computer, so it wasn't opened.")
+                            .arg(name)
+                            .arg(section.line)
+                            .arg(listed));
+        Bytes data = readBytes(dir.filePath(listed), &readError);
         if (data.empty())
             return fail(SoundTransferTexts::tr("%1, line %2: %3").arg(name).arg(section.line).arg(readError));
         data = SoundEdits::importData(data, &readError);

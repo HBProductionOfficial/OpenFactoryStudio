@@ -1405,10 +1405,12 @@ bool MainWindow::prepareLaunch(ProjectView* view, const RunConfiguration& run, E
         if (!view->project()->save(error))
             return false;
     }
-    QString parameters = run.parameters;
-    parameters.replace(QStringLiteral("%0"), copy.name);
+    // The name goes in after the split, so a folder name with spaces or quotes stays one argument.
+    QStringList arguments = QProcess::splitCommand(run.parameters);
+    for (QString& argument : arguments)
+        argument.replace(QStringLiteral("%0"), copy.name);
     launch->program = run.executable;
-    launch->arguments = QProcess::splitCommand(parameters);
+    launch->arguments = arguments;
     launch->workingDir = engineDir;
     launch->copy = copy;
     return true;
@@ -1546,7 +1548,7 @@ void MainWindow::refreshIssues()
                 message->setData(QVariant::fromValue<QObject*>(view), Qt::UserRole + 1);
                 message->setData(issue.line, Qt::UserRole + 2);
                 auto* file = new QStandardItem(QFileInfo(it.key()).fileName());
-                file->setToolTip(QDir::toNativeSeparators(it.key()));
+                file->setToolTip(asPlainText(QDir::toNativeSeparators(it.key())));
                 auto* line = new QStandardItem(QString::number(issue.line + 1));
                 model->appendRow({message, file, line});
             }

@@ -1,5 +1,7 @@
 #include "core/tools/ClipboardStore.h"
 
+#include "core/app/Messages.h"
+
 #include <QColor>
 #include <QFileInfo>
 #include <QImage>
@@ -152,7 +154,7 @@ QVariant ClipboardStore::data(const QModelIndex& index, int role) const
     case Qt::EditRole:
         return entry.name;
     case Qt::ToolTipRole:
-        return describe(entry.data.get());
+        return asPlainText(describe(entry.data.get()));
     default:
         return {};
     }

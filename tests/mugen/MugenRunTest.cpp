@@ -160,6 +160,43 @@ private Q_SLOTS:
         QCOMPARE(readFile(engine + "/stages/arena.sff"), QByteArray("another stage's sprites"));
         QVERIFY(!QFileInfo::exists(engine + "/stages/ofs_0.def"));
     }
+
+    // A downloaded stage can't use Run in engine to put a library next to the engine, or files outside it.
+    void stageCopiesOnlySpritesAndMusic()
+    {
+        QTemporaryDir work;
+        const QString engine = work.filePath("mugen");
+        const QString project = work.filePath("project");
+        writeFile(project + "/bad.def", "[Info]\nname = \"Bad\"\n[Camera]\nstartx = 0\n[BGdef]\nspr = stages/bad.sff\n"
+                                        "[BG 1]\ntype = normal\n[Music]\nbgmusic = WINMM.dll\n");
+        writeFile(project + "/WINMM.dll", "not music");
+        writeFile(project + "/stages/bad.sff", "sprites");
+        QDir().mkpath(engine);
+
+        Mugen::MugenEngine mugen;
+        QString error;
+        std::unique_ptr<Project> p(mugen.openProject(project + "/bad.def", &error));
+        QVERIFY2(p, qPrintable(error));
+        QCOMPARE(p->typeId(), QStringLiteral("stage"));
+        RunCopy copy = mugen.prepareRun(*p, engine);
+        QVERIFY2(copy.isValid(), qPrintable(copy.error));
+        QVERIFY(!QFileInfo::exists(engine + "/WINMM.dll"));
+        QCOMPARE(readFile(engine + "/stages/bad.sff"), QByteArray("sprites")); // sprites still go
+        copy.remove();
+
+        // On Windows a colon names a stream of the file before it, which would make an empty
+        // winmm.dll next to the engine.
+        writeFile(project + "/bad.def", "[Info]\nname = \"Bad\"\n[Camera]\nstartx = 0\n[BGdef]\nspr = stages/bad.sff\n"
+                                        "[BG 1]\ntype = normal\n[Music]\nbgmusic = winmm.dll:a.mp3\n");
+        writeFile(project + "/winmm.dll:a.mp3", "music");
+        std::unique_ptr<Project> colon(mugen.openProject(project + "/bad.def", &error));
+        QVERIFY2(colon, qPrintable(error));
+        RunCopy again = mugen.prepareRun(*colon, engine);
+        QVERIFY2(again.isValid(), qPrintable(again.error));
+        QVERIFY(!QFileInfo::exists(engine + "/winmm.dll"));
+        QVERIFY(!QFileInfo::exists(engine + "/winmm.dll:a.mp3"));
+        again.remove();
+    }
 };
 
 QTEST_MAIN(MugenRunTest)

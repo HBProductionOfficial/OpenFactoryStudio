@@ -1,5 +1,6 @@
 #include "engines/mugen/runtime/CharacterData.h"
 
+#include "core/project/ContentPaths.h"
 #include "core/project/ProjectFile.h"
 #include "engines/mugen/runtime/Files.h"
 #include "engines/mugen/runtime/IniText.h"
@@ -167,9 +168,14 @@ bool CharacterData::load(const QString& defPath, const QString& engineDir, QStri
     const IniText def = IniText::parse(defText);
     const QString folder = QFileInfo(defPath).absolutePath();
     auto resolve = [&](const QString& name) -> QString {
-        const QString cleaned = QDir::fromNativeSeparators(unquote(name).trimmed());
+        const QString cleaned = cleanContentPath(unquote(name));
         if (cleaned.isEmpty())
             return {};
+        if (isUnsafeName(cleaned)) {
+            m_issues << LoadIssue{
+                defPath, 0, QStringLiteral("not opening %1 because it can lead to another computer").arg(cleaned)};
+            return {};
+        }
         QStringList candidates{QDir(folder).filePath(cleaned)};
         if (!engineDir.isEmpty())
             candidates << QDir(engineDir).filePath(cleaned)

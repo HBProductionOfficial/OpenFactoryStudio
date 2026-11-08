@@ -27,6 +27,8 @@ public:
     bool writeCopy(const QString& path, QString* error) const override;
 
     const SoundDocument& document() const { return m_document; }
+    // What reading had to skip or repair in a damaged file, until the next save.
+    const QStringList& readProblems() const { return m_readProblems; }
     QUndoStack* undoStack() const { return m_undo; }
 
     void apply(const QString& text, const SoundDocument& after);
@@ -41,6 +43,7 @@ private:
 
     SoundDocument m_document;
     QByteArray m_original; // the bytes last read or written
+    QStringList m_readProblems;
     QUndoStack* m_undo;
 };
 

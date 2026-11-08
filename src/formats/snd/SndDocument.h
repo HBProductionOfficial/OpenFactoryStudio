@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <optional>
+#include <string>
 #include <vector>
 
 namespace OFS::Formats {
@@ -26,6 +27,8 @@ public:
     // Real files use 00 01 00 01, 01 00 01 00 and 04 00 00 00.
     std::array<std::uint8_t, 4> versionBytes = {0, 1, 0, 1};
     std::vector<SndSound> sounds;
+    // What reading had to skip in a damaged file. The rest of the file still loads.
+    std::vector<std::string> readProblems;
     // Header bytes 24-511, often used for a comment.
     std::array<std::uint8_t, 488> comment{};
 

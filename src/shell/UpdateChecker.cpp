@@ -7,6 +7,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QRegularExpression>
 #include <QStringList>
 #include <QTimer>
 
@@ -75,14 +76,23 @@ void UpdateChecker::handle(const Reply& reply, bool interactive)
     }
     const QJsonObject release = QJsonDocument::fromJson(reply.body).object();
     const QString tag = release.value(QStringLiteral("tag_name")).toString();
-    if (tag.isEmpty()) {
+    // The tag goes into a message box and the link gets opened, so only a version number and a
+    // page of this project's releases are taken.
+    static const QRegularExpression version(
+        QRegularExpression::anchoredPattern(QStringLiteral("v?\\d{1,5}(\\.\\d{1,5}){0,3}(-[0-9A-Za-z.]{1,20})?")));
+    if (!version.match(tag).hasMatch()) {
         if (interactive)
             Q_EMIT failed(tr("The release information could not be read."));
         return;
     }
     if (compareVersions(tag, QStringLiteral(OFS_VERSION_STRING)) > 0) {
         QString url = release.value(QStringLiteral("html_url")).toString();
-        if (url.isEmpty())
+        const QUrl link(url, QUrl::StrictMode);
+        const QString path = link.path(QUrl::FullyDecoded);
+        const QString releases = QUrl(releasesUrl()).path() + QLatin1Char('/');
+        if (!link.isValid() || link.scheme() != QLatin1String("https") || link.host() != QLatin1String("github.com") ||
+            !link.userInfo().isEmpty() || link.port() != -1 || !path.startsWith(releases) ||
+            path.contains(QLatin1String("..")) || path.contains(QLatin1Char('\\')))
             url = releasesUrl();
         Q_EMIT updateAvailable(tag, url, release.value(QStringLiteral("body")).toString());
     } else if (interactive) {

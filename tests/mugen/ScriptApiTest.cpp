@@ -84,6 +84,15 @@ private Q_SLOTS:
                                   QString(), m_environment)
                     .ok);
         QCOMPARE(m_output, QStringLiteral("truetrue"));
+
+        // Precompiled chunks don't load, only source text: Lua doesn't check them.
+        QVERIFY(!Script::runScript(QStringLiteral("\x1bLua\x54"), QString(), m_environment).ok);
+        m_output.clear();
+        QVERIFY(Script::runScript("debugOutput(tostring(load('\\27Lua') == nil and string.dump == nil and "
+                                  "load('return 1')() == 1))",
+                                  QString(), m_environment)
+                    .ok);
+        QCOMPARE(m_output, QStringLiteral("true"));
     }
 
     void errors()

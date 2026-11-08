@@ -25,7 +25,7 @@ Result<std::vector<std::uint8_t>> decodeRle8(ByteSpan data, std::size_t pixelCou
 {
     const bool strict = mode == DecodeMode::Strict;
     // Two input bytes give at most 63 pixels, so refuse hopeless input before allocating.
-    if (strict && pixelCount / 32 > data.size())
+    if ((strict || pixelCount > kMaxPaddedPixels) && pixelCount / 32 > data.size())
         return shortInput(0, pixelCount);
     std::vector<std::uint8_t> out(pixelCount, 0);
     const std::span<const std::uint8_t> in = asU8(data);

@@ -65,6 +65,7 @@ bool SpriteFile::load(QString* error)
     QByteArray data;
     SpriteDocument document;
     QString problem;
+    QStringList problems;
     const QString file = path();
     auto read = [&] {
         QFile in(file);
@@ -81,6 +82,8 @@ bool SpriteFile::load(QString* error)
             return;
         }
         document = SpriteDocument::fromSff(sff.value());
+        for (const std::string& text : sff.value().readProblems)
+            problems << QString::fromStdString(text);
     };
     if (AppContext* context = AppContext::instance())
         context->tasks().run(tr("Loading %1").arg(fileName()), read);
@@ -92,6 +95,7 @@ bool SpriteFile::load(QString* error)
         return false;
     }
     m_original = data;
+    m_readProblems = problems;
     m_document = document;
     m_undo->clear();
     Q_EMIT documentChanged();
@@ -126,6 +130,7 @@ void SpriteFile::saveAsync(std::function<void(bool ok, const QString& error)> do
             ctx->tasks().end(task);
         if (result.ok) {
             m_original = result.bytes;
+            m_readProblems.clear();
             // Saved as it was when the save began: clean unless edited since.
             if (m_undo->index() == index)
                 m_undo->setClean();
@@ -200,6 +205,7 @@ bool SpriteFile::saveAs(const QString& target, Formats::SffVersion version, QStr
     if (!writeFileSafely(target, bytes, error))
         return false;
     m_original = bytes;
+    m_readProblems.clear();
     if (version != m_document.version()) {
         // The document is now what was written (the conversion cannot be undone).
         auto written = Formats::SffDocument::read(

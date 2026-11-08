@@ -58,6 +58,11 @@ public:
     QStringList editorIds() const { return m_editorIds; }
 
     QStringList editorFiles(const QString& editorId) const;
+    // Every file the project lists, also for editors hidden because their files are missing.
+    QStringList listedFiles() const;
+    // Names in the project's files that can lead to another computer (see isUnsafeName()). They
+    // weren't opened.
+    QStringList refusedFiles() const { return m_refusedFiles; }
 
     const QList<ProjectFile*>& files() const { return m_files; }
     ProjectFile* file(const QString& path) const;
@@ -90,6 +95,7 @@ protected:
     void setVersionDeclared(bool declared) { m_versionDeclared = declared; }
     void setEditorIds(const QStringList& ids) { m_editorIds = ids; }
     void setEditorFiles(const QString& editorId, const QStringList& files);
+    void setRefusedFiles(const QStringList& names) { m_refusedFiles = names; }
 
 private:
     void adopt(ProjectFile* file);
@@ -109,6 +115,7 @@ private:
     bool m_versionDeclared = true;
     QStringList m_editorIds;
     QHash<QString, QStringList> m_editorFiles;
+    QStringList m_refusedFiles;
     QList<ProjectFile*> m_files;
 };
 

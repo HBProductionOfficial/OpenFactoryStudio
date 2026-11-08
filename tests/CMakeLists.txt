@@ -22,6 +22,7 @@ ofs_add_test(NAME formats_documents CATCH2
     SOURCES
         formats/MakerTest.cpp
         formats/PaletteFormatsTest.cpp
+        formats/ReadLimitsTest.cpp
         formats/SffTest.cpp
         formats/SndWavFntTest.cpp
         formats/TruncationTest.cpp

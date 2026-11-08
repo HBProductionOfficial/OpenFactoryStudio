@@ -141,7 +141,8 @@ Result<Image> decodePcx(ByteSpan data, PcxPalette palette, DecodeMode mode)
     if (total > kMaxDecodeBytes)
         return Error{"PCX image is too large to decode"};
     // A run of up to 63 bytes takes two input bytes, so data that is far too short fails early.
-    if (strict && (h.encoding == 1 ? (in.size() - kPcxHeaderSize) * 32 : in.size() - kPcxHeaderSize) < total)
+    if ((strict || total > kMaxPaddedPixels) &&
+        (h.encoding == 1 ? (in.size() - kPcxHeaderSize) * 32 : in.size() - kPcxHeaderSize) < total)
         return Error{"PCX image data is truncated"};
     std::vector<std::uint8_t> raw(total, 0);
 

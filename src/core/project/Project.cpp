@@ -2,6 +2,7 @@
 
 #include "core/editors/EditorInfo.h"
 #include "core/engine/Engine.h"
+#include "core/project/ContentPaths.h"
 #include "core/project/ProjectFile.h"
 #include "core/sounds/SoundFile.h"
 #include "core/sprites/SpriteFile.h"
@@ -66,14 +67,14 @@ QStringList Project::allFiles() const
 bool Project::writeCopyTo(const QString& mainFile, QString* error) const
 {
     const QString target = QDir::fromNativeSeparators(QFileInfo(mainFile).absoluteFilePath());
-    const QString folder = directory() + QLatin1Char('/');
+    const QDir folder(directory());
     const QDir targetDir = QFileInfo(target).absoluteDir();
     for (const QString& path : allFiles()) {
         QString destination;
         if (path.compare(m_filePath, Qt::CaseInsensitive) == 0)
             destination = target;
-        else if (path.startsWith(folder, Qt::CaseInsensitive))
-            destination = targetDir.filePath(path.mid(folder.size()));
+        else if (isInsideFolder(path, folder.path()))
+            destination = targetDir.filePath(folder.relativeFilePath(QDir::cleanPath(path)));
         else
             continue;
         if (const ProjectFile* f = file(path)) {
@@ -139,6 +140,18 @@ QString Project::versionName() const
 QStringList Project::editorFiles(const QString& editorId) const
 {
     return m_editorFiles.value(editorId);
+}
+
+QStringList Project::listedFiles() const
+{
+    QStringList files;
+    for (const QStringList& list : m_editorFiles) {
+        for (const QString& path : list) {
+            if (!path.isEmpty() && !files.contains(path, Qt::CaseInsensitive))
+                files << path;
+        }
+    }
+    return files;
 }
 
 ProjectFile* Project::file(const QString& path) const

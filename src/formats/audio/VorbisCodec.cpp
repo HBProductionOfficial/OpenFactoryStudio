@@ -1,15 +1,14 @@
-// Ogg Vorbis: decoding with stb_vorbis, encoding with libvorbis (vorbisenc) and libogg.
+// Ogg Vorbis: decoding with libvorbis (vorbisfile), encoding with libvorbis (vorbisenc) and libogg.
 
 #include "formats/audio/CodecInternal.h"
 
 #include <ogg/ogg.h>
 #include <vorbis/vorbisenc.h>
-
-#define STB_VORBIS_HEADER_ONLY
-#include <stb_vorbis.c>
+#include <vorbis/vorbisfile.h>
 
 #include <algorithm>
 #include <climits>
+#include <cstring>
 #include <memory>
 #include <string>
 
@@ -20,10 +19,23 @@ namespace {
 // Fixed so the same input always gives the same file.
 constexpr int kStreamSerial = 0x4F465331;
 
-struct VorbisCloser
+// vorbisfile reads the stream through these, from memory.
+struct MemoryStream
 {
-    void operator()(stb_vorbis* decoder) const { stb_vorbis_close(decoder); }
+    ByteSpan data;
+    std::size_t position = 0;
 };
+
+std::size_t readMemory(void* target, std::size_t size, std::size_t count, void* source)
+{
+    auto* stream = static_cast<MemoryStream*>(source);
+    if (size == 0)
+        return 0;
+    const std::size_t items = std::min(count, (stream->data.size() - stream->position) / size);
+    std::memcpy(target, stream->data.data() + stream->position, items * size);
+    stream->position += items * size;
+    return items;
+}
 
 void appendPage(Bytes& out, const ogg_page& page)
 {
@@ -86,33 +98,46 @@ Result<DecodedAudio> decodeVorbis(ByteSpan data, const DecodeOptions& options)
 {
     if (data.size() > static_cast<std::size_t>(INT_MAX))
         return Error{"Ogg Vorbis file is too large"};
-    int error = 0;
-    std::unique_ptr<stb_vorbis, VorbisCloser> vorbis(stb_vorbis_open_memory(
-        reinterpret_cast<const unsigned char*>(data.data()), static_cast<int>(data.size()), &error, nullptr));
-    if (!vorbis)
+    MemoryStream stream{data};
+    OggVorbis_File file;
+    // Without seeking, opening reads only the first stream's headers. With it, vorbisfile scans
+    // every chained stream first, recursing once for each.
+    const ov_callbacks callbacks{readMemory, nullptr, nullptr, nullptr};
+    if (const int error = ov_open_callbacks(&stream, &file, nullptr, 0, callbacks); error != 0)
         return Error{"invalid Ogg Vorbis data (decoder error " + std::to_string(error) + ")"};
-    const stb_vorbis_info info = stb_vorbis_get_info(vorbis.get());
-    if (info.channels <= 0 || info.channels > 0xFFFF || info.sample_rate == 0)
+    const std::unique_ptr<OggVorbis_File, int (*)(OggVorbis_File*)> closer(&file, ov_clear);
+    const vorbis_info* info = ov_info(&file, -1);
+    if (!info || info->channels <= 0 || info->channels > 255 || info->rate <= 0)
         return Error{"invalid Ogg Vorbis stream information"};
 
-    const auto channels = static_cast<std::size_t>(info.channels);
-    constexpr std::size_t kChunkFrames = 4096;
-    std::vector<float> chunk(kChunkFrames * channels);
+    const auto channels = static_cast<std::size_t>(info->channels);
+    const long rate = info->rate;
     std::vector<float> samples;
     for (;;) {
-        const int frames = stb_vorbis_get_samples_float_interleaved(vorbis.get(), info.channels, chunk.data(),
-                                                                    static_cast<int>(chunk.size()));
+        float** pcm = nullptr;
+        int section = 0;
+        const long frames = ov_read_float(&file, &pcm, 4096, &section);
+        if (frames == OV_HOLE)
+            continue; // a gap in the stream: the decoder goes on after it
         if (frames <= 0)
+            break;
+        // Chained streams with another layout stop here.
+        const vorbis_info* current = ov_info(&file, section);
+        if (!current || static_cast<std::size_t>(current->channels) != channels || current->rate != rate)
             break;
         const std::size_t count = static_cast<std::size_t>(frames) * channels;
         if (samples.size() + count > kMaxDecodedSamples)
             return tooLongError();
-        samples.insert(samples.end(), chunk.begin(), chunk.begin() + static_cast<std::ptrdiff_t>(count));
+        for (long i = 0; i < frames; ++i) {
+            for (std::size_t c = 0; c < channels; ++c)
+                samples.push_back(pcm[c][i]);
+        }
     }
 
     DecodedAudio result;
-    result.buffer = withRequestedType(
-        SampleBuffer::fromFloat(std::move(samples), static_cast<std::uint16_t>(channels), info.sample_rate), options);
+    result.buffer = withRequestedType(SampleBuffer::fromFloat(std::move(samples), static_cast<std::uint16_t>(channels),
+                                                              static_cast<std::uint32_t>(rate)),
+                                      options);
     result.format = AudioFileFormat::OggVorbis;
     result.codec = "Vorbis";
     return result;

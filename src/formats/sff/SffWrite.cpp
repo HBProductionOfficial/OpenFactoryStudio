@@ -98,7 +98,13 @@ Result<Image> spritePixels(const SffDocument& doc, std::size_t index)
     const SffSprite& s = doc.sprites[index];
     if (s.image)
         return *s.image;
-    return doc.decodeSprite(index, DecodeMode::Lenient);
+    auto decoded = doc.decodeSprite(index, DecodeMode::Lenient);
+    if (decoded)
+        return decoded;
+    // A sprite whose image can't be read (a broken link in the file it came from) is saved as one
+    // transparent pixel, so the rest of the file still saves.
+    const Palette* palette = doc.spritePalette(index);
+    return Image::indexed(1, 1, {0}, palette ? *palette : Palette{});
 }
 
 Result<Payload> buildV2Payload(const SffDocument& doc, std::size_t index, const SffCompressionPolicy& policy)

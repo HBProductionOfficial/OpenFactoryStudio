@@ -1,6 +1,7 @@
 #include "engines/mugen/emulator/StoryboardPlayer.h"
 
 #include "core/bg/BgRenderer.h"
+#include "core/project/ContentPaths.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
 #include "core/sounds/SoundFile.h"
@@ -79,16 +80,8 @@ bool StoryboardPlayer::start(Project& project, const QString& defPath, const QSt
         return false;
     }
     const QString folder = QFileInfo(defPath).absolutePath();
-    auto resolve = [&](const QString& name) -> QString {
-        const QString cleaned = QDir::fromNativeSeparators(unquote(name).trimmed());
-        if (cleaned.isEmpty())
-            return QString();
-        for (const QString& candidate : {QDir(folder).filePath(cleaned), QDir(engineDir).filePath(cleaned),
-                                         QDir(engineDir).filePath(QStringLiteral("font/") + cleaned)}) {
-            if (QFileInfo(candidate).isFile())
-                return QDir::cleanPath(candidate);
-        }
-        return QString();
+    auto resolve = [&](const QString& name) {
+        return findInFolders(unquote(name), {folder, engineDir, QDir(engineDir).filePath(QStringLiteral("font"))});
     };
     if (const IniSection* info = ini.section(QStringLiteral("Info")); info && info->has(QStringLiteral("localcoord"))) {
         const QList<double> size = numbers(info->value(QStringLiteral("localcoord")));

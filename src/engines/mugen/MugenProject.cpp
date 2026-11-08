@@ -3,6 +3,7 @@
 #include "core/anims/AirEdits.h"
 #include "core/editors/EditorInfo.h"
 #include "core/engine/Engine.h"
+#include "core/project/ContentPaths.h"
 #include "core/project/ProjectFile.h"
 #include "core/sounds/SoundFile.h"
 #include "core/sprites/SpriteFile.h"
@@ -243,29 +244,30 @@ QStringList MugenProject::editorsForType(const QString& typeId)
 
 QString MugenProject::resolve(const QString& relative) const
 {
-    if (relative.isEmpty())
+    const QString cleaned = cleanContentPath(relative);
+    if (cleaned.isEmpty() || isUnsafeName(cleaned))
         return {};
-    const QString cleaned = QDir::fromNativeSeparators(relative.trimmed());
     if (QDir::isAbsolutePath(cleaned))
-        return QDir::cleanPath(cleaned);
-    return QDir::cleanPath(directory() + QLatin1Char('/') + cleaned);
+        return findContentFile(cleaned);
+    return findContentFile(directory() + QLatin1Char('/') + cleaned);
 }
 
 QString MugenProject::resolveData(const QString& relative) const
 {
     const QString own = resolve(relative);
-    if (relative.isEmpty() || QFileInfo::exists(own) || QDir::isAbsolutePath(relative))
+    const QString cleaned = cleanContentPath(relative);
+    if (cleaned.isEmpty() || isUnsafeName(cleaned) || QFileInfo::exists(own) || QDir::isAbsolutePath(cleaned))
         return own;
     // The nearest "data" folder above the motif, then the folder holding it.
     QDir dir(directory());
     do {
         if (dir.dirName().compare(QLatin1String("data"), Qt::CaseInsensitive) == 0) {
-            const QString inData = QDir::cleanPath(dir.filePath(relative));
+            const QString inData = findContentFile(dir.filePath(cleaned));
             if (QFileInfo::exists(inData))
                 return inData;
             QDir root = dir;
-            if (root.cdUp() && QFileInfo::exists(root.filePath(relative)))
-                return QDir::cleanPath(root.filePath(relative));
+            if (root.cdUp() && QFileInfo::exists(findContentFile(root.filePath(cleaned))))
+                return findContentFile(root.filePath(cleaned));
             break;
         }
     } while (dir.cdUp());
@@ -279,51 +281,60 @@ void MugenProject::collectFiles(const DefFile& def)
         if (!path.isEmpty() && !list.contains(path, Qt::CaseInsensitive))
             list << path;
     };
+    QStringList refused;
+    auto listed = [this, &refused](const QString& name, bool data = false) {
+        if (isUnsafeName(name)) {
+            refused << cleanContentPath(name);
+            return QString();
+        }
+        return data ? resolveData(name) : resolve(name);
+    };
 
     setEditorFiles(EditorId::Definitions, {filePath()});
     setEditorFiles(EditorId::Emulator, {});
 
     const QString type = typeId();
     if (type == MugenType::Character) {
-        setEditorFiles(EditorId::Sprites, {resolve(def.value(files, QStringLiteral("sprite")))});
-        setEditorFiles(EditorId::Animations, {resolve(def.value(files, QStringLiteral("anim")))});
-        setEditorFiles(EditorId::Commands, {resolve(def.value(files, QStringLiteral("cmd")))});
-        setEditorFiles(EditorId::Sounds, {resolve(def.value(files, QStringLiteral("sound")))});
+        setEditorFiles(EditorId::Sprites, {listed(def.value(files, QStringLiteral("sprite")))});
+        setEditorFiles(EditorId::Animations, {listed(def.value(files, QStringLiteral("anim")))});
+        setEditorFiles(EditorId::Commands, {listed(def.value(files, QStringLiteral("cmd")))});
+        setEditorFiles(EditorId::Sounds, {listed(def.value(files, QStringLiteral("sound")))});
         QStringList states;
-        addUnique(states, resolve(def.value(files, QStringLiteral("cns"))));
-        addUnique(states, resolve(def.value(files, QStringLiteral("st"))));
+        addUnique(states, listed(def.value(files, QStringLiteral("cns"))));
+        addUnique(states, listed(def.value(files, QStringLiteral("st"))));
         for (const QString& st : def.values(files, QStringLiteral("st[0-9]+")))
-            addUnique(states, resolve(st));
+            addUnique(states, listed(st));
         setEditorFiles(EditorId::States, states);
     } else if (type == MugenType::Stage) {
-        setEditorFiles(EditorId::Sprites, {resolve(def.value(QStringLiteral("BGdef"), QStringLiteral("spr")))});
+        setEditorFiles(EditorId::Sprites, {listed(def.value(QStringLiteral("BGdef"), QStringLiteral("spr")))});
         setEditorFiles(EditorId::Animations, {filePath()});
         setEditorFiles(EditorId::Backgrounds, {filePath()});
     } else if (type == MugenType::Storyboard) {
-        setEditorFiles(EditorId::Sprites, {resolve(def.value(QStringLiteral("SceneDef"), QStringLiteral("spr")))});
+        setEditorFiles(EditorId::Sprites, {listed(def.value(QStringLiteral("SceneDef"), QStringLiteral("spr")))});
         setEditorFiles(EditorId::Animations, {filePath()});
         setEditorFiles(EditorId::Backgrounds, {filePath()});
     } else if (type == MugenType::Motif) {
         QStringList definitions{filePath()};
-        addUnique(definitions, resolveData(def.value(files, QStringLiteral("select"))));
+        addUnique(definitions, listed(def.value(files, QStringLiteral("select")), true));
         setEditorFiles(EditorId::Definitions, definitions);
-        setEditorFiles(EditorId::Sprites, {resolve(def.value(files, QStringLiteral("spr")))});
+        setEditorFiles(EditorId::Sprites, {listed(def.value(files, QStringLiteral("spr")))});
         setEditorFiles(EditorId::Animations, {filePath()});
         setEditorFiles(EditorId::Backgrounds, {filePath()});
-        setEditorFiles(EditorId::Sounds, {resolve(def.value(files, QStringLiteral("snd")))});
+        setEditorFiles(EditorId::Sounds, {listed(def.value(files, QStringLiteral("snd")))});
     } else if (type == MugenType::Fight) {
         QStringList sprites;
-        addUnique(sprites, resolve(def.value(files, QStringLiteral("sff"))));
-        addUnique(sprites, resolve(def.value(files, QStringLiteral("fightfx.sff"))));
+        addUnique(sprites, listed(def.value(files, QStringLiteral("sff"))));
+        addUnique(sprites, listed(def.value(files, QStringLiteral("fightfx.sff"))));
         QStringList anims{filePath()};
-        addUnique(anims, resolve(def.value(files, QStringLiteral("fightfx.air"))));
+        addUnique(anims, listed(def.value(files, QStringLiteral("fightfx.air"))));
         QStringList sounds;
-        addUnique(sounds, resolve(def.value(files, QStringLiteral("snd"))));
-        addUnique(sounds, resolve(def.value(files, QStringLiteral("common.snd"))));
+        addUnique(sounds, listed(def.value(files, QStringLiteral("snd"))));
+        addUnique(sounds, listed(def.value(files, QStringLiteral("common.snd"))));
         setEditorFiles(EditorId::Sprites, sprites);
         setEditorFiles(EditorId::Animations, anims);
         setEditorFiles(EditorId::Sounds, sounds);
     }
+    setRefusedFiles(refused);
 }
 
 } // namespace OFS::Mugen

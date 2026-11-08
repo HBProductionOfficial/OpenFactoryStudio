@@ -29,6 +29,8 @@ public:
     bool writeCopy(const QString& path, Formats::SffVersion version, QString* error) const;
 
     const SpriteDocument& document() const { return m_document; }
+    // What reading had to skip or repair in a damaged file, until the next save.
+    const QStringList& readProblems() const { return m_readProblems; }
     QUndoStack* undoStack() const { return m_undo; }
 
     void apply(const QString& text, const SpriteDocument& after);
@@ -49,6 +51,7 @@ private:
 
     SpriteDocument m_document;
     QByteArray m_original;
+    QStringList m_readProblems;
     QUndoStack* m_undo;
 };
 

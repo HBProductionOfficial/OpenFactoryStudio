@@ -5,6 +5,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <cstring>
+
 using namespace OFS::Formats;
 using namespace OFS::Formats::Test;
 
@@ -248,6 +250,134 @@ TEST_CASE("SFF v2 linked sprites and palettes", "[sff][v2][links]")
         const SffDocument running = writeAndRead(doc);
         CHECK(running.linkOffsets == SffLinkOffsets::RunningOffset);
     }
+}
+
+TEST_CASE("SFF v2 links to a later sprite", "[sff][v2][links]")
+{
+    // Written with sprite 1 linking back to sprite 0, then edited so sprite 0 links forward to
+    // sprite 1, which holds the pixels. MUGEN reads such files.
+    FixtureFactory f(52);
+    SffDocument doc(SffVersion::V2);
+    SffPalette p;
+    p.colors = f.palette(256);
+    doc.palettes.push_back(p);
+    const Image img = f.indexedImage(9, 7, 256, PixelPattern::Runs);
+    for (int i = 0; i < 2; ++i) {
+        SffSprite s;
+        s.number = static_cast<std::uint16_t>(i);
+        doc.sprites.push_back(s);
+        doc.setSpriteImage(static_cast<std::size_t>(i), img);
+        doc.sprites.back().compression = SffCompression::Rle8;
+    }
+    doc.sprites[1].image.reset();
+    doc.sprites[1].linkedIndex = 0;
+    auto written = doc.write();
+    REQUIRE(written.ok());
+    Bytes bytes = *written;
+    const std::size_t nodes = u32At(bytes, 0x24);
+    auto put16 = [&bytes](std::size_t at, std::uint16_t v) {
+        std::memcpy(bytes.data() + at, &v, 2);
+    };
+    auto put32 = [&bytes](std::size_t at, std::uint32_t v) {
+        std::memcpy(bytes.data() + at, &v, 4);
+    };
+    const std::size_t first = nodes, second = nodes + 28; // link at +12, offset at +16, length at +20
+    put32(second + 16, u32At(bytes, first + 16));
+    put32(second + 20, u32At(bytes, first + 20));
+    put16(first + 12, 1);
+    put32(first + 20, 0);
+
+    SECTION("the first sprite takes the pixels and the other links back to it")
+    {
+        auto back = SffDocument::read(bytes);
+        REQUIRE(back.ok());
+        CHECK(back->sprites[0].linkedIndex == -1);
+        CHECK(back->sprites[1].linkedIndex == 0);
+        for (std::size_t i = 0; i < 2; ++i) {
+            auto image = back->decodeSprite(i);
+            REQUIRE(image.ok());
+            CHECK(image->pixelBuffer() == img.pixelBuffer());
+        }
+    }
+
+    SECTION("sprites in a loop of links are kept without an image")
+    {
+        put16(second + 12, 0);
+        put32(second + 20, 0);
+        auto back = SffDocument::read(bytes);
+        REQUIRE(back.ok());
+        REQUIRE(back->sprites.size() == 2);
+        CHECK(back->sprites[0].data.empty());
+        CHECK_FALSE(back->decodeSprite(0).ok());
+        CHECK_FALSE(back->decodeSprite(1).ok());
+    }
+
+    SECTION("a sprite linked to itself is kept without an image and the rest loads")
+    {
+        put16(first + 12, 0);
+        auto back = SffDocument::read(bytes);
+        REQUIRE(back.ok());
+        CHECK_FALSE(back->sprites[0].isLinked());
+        CHECK(back->sprites[0].data.empty());
+        REQUIRE(back->readProblems.size() == 1);
+        CHECK(back->readProblems[0] == "Sprite 0,0 links to itself, so it has no image.");
+        auto image = back->decodeSprite(1);
+        REQUIRE(image.ok());
+        CHECK(image->pixelBuffer() == img.pixelBuffer());
+
+        // It still saves, as one transparent pixel.
+        auto saved = back->write();
+        REQUIRE(saved.ok());
+        auto again = SffDocument::read(*saved);
+        REQUIRE(again.ok());
+        CHECK(again->readProblems.empty());
+        auto blank = again->decodeSprite(0);
+        REQUIRE(blank.ok());
+        CHECK(blank->width() == 1);
+        CHECK(blank->pixels()[0] == 0);
+    }
+
+    SECTION("a sprite outside the data is kept without an image")
+    {
+        put32(first + 16, u32At(bytes, second + 16)); // sprite 0 has its own pixels again
+        put32(first + 20, u32At(bytes, second + 20));
+        put32(second + 16, 0x7FFFFFF0);
+        auto back = SffDocument::read(bytes);
+        REQUIRE(back.ok());
+        REQUIRE(back->sprites.size() == 2);
+        CHECK(back->sprites[1].data.empty());
+        CHECK(back->readProblems.size() == 1);
+        CHECK(back->decodeSprite(0).ok());
+    }
+}
+
+TEST_CASE("SFF v2 palette links to a later palette", "[sff][v2][links]")
+{
+    FixtureFactory f(53);
+    SffDocument doc(SffVersion::V2);
+    for (int i = 0; i < 2; ++i) {
+        SffPalette p;
+        p.group = 1;
+        p.number = static_cast<std::uint16_t>(i + 1);
+        p.colors = f.palette(256);
+        doc.palettes.push_back(p);
+    }
+    SffSprite s;
+    doc.sprites.push_back(s);
+    doc.setSpriteImage(0, f.indexedImage(4, 4, 256, PixelPattern::Noise));
+    auto written = doc.write();
+    REQUIRE(written.ok());
+    Bytes bytes = *written;
+    // Palette 0 links forward to palette 1: link at +6, length at +12 of each 16-byte node.
+    const std::size_t table = u32At(bytes, 0x2C);
+    const std::uint16_t link = 1;
+    const std::uint32_t none = 0;
+    std::memcpy(bytes.data() + table + 6, &link, 2);
+    std::memcpy(bytes.data() + table + 12, &none, 4);
+    auto back = SffDocument::read(bytes);
+    REQUIRE(back.ok());
+    CHECK(back->palettes[0].colors == doc.palettes[1].colors);
+    CHECK(back->readProblems.empty());
 }
 
 TEST_CASE("SFF compression policy", "[sff][compression]")

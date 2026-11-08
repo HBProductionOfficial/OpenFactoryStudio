@@ -1,14 +1,17 @@
 // Reads RAR archives through libarchive.
 
 #include "core/project/Archives.h"
+#include "core/project/ContentPaths.h"
 
 #include <archive.h>
 #include <archive_entry.h>
 
+#include <QBuffer>
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QLocale>
 #include <QObject>
 
 namespace OFS {
@@ -62,29 +65,42 @@ public:
         return entry;
     }
 
-    QByteArray data(qint64 size)
+    // Stops after limit bytes in all, because the sizes the archive gives can be wrong. tooBig()
+    // says when that happened.
+    bool copyTo(QIODevice& out, qint64 limit, qint64* written)
     {
-        QByteArray bytes;
-        bytes.reserve(qsizetype(std::max<qint64>(size, 0)));
         char buffer[1 << 16];
         for (;;) {
             const la_ssize_t n = archive_read_data(m_archive, buffer, sizeof buffer);
             if (n == 0)
-                break;
+                return true;
             if (n < 0) {
                 m_failed = true;
-                return {};
+                return false;
             }
-            bytes.append(buffer, qsizetype(n));
+            *written += n;
+            if (*written > limit) {
+                m_tooBig = true;
+                return false;
+            }
+            if (out.write(buffer, n) != n)
+                return false;
         }
-        return bytes;
     }
+    bool tooBig() const { return m_tooBig; }
 
 private:
     archive* m_archive;
     bool m_open = false;
     bool m_failed = false;
+    bool m_tooBig = false;
 };
+
+QString tooBigText(const QString& archive, qint64 limit)
+{
+    return RarTexts::tr("%1 unpacks to more than %2, so it wasn't unpacked.")
+        .arg(QFileInfo(archive).fileName(), QLocale().formattedDataSize(limit));
+}
 
 QString nameOf(archive_entry* entry)
 {
@@ -140,25 +156,31 @@ public:
         if (!reader.isOpen())
             return fail(error, reader.error());
         const QString root = QDir::cleanPath(QDir(folder).absolutePath());
+        const qint64 limit = Zip::extractLimit(QFileInfo(archive).size());
+        qint64 written = 0;
         while (archive_entry* entry = reader.next()) {
             const QString name = nameOf(entry);
             if (name.isEmpty())
                 continue;
             const QString target = QDir::cleanPath(root + QLatin1Char('/') + name);
-            if (!target.startsWith(root + QLatin1Char('/')))
+            if (namesDriveOrStream(name) || !isInsideFolder(target, root))
                 return fail(error, RarTexts::tr("The archive entry %1 points outside the folder.").arg(name));
             if (isDirectory(entry)) {
                 if (!QDir().mkpath(target))
                     return fail(error, RarTexts::tr("Cannot extract %1.").arg(name));
                 continue;
             }
-            const QByteArray data = reader.data(archive_entry_size(entry));
-            if (reader.failed())
-                return fail(error, reader.error());
             QDir().mkpath(QFileInfo(target).absolutePath());
             QFile out(target);
-            if (!out.open(QIODevice::WriteOnly) || out.write(data) != data.size())
+            if (!out.open(QIODevice::WriteOnly))
                 return fail(error, RarTexts::tr("Cannot extract %1.").arg(name));
+            if (!reader.copyTo(out, limit, &written)) {
+                out.close();
+                out.remove();
+                if (reader.tooBig())
+                    return fail(error, tooBigText(archive, limit));
+                return fail(error, reader.failed() ? reader.error() : RarTexts::tr("Cannot extract %1.").arg(name));
+            }
         }
         return !reader.failed() || fail(error, reader.error());
     }
@@ -173,9 +195,16 @@ public:
         while (archive_entry* entry = reader.next()) {
             if (isDirectory(entry) || nameOf(entry) != name)
                 continue;
-            const QByteArray data = reader.data(archive_entry_size(entry));
-            if (reader.failed())
-                fail(error, reader.error());
+            // This one stays in memory.
+            const qint64 limit = std::min(Zip::extractLimit(QFileInfo(archive).size()), qint64{1} << 30);
+            QByteArray data;
+            QBuffer buffer(&data);
+            buffer.open(QIODevice::WriteOnly);
+            qint64 written = 0;
+            if (!reader.copyTo(buffer, limit, &written)) {
+                fail(error, reader.tooBig() ? tooBigText(archive, limit) : reader.error());
+                return {};
+            }
             return data;
         }
         fail(error, reader.failed() ? reader.error() : RarTexts::tr("%1 is not in the archive.").arg(name));

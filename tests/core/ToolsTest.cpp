@@ -2,6 +2,7 @@
 #include "core/app/Languages.h"
 #include "core/app/Paths.h"
 #include "core/engine/RunConfiguration.h"
+#include "core/project/ContentPaths.h"
 #include "core/settings/Config.h"
 #include "core/settings/SettingsBundle.h"
 #include "core/text/Encodings.h"
@@ -12,6 +13,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QImage>
 #include <QMimeData>
 #include <QTemporaryDir>
@@ -95,6 +97,50 @@ class ToolsTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    // Paths in game files come from Windows: backslashes and any letter case still find the file.
+    void contentPaths()
+    {
+        QTemporaryDir dir;
+        QVERIFY(QDir(dir.path()).mkpath(QStringLiteral("Files")));
+        QFile file(dir.filePath(QStringLiteral("Files/Base.sff")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.close();
+        QCOMPARE(cleanContentPath(QStringLiteral(" files\\Base.sff ")), QStringLiteral("files/Base.sff"));
+        const QString found = findContentFile(dir.path() + QStringLiteral("/files\\base.SFF"));
+        QVERIFY(QFileInfo::exists(found));
+        QVERIFY(!found.contains(QLatin1Char('\\')));
+        const QString missing = dir.path() + QStringLiteral("/files/nothing.sff");
+        QCOMPARE(findContentFile(missing), missing);
+
+        QVERIFY(isUnsafeName(QStringLiteral(" \\\\server\\share\\x.sff")));
+        QVERIFY(isUnsafeName(QStringLiteral("//server/share/x.sff")));
+        QVERIFY(!isUnsafeName(QStringLiteral("files/x.sff")));
+        QVERIFY(!isUnsafeName(QStringLiteral("/home/x.sff")));
+        // Shortcuts can point to another computer, and Windows drops dots and spaces at the end.
+        QVERIFY(isUnsafeName(QStringLiteral("x.lnk")));
+        QVERIFY(isUnsafeName(QStringLiteral("files\\X.LNK")));
+        QVERIFY(isUnsafeName(QStringLiteral("x.lnk. ")));
+        QVERIFY(isUnsafeName(QStringLiteral("folder.lnk/x.sff")));
+        QVERIFY(!isUnsafeName(QStringLiteral("x.lnkx.sff")));
+#ifdef Q_OS_WIN
+        QVERIFY(namesDriveOrStream(QStringLiteral("winmm.dll:a.mp3")));
+        QVERIFY(namesDriveOrStream(QStringLiteral("C:x.def")));
+#endif
+        QVERIFY(!namesDriveOrStream(QStringLiteral("chars/kfm/kfm.def")));
+        const QStringList folders{QString(), dir.filePath(QStringLiteral("none")), dir.path()};
+        QVERIFY(QFileInfo(findInFolders(QStringLiteral("FILES\\base.sff"), folders)).isFile());
+        QVERIFY(findInFolders(QStringLiteral("files/other.sff"), folders).isEmpty());
+
+        const QString base = QStringLiteral("/games/mugen");
+        QVERIFY(isInsideFolder(base, base));
+        QVERIFY(isInsideFolder(base + QStringLiteral("/chars/kfm.def"), base));
+        QVERIFY(isInsideFolder(base + QStringLiteral("/chars/../data/x.def"), base));
+        QVERIFY(!isInsideFolder(base + QStringLiteral("/../evil.dll"), base));
+        QVERIFY(!isInsideFolder(QStringLiteral("/games/mugen2/x.def"), base));
+        QVERIFY(!isInsideFolder(QStringLiteral("/other/x.def"), base));
+        QVERIFY(findInFolders(QStringLiteral("\\\\server\\share\\Base.sff"), folders).isEmpty());
+    }
+
     void calculator_data()
     {
         QTest::addColumn<QString>("keys");

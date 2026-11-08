@@ -4,9 +4,48 @@
 
 #include <QApplication>
 #include <QCheckBox>
+#include <QEvent>
 #include <QMessageBox>
+#include <QTextDocument>
 
 namespace OFS {
+
+namespace {
+
+// A box gets Polish before it lays out its text the first time, so nothing of the text is read
+// as HTML.
+class PlainTextMessages : public QObject
+{
+public:
+    using QObject::QObject;
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override
+    {
+        if (event->type() == QEvent::Polish) {
+            if (auto* box = qobject_cast<QMessageBox*>(watched); box && box->textFormat() == Qt::AutoText)
+                box->setTextFormat(Qt::PlainText);
+        }
+        return false;
+    }
+};
+
+} // namespace
+
+void showPlainTextMessages(QApplication& app)
+{
+    const QString name = QStringLiteral("ofsPlainTextMessages");
+    if (app.findChild<QObject*>(name, Qt::FindDirectChildrenOnly))
+        return;
+    auto* filter = new PlainTextMessages(&app);
+    filter->setObjectName(name);
+    app.installEventFilter(filter);
+}
+
+QString asPlainText(const QString& text)
+{
+    return Qt::mightBeRichText(text) ? Qt::convertFromPlainText(text, Qt::WhiteSpaceNormal) : text;
+}
 
 StoredAnswer storedAnswer(const Config& config, const QString& key)
 {

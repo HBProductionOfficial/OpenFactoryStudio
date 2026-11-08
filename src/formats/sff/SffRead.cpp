@@ -2,9 +2,11 @@
 #include "formats/sff/SffDocument.h"
 #include "formats/sff/SffInternal.h"
 #include "formats/util/ByteReader.h"
+#include "formats/util/ReadLimits.h"
 
 #include <algorithm>
 #include <string>
+#include <vector>
 
 namespace OFS::Formats {
 
@@ -12,14 +14,45 @@ using namespace SffDetail;
 
 namespace {
 
-std::string at(const char* what, std::size_t index)
+std::string spriteName(const SffSprite& s)
 {
-    return std::string(what) + ' ' + std::to_string(index);
+    return "Sprite " + std::to_string(s.group) + "," + std::to_string(s.number);
+}
+
+std::string paletteName(const SffPalette& p)
+{
+    return "Palette " + std::to_string(p.group) + "," + std::to_string(p.number);
 }
 
 bool fits(std::uint64_t offset, std::uint64_t length, std::uint64_t size)
 {
     return offset <= size && length <= size - offset;
+}
+
+// Where each chain of links ends: the first entry that isn't a link, or -1 for a chain that runs
+// in a loop. Each entry is looked at once, so long chains don't make reading slow.
+template <typename T>
+std::vector<std::int64_t> linkEnds(const std::vector<T>& items)
+{
+    constexpr std::int64_t kUnknown = -2;
+    constexpr std::int64_t kOnPath = -3;
+    std::vector<std::int64_t> ends(items.size(), kUnknown);
+    std::vector<std::size_t> path;
+    for (std::size_t i = 0; i < items.size(); ++i) {
+        std::size_t at = i;
+        while (ends[at] == kUnknown && items[at].linkedIndex >= 0) {
+            ends[at] = kOnPath;
+            path.push_back(at);
+            at = static_cast<std::size_t>(items[at].linkedIndex);
+        }
+        if (ends[at] == kUnknown)
+            ends[at] = static_cast<std::int64_t>(at);
+        const std::int64_t end = ends[at] == kOnPath ? -1 : ends[at];
+        for (std::size_t p : path)
+            ends[p] = end;
+        path.clear();
+    }
+    return ends;
 }
 
 Result<SffDocument> readV1(ByteSpan data, SffDocument doc)
@@ -35,18 +68,29 @@ Result<SffDocument> readV1(ByteSpan data, SffDocument doc)
     doc.raw.v1GroupCount = groupCount;
     doc.raw.v1SubheaderSize = subheaderSize;
 
-    if (imageCount > data.size() / kV1SubheaderSize)
-        return Error{"SFF v1 image count is larger than the file can hold"};
     if (imageCount > 0 && firstOffset < kV1SubheaderSize)
         return Error{"SFF v1 first subfile offset is invalid"};
 
-    doc.sprites.reserve(imageCount);
+    // A damaged file keeps the sprites before the damage. Sprites that can't be read stay in the
+    // list without an image.
+    std::size_t readable = imageCount;
+    if (imageCount > data.size() / kV1SubheaderSize) {
+        readable = data.size() / kV1SubheaderSize;
+        addReadProblem(doc.readProblems,
+                       "The header lists " + std::to_string(imageCount) + " sprites, more than the file can hold.");
+    }
+    doc.sprites.reserve(readable);
     std::uint64_t offset = firstOffset;
     std::int32_t lastPalette = -1; // palette of the most recent sprite with its own pixels
+    // Subheaders can overlap, so many sprites can point to the same data.
+    CopyBudget budget(data.size());
 
-    for (std::size_t i = 0; i < imageCount; ++i) {
-        if (!fits(offset, kV1SubheaderSize, data.size()))
-            return Error{at("SFF v1 subfile", i) + " lies outside the file"};
+    for (std::size_t i = 0; i < readable; ++i) {
+        if (!fits(offset, kV1SubheaderSize, data.size())) {
+            addReadProblem(doc.readProblems, "The file ends after sprite " + std::to_string(i) + " of " +
+                                                 std::to_string(imageCount) + ".");
+            break;
+        }
         r.seek(static_cast<std::size_t>(offset));
         const std::uint32_t next = r.u32();
         const std::uint32_t length = r.u32();
@@ -66,11 +110,15 @@ Result<SffDocument> readV1(ByteSpan data, SffDocument doc)
         s.colorDepth = 8;
 
         const std::uint64_t start = offset + kV1SubheaderSize;
-        if (length == 0) {
-            if (link >= i)
-                return Error{at("SFF v1 sprite", i) + " links to a sprite that does not precede it"};
+        if (length == 0 && link >= i) {
+            addReadProblem(doc.readProblems, spriteName(s) +
+                                                 " links to a sprite that doesn't come before it, so it has no "
+                                                 "image.");
+            s.paletteIndex = lastPalette;
+        } else if (length == 0) {
+            // Straight to the sprite with the pixels, as a save writes it.
             const SffSprite& target = doc.sprites[link];
-            s.linkedIndex = link;
+            s.linkedIndex = target.isLinked() ? target.linkedIndex : link;
             s.paletteIndex = target.paletteIndex;
             s.width = target.width;
             s.height = target.height;
@@ -78,20 +126,36 @@ Result<SffDocument> readV1(ByteSpan data, SffDocument doc)
             // Use the next-subfile offset to find the end of the data, because some writers store
             // a length that counts a palette they left out.
             std::uint64_t end = 0;
-            if (next > start && next <= data.size())
+            if (next > start && next <= data.size()) {
                 end = next;
-            else if (fits(start, length, data.size()))
+            } else if (fits(start, length, data.size())) {
                 end = start + length;
-            else
-                return Error{at("SFF v1 sprite", i) + " data extends past the end of the file"};
-            s.data.assign(data.begin() + static_cast<std::ptrdiff_t>(start),
-                          data.begin() + static_cast<std::ptrdiff_t>(end));
+            } else {
+                addReadProblem(doc.readProblems,
+                               spriteName(s) + " is cut off at the end of the file and was left out.");
+                break;
+            }
+            const bool copied = budget.take(end - start);
+            if (copied)
+                s.data.assign(data.begin() + static_cast<std::ptrdiff_t>(start),
+                              data.begin() + static_cast<std::ptrdiff_t>(end));
 
             auto pcx = readPcxHeader(s.data);
-            if (!pcx)
-                return withContext(at("SFF v1 sprite", i), pcx.error());
-            if (pcx->width() > 0xFFFF || pcx->height() > 0xFFFF)
-                return Error{at("SFF v1 sprite", i) + " is too large"};
+            if (!copied || !pcx || pcx->width() > 0xFFFF || pcx->height() > 0xFFFF) {
+                // Kept as it is, so a save doesn't lose the bytes.
+                addReadProblem(doc.readProblems,
+                               spriteName(s) + (copied ? " has a damaged image."
+                                                       : " uses data that too many other sprites use, so it has no "
+                                                         "image."));
+                s.paletteIndex = lastPalette;
+                doc.sprites.push_back(std::move(s));
+                if (i + 1 < readable) {
+                    if (next <= offset)
+                        break;
+                    offset = next;
+                }
+                continue;
+            }
             s.width = static_cast<std::uint16_t>(pcx->width());
             s.height = static_cast<std::uint16_t>(pcx->height());
 
@@ -118,9 +182,13 @@ Result<SffDocument> readV1(ByteSpan data, SffDocument doc)
         }
         doc.sprites.push_back(std::move(s));
 
-        if (i + 1 < imageCount) {
-            if (next <= offset)
-                return Error{at("SFF v1 subfile", i) + " has an invalid next-subfile offset"};
+        if (i + 1 < readable) {
+            if (next <= offset) {
+                addReadProblem(doc.readProblems,
+                               spriteName(doc.sprites.back()) +
+                                   " doesn't point to the next sprite, so the sprites after it are missing.");
+                break;
+            }
             offset = next;
         }
     }
@@ -133,23 +201,44 @@ Result<SffDocument> readV2(ByteSpan data, SffDocument doc)
     ByteReader r(data);
     r.seek(kV2TableOffset);
     const std::uint32_t spriteOffset = r.u32();
-    const std::uint32_t spriteCount = r.u32();
+    std::uint32_t spriteCount = r.u32();
     const std::uint32_t paletteOffset = r.u32();
-    const std::uint32_t paletteCount = r.u32();
+    std::uint32_t paletteCount = r.u32();
     const std::uint32_t literalOffset = r.u32();
-    const std::uint32_t literalLength = r.u32();
+    std::uint32_t literalLength = r.u32();
     const std::uint32_t translatedOffset = r.u32();
-    const std::uint32_t translatedLength = r.u32();
+    std::uint32_t translatedLength = r.u32();
     doc.raw.fromFile = true;
 
-    if (!fits(paletteOffset, std::uint64_t{paletteCount} * kV2PaletteNodeSize, data.size()))
-        return Error{"SFF v2 palette table lies outside the file"};
-    if (!fits(spriteOffset, std::uint64_t{spriteCount} * kV2SpriteNodeSize, data.size()))
-        return Error{"SFF v2 sprite table lies outside the file"};
-    if (!fits(literalOffset, literalLength, data.size()))
-        return Error{"SFF v2 literal data block lies outside the file"};
-    if (!fits(translatedOffset, translatedLength, data.size()))
-        return Error{"SFF v2 translated data block lies outside the file"};
+    // A file cut off at the end keeps what is still in it.
+    auto fitting = [&data](std::uint32_t offset, std::size_t size) {
+        return offset <= data.size() ? static_cast<std::uint32_t>((data.size() - offset) / size) : 0u;
+    };
+    if (!fits(paletteOffset, std::uint64_t{paletteCount} * kV2PaletteNodeSize, data.size())) {
+        addReadProblem(doc.readProblems, "The file is cut off: some palettes are missing.");
+        paletteCount = std::min(paletteCount, fitting(paletteOffset, kV2PaletteNodeSize));
+    }
+    if (!fits(spriteOffset, std::uint64_t{spriteCount} * kV2SpriteNodeSize, data.size())) {
+        addReadProblem(doc.readProblems, "The file is cut off: some sprites are missing.");
+        spriteCount = std::min(spriteCount, fitting(spriteOffset, kV2SpriteNodeSize));
+    }
+    if (!fits(literalOffset, literalLength, data.size())) {
+        addReadProblem(doc.readProblems, "The file is cut off: some images and palettes are missing.");
+        literalLength = fitting(literalOffset, 1);
+    }
+    if (!fits(translatedOffset, translatedLength, data.size())) {
+        addReadProblem(doc.readProblems, "The file is cut off: some images are missing.");
+        translatedLength = fitting(translatedOffset, 1);
+    }
+    // Sprites store the palette number in 16 bits.
+    constexpr std::uint32_t kMaxPalettes = 0x10000;
+    if (paletteCount > kMaxPalettes) {
+        addReadProblem(doc.readProblems,
+                       "The file lists " + std::to_string(paletteCount) +
+                           " palettes, but sprites can only use the first 65536. The rest were left out.");
+        paletteCount = kMaxPalettes;
+    }
+    CopyBudget budget(data.size());
 
     // Linked nodes store an offset nobody reads. Count which style the file uses so the writer
     // can repeat it.
@@ -175,24 +264,59 @@ Result<SffDocument> readV2(ByteSpan data, SffDocument doc)
         const std::uint32_t offset = r.u32();
         const std::uint32_t length = r.u32();
         paletteOffsets[i] = offset;
-        if (length == 0) {
-            if (link >= i)
-                return Error{at("SFF v2 palette", i) + " links to a palette that does not precede it"};
-            p.linkedIndex = link;
-            p.colors = doc.palettes[link].colors;
-            vote(offset, paletteCursor, paletteOffsets[link]);
+        if (length == 0 && link < paletteCount && link != i) {
+            p.linkedIndex = link; // the colors are copied below
+            if (link < i)
+                vote(offset, paletteCursor, paletteOffsets[link]);
+        } else if (length == 0) {
+            addReadProblem(doc.readProblems, paletteName(p) + " links to a palette that doesn't exist, so it is gray.");
+            p.colors = grayscalePalette();
+        } else if (!fits(offset, length, literalLength)) {
+            addReadProblem(doc.readProblems, paletteName(p) + " lies outside the file's data, so it is gray.");
+            p.colors = grayscalePalette();
         } else {
-            if (!fits(offset, length, literalLength))
-                return Error{at("SFF v2 palette", i) + " lies outside the literal data block"};
-            if (std::uint64_t{colorCount} * 4 > length)
-                return Error{at("SFF v2 palette", i) + " is shorter than its color count"};
-            const std::span<const std::uint8_t> bytes = asU8(data.subspan(literalOffset + offset, length));
-            p.colors.resize(colorCount);
-            for (std::size_t c = 0; c < colorCount; ++c)
-                p.colors[c] = rgb(bytes[c * 4], bytes[c * 4 + 1], bytes[c * 4 + 2], bytes[c * 4 + 3]);
+            std::size_t count = colorCount;
+            if (std::uint64_t{colorCount} * 4 > length) {
+                addReadProblem(doc.readProblems, paletteName(p) + " is shorter than it says: some colors are missing.");
+                count = length / 4;
+            }
+            if (budget.take(count * sizeof(Rgba))) {
+                const std::span<const std::uint8_t> bytes = asU8(data.subspan(literalOffset + offset, length));
+                p.colors.resize(count);
+                for (std::size_t c = 0; c < count; ++c)
+                    p.colors[c] = rgb(bytes[c * 4], bytes[c * 4 + 1], bytes[c * 4 + 2], bytes[c * 4 + 3]);
+            } else {
+                addReadProblem(doc.readProblems,
+                               paletteName(p) + " uses colors that too many other palettes use, so it is gray.");
+                p.colors = grayscalePalette();
+            }
             paletteCursor = std::uint64_t{offset} + length;
         }
         doc.palettes.push_back(std::move(p));
+    }
+    // A link gets a copy of the colors at the end of its chain. Links to a later palette become
+    // palettes of their own.
+    const std::vector<std::int64_t> paletteEnds = linkEnds(doc.palettes);
+    for (std::size_t i = 0; i < doc.palettes.size(); ++i) {
+        SffPalette& p = doc.palettes[i];
+        if (p.linkedIndex < 0)
+            continue;
+        if (static_cast<std::size_t>(p.linkedIndex) > i)
+            p.linkedIndex = -1;
+        const std::int64_t end = paletteEnds[i];
+        if (end < 0) {
+            addReadProblem(doc.readProblems, paletteName(p) + " is part of a loop of links, so it is gray.");
+            p.linkedIndex = -1;
+            p.colors = grayscalePalette();
+        } else if (const Palette& colors = doc.palettes[static_cast<std::size_t>(end)].colors;
+                   budget.take(colors.size() * sizeof(Rgba))) {
+            p.colors = colors;
+        } else {
+            addReadProblem(doc.readProblems,
+                           paletteName(p) + " uses colors that too many other palettes use, so it is gray.");
+            p.linkedIndex = -1;
+            p.colors = grayscalePalette();
+        }
     }
 
     std::vector<std::uint32_t> spriteOffsets(spriteCount, 0);
@@ -218,20 +342,65 @@ Result<SffDocument> readV2(ByteSpan data, SffDocument doc)
         spriteOffsets[i] = offset;
         const int block = (s.flags & 1) ? 1 : 0;
         if (length == 0) {
-            if (link >= i)
-                return Error{at("SFF v2 sprite", i) + " links to a sprite that does not precede it"};
-            s.linkedIndex = link;
-            vote(offset, cursor[block], spriteOffsets[link]);
+            // A link to nothing or to the sprite itself leaves it without an image, and the rest of
+            // the file still loads.
+            if (link < spriteCount && link != i) {
+                s.linkedIndex = link;
+                if (link < i)
+                    vote(offset, cursor[block], spriteOffsets[link]);
+            } else {
+                addReadProblem(doc.readProblems, spriteName(s) +
+                                                     (link == i ? " links to itself"
+                                                                : " links to a sprite that "
+                                                                  "doesn't exist") +
+                                                     ", so it has no image.");
+            }
         } else {
             const std::uint32_t blockOffset = block ? translatedOffset : literalOffset;
             const std::uint32_t blockLength = block ? translatedLength : literalLength;
-            if (!fits(offset, length, blockLength))
-                return Error{at("SFF v2 sprite", i) + " lies outside its data block"};
-            const ByteSpan bytes = data.subspan(std::size_t{blockOffset} + offset, length);
-            s.data.assign(bytes.begin(), bytes.end());
-            cursor[block] = std::uint64_t{offset} + length;
+            if (fits(offset, length, blockLength) && !budget.take(length)) {
+                addReadProblem(doc.readProblems,
+                               spriteName(s) + " uses data that too many other sprites use, so it has no image.");
+            } else if (fits(offset, length, blockLength)) {
+                const ByteSpan bytes = data.subspan(std::size_t{blockOffset} + offset, length);
+                s.data.assign(bytes.begin(), bytes.end());
+                cursor[block] = std::uint64_t{offset} + length;
+            } else {
+                addReadProblem(doc.readProblems, spriteName(s) + " lies outside the file's data, so it has no image.");
+            }
         }
         doc.sprites.push_back(std::move(s));
+    }
+    // MUGEN and Fighter Factory also read links to a later sprite. The rest of the program expects
+    // links to point back, so the first sprite of each group takes the pixels and the others link
+    // straight to it, the same way a save writes it.
+    const std::vector<std::int64_t> spriteEnds = linkEnds(doc.sprites);
+    std::vector<std::int64_t> owners(doc.sprites.size(), -1);
+    for (std::size_t i = 0; i < doc.sprites.size(); ++i) {
+        SffSprite& s = doc.sprites[i];
+        const std::int64_t end = spriteEnds[i];
+        if (end < 0) {
+            addReadProblem(doc.readProblems, spriteName(s) + " is part of a loop of links, so it has no image.");
+            s.linkedIndex = -1;
+            continue;
+        }
+        std::int64_t& owner = owners[static_cast<std::size_t>(end)];
+        if (owner >= 0) {
+            s.linkedIndex = static_cast<std::int32_t>(owner);
+            continue;
+        }
+        owner = static_cast<std::int64_t>(i);
+        if (static_cast<std::size_t>(end) == i)
+            continue;
+        SffSprite& target = doc.sprites[static_cast<std::size_t>(end)];
+        s.data = std::move(target.data);
+        s.width = target.width;
+        s.height = target.height;
+        s.compression = target.compression;
+        s.colorDepth = target.colorDepth;
+        s.flags = target.flags;
+        s.linkedIndex = -1;
+        target.data.clear();
     }
     if (targetVotes > runningVotes)
         doc.linkOffsets = SffLinkOffsets::TargetOffset;

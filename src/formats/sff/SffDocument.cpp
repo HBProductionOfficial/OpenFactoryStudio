@@ -189,7 +189,7 @@ Result<Image> SffDocument::decodePayload(const SffSprite& s, const Palette* pale
         // SprMaker2 can't make raw true-color data, so its byte order is unknown.
         if (s.colorDepth > 8)
             return Error{"raw true-color sprites are not supported"};
-        if (data.size() < pixelCount && mode == DecodeMode::Strict)
+        if (data.size() < pixelCount && (mode == DecodeMode::Strict || pixelCount > kMaxPaddedPixels))
             return Error{"raw sprite data is too short"};
         {
             std::vector<std::uint8_t> pixels(pixelCount, 0);

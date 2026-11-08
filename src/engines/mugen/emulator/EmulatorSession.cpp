@@ -1,5 +1,6 @@
 #include "engines/mugen/emulator/EmulatorSession.h"
 
+#include "core/project/ContentPaths.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
 #include "core/sounds/SoundFile.h"
@@ -42,15 +43,7 @@ std::shared_ptr<SoundDocument> loadSounds(const QString& path)
 
 QString resolve(const QString& name, const QString& base, const QString& engineDir)
 {
-    const QString cleaned = QDir::fromNativeSeparators(unquote(name).trimmed());
-    if (cleaned.isEmpty())
-        return QString();
-    for (const QString& candidate : {QDir(base).filePath(cleaned), QDir(engineDir).filePath(cleaned),
-                                     QDir(engineDir).filePath(QStringLiteral("data/") + cleaned)}) {
-        if (QFileInfo(candidate).isFile())
-            return QDir::cleanPath(candidate);
-    }
-    return QString();
+    return findInFolders(unquote(name), {base, engineDir, QDir(engineDir).filePath(QStringLiteral("data"))});
 }
 
 float number(const IniSection* section, const char* key, float fallback)

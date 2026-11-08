@@ -197,6 +197,24 @@ private Q_SLOTS:
         QCOMPARE(project->editorFiles("definitions"), QStringList{base + "/c.def"});
     }
 
+    void networkFilesNotOpened()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("c.def"),
+                  "[Info]\nname = \"Hero\"\n[Files]\ncmd = c.cmd\n"
+                  "sprite = \\\\server\\share\\c.sff\nsound = c.lnk\nst1 = //server/share/c.st\n");
+        writeFile(dir.filePath("c.lnk"), "not a real shortcut");
+        MugenEngine engine;
+        QString error;
+        std::unique_ptr<Project> project(engine.openProject(dir.filePath("c.def"), &error));
+        QVERIFY2(project, qPrintable(error));
+        QVERIFY(project->editorFiles("sprites").value(0).isEmpty());
+        QCOMPARE(project->editorFiles("states"), QStringList());
+        QVERIFY(project->editorFiles("sounds").value(0).isEmpty());
+        QCOMPARE(project->refusedFiles(), (QStringList{QStringLiteral("//server/share/c.sff"), QStringLiteral("c.lnk"),
+                                                       QStringLiteral("//server/share/c.st")}));
+    }
+
     void unnamedProjectUsesFileName()
     {
         QTemporaryDir dir;

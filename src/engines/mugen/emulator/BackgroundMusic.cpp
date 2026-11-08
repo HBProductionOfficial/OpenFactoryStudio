@@ -1,5 +1,6 @@
 #include "engines/mugen/emulator/BackgroundMusic.h"
 
+#include "core/project/ContentPaths.h"
 #include "engines/mugen/runtime/Files.h"
 #include "engines/mugen/runtime/IniText.h"
 #include "formats/audio/AudioCodec.h"
@@ -18,15 +19,7 @@ using namespace Runtime;
 
 QString BackgroundMusic::find(const QString& name, const QStringList& folders)
 {
-    const QString cleaned = QDir::fromNativeSeparators(unquote(name).trimmed());
-    if (cleaned.isEmpty())
-        return QString();
-    for (const QString& folder : folders) {
-        const QString candidate = QDir(folder).filePath(cleaned);
-        if (QFileInfo(candidate).isFile())
-            return QDir::cleanPath(candidate);
-    }
-    return QString();
+    return findInFolders(unquote(name), folders);
 }
 
 float BackgroundMusic::engineVolume(const QString& engineDir)

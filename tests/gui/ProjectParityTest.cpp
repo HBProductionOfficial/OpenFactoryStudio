@@ -531,6 +531,9 @@ private Q_SLOTS:
         ProjectView* view = window.currentProjectView();
         m_context->actions().action("file_backup")->trigger();
         edit(codeFile(view, dir.filePath("p/p.cmd")), "; unsaved\n");
+        // The change on disk is only there to see that Cancel leaves the files alone, so the
+        // question about reloading it is turned off.
+        m_context->config().setValue("showmsg_reload_file", "2");
         writeFile(dir.filePath("p/p.cns"), "; changed on disk\n");
         whenModal<QDialog>([](QDialog* dialog) {
             QCOMPARE(dialog->objectName(), QStringLiteral("BackupDlg"));
@@ -557,6 +560,7 @@ private Q_SLOTS:
         QVERIFY(Zip::create(dir.filePath("arch/z.zip"), dir.filePath("src"), {"z/z.def", "z/z.cmd", "z/z.cns"}));
         QVERIFY(window.openProject(dir.filePath("arch/z.zip")));
         m_context->config().setValue("backup_onload", false);
+        m_context->config().setValue("showmsg_reload_file", "0");
         const QStringList zips = QDir(dir.filePath("arch/backup")).entryList({"*_Auto.zip"});
         QCOMPARE(zips.size(), qsizetype(1));
         QStringList names;

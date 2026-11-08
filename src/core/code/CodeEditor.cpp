@@ -1,5 +1,6 @@
 #include "core/code/CodeEditor.h"
 
+#include "core/app/Messages.h"
 #include "core/settings/Config.h"
 
 #include "core/code/CodeBlockData.h"
@@ -246,7 +247,7 @@ bool CodeEditor::viewportEvent(QEvent* event)
         if (message.isEmpty())
             QToolTip::hideText();
         else
-            QToolTip::showText(help->globalPos(), message, viewport(), area);
+            QToolTip::showText(help->globalPos(), asPlainText(message), viewport(), area);
         return true;
     }
     return QPlainTextEdit::viewportEvent(event);

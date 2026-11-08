@@ -1,5 +1,6 @@
 #include "core/preset/ControlTable.h"
 
+#include "core/app/Messages.h"
 #include "core/preset/ControlRegistry.h"
 #include "core/widgets/PaletteWidget.h"
 
@@ -77,7 +78,7 @@ protected:
         if (text.isEmpty())
             QToolTip::hideText();
         else
-            QToolTip::showText(help->globalPos(), text, viewport(), visualRect(index));
+            QToolTip::showText(help->globalPos(), asPlainText(text), viewport(), visualRect(index));
         return true;
     }
 };

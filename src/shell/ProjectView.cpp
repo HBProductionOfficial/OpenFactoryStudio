@@ -3,6 +3,7 @@
 #include "core/actions/ActionRegistry.h"
 #include "core/anims/AirEdits.h"
 #include "core/app/AppContext.h"
+#include "core/app/Messages.h"
 #include "core/code/CodeCompletion.h"
 #include "core/code/CodeEditor.h"
 #include "core/code/CodeOutline.h"
@@ -69,6 +70,19 @@
 namespace OFS {
 
 namespace {
+
+// The problems found reading a damaged sprite or sound file, as warnings.
+IssueList loadIssues(const QStringList& problems)
+{
+    IssueList issues;
+    for (const QString& text : problems) {
+        Issue issue;
+        issue.severity = Issue::Severity::Warning;
+        issue.message = text;
+        issues << issue;
+    }
+    return issues;
+}
 
 constexpr int TypingPauseMs = 300;
 
@@ -201,6 +215,16 @@ ProjectView::ProjectView(Project* project, AppContext& context, QWidget* parent,
         createEditor(engine()->editor(id));
     m_loadStep = nullptr;
     fillProjectExplorer();
+    // Files the project names that aren't on disk go to the Issues panel, so an empty or hidden
+    // editor has a reason.
+    for (const QString& path : m_project->listedFiles()) {
+        if (!m_project->file(path) && !QFileInfo::exists(path))
+            reportLoadError(
+                path, tr("%1 is named in the project, but the file isn't there.").arg(QFileInfo(path).fileName()));
+    }
+    for (const QString& name : m_project->refusedFiles())
+        reportLoadError(
+            name, tr("%1 can lead to another computer, so it wasn't opened.").arg(QDir::toNativeSeparators(name)));
     connect(this, &ProjectView::modifiedChanged, this, &ProjectView::updateTabTitles);
 
     const QStringList ids = editorIds();
@@ -377,6 +401,8 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
         auto* file = qobject_cast<CodeFile*>(m_project->file(filePath));
         if (!file && QFileInfo::exists(filePath))
             file = m_project->codeFile(filePath, info.id, &error);
+        if (!file && !error.isEmpty())
+            reportLoadError(filePath, error);
         auto* page = new CodePage(m_context.actions());
         page->setProperty("filePath", filePath);
         page->setProperty("editorId", info.id);
@@ -470,7 +496,9 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
             page->setProperty("filePath", filePath);
             page->setProperty("editorId", info.id);
             auto updateIssues = [this, page, file] {
-                IssueList issues;
+                IssueList issues = loadIssues(file->readProblems());
+                for (Issue& issue : issues)
+                    issue.file = page->property("filePath").toString();
                 const SoundDocument& doc = file->document();
                 for (int i = 0; i < doc.count(); ++i) {
                     for (int j = 0; j < i; ++j) {
@@ -493,6 +521,7 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
                 Q_EMIT issuesChanged();
             };
             connect(file, &SoundFile::documentChanged, this, updateIssues);
+            connect(file, &ProjectFile::saved, this, updateIssues);
             QTimer::singleShot(0, this, updateIssues);
             connect(page, &SoundPage::statusChanged, this, [this, page] {
                 if (QTabWidget* tabs = m_fileTabs.value(m_currentEditor); tabs && tabs->currentWidget() == page)
@@ -503,6 +532,8 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
                     [this, page, file](const QString& oldPath) { fileRenamed(page, oldPath, file->path()); });
             return page;
         }
+        if (!error.isEmpty())
+            reportLoadError(filePath, error);
     }
     if (info.id == EditorId::Sprites) {
         QString error;
@@ -516,6 +547,7 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
             page->setProperty("filePath", filePath);
             auto updateIssues = [this, page, file] {
                 IssueList issues = SpriteEdits::identifierIssues(file->document());
+                issues << loadIssues(file->readProblems());
                 issues << PaletteEdits::issues(file->document());
                 const QString path = page->property("filePath").toString();
                 for (Issue& issue : issues)
@@ -524,6 +556,7 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
                 Q_EMIT issuesChanged();
             };
             connect(file, &SpriteFile::documentChanged, this, updateIssues);
+            connect(file, &ProjectFile::saved, this, updateIssues);
             QTimer::singleShot(0, this, updateIssues);
             connect(page, &SpritePage::statusChanged, this, [this, page] {
                 if (QTabWidget* tabs = m_fileTabs.value(m_currentEditor); tabs && tabs->currentWidget() == page)
@@ -535,6 +568,8 @@ QWidget* ProjectView::createFilePage(const EditorInfo& info, const QString& file
                     [this, page, file](const QString& oldPath) { fileRenamed(page, oldPath, file->path()); });
             return page;
         }
+        if (!error.isEmpty())
+            reportLoadError(filePath, error);
     }
     auto* workspace = new QWidget;
     workspace->setObjectName(QStringLiteral("workspace_") + info.id);
@@ -630,6 +665,15 @@ bool ProjectView::closeFileTab(const QString& editorId, QTabWidget* tabs, int in
     }
     Q_EMIT currentFileChanged();
     return true;
+}
+
+void ProjectView::reportLoadError(const QString& path, const QString& message)
+{
+    Issue issue;
+    issue.file = path;
+    issue.message = message;
+    m_issues.insert(path, {issue});
+    QTimer::singleShot(0, this, [this] { Q_EMIT issuesChanged(); });
 }
 
 void ProjectView::applyWorkspaceColors(QWidget* page)
@@ -1365,7 +1409,7 @@ void ProjectView::fillProjectExplorer()
     const IconSet& icons = m_context.theme().iconSet();
     for (const QString& f : files) {
         auto* item = new QStandardItem(icons.icon(iconForFile(f)), QFileInfo(f).fileName());
-        item->setToolTip(QDir::toNativeSeparators(f));
+        item->setToolTip(asPlainText(QDir::toNativeSeparators(f)));
         item->setData(f, Qt::UserRole);
         model->appendRow(item);
     }

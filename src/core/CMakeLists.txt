@@ -80,6 +80,8 @@ add_library(ofscore SHARED
     preset/PresetModel.h
     preset/PresetEngine.h
     preset/PresetEngine.cpp
+    project/ContentPaths.h
+    project/ContentPaths.cpp
     project/Project.h
     project/Project.cpp
     project/ProjectFile.h
@@ -136,6 +138,8 @@ add_library(ofscore SHARED
     widgets/Rulers.cpp
     tools/Calculator.h
     tools/Calculator.cpp
+    script/LuaSafety.h
+    script/LuaSafety.cpp
     script/LuaApi.h
     script/LuaApi.cpp
     script/LuaFileApi.cpp

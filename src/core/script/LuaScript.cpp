@@ -1,5 +1,7 @@
 #include "core/script/LuaScript.h"
 
+#include "core/script/LuaSafety.h"
+
 #include <QFile>
 
 #include <sol/sol.hpp>
@@ -59,9 +61,11 @@ QString callFunction(const QString& path, const QString& function, const QVarian
 
     sol::state lua;
     lua.open_libraries(sol::lib::base, sol::lib::string, sol::lib::table, sol::lib::math, sol::lib::utf8);
+    restrictLoading(lua);
     const std::string code = file.readAll().toStdString();
     const std::string chunk = "@" + path.toStdString();
-    sol::protected_function_result loaded = lua.safe_script(code, sol::script_pass_on_error, chunk);
+    sol::protected_function_result loaded =
+        lua.safe_script(code, sol::script_pass_on_error, chunk, sol::load_mode::text);
     if (!loaded.valid()) {
         const sol::error err = loaded;
         return fail(QString::fromUtf8(err.what()));

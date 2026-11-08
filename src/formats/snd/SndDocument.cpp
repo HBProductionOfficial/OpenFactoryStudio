@@ -3,6 +3,7 @@
 #include "formats/util/ByteReader.h"
 #include "formats/util/ByteWriter.h"
 #include "formats/util/FileIo.h"
+#include "formats/util/ReadLimits.h"
 
 #include <algorithm>
 #include <string>
@@ -35,16 +36,25 @@ Result<SndDocument> SndDocument::read(ByteSpan data)
     const std::uint32_t first = r.u32();
     std::copy_n(asU8(data).begin() + kCommentOffset, doc.comment.size(), doc.comment.begin());
 
-    if (count > data.size() / kSubheaderSize)
-        return Error{"SND sound count is larger than the file can hold"};
     if (count > 0 && first < kCommentOffset)
         return Error{"SND first subheader offset is invalid"};
 
+    // A damaged file keeps the sounds before the damage.
+    std::size_t readable = count;
+    if (count > data.size() / kSubheaderSize) {
+        readable = data.size() / kSubheaderSize;
+        addReadProblem(doc.readProblems,
+                       "The header lists " + std::to_string(count) + " sounds, more than the file can hold.");
+    }
     std::uint64_t offset = first;
-    doc.sounds.reserve(count);
-    for (std::size_t i = 0; i < count; ++i) {
-        if (offset > data.size() || data.size() - offset < kSubheaderSize)
-            return Error{"SND subheader " + std::to_string(i) + " lies outside the file"};
+    CopyBudget budget(data.size());
+    doc.sounds.reserve(readable);
+    for (std::size_t i = 0; i < readable; ++i) {
+        if (offset > data.size() || data.size() - offset < kSubheaderSize) {
+            addReadProblem(doc.readProblems,
+                           "The file ends after sound " + std::to_string(i) + " of " + std::to_string(count) + ".");
+            break;
+        }
         r.seek(static_cast<std::size_t>(offset));
         const std::uint32_t next = r.u32();
         const std::uint32_t length = r.u32();
@@ -52,14 +62,28 @@ Result<SndDocument> SndDocument::read(ByteSpan data)
         sound.group = r.s32();
         sound.number = r.s32();
         const std::uint64_t start = offset + kSubheaderSize;
-        if (length > data.size() - start)
-            return Error{"SND sound " + std::to_string(i) + " extends past the end of the file"};
+        if (length > data.size() - start) {
+            addReadProblem(doc.readProblems, "Sound " + std::to_string(sound.group) + "," +
+                                                 std::to_string(sound.number) +
+                                                 " is cut off at the end of the file and was left out.");
+            break;
+        }
+        // A sound can run over the ones after it, so copies are counted.
         const ByteSpan bytes = data.subspan(static_cast<std::size_t>(start), length);
-        sound.data.assign(bytes.begin(), bytes.end());
+        if (budget.take(length))
+            sound.data.assign(bytes.begin(), bytes.end());
+        else
+            addReadProblem(doc.readProblems, "Sound " + std::to_string(sound.group) + "," +
+                                                 std::to_string(sound.number) +
+                                                 " uses data that too many other sounds use, so it is silent.");
         doc.sounds.push_back(std::move(sound));
-        if (i + 1 < count) {
-            if (next <= offset)
-                return Error{"SND subheader " + std::to_string(i) + " has an invalid next offset"};
+        if (i + 1 < readable) {
+            if (next <= offset) {
+                addReadProblem(doc.readProblems,
+                               "Sound " + std::to_string(sound.group) + "," + std::to_string(sound.number) +
+                                   " doesn't point to the next sound, so the sounds after it are missing.");
+                break;
+            }
             offset = next;
         }
     }

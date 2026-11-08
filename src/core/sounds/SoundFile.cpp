@@ -49,6 +49,7 @@ bool SoundFile::load(QString* error)
     QByteArray data;
     SoundDocument document;
     QString problem;
+    QStringList problems;
     const QString file = path();
     auto read = [&] {
         QFile in(file);
@@ -64,6 +65,8 @@ bool SoundFile::load(QString* error)
             return;
         }
         document = SoundDocument::fromSnd(snd.value());
+        for (const std::string& text : snd.value().readProblems)
+            problems << QString::fromStdString(text);
     };
     if (AppContext* context = AppContext::instance())
         context->tasks().run(tr("Loading %1").arg(fileName()), read);
@@ -75,6 +78,7 @@ bool SoundFile::load(QString* error)
         return false;
     }
     m_original = data;
+    m_readProblems = problems;
     m_document = document;
     m_undo->clear();
     Q_EMIT documentChanged();
@@ -109,6 +113,7 @@ void SoundFile::saveAsync(std::function<void(bool ok, const QString& error)> don
             ctx->tasks().end(task);
         if (result.ok) {
             m_original = result.bytes;
+            m_readProblems.clear();
             if (m_undo->index() == index)
                 m_undo->setClean();
             Q_EMIT saved();
@@ -154,6 +159,7 @@ bool SoundFile::saveAs(const QString& target, QString* error)
     if (!writeFileSafely(target, bytes, error))
         return false;
     m_original = bytes;
+    m_readProblems.clear();
     setPath(QDir::fromNativeSeparators(target));
     m_undo->setClean();
     Q_EMIT saved();

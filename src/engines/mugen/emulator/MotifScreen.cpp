@@ -1,6 +1,7 @@
 #include "engines/mugen/emulator/MotifScreen.h"
 
 #include "core/bg/BgRenderer.h"
+#include "core/project/ContentPaths.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
 #include "core/sounds/SoundFile.h"
@@ -125,17 +126,10 @@ bool MotifScreen::start(Project& project, const QString& systemDef, const QStrin
             m_size = QSize(int(size[0]), int(size[1]));
     }
     const QString folder = QFileInfo(systemDef).absolutePath();
-    auto resolve = [&](const QString& name) -> QString {
-        const QString cleaned = QDir::fromNativeSeparators(unquote(name).trimmed());
-        if (cleaned.isEmpty())
-            return QString();
-        for (const QString& candidate :
-             {QDir(folder).filePath(cleaned), QDir(engineDir).filePath(QStringLiteral("font/") + cleaned),
-              QDir(engineDir).filePath(QStringLiteral("data/") + cleaned), QDir(engineDir).filePath(cleaned)}) {
-            if (QFileInfo(candidate).isFile())
-                return QDir::cleanPath(candidate);
-        }
-        return QString();
+    auto resolve = [&](const QString& name) {
+        const QDir engine(engineDir);
+        return findInFolders(unquote(name), {folder, engine.filePath(QStringLiteral("font")),
+                                             engine.filePath(QStringLiteral("data")), engineDir});
     };
     m_sprites = spritesFrom(&project, resolve(files->value(QStringLiteral("spr"))));
     const QString snd = resolve(files->value(QStringLiteral("snd")));
@@ -171,8 +165,8 @@ bool MotifScreen::start(Project& project, const QString& systemDef, const QStrin
                 m_characterScale = m_size.width() / 320.0;
         }
         if (const IniSection* charFiles = def.section(QStringLiteral("Files")))
-            m_character = spritesFrom(&project, QDir(QFileInfo(character).absolutePath())
-                                                    .filePath(unquote(charFiles->value(QStringLiteral("sprite")))));
+            m_character = spritesFrom(&project, findInFolders(unquote(charFiles->value(QStringLiteral("sprite"))),
+                                                              {QFileInfo(character).absolutePath()}));
     }
     if (const QString stage = EmulatorSession::defaultStage(engineDir); !stage.isEmpty()) {
         const QString stageText = textOf(stage);
@@ -181,8 +175,8 @@ bool MotifScreen::start(Project& project, const QString& systemDef, const QStrin
         const IniText stageIni = IniText::parse(stageText);
         m_stageZOffset = float(intOf(stageIni.section(QStringLiteral("StageInfo")), QStringLiteral("zoffset"), 200));
         if (const IniSection* bgdef = stageIni.section(QStringLiteral("BGdef")))
-            m_stageSprites = spritesFrom(
-                &project, QDir(QFileInfo(stage).absolutePath()).filePath(unquote(bgdef->value(QStringLiteral("spr")))));
+            m_stageSprites = spritesFrom(&project, findInFolders(unquote(bgdef->value(QStringLiteral("spr"))),
+                                                                 {QFileInfo(stage).absolutePath()}));
         m_stageRenderer = std::make_unique<BgRenderer>(m_stageSprites.get(), &m_stageAnimations);
         if (const int group = m_stage.indexOf(QStringLiteral("BG")); group >= 0)
             m_stageSimulator = std::make_unique<BgSimulator>(m_stage.groups()[group]);

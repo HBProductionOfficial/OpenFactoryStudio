@@ -99,6 +99,73 @@ private Q_SLOTS:
         QVERIFY(Zip::extract(archive, dir.filePath("out")));
         QCOMPARE(readFile(dir.filePath("out/kfm/kfm.def")), QByteArray("[Info]"));
     }
+
+    void otherLetterCase()
+    {
+#ifndef Q_OS_LINUX
+        QSKIP("Folder names ignore letter case here.");
+#else
+        // "OUT" is another folder next to "out".
+        QTemporaryDir dir;
+        const QString archive = dir.filePath("case.zip");
+        mz_zip_archive zip{};
+        QVERIFY(mz_zip_writer_init_file(&zip, archive.toLocal8Bit().constData(), 0));
+        QVERIFY(mz_zip_writer_add_mem(&zip, "../OUT/evil.txt", "x", 1, mz_uint(MZ_DEFAULT_LEVEL)));
+        QVERIFY(mz_zip_writer_finalize_archive(&zip));
+        mz_zip_writer_end(&zip);
+        QString error;
+        QVERIFY(!Zip::extract(archive, dir.filePath("out"), &error));
+        QVERIFY(!QFile::exists(dir.filePath("OUT/evil.txt")));
+#endif
+    }
+
+    void driveOrStreamNames()
+    {
+#ifndef Q_OS_WIN
+        QSKIP("A colon is an ordinary character in names here.");
+#else
+        // On Windows "a.txt:x" is a hidden stream of a.txt, and "C:x" a path on drive C.
+        QTemporaryDir dir;
+        for (const char* name : {"a.txt:x", "C:x.txt"}) {
+            const QString archive = dir.filePath("colon.zip");
+            QFile::remove(archive);
+            mz_zip_archive zip{};
+            QVERIFY(mz_zip_writer_init_file(&zip, archive.toLocal8Bit().constData(), 0));
+            QVERIFY(mz_zip_writer_add_mem(&zip, name, "x", 1, mz_uint(MZ_DEFAULT_LEVEL)));
+            QVERIFY(mz_zip_writer_finalize_archive(&zip));
+            mz_zip_writer_end(&zip);
+            QString error;
+            QVERIFY2(!Zip::extract(archive, dir.filePath("out"), &error), name);
+            QVERIFY(!QFile::exists(dir.filePath("out/a.txt")));
+        }
+#endif
+    }
+
+    void tooBigToUnpack()
+    {
+        QCOMPARE(Zip::extractLimit(0), qint64(2) << 30);
+        QCOMPARE(Zip::extractLimit(qint64(100) << 20), qint64(5000) << 20);
+
+        // An archive that says it unpacks to 4 GB is refused before anything is written.
+        QTemporaryDir dir;
+        writeFile(dir.filePath("root/a.txt"), QByteArray(1000, 'a'));
+        const QString archive = dir.filePath("big.zip");
+        QVERIFY(Zip::create(archive, dir.filePath("root"), {"a.txt"}));
+        QByteArray bytes = readFile(archive);
+        auto put32 = [&bytes](qsizetype at, quint32 value) {
+            QVERIFY(at >= 0 && at + 4 <= bytes.size());
+            for (int i = 0; i < 4; ++i)
+                bytes[at + i] = char((value >> (8 * i)) & 0xFF);
+        };
+        // The unpacked size in the local header and in the central directory.
+        put32(bytes.indexOf("PK\x03\x04") + 22, 0xF0000000u);
+        put32(bytes.indexOf("PK\x01\x02") + 24, 0xF0000000u);
+        writeFile(archive, bytes);
+        QString error;
+        QVERIFY(!Zip::extract(archive, dir.filePath("out"), &error));
+        QVERIFY2(error.contains(QStringLiteral("big.zip")), qPrintable(error));
+        QVERIFY(!QFile::exists(dir.filePath("out/a.txt")));
+    }
 };
 
 QTEST_GUILESS_MAIN(ZipArchiveTest)

@@ -1,6 +1,7 @@
 #include "engines/mugen/MugenRun.h"
 
 #include "core/editors/EditorInfo.h"
+#include "core/project/ContentPaths.h"
 #include "core/project/Project.h"
 #include "core/project/ProjectFile.h"
 #include "core/project/ProjectSearch.h"
@@ -23,6 +24,7 @@ struct MugenRunTexts
     Q_DECLARE_TR_FUNCTIONS(OFS::Mugen::MugenRunTexts)
 };
 
+// The path is the folder itself or something inside it.
 QString freeName(const QString& dir)
 {
     for (int n = 0;; ++n) {
@@ -99,6 +101,8 @@ bool copyProjectFiles(const Project& project, const QString& dir, RunCopy& copy)
         DefFile def;
         def.parse(projectFileText(project, project.filePath()));
         for (const QString& value : def.values(QStringLiteral("Files"), QStringLiteral(".*"))) {
+            if (isUnsafeName(value))
+                continue;
             const QString path = QDir::cleanPath(projectDir.filePath(QDir::fromNativeSeparators(value)));
             if (QFileInfo(path).isFile() && !paths.contains(path, Qt::CaseInsensitive))
                 paths << path;
@@ -180,16 +184,39 @@ RunCopy prepareRunCopy(const Project& project, const QString& engineDir)
         DefFile def;
         def.parse(projectFileText(project, project.filePath()));
         // The sprite and music files go where the definition says (paths from the engine folder).
-        const QList<QPair<QString, QString>> referenced = {
-            {def.value(QStringLiteral("BGdef"), QStringLiteral("spr")),
-             project.editorFiles(EditorId::Sprites).value(0)},
-            {def.value(QStringLiteral("Music"), QStringLiteral("bgmusic")), QString()}};
-        for (const auto& [raw, known] : referenced) {
+        // Only those file types, and only inside the engine folder: a downloaded stage must not be
+        // able to put a program or library next to the engine.
+        static const QStringList sprites = {QStringLiteral("sff")};
+        // What MUGEN 1.x plays through its plugins, game music formats too.
+        static const QStringList music = {QStringLiteral("mp3"),  QStringLiteral("ogg"),  QStringLiteral("wav"),
+                                          QStringLiteral("mid"),  QStringLiteral("midi"), QStringLiteral("mod"),
+                                          QStringLiteral("s3m"),  QStringLiteral("xm"),   QStringLiteral("it"),
+                                          QStringLiteral("flac"), QStringLiteral("ay"),   QStringLiteral("gbs"),
+                                          QStringLiteral("gym"),  QStringLiteral("hes"),  QStringLiteral("kss"),
+                                          QStringLiteral("nsf"),  QStringLiteral("nsfe"), QStringLiteral("sap"),
+                                          QStringLiteral("spc"),  QStringLiteral("vgm"),  QStringLiteral("vgz")};
+        struct Referenced
+        {
+            QString raw;
+            QString known;
+            const QStringList* types;
+        };
+        const Referenced referenced[] = {
+            {def.value(QStringLiteral("BGdef"), QStringLiteral("spr")), project.editorFiles(EditorId::Sprites).value(0),
+             &sprites},
+            {def.value(QStringLiteral("Music"), QStringLiteral("bgmusic")), QString(), &music}};
+        const QString projectDir = QDir::cleanPath(project.directory());
+        for (const auto& [raw, known, types] : referenced) {
             if (raw.trimmed().isEmpty())
                 continue;
-            const QString relative = QDir::fromNativeSeparators(raw.trimmed());
-            const QString source = !known.isEmpty() ? known : QDir(project.directory()).filePath(relative);
+            const QString relative = cleanContentPath(raw);
+            const QString source = !known.isEmpty() ? known : QDir::cleanPath(projectDir + QLatin1Char('/') + relative);
             const QString target = QDir::cleanPath(root + QLatin1Char('/') + relative);
+            // Anything else is left where it is; the engine reads absolute paths itself.
+            const bool allowed = !QDir::isAbsolutePath(relative) && !relative.contains(QLatin1Char(':')) &&
+                                 isInsideFolder(target, root) && isInsideFolder(source, projectDir);
+            if (!allowed || !types->contains(QFileInfo(target).suffix().toLower()))
+                continue;
             if (!QFileInfo::exists(source) ||
                 QFileInfo(source).canonicalFilePath() == QFileInfo(target).canonicalFilePath())
                 continue;
@@ -220,7 +247,7 @@ RunCopy prepareRunCopy(const Project& project, const QString& engineDir)
         def.parse(projectFileText(project, project.filePath()));
         const QString fight =
             QDir::fromNativeSeparators(def.value(QStringLiteral("Files"), QStringLiteral("fight")).trimmed());
-        if (!fight.isEmpty()) {
+        if (!fight.isEmpty() && !isUnsafeName(fight)) {
             const QDir projectDir(project.directory());
             const QString relative = projectDir.relativeFilePath(projectDir.filePath(fight));
             const QString target = dir + QLatin1Char('/') + relative;

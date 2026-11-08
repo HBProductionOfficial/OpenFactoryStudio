@@ -1,5 +1,6 @@
 #include "engines/mugen/emulator/FightScreen.h"
 
+#include "core/project/ContentPaths.h"
 #include "core/project/ProjectFile.h"
 #include "core/sprites/QtImages.h"
 #include "engines/mugen/runtime/Character.h"
@@ -126,7 +127,8 @@ std::optional<FightScreen::Font> FightScreen::Font::load(const QString& path)
         font.info.spacingY = int(spacing.value(1));
         font.info.offsetX = int(offset.value(0));
         font.info.offsetY = int(offset.value(1));
-        const QString file = QDir(QFileInfo(path).absolutePath()).filePath(unquote(def->value(QStringLiteral("file"))));
+        const QString file =
+            findInFolders(unquote(def->value(QStringLiteral("file"))), {QFileInfo(path).absolutePath()});
         if (def->value(QStringLiteral("type")).trimmed().compare(QLatin1String("truetype"), Qt::CaseInsensitive) == 0) {
             font.kind = Kind::TrueType;
             const int id = QFontDatabase::addApplicationFont(file);
@@ -342,16 +344,8 @@ bool FightScreen::load(const QString& engineDir, const QString& fightDef,
     if (!QFileInfo(def).isFile())
         return false;
     const QString dataDir = QFileInfo(def).path();
-    auto resolve = [&](const QString& name) -> QString {
-        const QString cleaned = QDir::fromNativeSeparators(unquote(name).trimmed());
-        if (cleaned.isEmpty())
-            return QString();
-        for (const QString& candidate : {QDir(dataDir).filePath(cleaned), QDir(engineDir).filePath(cleaned),
-                                         QDir(engineDir).filePath(QStringLiteral("font/") + cleaned)}) {
-            if (QFileInfo(candidate).isFile())
-                return QDir::cleanPath(candidate);
-        }
-        return QString();
+    auto resolve = [&](const QString& name) {
+        return findInFolders(unquote(name), {dataDir, engineDir, QDir(engineDir).filePath(QStringLiteral("font"))});
     };
 
     const QString text = source ? source(def) : readText(def);

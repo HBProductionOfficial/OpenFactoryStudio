@@ -141,6 +141,8 @@ public:
     std::array<std::uint8_t, 512> header{};
     SffLinkOffsets linkOffsets = SffLinkOffsets::RunningOffset;
     SffDocumentRaw raw;
+    // What reading had to skip or repair in a damaged file. The rest of the file still loads.
+    std::vector<std::string> readProblems;
 
     SffDocument() = default;
     explicit SffDocument(SffVersion v);

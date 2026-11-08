@@ -2,6 +2,7 @@
 #include "GuiTestSupport.h"
 #include "core/actions/ActionRegistry.h"
 #include "core/app/AppContext.h"
+#include "core/app/Messages.h"
 #include "core/app/Paths.h"
 #include "core/code/CodeEditor.h"
 #include "core/debug/Breakpoints.h"
@@ -279,6 +280,25 @@ private Q_SLOTS:
         QVERIFY(!box.windowFlags().testFlag(Qt::WindowContextHelpButtonHint));
     }
 
+    // Text from files that looks like HTML shows as written, so it can't load images.
+    void plainTextMessages()
+    {
+        showPlainTextMessages(*qobject_cast<QApplication*>(qApp));
+        const QString text = QStringLiteral("<img src=\"//server/share/x.png\"> is not a project.");
+        Qt::TextFormat format = Qt::AutoText;
+        QTimer::singleShot(0, this, [&format] {
+            auto* box = qobject_cast<QMessageBox*>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            format = box->findChild<QLabel*>("qt_msgbox_label")->textFormat();
+            box->accept();
+        });
+        QMessageBox::warning(nullptr, QStringLiteral("Open archive"), text);
+        QCOMPARE(format, Qt::PlainText);
+
+        QCOMPARE(asPlainText(QStringLiteral("Animation 810")), QStringLiteral("Animation 810"));
+        QVERIFY(asPlainText(text).contains(QStringLiteral("&lt;img")));
+    }
+
     void characterProject()
     {
         MainWindow window(*m_context);
@@ -506,12 +526,40 @@ private Q_SLOTS:
         QCOMPARE(m_context->history().entries().first().name, QStringLiteral("Test Stage"));
     }
 
+    // A sprite file that can't be read says why in the Issues panel instead of leaving an empty editor.
+    void unreadableSpriteFile()
+    {
+        QTemporaryDir dir;
+        writeFile(dir.filePath("u.def"), "[Info]\nname = \"U\"\nmugenversion = 1.0\n"
+                                         "[Files]\ncns = u.cns\nsprite = u.sff\nsound = gone.snd\n");
+        writeFile(dir.filePath("u.cns"), "[Data]\nlife = 1000\n");
+        writeFile(dir.filePath("u.sff"), QByteArray("ElecbyteSpr\0broken", 18));
+        MainWindow window(*m_context);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("u.def")));
+        m_context->actions().action("editor_spr")->trigger();
+        ProjectView* view = window.currentProjectView();
+        const QString sffPath = QDir::fromNativeSeparators(dir.filePath("u.sff"));
+        QTRY_COMPARE(view->issues().value(sffPath).size(), 1);
+        QVERIFY(view->issues().value(sffPath).first().message.contains(QStringLiteral("u.sff is not a sprite file")));
+        // A file the project names but that isn't there says so too.
+        m_context->actions().action("editor_snd")->trigger();
+        const QString sndPath = QDir::fromNativeSeparators(dir.filePath("gone.snd"));
+        QTRY_COMPARE(view->issues().value(sndPath).size(), 1);
+        QCOMPARE(view->issues().value(sndPath).first().message,
+                 QStringLiteral("gone.snd is named in the project, but the file isn't there."));
+    }
+
     void validationIssues()
     {
         QTemporaryDir dir;
         writeFile(dir.filePath("bad.def"), "[Info]\nname = \"Bad\"\nmugenversion = 1.0\n"
                                            "[Files]\ncmd = bad.cmd\ncns = bad.cns\nsprite = bad.sff\n"
                                            "anim = bad.air\n");
+        const Formats::Bytes sff = Formats::SffDocument().write().value();
+        writeFile(dir.filePath("bad.sff"),
+                  QByteArray(reinterpret_cast<const char*>(sff.data()), qsizetype(sff.size())));
+        writeFile(dir.filePath("bad.air"), "");
         writeFile(dir.filePath("bad.cmd"), "[Command]\nname = \"x\"\ncommand = x\n");
         writeFile(dir.filePath("bad.cns"), "[Data]\nlife = 1000\n"
                                            "[Statedef 200]\ntype = Q\n"
@@ -855,6 +903,19 @@ private Q_SLOTS:
         QCOMPARE(QFileInfo(folderLine).canonicalFilePath(), QFileInfo(engineDir.path()).canonicalFilePath());
         QVERIFY(!QFileInfo::exists(engineDir.filePath("chars/ofs_0")));
         QVERIFY(QFileInfo::exists(engineDir.filePath("chars")));
+
+        // A character run in place keeps its folder name as one argument, spaces and all.
+        const QString spaced = engineDir.filePath("chars/My Fighter/My Fighter.def");
+        QDir().mkpath(QFileInfo(spaced).absolutePath());
+        writeFile(spaced, "[Info]\nname = \"My Fighter\"\nmugenversion = 1.0\n[Files]\ncmd = my.cmd\n");
+        writeFile(engineDir.filePath("chars/My Fighter/my.cmd"), "[Command]\nname = \"x\"\ncommand = x\n");
+        QVERIFY(window.openProject(spaced));
+        output->clear();
+        window.runInEngine();
+        QTRY_VERIFY_WITH_TIMEOUT(!window.isEngineRunning(), 15000);
+        QVERIFY2(output->toPlainText().contains("Arguments: My Fighter kfm"), qPrintable(output->toPlainText()));
+        QVERIFY2(output->toPlainText().contains("Character definition: found"), qPrintable(output->toPlainText()));
+        window.closeCurrentProject();
 
         QTemporaryDir ikemenDir;
         const QString ikemen = ikemenDir.filePath("Ikemen_GO" + suffix);

@@ -1,5 +1,7 @@
 #include "core/preset/PresetEngine.h"
 
+#include "core/script/LuaSafety.h"
+
 #include <QFile>
 
 #include <sol/sol.hpp>
@@ -270,7 +272,8 @@ void registerApi(sol::state& lua, Model& model)
 
 QString takeGlobal(sol::state& lua, const char* name)
 {
-    sol::object value = lua[name];
+    // Raw, so a metatable on the globals can't run code here.
+    const sol::object value = lua.globals().raw_get<sol::object>(name);
     if (value.get_type() == sol::type::string)
         return QString::fromStdString(value.as<std::string>());
     return {};
@@ -292,27 +295,35 @@ bool PresetEngine::runString(const QString& source, const QString& chunkName, Mo
 {
     sol::state lua;
     lua.open_libraries(sol::lib::base, sol::lib::string, sol::lib::table, sol::lib::math);
+    restrictLoading(lua);
+    noFinalizers(lua);
     registerApi(lua, model);
 
     const std::string code = source.toStdString();
     const std::string chunk = "@" + chunkName.toStdString();
-    sol::protected_function_result result = lua.safe_script(code, sol::script_pass_on_error, chunk);
+    // Presets run at every start, so an endless loop in one must not hang the program.
+    stopRunawayScript(lua.lua_state());
+    sol::protected_function_result result =
+        lua.safe_script(code, sol::script_pass_on_error, chunk, sol::load_mode::text);
     if (!result.valid()) {
+        stopRunawayScript(lua.lua_state(), false);
         const sol::error err = result;
         model.errors << QString::fromUtf8(err.what());
         return false;
     }
 
-    sol::object apply = lua["apply"];
+    const sol::object apply = lua.globals().raw_get<sol::object>("apply");
     if (apply.get_type() == sol::type::function) {
         sol::protected_function fn = apply;
         sol::protected_function_result r = fn();
         if (!r.valid()) {
+            stopRunawayScript(lua.lua_state(), false);
             const sol::error err = r;
             model.errors << QString::fromUtf8(err.what());
             return false;
         }
     }
+    stopRunawayScript(lua.lua_state(), false);
 
     if (QString v = takeGlobal(lua, "iconset"); !v.isEmpty())
         model.iconset = v;

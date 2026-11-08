@@ -48,9 +48,24 @@ void requireTruncationsRejected(const Bytes& full, const Parser& parse)
     CHECK(accepted.empty());
 }
 
-bool parseSff(ByteSpan data)
+// A cut-off sprite or sound file either fails to read or reads with a note that something is
+// missing. It never passes as a complete file.
+template <typename Read>
+void requireTruncationsNoticed(const Bytes& full, Read read)
 {
-    return SffDocument::read(data).ok();
+    auto whole = read(full);
+    REQUIRE(whole.ok());
+    REQUIRE(whole->readProblems.empty());
+    std::vector<std::size_t> silent;
+    for (std::size_t n = 0; n < full.size(); ++n) {
+        const Bytes prefix(full.begin(), full.begin() + static_cast<std::ptrdiff_t>(n));
+        auto doc = read(prefix);
+        if (doc && doc->readProblems.empty())
+            silent.push_back(n);
+    }
+    INFO("file size " << full.size() << ", first silent prefix "
+                      << (silent.empty() ? std::string("-") : std::to_string(silent.front())));
+    CHECK(silent.empty());
 }
 
 void mutate(const Bytes& original, SplitMix64& rng, int rounds, const std::function<void(ByteSpan)>& exercise)
@@ -68,7 +83,7 @@ void mutate(const Bytes& original, SplitMix64& rng, int rounds, const std::funct
 
 } // namespace
 
-TEST_CASE("truncated SFF files are rejected", "[truncation][sff]")
+TEST_CASE("truncated SFF files are never taken as complete", "[truncation][sff]")
 {
     for (SffVersion version : {SffVersion::V1, SffVersion::V2, SffVersion::V201}) {
         for (std::uint64_t seed : {1u, 2u, 3u}) {
@@ -76,7 +91,7 @@ TEST_CASE("truncated SFF files are rejected", "[truncation][sff]")
             FixtureFactory f(seed);
             auto bytes = f.sff(version, 9, 12).write();
             REQUIRE(bytes.ok());
-            requireTruncationsRejected(*bytes, parseSff);
+            requireTruncationsNoticed(*bytes, [](ByteSpan d) { return SffDocument::read(d); });
         }
     }
 }
@@ -84,8 +99,8 @@ TEST_CASE("truncated SFF files are rejected", "[truncation][sff]")
 TEST_CASE("truncated SND, WAV and FNT files are rejected", "[truncation]")
 {
     FixtureFactory f(4);
-    requireTruncationsRejected(f.snd(5).write(), [](ByteSpan d) { return SndDocument::read(d).ok(); });
-    requireTruncationsRejected(SndDocument{}.write(), [](ByteSpan d) { return SndDocument::read(d).ok(); });
+    requireTruncationsNoticed(f.snd(5).write(), [](ByteSpan d) { return SndDocument::read(d); });
+    requireTruncationsNoticed(SndDocument{}.write(), [](ByteSpan d) { return SndDocument::read(d); });
 
     for (int bits : {8, 16}) {
         const Bytes wav = f.wav(2, 8000, static_cast<std::uint16_t>(bits), 37).write();

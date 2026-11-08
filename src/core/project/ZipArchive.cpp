@@ -1,14 +1,19 @@
 #include "core/project/ZipArchive.h"
 
+#include "core/project/ContentPaths.h"
+
+#include <QBuffer>
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QLocale>
 #include <QSaveFile>
 
 #include <miniz.h>
 
-#include <memory>
+#include <algorithm>
+#include <limits>
 
 namespace OFS::Zip {
 
@@ -25,22 +30,32 @@ void fail(QString* error, const QString& message)
         *error = message;
 }
 
-// Reads the whole file in memory, so paths can hold any character and no FILE* is needed.
+size_t readAt(void* opaque, mz_uint64 offset, void* buffer, size_t n)
+{
+    auto* file = static_cast<QFile*>(opaque);
+    if (!file->seek(qint64(offset)))
+        return 0;
+    const qint64 got = file->read(static_cast<char*>(buffer), qint64(n));
+    return got < 0 ? 0 : size_t(got);
+}
+
+// Reads through QFile, so paths can hold any character and the archive isn't loaded into memory.
 struct Reader
 {
-    QByteArray bytes;
+    QFile file;
     mz_zip_archive zip{};
     bool open = false;
 
     bool load(const QString& path, QString* error)
     {
-        QFile file(path);
+        file.setFileName(path);
         if (!file.open(QIODevice::ReadOnly)) {
             fail(error, file.errorString());
             return false;
         }
-        bytes = file.readAll();
-        open = mz_zip_reader_init_mem(&zip, bytes.constData(), size_t(bytes.size()), 0);
+        zip.m_pRead = readAt;
+        zip.m_pIO_opaque = &file;
+        open = mz_zip_reader_init(&zip, mz_uint64(file.size()), 0);
         if (!open)
             fail(error, ZipTexts::tr("%1 is not a ZIP archive.").arg(QDir::toNativeSeparators(path)));
         return open;
@@ -51,6 +66,31 @@ struct Reader
             mz_zip_reader_end(&zip);
     }
 };
+
+// Where unpacked bytes go, and how many more may come.
+struct Sink
+{
+    QIODevice* out = nullptr;
+    qint64 left = 0;
+    bool tooBig = false;
+};
+
+size_t writeChunk(void* opaque, mz_uint64, const void* data, size_t n)
+{
+    auto* sink = static_cast<Sink*>(opaque);
+    if (qint64(n) > sink->left) {
+        sink->tooBig = true;
+        return 0;
+    }
+    sink->left -= qint64(n);
+    return sink->out->write(static_cast<const char*>(data), qint64(n)) == qint64(n) ? n : 0;
+}
+
+QString tooBig(const QString& archive, qint64 limit)
+{
+    return ZipTexts::tr("%1 unpacks to more than %2, so it wasn't unpacked.")
+        .arg(QFileInfo(archive).fileName(), QLocale().formattedDataSize(limit));
+}
 
 QString entryName(mz_zip_archive* zip, mz_uint index)
 {
@@ -65,6 +105,15 @@ QString entryName(mz_zip_archive* zip, mz_uint index)
 }
 
 } // namespace
+
+qint64 extractLimit(qint64 archiveSize)
+{
+    // Characters and stages pack to a third of their size or so, while a small archive of zeros
+    // can unpack to gigabytes.
+    constexpr qint64 kAlways = qint64{2} << 30;
+    constexpr qint64 kRatio = 50;
+    return std::max(kAlways, std::min(archiveSize, std::numeric_limits<qint64>::max() / kRatio) * kRatio);
+}
 
 QList<Entry> entries(const QString& archive, QString* error)
 {
@@ -92,12 +141,25 @@ bool extract(const QString& archive, const QString& folder, QString* error)
     if (!reader.load(archive, error))
         return false;
     const QDir root(folder);
-    const QString rootPath = QDir::cleanPath(root.absolutePath()) + QLatin1Char('/');
+    const QString rootPath = QDir::cleanPath(root.absolutePath());
     const mz_uint count = mz_zip_reader_get_num_files(&reader.zip);
+    const qint64 limit = extractLimit(reader.file.size());
+    // The sizes the archive gives can be wrong, so the bytes are counted while unpacking too.
+    quint64 stated = 0;
+    for (mz_uint i = 0; i < count; ++i) {
+        mz_zip_archive_file_stat stat{};
+        if (mz_zip_reader_file_stat(&reader.zip, i, &stat))
+            stated += stat.m_uncomp_size;
+    }
+    if (stated > quint64(limit)) {
+        fail(error, tooBig(archive, limit));
+        return false;
+    }
+    qint64 left = limit;
     for (mz_uint i = 0; i < count; ++i) {
         const QString name = entryName(&reader.zip, i);
         const QString target = QDir::cleanPath(root.absoluteFilePath(name));
-        if (!QString(target + QLatin1Char('/')).startsWith(rootPath, Qt::CaseInsensitive)) {
+        if (namesDriveOrStream(name) || !isInsideFolder(target, rootPath)) {
             fail(error, ZipTexts::tr("The archive entry %1 points outside the folder.").arg(name));
             return false;
         }
@@ -106,19 +168,26 @@ bool extract(const QString& archive, const QString& folder, QString* error)
             continue;
         }
         QDir().mkpath(QFileInfo(target).absolutePath());
-        size_t size = 0;
-        std::unique_ptr<void, decltype(&mz_free)> data(mz_zip_reader_extract_to_heap(&reader.zip, i, &size, 0),
-                                                       &mz_free);
-        if (!data && size != 0) {
-            fail(error, ZipTexts::tr("Cannot extract %1.").arg(name));
-            return false;
-        }
         QSaveFile out(target);
-        if (!out.open(QIODevice::WriteOnly) ||
-            out.write(static_cast<const char*>(data.get()), qint64(size)) != qint64(size) || !out.commit()) {
+        if (!out.open(QIODevice::WriteOnly)) {
             fail(error, out.errorString());
             return false;
         }
+        Sink sink{&out, left};
+        const bool unpacked = mz_zip_reader_extract_to_callback(&reader.zip, i, writeChunk, &sink, 0);
+        if (sink.tooBig) {
+            fail(error, tooBig(archive, limit));
+            return false;
+        }
+        if (!unpacked) {
+            fail(error, ZipTexts::tr("Cannot extract %1.").arg(name));
+            return false;
+        }
+        if (!out.commit()) {
+            fail(error, out.errorString());
+            return false;
+        }
+        left = sink.left;
     }
     return true;
 }
@@ -128,14 +197,21 @@ QByteArray read(const QString& archive, const QString& name, QString* error)
     Reader reader;
     if (!reader.load(archive, error))
         return {};
+    // This one stays in memory.
+    const qint64 limit = std::min(extractLimit(reader.file.size()), qint64{1} << 30);
     const mz_uint count = mz_zip_reader_get_num_files(&reader.zip);
     for (mz_uint i = 0; i < count; ++i) {
         if (entryName(&reader.zip, i) != name)
             continue;
-        size_t size = 0;
-        std::unique_ptr<void, decltype(&mz_free)> data(mz_zip_reader_extract_to_heap(&reader.zip, i, &size, 0),
-                                                       &mz_free);
-        return data ? QByteArray(static_cast<const char*>(data.get()), qsizetype(size)) : QByteArray();
+        QByteArray bytes;
+        QBuffer buffer(&bytes);
+        buffer.open(QIODevice::WriteOnly);
+        Sink sink{&buffer, limit};
+        if (!mz_zip_reader_extract_to_callback(&reader.zip, i, writeChunk, &sink, 0)) {
+            fail(error, sink.tooBig ? tooBig(archive, limit) : ZipTexts::tr("Cannot extract %1.").arg(name));
+            return {};
+        }
+        return bytes;
     }
     fail(error, ZipTexts::tr("%1 is not in the archive.").arg(name));
     return {};

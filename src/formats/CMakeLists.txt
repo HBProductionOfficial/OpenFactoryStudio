@@ -8,6 +8,7 @@ add_library(ofsformats SHARED
     util/Crc.cpp
     util/FileIo.h
     util/FileIo.cpp
+    util/ReadLimits.h
     util/Result.h
     image/Color.h
     image/Image.h

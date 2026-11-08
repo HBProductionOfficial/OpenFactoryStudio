@@ -154,6 +154,8 @@ private:
     };
     bool showsVariables(CodePage* page) const;
     void analyze(CodePage* page);
+    // A sprite or sound file that can't be read shows why in the Issues panel.
+    void reportLoadError(const QString& path, const QString& message);
     Analysis computeAnalysis(const QString& editorId, const QString& text) const;
     void applyAnalysis(CodePage* page, Analysis analysis);
     void updateTabTitles();

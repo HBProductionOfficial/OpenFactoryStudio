@@ -2,6 +2,7 @@
 
 #include "core/project/Project.h"
 #include "core/script/LuaApi.h"
+#include "core/script/LuaSafety.h"
 #include "core/script/ScriptTranslation.h"
 
 #include <QCoreApplication>
@@ -100,6 +101,7 @@ private:
 void prepare(sol::state& lua, Session& session)
 {
     lua.open_libraries(sol::lib::base, sol::lib::string, sol::lib::table, sol::lib::math, sol::lib::utf8);
+    restrictLoading(lua);
     lua["base"] = lua.globals();
     registerApi(lua, session);
     if (!session.scriptPath.isEmpty())
@@ -157,7 +159,7 @@ RunResult runScript(const QString& code, const QString& source, const Environmen
     const QByteArray name =
         source.isEmpty() ? bytes
                          : QByteArray("@") + QDir::toNativeSeparators(QFileInfo(source).absoluteFilePath()).toUtf8();
-    if (luaL_loadbuffer(L, bytes.constData(), size_t(bytes.size()), name.constData()) != LUA_OK) {
+    if (luaL_loadbufferx(L, bytes.constData(), size_t(bytes.size()), name.constData(), "t") != LUA_OK) {
         result.ok = false;
         result.error = QStringLiteral("sol: syntax error: ") + QString::fromUtf8(lua_tostring(L, -1));
         lua_pop(L, 1);
@@ -215,7 +217,8 @@ Project* runProjectTemplate(const QString& path, const Environment& environment,
 
     const std::string code = file.readAll().toStdString();
     const std::string chunk = "@" + toStd(QDir::toNativeSeparators(path));
-    sol::protected_function_result result = lua.safe_script(code, sol::script_pass_on_error, chunk);
+    sol::protected_function_result result =
+        lua.safe_script(code, sol::script_pass_on_error, chunk, sol::load_mode::text);
     if (!result.valid()) {
         const sol::error err = result;
         return fail(QString::fromUtf8(err.what()));

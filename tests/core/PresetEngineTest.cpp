@@ -122,6 +122,41 @@ private Q_SLOTS:
         QCOMPARE(syntax.errors.size(), 1);
     }
 
+    // A preset stuck in a loop is stopped, so it can't hang the program at start.
+    void endlessLoopsStop()
+    {
+        Model loop;
+        QVERIFY(!PresetEngine::runString(QStringLiteral("function apply() while true do end end"),
+                                         QStringLiteral("loop.lua"), loop));
+        QCOMPARE(loop.errors.size(), 1);
+        QVERIFY(loop.errors[0].contains(QStringLiteral("too long")));
+
+        // pcall can't catch the stop and go on.
+        Model caught;
+        QVERIFY(!PresetEngine::runString(QStringLiteral("while true do pcall(function() while true do end end) end"),
+                                         QStringLiteral("pcall.lua"), caught));
+        QVERIFY(caught.errors.value(0).contains(QStringLiteral("too long")));
+
+        // Lua doesn't watch finalizers, so presets can't set one.
+        Model finalizer;
+        QVERIFY(!PresetEngine::runString(QStringLiteral("setmetatable({}, {__gc = function() while true do end end})"),
+                                         QStringLiteral("gc.lua"), finalizer));
+        QVERIFY(finalizer.errors.value(0).contains(QStringLiteral("__gc")));
+        Model plain;
+        QVERIFY(PresetEngine::runString(QStringLiteral("local t = setmetatable({}, {__index = {a = 1}})"),
+                                        QStringLiteral("meta.lua"), plain));
+
+        // The globals are read without their metatable, so it can't loop or fail there.
+        Model globals;
+        QVERIFY(PresetEngine::runString(
+            QStringLiteral("setmetatable(_G, {__index = function() while true do end end})\niconset = 'Flat'"),
+            QStringLiteral("globals.lua"), globals));
+        QCOMPARE(globals.iconset, QStringLiteral("Flat"));
+        Model failing;
+        QVERIFY(PresetEngine::runString(QStringLiteral("setmetatable(_G, {__index = function() error('x') end})"),
+                                        QStringLiteral("index.lua"), failing));
+    }
+
     void observedApiExtensions()
     {
         Model model;

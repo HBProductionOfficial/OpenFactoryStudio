@@ -120,7 +120,7 @@ function(ofs_third_party_defaults target)
     endif()
 endfunction()
 
-# dr_flac, dr_mp3 (public domain / MIT-0) and stb_vorbis (MIT / public domain). The dr_libs
+# dr_flac and dr_mp3 (public domain / MIT-0). The dr_libs
 # implementation file is written into the build tree so the vendored files stay as they are.
 set(_ofs_dr_libs_impl "${CMAKE_BINARY_DIR}/third_party/ofs_dr_libs.c")
 file(CONFIGURE OUTPUT "${_ofs_dr_libs_impl}" CONTENT [[
@@ -130,12 +130,11 @@ file(CONFIGURE OUTPUT "${_ofs_dr_libs_impl}" CONTENT [[
 #define DR_MP3_IMPLEMENTATION
 #include "dr_mp3.h"
 ]])
-add_library(ofs_audio_decoders STATIC "${_ofs_dr_libs_impl}" "${PROJECT_SOURCE_DIR}/third_party/stb_vorbis/stb_vorbis.c")
+add_library(ofs_audio_decoders STATIC "${_ofs_dr_libs_impl}")
 ofs_third_party_defaults(ofs_audio_decoders)
 target_include_directories(ofs_audio_decoders SYSTEM PUBLIC
-    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/third_party/dr_libs>"
-    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/third_party/stb_vorbis>")
-target_compile_definitions(ofs_audio_decoders PUBLIC DR_FLAC_NO_STDIO DR_MP3_NO_STDIO STB_VORBIS_NO_STDIO)
+    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/third_party/dr_libs>")
+target_compile_definitions(ofs_audio_decoders PUBLIC DR_FLAC_NO_STDIO DR_MP3_NO_STDIO)
 
 # --- libsamplerate (BSD-2-Clause), sample rate conversion -------------------------------------
 FetchContent_Declare(libsamplerate
@@ -154,8 +153,8 @@ target_compile_definitions(ofs_samplerate PRIVATE
     PACKAGE="libsamplerate" VERSION="0.2.2" HAVE_STDBOOL_H=1 CPU_CLIPS_POSITIVE=0 CPU_CLIPS_NEGATIVE=0
     ENABLE_SINC_FAST_CONVERTER ENABLE_SINC_MEDIUM_CONVERTER ENABLE_SINC_BEST_CONVERTER)
 
-# --- libogg and libvorbis (BSD-3-Clause), Ogg Vorbis encoding ---------------------------------
-# No vorbisfile because stb_vorbis decodes. config_types.h replaces the one libogg's build writes.
+# --- libogg and libvorbis (BSD-3-Clause), Ogg Vorbis decoding and encoding --------------------
+# config_types.h replaces the one libogg's build writes.
 FetchContent_Declare(ogg
     URL https://github.com/xiph/ogg/releases/download/v1.3.6/libogg-1.3.6.tar.xz
     URL_HASH SHA256=5c8253428e181840cd20d41f3ca16557a9cc04bad4a3d04cce84808677fa1061
@@ -186,7 +185,7 @@ target_include_directories(ofs_ogg SYSTEM PUBLIC
 
 set(_ofs_vorbis_sources
     analysis bitrate block codebook envelope floor0 floor1 info lookup lpc lsp mapping0 mdct psy registry res0
-    sharedbook smallft synthesis vorbisenc window)
+    sharedbook smallft synthesis vorbisenc vorbisfile window)
 list(TRANSFORM _ofs_vorbis_sources PREPEND "${vorbis_SOURCE_DIR}/lib/")
 list(TRANSFORM _ofs_vorbis_sources APPEND ".c")
 add_library(ofs_vorbis STATIC ${_ofs_vorbis_sources})

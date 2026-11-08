@@ -20,9 +20,12 @@ struct OFS_CORE_EXPORT Entry
 };
 
 OFS_CORE_EXPORT QList<Entry> entries(const QString& archive, QString* error = nullptr);
-// Refuses entries that would land outside folder.
+// Refuses entries that would land outside folder, and archives that unpack to more than
+// extractLimit().
 OFS_CORE_EXPORT bool extract(const QString& archive, const QString& folder, QString* error = nullptr);
 OFS_CORE_EXPORT QByteArray read(const QString& archive, const QString& name, QString* error = nullptr);
+// How much an archive of this size may unpack to.
+OFS_CORE_EXPORT qint64 extractLimit(qint64 archiveSize);
 OFS_CORE_EXPORT bool create(const QString& archive, const QString& root, const QStringList& files,
                             QString* error = nullptr);
 

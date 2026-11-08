@@ -3,6 +3,7 @@
 //   ofs-sffdump info <file.sff>
 //   ofs-sffdump list <file.sff> [--json]
 //   ofs-sffdump extract <file.sff> <outdir>
+//   ofs-sffdump check <file.sff>
 //   ofs-sffdump convert <in.sff> <out.sff> --to v1|v2.0|v2.01 [--smallest] [--link-duplicates]
 //   ofs-sffdump snd-list <file.snd>
 
@@ -35,6 +36,7 @@ int usage()
                  "  ofs-sffdump info <file.sff>\n"
                  "  ofs-sffdump list <file.sff> [--json]\n"
                  "  ofs-sffdump extract <file.sff> <outdir>\n"
+                 "  ofs-sffdump check <file.sff>\n"
                  "  ofs-sffdump convert <in.sff> <out.sff> --to v1|v2.0|v2.01 [--smallest] [--link-duplicates]\n"
                  "  ofs-sffdump snd-list <file.snd>\n";
     return kUsage;
@@ -214,6 +216,27 @@ int extract(const std::string& file, const std::string& outDir)
     return status;
 }
 
+// Decodes every sprite and lists the ones that fail.
+int check(const std::string& file)
+{
+    auto doc = loadSff(file);
+    if (!doc)
+        return fail(doc.error().message);
+    std::size_t failed = 0;
+    for (std::size_t i = 0; i < doc->sprites.size(); ++i) {
+        auto image = doc->decodeSprite(i);
+        if (image)
+            continue;
+        const SffSprite& s = doc->sprites[i];
+        std::cout << "sprite " << i << " (" << s.group << "," << s.number << "): " << image.error().message << '\n';
+        ++failed;
+    }
+    for (const std::string& problem : doc->readProblems)
+        std::cout << "problem: " << problem << '\n';
+    std::cout << doc->sprites.size() - failed << " of " << doc->sprites.size() << " sprites decode\n";
+    return failed == 0 ? kOk : kFailed;
+}
+
 int convert(const std::vector<std::string>& args)
 {
     if (args.size() < 2)
@@ -275,6 +298,8 @@ int sndList(const std::string& file)
         std::snprintf(duration, sizeof duration, ", %.3f s", wav->durationSeconds());
         std::cout << format.str() << duration << '\n';
     }
+    for (const std::string& problem : doc->readProblems)
+        std::cout << "problem: " << problem << '\n';
     return kOk;
 }
 
@@ -291,6 +316,8 @@ int main(int argc, char* argv[])
         return info(rest[0]);
     if (command == "list" && (rest.size() == 1 || (rest.size() == 2 && rest[1] == "--json")))
         return list(rest[0], rest.size() == 2);
+    if (command == "check" && rest.size() == 1)
+        return check(rest[0]);
     if (command == "extract" && rest.size() == 2)
         return extract(rest[0], rest[1]);
     if (command == "convert")

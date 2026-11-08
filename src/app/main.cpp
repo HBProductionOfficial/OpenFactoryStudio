@@ -1,5 +1,6 @@
 #include "core/Version.h"
 #include "core/app/AppContext.h"
+#include "core/app/Messages.h"
 #include "core/app/Paths.h"
 #include "core/settings/Config.h"
 #include "core/settings/SettingsFiles.h"
@@ -29,6 +30,7 @@ int main(int argc, char* argv[])
 
     QApplication app(argc, argv);
     OFS::installDialogHelpButtons(app);
+    OFS::showPlainTextMessages(app);
 #if defined(Q_OS_WIN)
     // The interface styles are designed on top of the classic Windows look.
     if (QStyleFactory::keys().contains(QStringLiteral("windowsvista"), Qt::CaseInsensitive))

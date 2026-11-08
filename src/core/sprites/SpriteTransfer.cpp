@@ -1,4 +1,5 @@
 #include "core/sprites/SpriteTransfer.h"
+#include "core/project/ContentPaths.h"
 
 #include "core/sprites/SpriteEdits.h"
 #include "formats/image/ImageOps.h"
@@ -195,7 +196,13 @@ QList<int> importFfe(SpriteDocument& doc, int after, const QString& path, const 
     for (const Section& section : std::as_const(sections)) {
         if (section.kind != QLatin1String("palettedef"))
             continue;
-        QFile act(dir.filePath(section.values.value(QStringLiteral("file"))));
+        const QString listed = section.values.value(QStringLiteral("file"));
+        if (isUnsafeName(listed))
+            return fail(SpriteTransferTexts::tr("%1, line %2: %3 can lead to another computer, so it wasn't opened.")
+                            .arg(QFileInfo(path).fileName())
+                            .arg(section.line)
+                            .arg(listed));
+        QFile act(dir.filePath(listed));
         if (!act.open(QIODevice::ReadOnly))
             return fail(SpriteTransferTexts::tr("%1, line %2: %3")
                             .arg(QFileInfo(path).fileName())
