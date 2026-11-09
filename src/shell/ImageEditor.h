@@ -44,7 +44,7 @@ public:
 
     void open(const Formats::Image& image, const QString& name);
     const ImageDocument& document() const { return m_document; }
-    // The colours an 8-bit canvas is drawn with: the palette chosen in the panel. Not an edit.
+    // The colors an 8-bit canvas is drawn with: the palette chosen in the panel. Not an edit.
     void setPalette(const Formats::Palette& colors);
     bool isModified() const { return m_modified; }
     void markSaved() { m_modified = false; }
@@ -94,7 +94,7 @@ private:
     void updateOptions();
     void refresh();
     void playStep();
-    // The Remap pen's colour pairs: source to replacement, or the other way round for the right and middle buttons.
+    // The Remap pen's color pairs: source to replacement, or the other way round for the right and middle buttons.
     QList<QPair<PaintColor, PaintColor>> remapPairs(bool reverse) const;
     int sizeIndex(Tool tool) const;
 

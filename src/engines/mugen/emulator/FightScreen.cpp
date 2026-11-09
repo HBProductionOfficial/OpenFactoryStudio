@@ -101,7 +101,7 @@ Formats::Palette FightScreen::Font::palette(int bank) const
     base.resize(256);
     if (bank <= 0 || bank >= banks || bankColors <= 0)
         return base;
-    // A bank takes the font's colours from further down the palette.
+    // A bank takes the font's colors from further down the palette.
     Formats::Palette out = base;
     const int c = bankColors;
     for (int i = 0; i < c; ++i)
@@ -177,9 +177,9 @@ QImage FightScreen::Font::render(int bank) const
                     indexed.scanLine(y));
     }
     QList<QRgb> colors;
-    const Formats::Palette colours = palette(bank);
-    for (std::size_t i = 0; i < colours.size(); ++i)
-        colors << (i == 0 ? qRgba(0, 0, 0, 0) : qRgb(colours[i].r, colours[i].g, colours[i].b));
+    const Formats::Palette bankPalette = palette(bank);
+    for (std::size_t i = 0; i < bankPalette.size(); ++i)
+        colors << (i == 0 ? qRgba(0, 0, 0, 0) : qRgb(bankPalette[i].r, bankPalette[i].g, bankPalette[i].b));
     indexed.setColorTable(colors);
     return indexed.convertToFormat(QImage::Format_ARGB32_Premultiplied);
 }

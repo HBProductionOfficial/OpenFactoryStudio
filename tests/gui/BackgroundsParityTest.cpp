@@ -673,7 +673,7 @@ private Q_SLOTS:
         QCOMPARE(windowMode->count(), 3);
         QCOMPARE(windowMode->itemText(2), QStringLiteral("Top center (mask)"));
         choose(windowMode, 2);
-        QVERIFY(has(page11, "maskwindow = -160, 0, 160, 240")); // x from the screen centre
+        QVERIFY(has(page11, "maskwindow = -160, 0, 160, 240")); // x from the screen center
         choose(windowMode, 1);
         QVERIFY(has(page11, "window = 0, 0, 319, 239"));
         choose(windowMode, 0);

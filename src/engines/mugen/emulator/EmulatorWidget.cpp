@@ -587,16 +587,38 @@ void EmulatorWidget::setZoom(int zoom)
     update();
 }
 
-void EmulatorWidget::wheelEvent(QWheelEvent* event)
+void EmulatorWidget::stepZoom(int steps)
 {
     const int fitted = std::max(1, screenRect().width() / EmulatorRenderer::Screen.width());
     const int current = m_zoom > 0 ? m_zoom : fitted;
-    const int steps = m_wheel.take(event); // parts of notches add up (touchpads)
     if (steps > 0)
         setZoom(current + steps);
     else if (steps < 0)
         setZoom(current + steps >= 1 ? current + steps : 0);
+}
+
+void EmulatorWidget::wheelEvent(QWheelEvent* event)
+{
+    stepZoom(m_wheel.take(event)); // parts of notches add up (touchpads)
     event->accept();
+}
+
+void EmulatorWidget::zoom(Zoom step)
+{
+    switch (step) {
+    case Zoom::In:
+        stepZoom(1);
+        break;
+    case Zoom::Out:
+        stepZoom(-1);
+        break;
+    case Zoom::Actual:
+        setZoom(1);
+        break;
+    case Zoom::Fit:
+        setZoom(0);
+        break;
+    }
 }
 
 EmulatorRenderer::Options EmulatorWidget::renderOptions() const

@@ -109,8 +109,8 @@ private Q_SLOTS:
         for (int i = 0;
              i < 30 && !a.projectiles().isEmpty() && a.projectiles().at(0).status == Projectile::Status::Active; ++i)
             match.tick();
-        QCOMPARE(a.projectiles().at(0).status, Projectile::Status::Cancelled);
-        QCOMPARE(b.projectiles().at(0).status, Projectile::Status::Cancelled);
+        QCOMPARE(a.projectiles().at(0).status, Projectile::Status::Canceled);
+        QCOMPARE(b.projectiles().at(0).status, Projectile::Status::Canceled);
         match.tick();
         QCOMPARE(a.var(4), 0);
         QCOMPARE(b.life(), 1000);

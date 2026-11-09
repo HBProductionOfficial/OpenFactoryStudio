@@ -521,7 +521,7 @@ void Match::keepOnScreen()
 {
     if (m_characters.isEmpty())
         return;
-    // The camera centres on the players it follows, and none bound to the screen may pass its margin.
+    // The camera centers on the players it follows, and none bound to the screen may pass its margin.
     float least = 0;
     float most = 0;
     bool followed = false;

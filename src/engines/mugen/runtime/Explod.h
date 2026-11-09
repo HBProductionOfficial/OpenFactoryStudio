@@ -63,7 +63,7 @@ struct Explod
     bool onTop = false;
     bool ownPal = false;
     PaletteRemap remap;
-    std::array<int, 3> shadow{0, 0, 0}; // the colour its shadow takes away (0,0,0: none, r -1: the stage's)
+    std::array<int, 3> shadow{0, 0, 0}; // the color its shadow takes away (0,0,0: none, r -1: the stage's)
     QString trans = QStringLiteral("default");
     std::array<int, 2> alpha{256, 0};
 

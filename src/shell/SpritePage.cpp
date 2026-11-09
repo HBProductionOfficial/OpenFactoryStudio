@@ -170,7 +170,7 @@ void SpritePage::reloadImage()
 void SpritePage::updateEditorPalette()
 {
     // The canvas holds palette indexes and shows them through the palette chosen in the panel. Indexes past the end of
-    // a shorter palette keep the sprite's own colours.
+    // a shorter palette keep the sprite's own colors.
     const SpriteDocument& doc = m_file->document();
     if (m_current < 0 || m_current >= doc.spriteCount())
         return;

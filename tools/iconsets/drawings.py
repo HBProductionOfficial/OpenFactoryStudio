@@ -98,8 +98,8 @@ def g_clsn_previous(svg: Svg, ctx) -> None:
 def g_clsn_switch(svg: Svg, ctx) -> None:
     clsn_box(svg, 4, 4, 18, 18, "attack", 2.6)
     clsn_box(svg, 26, 26, 18, 18, "collision", 2.6)
-    curved_arrow(svg, [(28, 8), (40, 8), (40, 20)], "grey", 4.5, 6)
-    curved_arrow(svg, [(20, 40), (8, 40), (8, 28)], "grey", 4.5, 6)
+    curved_arrow(svg, [(28, 8), (40, 8), (40, 20)], "gray", 4.5, 6)
+    curved_arrow(svg, [(20, 40), (8, 40), (8, 28)], "gray", 4.5, 6)
 
 
 def g_clsn_default(svg: Svg, ctx) -> None:
@@ -183,7 +183,7 @@ def _darker(color: str, f: float = 0.55) -> str:
 
 def g_icon_text(icon: str, color: str, target_w: float = 40, italic: float = 10, width: float = 4.0,
                 cy: float = 25, quotes: bool = False):
-    """A whole outline icon (abc, letter-case, regex ...) drawn as bold coloured lettering."""
+    """A whole outline icon (abc, letter-case, regex ...) drawn as bold colored lettering."""
     def draw(svg: Svg, ctx) -> None:
         svg.body.extend(icon_glyph(ctx.tabler, icon, 24, cy, target_w, color, width, italic,
                                    outline=_darker(color), outline_width=1.6, max_h=34))
@@ -236,7 +236,7 @@ def g_flags(svg: Svg, ctx) -> None:
 
 # --- debugger -----------------------------------------------------------------------------------------
 def _dot(svg: Svg, cx: float, cy: float) -> None:
-    ball(svg, cx, cy, 5, "grey")
+    ball(svg, cx, cy, 5, "gray")
 
 
 def g_step_over(svg: Svg, ctx) -> None:
@@ -328,30 +328,30 @@ def g_gradient(svg: Svg, ctx) -> None:
 
 
 def g_grayscale(svg: Svg, ctx) -> None:
-    _grid_balls(svg, [["grey"] * 3] * 3, 6.4, 9, 9, 15)
+    _grid_balls(svg, [["gray"] * 3] * 3, 6.4, 9, 9, 15)
 
 
 def g_invert(svg: Svg, ctx) -> None:
-    _grid_balls(svg, [["red", "orange", "yellow"], ["cyan", "blue", "purple"], ["grey", "green", ""]], 6.0, 9, 9, 14)
-    curved_arrow(svg, [(30, 44), (44, 44), (42, 30)], "grey", 4, 6)
+    _grid_balls(svg, [["red", "orange", "yellow"], ["cyan", "blue", "purple"], ["gray", "green", ""]], 6.0, 9, 9, 14)
+    curved_arrow(svg, [(30, 44), (44, 44), (42, 30)], "gray", 4, 6)
 
 
 def g_switch_colors(svg: Svg, ctx) -> None:
     ball(svg, 14, 14, 10, "red")
     ball(svg, 34, 34, 10, "orange")
-    curved_arrow(svg, [(26, 6), (42, 6), (40, 22)], "grey", 4.2, 6)
-    curved_arrow(svg, [(22, 42), (6, 42), (8, 26)], "grey", 4.2, 6)
+    curved_arrow(svg, [(26, 6), (42, 6), (40, 22)], "gray", 4.2, 6)
+    curved_arrow(svg, [(22, 42), (6, 42), (8, 26)], "gray", 4.2, 6)
 
 
 def g_switch_count(svg: Svg, ctx) -> None:
     _grid_balls(svg, [["red", "red"], ["red", "red"]], 5.6, 9, 9, 12)
     _grid_balls(svg, [["red", "red", "red"], ["red", "red", "red"], ["red", "red", "red"]], 3.8, 27, 27, 7.6)
-    curved_arrow(svg, [(30, 6), (42, 6), (42, 18)], "grey", 4, 6)
+    curved_arrow(svg, [(30, 6), (42, 6), (42, 18)], "gray", 4, 6)
 
 
 def g_set_color(svg: Svg, ctx) -> None:
     ball(svg, 30, 30, 14, "red")
-    curved_arrow(svg, [(4, 20), (6, 6), (20, 8)], "grey", 4.6, 7)
+    curved_arrow(svg, [(4, 20), (6, 6), (20, 8)], "gray", 4.6, 7)
 
 
 def g_add_missing(svg: Svg, ctx) -> None:
@@ -437,7 +437,7 @@ def g_sound_select(svg: Svg, ctx) -> None:
     svg.add(outline_group(lib, "pointer", "#ffffff", 1.6, t, fill="#ffffff"))
 
 
-# --- small text badges (rasterised and laid over Nuvola pictures) -----------------------------------------
+# --- small text badges (rasterized and laid over Nuvola pictures) -----------------------------------------
 def g_badge_text(text: str, fg: str, bg: str | None = None, height: float = 15, width: float = 3.0):
     def draw(svg: Svg, ctx) -> None:
         if bg:
@@ -470,7 +470,7 @@ FLAT_ACCENTS = {
     "orange": "#fb8c00",
     "cyan": "#00b8d4",
     "purple": "#8e44d8",
-    "grey": "#9e9e9e",
+    "gray": "#9e9e9e",
 }
 
 

@@ -38,7 +38,7 @@ private Q_SLOTS:
         QVERIFY(!manager.engine(QStringLiteral("unknown")));
     }
 
-    void userDirHonoursEnvironment()
+    void userDirHonorsEnvironment()
     {
         const QString dir = Paths::userDir();
         QVERIFY(!dir.isEmpty());

@@ -41,7 +41,7 @@ public:
 
 protected:
     // Same look as Fighter Factory: every cell has its own sunken frame, so the slots stay apart. The top cell is the
-    // colour to replace, the bottom one the colour that replaces it.
+    // color to replace, the bottom one the color that replaces it.
     void paintEvent(QPaintEvent*) override
     {
         QPainter p(this);
@@ -346,7 +346,7 @@ QColor ImageEditor::displayColor(const PaintColor& color) const
 
 QList<QPair<PaintColor, PaintColor>> ImageEditor::remapPairs(bool reverse) const
 {
-    // Colours as the current palette shows them, for canvases that compare colours instead of indexes.
+    // Colors as the current palette shows them, for canvases that compare colors instead of indexes.
     auto shown = [this](PaintColor color) {
         if (color.index >= 0 && color.index < int(m_document.palette.size())) {
             color.rgba = m_document.palette[std::size_t(color.index)];
@@ -354,7 +354,7 @@ QList<QPair<PaintColor, PaintColor>> ImageEditor::remapPairs(bool reverse) const
         }
         return color;
     };
-    // A slot without the colour to write turns its pixels transparent, same as Fighter Factory.
+    // A slot without the color to write turns its pixels transparent, same as Fighter Factory.
     const PaintColor transparent{0, Formats::Rgba{0, 0, 0, 0}};
     QList<QPair<PaintColor, PaintColor>> pairs;
     for (const RemapSlot& slot : m_slots) {
@@ -452,7 +452,7 @@ void ImageEditor::press(const QPoint& pixel, const QPoint& grid, Qt::MouseButton
         }
         break;
     case Tool::PaintBucket: {
-        // Any button fills with the foreground colour, same as Fighter Factory.
+        // Any button fills with the foreground color, same as Fighter Factory.
         ImageDocument doc = m_document;
         if (ImageEdits::fill(doc, pixel, m_foreground, contiguous(m_tool)))
             apply(tr("Paint bucket"), doc);

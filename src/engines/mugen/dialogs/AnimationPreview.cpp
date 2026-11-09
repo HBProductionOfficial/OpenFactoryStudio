@@ -1,11 +1,14 @@
 #include "engines/mugen/dialogs/AnimationPreview.h"
 
+#include "core/widgets/GraphicsView.h"
 #include "core/widgets/Rulers.h"
 
 #include <QLinearGradient>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QWheelEvent>
 
+#include <algorithm>
 #include <cmath>
 
 namespace OFS::Mugen {
@@ -14,17 +17,34 @@ namespace {
 
 constexpr int RulerSize = 22;
 constexpr int GridStep = 40;
-constexpr int TickStep = 10;
-constexpr int LabelStep = 50;
 
 } // namespace
 
 AnimationPreview::AnimationPreview(QWidget* parent)
     : QWidget(parent)
+    , m_levels(GraphicsView::largeZoomRange())
+    , m_zoomIndex(int(std::max<qsizetype>(0, m_levels.indexOf(1.0))))
 {
     setMinimumSize(320, 200);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     setCursor(Qt::OpenHandCursor);
+}
+
+void AnimationPreview::setZoomIndex(int index)
+{
+    index = std::clamp(index, 0, int(m_levels.size()) - 1);
+    if (index == m_zoomIndex)
+        return;
+    m_zoomIndex = index;
+    update();
+}
+
+void AnimationPreview::wheelEvent(QWheelEvent* event)
+{
+    const int steps = m_wheel.take(event);
+    if (steps != 0)
+        setZoomIndex(m_zoomIndex + steps);
+    event->accept();
 }
 
 void AnimationPreview::setFigures(const QList<Figure>& figures)
@@ -89,7 +109,7 @@ void AnimationPreview::mouseReleaseEvent(QMouseEvent* event)
 
 QPointF AnimationPreview::toWidget(const QPointF& units) const
 {
-    return origin() + units;
+    return origin() + units * zoom();
 }
 
 void AnimationPreview::paintEvent(QPaintEvent* event)
@@ -111,11 +131,13 @@ void AnimationPreview::paintEvent(QPaintEvent* event)
     p.save();
     p.setClipRect(view);
     p.setPen(QColor(150, 185, 225, 90));
-    const double firstX = zero.x() - std::floor((zero.x() - view.left()) / GridStep) * GridStep;
-    for (double x = firstX; x <= view.right(); x += GridStep)
+    const double scale = zoom();
+    const double grid = GridStep * scale;
+    const double firstX = zero.x() - std::floor((zero.x() - view.left()) / grid) * grid;
+    for (double x = firstX; x <= view.right(); x += grid)
         p.drawLine(QPointF(x, view.top()), QPointF(x, view.bottom()));
-    const double firstY = zero.y() - std::floor((zero.y() - view.top()) / GridStep) * GridStep;
-    for (double y = firstY; y <= view.bottom(); y += GridStep)
+    const double firstY = zero.y() - std::floor((zero.y() - view.top()) / grid) * grid;
+    for (double y = firstY; y <= view.bottom(); y += grid)
         p.drawLine(QPointF(view.left(), y), QPointF(view.right(), y));
     p.setPen(QColor(190, 215, 240, 160));
     p.drawLine(QPointF(view.left(), zero.y()), QPointF(view.right(), zero.y()));
@@ -127,8 +149,8 @@ void AnimationPreview::paintEvent(QPaintEvent* event)
         const double ax = figure.flipH ? image.width() - figure.axis.x() : figure.axis.x();
         const double ay = figure.flipV ? image.height() - figure.axis.y() : figure.axis.y();
         const QPointF at = toWidget(figure.position);
-        const QRectF target(at.x() - ax * figure.scale, at.y() - ay * figure.scale, image.width() * figure.scale,
-                            image.height() * figure.scale);
+        const double size = figure.scale * scale;
+        const QRectF target(at.x() - ax * size, at.y() - ay * size, image.width() * size, image.height() * size);
         p.setRenderHint(QPainter::SmoothPixmapTransform, false);
         p.drawImage(target, image);
     }
@@ -144,7 +166,10 @@ void AnimationPreview::paintEvent(QPaintEvent* event)
     }
     p.restore();
 
-    Rulers::draw(p, rect(), view, {zero.x(), 1}, {zero.y(), 1}, TickStep, LabelStep, Rulers::Colours::from(palette()),
+    int minor = 0;
+    int major = 0;
+    Rulers::steps(scale, &minor, &major);
+    Rulers::draw(p, rect(), view, {zero.x(), scale}, {zero.y(), scale}, minor, major, Rulers::Colors::from(palette()),
                  {RulerSize, 8, 10});
 }
 

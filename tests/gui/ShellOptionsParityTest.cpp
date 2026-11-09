@@ -74,7 +74,7 @@ void writeIn(const QString& path, const QByteArray& data)
     writeFile(path, data);
 }
 
-// SFF with one 4 px high sprite per (group, number, width), filled with palette colour 1.
+// SFF with one 4 px high sprite per (group, number, width), filled with palette color 1.
 QByteArray spriteFile(const QList<std::array<int, 3>>& sprites)
 {
     SpriteDocument doc;
@@ -867,13 +867,13 @@ private Q_SLOTS:
         auto onion = [](GraphicsView* v) {
             return v->images().isEmpty() ? GraphicsView::Image{} : v->images().first();
         };
-        auto colour = [&onion](GraphicsView* v) {
+        auto color = [&onion](GraphicsView* v) {
             const QImage image = onion(v).image;
             return image.isNull() ? QColor() : image.pixelColor(image.width() / 2, image.height() / 2);
         };
         for (GraphicsView* v : {sprites->view(), animation->view()}) {
             QCOMPARE(v->images().size(), qsizetype(2));
-            QCOMPARE(colour(v), QColor(227, 177, 152));
+            QCOMPARE(color(v), QColor(227, 177, 152));
         }
         applyOptions([](QDialog* dialog) {
             dialog->findChild<QComboBox*>("onion_effect")->setCurrentIndex(1); // Monochrome
@@ -881,9 +881,9 @@ private Q_SLOTS:
         });
         QVERIFY(view->findChild<QCheckBox*>("spr_onion_skin")->isChecked());
         QVERIFY(view->findChild<QCheckBox*>("anim_onion_skin")->isChecked());
-        const int grey = qGray(200, 100, 50);
+        const int gray = qGray(200, 100, 50);
         for (GraphicsView* v : {sprites->view(), animation->view()}) {
-            QCOMPARE(colour(v), QColor(grey, grey, grey));
+            QCOMPARE(color(v), QColor(gray, gray, gray));
             QCOMPARE(onion(v).opacity, 0.5);
         }
         applyOptions([](QDialog* dialog) {
@@ -891,7 +891,7 @@ private Q_SLOTS:
             dialog->findChild<QSlider*>("onion_opacity")->setValue(74);
         });
         for (GraphicsView* v : {sprites->view(), animation->view()}) {
-            QCOMPARE(colour(v), QColor(200, 100, 50));
+            QCOMPARE(color(v), QColor(200, 100, 50));
             QCOMPARE(onion(v).opacity, 0.74);
         }
     }

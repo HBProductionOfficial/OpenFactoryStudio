@@ -78,7 +78,7 @@ def _stop(offset: float, color: str) -> str:
 
 
 def attrs(**kw) -> str:
-    """Qt SVG does not read '#rrggbbaa', so those paints become a colour plus an opacity."""
+    """Qt SVG does not read '#rrggbbaa', so those paints become a color plus an opacity."""
     out = []
     for k, v in kw.items():
         if v is None:
@@ -135,7 +135,7 @@ class OutlineLibrary:
         raise KeyError(f"outline icon not found: {name}")
 
     def elements(self, name: str) -> list[str]:
-        """Returns the drawing elements of an icon with colours left as currentColor."""
+        """Returns the drawing elements of an icon with colors left as currentColor."""
         if name in self._cache:
             return self._cache[name]
         tree = ET.parse(self.find(name))
@@ -364,7 +364,7 @@ BALL_COLORS = {
     "red": ("#ffc4b4", "#e8341f", "#760b04"),
     "orange": ("#ffe0b0", "#f5821e", "#8c3504"),
     "yellow": ("#fffbc4", "#f6cf1e", "#8c6604"),
-    "grey": ("#ffffff", "#a4a4a4", "#454545"),
+    "gray": ("#ffffff", "#a4a4a4", "#454545"),
     "cyan": ("#c8f8ff", "#1fb8dc", "#075a72"),
     "purple": ("#f0d0ff", "#9a4ee0", "#41106e"),
     "brown": ("#e8cfc0", "#8a5a46", "#3a2016"),
@@ -467,7 +467,7 @@ def curved_arrow(svg: Svg, pts: list[tuple[float, float]], color: str = "blue", 
 
 def straight_arrow(svg: Svg, cx: float, cy: float, length: float, angle: float, color: str = "blue",
                    w: float = 9.0, head: float = 9.0) -> None:
-    """A bold straight arrow centred on (cx, cy) pointing at `angle` degrees (0 = right)."""
+    """A bold straight arrow centered on (cx, cy) pointing at `angle` degrees (0 = right)."""
     a = math.radians(angle)
     ux, uy = math.cos(a), math.sin(a)
     px, py = -uy, ux
@@ -491,7 +491,7 @@ def straight_arrow(svg: Svg, cx: float, cy: float, length: float, angle: float, 
 
 def glossy_text(svg: Svg, lib: OutlineLibrary, text: str, cx: float, baseline: float, height: float,
                 color: str, width: float = 3.4, italic: float = 10.0, max_width: float = 44.0) -> None:
-    """Bold coloured text with a darker rim, centred on cx (shrinks to fit max_width)."""
+    """Bold colored text with a darker rim, centered on cx (shrinks to fit max_width)."""
     _, total = text_elements(lib, text, 0, 0, height, color, width, italic=italic)
     if total > max_width:
         height *= max_width / total

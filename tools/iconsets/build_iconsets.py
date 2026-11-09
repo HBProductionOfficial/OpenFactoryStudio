@@ -611,7 +611,7 @@ NUVOLA = {
     "st/c": Draw(dw.g_state("C", "green")),
     "st/l": Draw(dw.g_state("L", "orange")),
     "st/s": Draw(dw.g_state("S", "yellow")),
-    "st/u": Draw(dw.g_state("U", "grey")),
+    "st/u": Draw(dw.g_state("U", "gray")),
     "st/command": Nv("apps/package_games_arcade"),
     "st/offset": Nv("apps/kruler"),
     "st/palfx": Nv("apps/kcoloredit", badges=(B(Draw(dw.g_badge_text("FX", "#ffffff", "#d81818", 14, 3.0)), 0.62),)),
@@ -621,7 +621,7 @@ NUVOLA = {
     "st/var_log": Draw(dw.g_var("#1a4ab0", True)),
 }
 
-# --- Flat sets: one table, recoloured for dark and light interfaces -----------------------------
+# --- Flat sets: one table, recolored for dark and light interfaces -----------------------------
 FLAT = {
     "air/clsn1_add": Flat(fn=dw.f_clsn_add("attack"), badge="plus"),
     "air/clsn2_add": Flat(fn=dw.f_clsn_add("collision"), badge="plus"),
@@ -691,7 +691,7 @@ FLAT = {
     "common/warning": Flat("alert-triangle", accent="yellow"),
     "common/calculator": Flat("calculator"),
     "debug/breakpoint": Flat(fn=dw.f_dot("red")),
-    "debug/breakpoint_disabled": Flat(fn=dw.f_dot("grey")),
+    "debug/breakpoint_disabled": Flat(fn=dw.f_dot("gray")),
     "debug/breakpoint_ignored": Flat(fn=dw.f_dot("red"), badge="warning"),
     "debug/breakpoint_pending": Flat(fn=dw.f_dot("red"), badge="clock"),
     "debug/current_line": Flat("arrow-right", accent="yellow"),
@@ -813,7 +813,7 @@ FLAT = {
     "st/c": Flat(fn=dw.f_state("C", "green")),
     "st/l": Flat(fn=dw.f_state("L", "red")),
     "st/s": Flat(fn=dw.f_state("S", "cyan")),
-    "st/u": Flat(fn=dw.f_state("U", "grey")),
+    "st/u": Flat(fn=dw.f_state("U", "gray")),
     "st/command": Flat("lucide:joystick"),
     "st/offset": Flat("ruler"),
     "st/palfx": Flat("palette", badge="fx"),
@@ -1036,7 +1036,7 @@ def render_raster(recipe, ctx: Context, size: int = PNG_SIZE) -> Image.Image:
 
 
 BADGES = {
-    # name: (fill accent, glyph drawing in a 24 unit box centred on (18, 18))
+    # name: (fill accent, glyph drawing in a 24 unit box centered on (18, 18))
     "plus": ("yellow", lambda c: dw.f_stroke("M18 15v6M15 18h6", c, 1.8)),
     "x": ("red", lambda c: dw.f_stroke("M16 16l4 4M20 16l-4 4", "#ffffff", 1.8)),
     "check": ("green", lambda c: dw.f_stroke("M15.6 18.2l1.7 1.7l3.2 -3.6", "#ffffff", 1.8)),
@@ -1053,7 +1053,7 @@ BADGES = {
                 + art.circle(18, 19.8, 1.0, fill=c)),
     "gamepad": ("blue", lambda c: dw.f_stroke("M15.2 18h3M16.7 16.5v3M19.6 17.4v0.01M20.8 18.8v0.01", "#ffffff", 1.4)),
     "fx": ("red", None),
-    # centred status glyphs (no badge circle)
+    # centered status glyphs (no badge circle)
     "xc": (None, lambda c: dw.f_stroke("M9 9l6 6M15 9l-6 6", "#ffffff", 2.4)),
     "ic": (None, lambda c: dw.f_stroke("M12 11v5M12 8v0.01", "#ffffff", 2.6)),
     "checkc": (None, lambda c: dw.f_stroke("M8.5 12.2l2.5 2.5l4.6 -5", "#ffffff", 2.4)),

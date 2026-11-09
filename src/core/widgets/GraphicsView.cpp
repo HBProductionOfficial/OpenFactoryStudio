@@ -232,8 +232,8 @@ void GraphicsView::zoomFit()
             best = i;
     }
     m_zoomIndex = best;
-    const QPointF centre = bounds.center() * zoom();
-    setOrigin((QPointF(area.center()) - centre).toPoint());
+    const QPointF center = bounds.center() * zoom();
+    setOrigin((QPointF(area.center()) - center).toPoint());
     update();
     Q_EMIT zoomChanged(m_zoomIndex);
 }
@@ -431,9 +431,9 @@ void GraphicsView::drawCross(QPainter& p, const QPointF& at, const QColor& fill,
 {
     if (m_crossStyle == CrossStyle::Custom && !m_crossImages[which].isNull()) {
         const QImage& picture = m_crossImages[which];
-        const QPointF centre = toWidget(at);
+        const QPointF center = toWidget(at);
         p.drawImage(
-            QPointF(std::round(centre.x() - picture.width() / 2.0), std::round(centre.y() - picture.height() / 2.0)),
+            QPointF(std::round(center.x() - picture.width() / 2.0), std::round(center.y() - picture.height() / 2.0)),
             picture);
         return;
     }
@@ -456,7 +456,7 @@ void GraphicsView::drawCross(QPainter& p, const QPointF& at, const QColor& fill,
         p.restore();
         return;
     }
-    // Default cross: a 13 x 13 plus with a hollow centre and an outline, scaled with the zoom.
+    // Default cross: a 13 x 13 plus with a hollow center and an outline, scaled with the zoom.
     auto cells = [this, at](double x, double y, double w, double h) {
         return QRectF(toWidget(QPointF(at.x() + x, at.y() + y)), QSizeF(w, h) * zoom());
     };
@@ -525,7 +525,7 @@ void GraphicsView::drawRulers(QPainter& p)
     const QPointF zero = toWidget(QPointF(0, 0));
     const QPointF one = toWidget(QPointF(1, 1));
     Rulers::draw(p, rect(), contentRect(), {zero.x(), one.x() - zero.x()}, {zero.y(), one.y() - zero.y()}, minor, major,
-                 Rulers::Colours::from(palette()), {RulerSize});
+                 Rulers::Colors::from(palette()), {RulerSize});
 }
 
 void GraphicsView::paintEvent(QPaintEvent* event)

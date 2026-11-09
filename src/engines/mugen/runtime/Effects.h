@@ -17,8 +17,8 @@ struct Vec2
     float y = 0;
 };
 
-// PalFX, AllPalFX, BGPalFX: colours added and multiplied (256 = 1), a sine added over a period,
-// inversion and saturation (color 0 grey, 256 unchanged).
+// PalFX, AllPalFX, BGPalFX: colors added and multiplied (256 = 1), a sine added over a period,
+// inversion and saturation (color 0 gray, 256 unchanged).
 struct PalFx
 {
     int time = 0;

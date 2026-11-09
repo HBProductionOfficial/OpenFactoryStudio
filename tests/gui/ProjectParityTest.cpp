@@ -477,7 +477,7 @@ private Q_SLOTS:
         dropChanges(window);
     }
 
-    void exitCancelledByDiscard()
+    void exitCanceledByDiscard()
     {
         QTemporaryDir dir;
         writeCharacter(dir.path(), "x", "X");

@@ -108,7 +108,7 @@ TEST_CASE("Fades are linear ramps over the selection", "[audio][edit]")
     CHECK(floatValues(fadeIn(stereo, kAllFrames)) == std::vector<float>{0.0f, -0.0f, 0.5f, -0.5f, 1.0f, -1.0f});
 }
 
-TEST_CASE("Volume changes and normalisation round and clamp", "[audio][edit]")
+TEST_CASE("Volume changes and normalization round and clamp", "[audio][edit]")
 {
     CHECK(int16Values(changeVolume(eight(), kAllFrames, 0.5f)) == Values{5, 10, 15, 20, 25, 30, 35, 40});
     CHECK(int16Values(changeVolume(int16Buffer({3, -3}), kAllFrames, 0.5f)) == Values{2, -2});

@@ -25,8 +25,8 @@
 <tr><td><b>xangle</b></td><td>float expression</td><td>Rotation around the horizontal axis, in degrees.</td></tr>
 <tr><td><b>sprpriority</b></td><td>integer expression</td><td>Drawing priority; higher values are drawn in front. Default 0.</td></tr>
 <tr><td><b>ontop</b></td><td>expression, 0 or 1</td><td>1 draws the explod above everything, including the stage foreground. Overrides sprpriority.</td></tr>
-<tr><td><b>shadow</b></td><td>3 integer expressions</td><td>Non-zero draws a shadow (before 1.1 the value was an r,g,b shadow colour).</td></tr>
-<tr><td><b>ownpal</b></td><td>expression, 0 or 1</td><td>1 keeps the explod colours independent of later PalFX and RemapPal on the player. Fightfx explods use their own palette anyway.</td></tr>
+<tr><td><b>shadow</b></td><td>3 integer expressions</td><td>Non-zero draws a shadow (before 1.1 the value was an r,g,b shadow color).</td></tr>
+<tr><td><b>ownpal</b></td><td>expression, 0 or 1</td><td>1 keeps the explod colors independent of later PalFX and RemapPal on the player. Fightfx explods use their own palette anyway.</td></tr>
 <tr><td><b>remappal</b></td><td>2 integer expressions</td><td>Palette group and item the explod is drawn with, when ownpal is set. -1 ignores it.</td></tr>
 <tr><td><b>removeongethit</b></td><td>expression, 0 or 1</td><td>1 removes the explod when the player is hit.</td></tr>
 <tr><td><b>ignorehitpause</b></td><td>expression, 0 or 1</td><td>1 (default) keeps the explod animating while its owner is in a hit pause.</td></tr>
@@ -34,7 +34,7 @@
 <tr><td><b>alpha</b></td><td>2 integer expressions</td><td>Source and destination weights (0-256) for the additive modes.</td></tr>
 </table>
 <h3>Notes</h3>
-<ul><li>Without bindID, pos is an absolute position: from the stage centre at ground level in stage space, from the top-left corner in screen space (see ScreenWidth and ScreenHeight).</li><li>postype and random are deprecated. For postype = P1 use pos = Pos X + CameraPos X, Pos Y with facing = Facing; for the screen edges use space = Screen with 0 or ScreenWidth as x.</li><li>The angle, xangle and yangle parameters may still change in later 1.1 builds.</li></ul>
+<ul><li>Without bindID, pos is an absolute position: from the stage center at ground level in stage space, from the top-left corner in screen space (see ScreenWidth and ScreenHeight).</li><li>postype and random are deprecated. For postype = P1 use pos = Pos X + CameraPos X, Pos Y with facing = Facing; for the screen edges use space = Screen with 0 or ScreenWidth as x.</li><li>The angle, xangle and yangle parameters may still change in later 1.1 builds.</li></ul>
 <h3>Example</h3>
 <pre>[State 1000, Spark]
 type = Explod

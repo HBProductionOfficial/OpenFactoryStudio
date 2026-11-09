@@ -151,7 +151,7 @@ TEST_CASE("Peak columns cover the view pixel by pixel", "[audio][peaks]")
     CHECK(edges[0] == PeakPair{});
 }
 
-TEST_CASE("A ten-minute track is summarised compactly and drawn exactly", "[audio][peaks]")
+TEST_CASE("A ten-minute track is summarized compactly and drawn exactly", "[audio][peaks]")
 {
     const std::size_t frames = 10 * 60 * 44100;
     SampleBuffer track(SampleType::Int16, 2, 44100, frames);

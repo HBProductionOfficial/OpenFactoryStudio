@@ -23,7 +23,7 @@ class Project;
 class SpriteFile;
 class TimelineWidget;
 
-// Backgrounds editor workspace for one stage, motif or storyboard. The origin is the screen's top centre. Play runs the
+// Backgrounds editor workspace for one stage, motif or storyboard. The origin is the screen's top center. Play runs the
 // group at 60 ticks per second and the arrow keys move the camera.
 class BackgroundsPage : public QWidget
 {

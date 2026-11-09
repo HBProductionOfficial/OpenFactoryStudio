@@ -10,13 +10,13 @@ class QPalette;
 
 namespace OFS::Rulers {
 
-struct OFS_CORE_EXPORT Colours
+struct OFS_CORE_EXPORT Colors
 {
     QColor band;
     QColor strip;
     QColor ink;
 
-    static Colours from(const QPalette& palette);
+    static Colors from(const QPalette& palette);
 };
 
 // Where unit 0 falls in widget pixels, and pixels per unit (negative for a reversed axis).
@@ -37,6 +37,6 @@ struct Metrics
 OFS_CORE_EXPORT void steps(double zoom, int* minor, int* major);
 
 OFS_CORE_EXPORT void draw(QPainter& p, const QRect& bounds, const QRect& area, const Axis& x, const Axis& y, int minor,
-                          int major, const Colours& colours, const Metrics& metrics = {});
+                          int major, const Colors& colors, const Metrics& metrics = {});
 
 } // namespace OFS::Rulers

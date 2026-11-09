@@ -17,6 +17,8 @@
 #include <QTest>
 #include <QTimer>
 #include <QToolBar>
+#include <QWheelEvent>
+#include <QtTest/qtestspontaneevent.h>
 
 #include <functional>
 
@@ -39,6 +41,23 @@ inline QByteArray readFile(const QString& path)
 inline QString keyText(const char* keys)
 {
     return QKeySequence(QString::fromLatin1(keys)).toString(QKeySequence::NativeText);
+}
+
+// Turns the wheel over a point of a widget the way a real mouse does: the widget under the pointer gets
+// the event (a widget lying on top would get it instead), and Qt passes it on to the parents when ignored.
+// Qt only does that for events marked as coming from the system, so this one is.
+inline void turnWheel(QWidget* widget, QPoint pos, int delta, Qt::KeyboardModifiers modifiers = Qt::NoModifier)
+{
+    QWidget* top = widget->window();
+    const QPoint inTop = widget->mapTo(top, pos);
+    QWidget* target = top->childAt(inTop);
+    if (!target)
+        target = top;
+    const QPointF local = target->mapFrom(top, QPointF(inTop));
+    QWheelEvent event(local, target->mapToGlobal(local), QPoint(), QPoint(0, delta), Qt::NoButton, modifiers,
+                      Qt::NoScrollPhase, false);
+    QSpontaneKeyEvent::setSpontaneous(&event);
+    QApplication::sendEvent(target, &event);
 }
 
 // Message boxes on macOS have no title, as the platform guidelines require.

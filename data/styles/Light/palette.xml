@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-    Open Factory Studio - colours of the "Light" interface style for the widgets that draw
-    themselves (rulers, timelines, waveforms, previews); stylesheet.css colours the others.
-    One <color role="..." value="r,g,b"/> per QPalette role, for every colour group unless
+    Open Factory Studio - colors of the "Light" interface style for the widgets that draw
+    themselves (rulers, timelines, waveforms, previews); stylesheet.css colors the others.
+    One <color role="..." value="r,g,b"/> per QPalette role, for every color group unless
     group="active", "inactive" or "disabled" names one.
 -->
 <palette>

@@ -31,6 +31,7 @@
 #include <QTextDocument>
 #include <QTimer>
 #include <QToolButton>
+#include <QWheelEvent>
 
 #include <functional>
 #include <memory>
@@ -329,6 +330,35 @@ private Q_SLOTS:
         preview.setScreenSize(QSize(1280, 720));
         QCOMPARE(preview.sizeHint(), QSize(1258, 692));
         QVERIFY(preview.origin().y() < 452);
+    }
+
+    void previewWheelZoom()
+    {
+        // Same as Fighter Factory's Offset viewer and Throw creator: one level per notch, about the origin.
+        Mugen::AnimationPreview preview;
+        preview.resize(782, 452);
+        const QPointF origin = preview.origin();
+        auto wheel = [&preview](int delta) {
+            QWheelEvent event(QPointF(400, 200), preview.mapToGlobal(QPointF(400, 200)), QPoint(), QPoint(0, delta),
+                              Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+            QCoreApplication::sendEvent(&preview, &event);
+        };
+        QCOMPARE(preview.zoom(), 1.0);
+        wheel(120);
+        QCOMPARE(preview.zoom(), 2.0);
+        wheel(120);
+        QCOMPARE(preview.zoom(), 3.0);
+        QCOMPARE(preview.origin(), origin);
+        QCOMPARE(preview.toWidget(QPointF(10, -5)), origin + QPointF(30, -15));
+        for (int i = 0; i < 3; ++i)
+            wheel(-120);
+        QCOMPARE(preview.zoom(), 0.5);
+        wheel(-120);
+        wheel(-120);
+        QCOMPARE(preview.zoom(), 0.25);
+        for (int i = 0; i < 20; ++i)
+            wheel(120);
+        QCOMPARE(preview.zoom(), 8.0);
     }
 
     void throwCreatorDialog()
@@ -790,7 +820,7 @@ private Q_SLOTS:
         QCOMPARE(fire.period, 8);
         QCOMPARE(fire.color, 256);
         QVERIFY(!fire.invert);
-        // MUGEN's PalFX: the weighted grey, then (colour + add) * mul / 256.
+        // MUGEN's PalFX: the weighted gray, then (color + add) * mul / 256.
         const PalFX none;
         QCOMPARE(none.apply(qRgb(10, 100, 200), 0), qRgb(10, 100, 200));
         PalFX inverted;

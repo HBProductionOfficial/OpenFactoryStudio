@@ -91,7 +91,7 @@ OFS_CORE_EXPORT void mergeVisible(ImageDocument& doc);
 OFS_CORE_EXPORT void mergeAll(ImageDocument& doc);
 
 OFS_CORE_EXPORT void resizeCanvas(ImageDocument& doc, int width, int height, const PaintColor& background);
-// RGBA <-> indexed. Uses the nearest palette colour, and alpha below 128 becomes index 0.
+// RGBA <-> indexed. Uses the nearest palette color, and alpha below 128 becomes index 0.
 OFS_CORE_EXPORT void setIndexed(ImageDocument& doc, bool indexed);
 // EPX and HQ sample the layer magnified four times. HQ on 8-bit canvases works as EPX.
 enum class RotateFilter

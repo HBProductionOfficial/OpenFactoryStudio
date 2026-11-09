@@ -227,7 +227,7 @@ void EmulatorSession::loadStageLook(const IniText& ini)
     look = Shadows();
     const IniSection* shadow = ini.section(QStringLiteral("Shadow"));
     look.intensity = std::clamp(int(number(shadow, "intensity", 128)), 0, 256);
-    // MUGEN 1.1 no longer reads the shadow's colour.
+    // MUGEN 1.1 no longer reads the shadow's color.
     CharacterData version;
     if (const IniSection* about = ini.section(QStringLiteral("Info")))
         version.setMugenVersion(unquote(about->value(QStringLiteral("mugenversion"))));

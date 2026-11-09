@@ -47,7 +47,7 @@ QStringList paletteCaptions(const SpriteDocument& doc)
     return captions;
 }
 
-// Qt's own colour dialog with the alpha channel.
+// Qt's own color dialog with the alpha channel.
 std::optional<Rgba> askColor(QWidget* parent, Rgba initial)
 {
     QColorDialog dialog(QColor(initial.r, initial.g, initial.b, initial.a), parent);

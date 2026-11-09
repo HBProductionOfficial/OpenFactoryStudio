@@ -285,8 +285,8 @@ private Q_SLOTS:
             QCOMPARE(doc.width, 8);
             QCOMPARE(doc.height, 8);
             QVERIFY(doc.indexed);
-            const int centre = doc.layer().image.indexAt(4, 4);
-            QVERIFY(centre == 1 || centre == 2);
+            const int center = doc.layer().image.indexAt(4, 4);
+            QVERIFY(center == 1 || center == 2);
         }
         ImageDocument rgba = ImageDocument::fromImage(picture(), QStringLiteral("0,0"));
         ImageEdits::setIndexed(rgba, false);

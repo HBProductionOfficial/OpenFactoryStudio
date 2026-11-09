@@ -8,15 +8,15 @@
 
 namespace OFS::Rulers {
 
-Colours Colours::from(const QPalette& palette)
+Colors Colors::from(const QPalette& palette)
 {
     const QColor window = palette.color(QPalette::Window);
     const bool dark = window.lightness() < 128;
-    Colours colours;
-    colours.band = dark ? window.darker(135) : window.darker(108);
-    colours.strip = dark ? window.lighter(137) : window.darker(125);
-    colours.ink = palette.color(QPalette::WindowText);
-    return colours;
+    Colors colors;
+    colors.band = dark ? window.darker(135) : window.darker(108);
+    colors.strip = dark ? window.lighter(137) : window.darker(125);
+    colors.ink = palette.color(QPalette::WindowText);
+    return colors;
 }
 
 void steps(double zoom, int* minor, int* major)
@@ -46,31 +46,31 @@ void forEachTick(const Axis& axis, double from, double to, int minor, Visit visi
 } // namespace
 
 void draw(QPainter& p, const QRect& bounds, const QRect& area, const Axis& x, const Axis& y, int minor, int major,
-          const Colours& colours, const Metrics& metrics)
+          const Colors& colors, const Metrics& metrics)
 {
     const int size = metrics.thickness;
     const int strip = metrics.tickStrip;
     p.save();
-    p.fillRect(QRect(bounds.left(), bounds.top(), bounds.width(), size), colours.band);
-    p.fillRect(QRect(bounds.left(), bounds.top(), size, bounds.height()), colours.band);
-    p.fillRect(QRect(bounds.left() + size, bounds.top() + size - strip, bounds.width() - size, strip), colours.strip);
-    p.fillRect(QRect(bounds.left() + size - strip, bounds.top() + size, strip, bounds.height() - size), colours.strip);
-    p.setPen(colours.ink);
+    p.fillRect(QRect(bounds.left(), bounds.top(), bounds.width(), size), colors.band);
+    p.fillRect(QRect(bounds.left(), bounds.top(), size, bounds.height()), colors.band);
+    p.fillRect(QRect(bounds.left() + size, bounds.top() + size - strip, bounds.width() - size, strip), colors.strip);
+    p.fillRect(QRect(bounds.left() + size - strip, bounds.top() + size, strip, bounds.height() - size), colors.strip);
+    p.setPen(colors.ink);
     QFont font = p.font();
     font.setPixelSize(metrics.fontPixels);
     p.setFont(font);
     const int top = bounds.top();
     const int left = bounds.left();
     forEachTick(x, area.left(), area.right(), minor, [&](int unit, double px) {
-        const bool labelled = unit % major == 0;
-        p.drawLine(QPointF(px, top + size - (labelled ? strip : strip / 2)), QPointF(px, top + size - 1));
-        if (labelled)
+        const bool labeled = unit % major == 0;
+        p.drawLine(QPointF(px, top + size - (labeled ? strip : strip / 2)), QPointF(px, top + size - 1));
+        if (labeled)
             p.drawText(QRectF(px - 30, top, 60, size - strip), Qt::AlignCenter, QString::number(unit));
     });
     forEachTick(y, area.top(), area.bottom(), minor, [&](int unit, double py) {
-        const bool labelled = unit % major == 0;
-        p.drawLine(QPointF(left + size - (labelled ? strip : strip / 2), py), QPointF(left + size - 1, py));
-        if (labelled) {
+        const bool labeled = unit % major == 0;
+        p.drawLine(QPointF(left + size - (labeled ? strip : strip / 2), py), QPointF(left + size - 1, py));
+        if (labeled) {
             p.save();
             p.translate(left, py);
             p.rotate(-90);
@@ -78,7 +78,7 @@ void draw(QPainter& p, const QRect& bounds, const QRect& area, const Axis& x, co
             p.restore();
         }
     });
-    p.fillRect(QRect(left, top, size, size), colours.band);
+    p.fillRect(QRect(left, top, size, size), colors.band);
     p.restore();
 }
 

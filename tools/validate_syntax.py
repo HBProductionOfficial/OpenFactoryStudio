@@ -802,7 +802,7 @@ def scan_expression(db: SyntaxDB, expr: str, report: Report, ftype: str, where: 
         elif char_ok and re.match(r'^[SsFf]\d+$', val):
             pass
         elif char_ok and val.upper() in param.char and (i == 0 or toks[i - 1][1] == ','):
-            pass  # prefix letter before a parenthesised expression, e.g. anim = F(60 + 1)
+            pass  # prefix letter before a parenthesized expression, e.g. anim = F(60 + 1)
         else:
             report.add('triggers', ftype, val, where)
         i += 1
@@ -918,7 +918,7 @@ def print_report(title: str, report: Report, out=sys.stdout):
     print(f'== {title} ==', file=out)
     print('files: ' + (', '.join(f'{t} {n}' for t, n in sorted(report.files.items())) or 'none'), file=out)
     for u in report.undetected:
-        print(f'  not recognised (skipped): {u}', file=out)
+        print(f'  not recognized (skipped): {u}', file=out)
     for kind in ('sections', 'controllers', 'params', 'triggers', 'constants', 'files'):
         byfile = report.unknown.get(kind, {})
         for ftype in sorted(byfile):

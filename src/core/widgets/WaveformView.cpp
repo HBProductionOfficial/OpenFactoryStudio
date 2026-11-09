@@ -20,9 +20,27 @@ using namespace Formats;
 namespace {
 
 constexpr int RulerHeight = 20;
-constexpr double MinimumFramesPerPixel = 1.0 / 16.0;
+// Fighter Factory zooms from 32 pixels per frame down to 0.02 pixels per frame, or a third of the fitted
+// zoom when that is larger.
+constexpr double MinimumFramesPerPixel = 1.0 / 32.0;
+constexpr double MaximumFramesPerPixel = 50.0;
 
-const QColor CentreLine(150, 150, 150);
+// Pixels per frame of the zoom buttons, the same steps as Fighter Factory's.
+const QList<double>& zoomLevels()
+{
+    static const QList<double> levels = [] {
+        QList<double> list;
+        for (int hundredths = 2; hundredths <= 9; ++hundredths)
+            list << hundredths / 100.0;
+        list << 0.1 << 0.15 << 0.2 << 0.25 << 0.5 << 0.75;
+        for (int whole = 1; whole <= 32; ++whole)
+            list << whole;
+        return list;
+    }();
+    return levels;
+}
+
+const QColor CenterLine(150, 150, 150);
 const QColor Wave(230, 200, 40);
 const QColor SelectionFill(240, 140, 30);
 const QColor WaveInSelection(60, 40, 10);
@@ -49,9 +67,13 @@ void WaveformView::setBuffer(const SampleBuffer& buffer)
     m_cursor = std::clamp<qint64>(m_cursor, 0, frames);
     if (m_selection.end() > std::size_t(frames))
         m_selection = SampleRange{};
-    if (!m_fitted && width() > 0 && frames > 0) {
+    if (!m_fitted && frames > 0) {
         m_fitted = true;
+        m_fittedFrames = frames;
         zoomFit();
+    } else if (frames != m_fittedFrames) {
+        // Another sound keeps the zoom, so a later resize must not fit it to that sound.
+        m_autoFit = false;
     }
     updateScrollBar();
     update();
@@ -69,8 +91,17 @@ double WaveformView::fitFramesPerPixel() const
 
 void WaveformView::setFramesPerPixel(double frames)
 {
-    // Zooming out may show space after the end of the sound.
-    frames = std::clamp(frames, MinimumFramesPerPixel, std::max(MinimumFramesPerPixel, fitFramesPerPixel() * 64));
+    m_autoFit = false;
+    applyFramesPerPixel(frames);
+}
+
+void WaveformView::applyFramesPerPixel(double frames)
+{
+    // Zooming out may show space after the end of the sound, up to twice its length. Fit screen size
+    // always fits, also a sound too long for the farthest zoom of the wheel and buttons.
+    const double fit = fitFramesPerPixel();
+    const double most = std::max(fit, std::min(fit * 3, MaximumFramesPerPixel));
+    frames = std::clamp(frames, MinimumFramesPerPixel, most);
     if (frames != m_framesPerPixel) {
         m_framesPerPixel = frames;
         Q_EMIT zoomChanged(m_framesPerPixel);
@@ -81,18 +112,27 @@ void WaveformView::setFramesPerPixel(double frames)
 
 void WaveformView::zoomIn()
 {
-    setFramesPerPixel(m_framesPerPixel / 2);
+    const double zoom = 1.0 / m_framesPerPixel;
+    const QList<double>& levels = zoomLevels();
+    const auto next =
+        std::find_if(levels.cbegin(), levels.cend(), [zoom](double level) { return level > zoom * 1.0001; });
+    setFramesPerPixel(next == levels.cend() ? MinimumFramesPerPixel : 1.0 / *next);
 }
 
 void WaveformView::zoomOut()
 {
-    setFramesPerPixel(m_framesPerPixel * 2);
+    const double zoom = 1.0 / m_framesPerPixel;
+    const QList<double>& levels = zoomLevels();
+    const auto below =
+        std::find_if(levels.crbegin(), levels.crend(), [zoom](double level) { return level < zoom * 0.9999; });
+    if (below != levels.crend())
+        setFramesPerPixel(1.0 / *below);
 }
 
 void WaveformView::zoomFit()
 {
     m_firstFrame = 0;
-    setFramesPerPixel(fitFramesPerPixel());
+    applyFramesPerPixel(fitFramesPerPixel());
 }
 
 void WaveformView::zoomReset()
@@ -114,7 +154,8 @@ void WaveformView::updateScrollBar()
 {
     const QSignalBlocker blocker(m_scroll);
     const double visible = width() * m_framesPerPixel;
-    m_scroll->setRange(0, int(std::max(0.0, double(m_buffer.frameCount()) - visible)));
+    // The view may start past the range after zooming out, and the bar must still reach it.
+    m_scroll->setRange(0, int(std::max(m_firstFrame, double(m_buffer.frameCount()) - visible)));
     m_scroll->setPageStep(std::max(1, int(visible)));
     m_scroll->setSingleStep(std::max(1, int(visible / 10)));
     m_scroll->setValue(int(m_firstFrame));
@@ -173,10 +214,10 @@ void WaveformView::paintEvent(QPaintEvent* event)
     Q_UNUSED(event);
     QPainter p(this);
     const QRect area = waveArea();
-    const Rulers::Colours colours = Rulers::Colours::from(palette());
+    const Rulers::Colors colors = Rulers::Colors::from(palette());
     p.fillRect(rect(), palette().color(QPalette::Base));
-    p.fillRect(QRect(0, 0, width(), RulerHeight), colours.band);
-    p.setPen(colours.ink);
+    p.fillRect(QRect(0, 0, width(), RulerHeight), colors.band);
+    p.setPen(colors.ink);
     const double rate = std::max<std::uint32_t>(1, m_buffer.sampleRate());
     const double framesPerTick = rate / double(TicksPerSecond);
     const double pixelsPerTick = framesPerTick / m_framesPerPixel;
@@ -201,14 +242,14 @@ void WaveformView::paintEvent(QPaintEvent* event)
     const double selectionRight = xAt(double(m_selection.end()));
     if (!m_selection.empty())
         p.fillRect(QRectF(selectionLeft, area.top(), selectionRight - selectionLeft, area.height()), SelectionFill);
-    // One band per channel. Positive samples go above the centre line.
+    // One band per channel. Positive samples go above the center line.
     const int channels = std::max<int>(1, m_buffer.channels());
     const double band = double(area.height()) / channels;
     std::vector<PeakPair> columns(std::size_t(std::max(1, width())));
     for (int c = 0; c < channels; ++c) {
         const double middle = area.top() + band * (c + 0.5);
         const double half = band / 2 - 2;
-        p.setPen(CentreLine);
+        p.setPen(CenterLine);
         p.drawLine(QPointF(0, middle), QPointF(std::min<double>(width(), soundEnd), middle));
         if (m_buffer.empty())
             continue;
@@ -235,7 +276,7 @@ void WaveformView::paintEvent(QPaintEvent* event)
         }
     }
     if (soundEnd < width()) {
-        p.setPen(CentreLine);
+        p.setPen(CenterLine);
         p.drawLine(QPointF(soundEnd, area.top()), QPointF(soundEnd, area.bottom()));
     }
     p.setPen(QPen(CursorColor, 1));
@@ -251,10 +292,10 @@ void WaveformView::resizeEvent(QResizeEvent* event)
     QWidget::resizeEvent(event);
     const int bar = m_scroll->sizeHint().height();
     m_scroll->setGeometry(0, height() - bar, width(), bar);
-    if (!m_fitted && !m_buffer.empty()) {
-        m_fitted = true;
+    // The view gets its real width only after a few layout passes, so the first sound keeps filling the
+    // width until the zoom is changed.
+    if (m_autoFit && !m_buffer.empty())
         zoomFit();
-    }
     updateScrollBar();
 }
 
@@ -266,10 +307,10 @@ void WaveformView::mousePressEvent(QMouseEvent* event)
     m_pressPos = event->position().toPoint();
     m_firstAtPress = m_firstFrame;
     if (m_tool == Tool::Zoom) {
-        // About the frame under the mouse.
+        // Twice as close or twice as far, about the frame under the mouse.
         const double x = event->position().x();
         const double anchor = m_firstFrame + x * m_framesPerPixel;
-        event->button() == Qt::RightButton ? zoomOut() : zoomIn();
+        setFramesPerPixel(event->button() == Qt::RightButton ? m_framesPerPixel * 2 : m_framesPerPixel / 2);
         setFirstFrame(anchor - x * m_framesPerPixel);
         return;
     }

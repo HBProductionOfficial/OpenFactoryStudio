@@ -91,7 +91,7 @@ private Q_SLOTS:
         const ImageDocument doc = document(12, 10);
         canvas.setDocument(&doc);
         canvas.setZoom(10);
-        // The canvas centre is at the widget centre: (200, 150) is image point (6, 5).
+        // The canvas center is at the widget center: (200, 150) is image point (6, 5).
         QCOMPARE(canvas.toWidget(QPointF(6, 5)), QPointF(200, 150));
         QCOMPARE(canvas.pixelAt(QPointF(201, 151)), QPoint(6, 5));
         QCOMPARE(canvas.pixelAt(QPointF(199, 149)), QPoint(5, 4));

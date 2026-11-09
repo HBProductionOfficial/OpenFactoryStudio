@@ -76,7 +76,7 @@ std::vector<std::int16_t> decodedInt16(const WavFile& wav)
 
 } // namespace
 
-TEST_CASE("Audio formats are recognised from their content", "[audio][codec]")
+TEST_CASE("Audio formats are recognized from their content", "[audio][codec]")
 {
     const SampleBuffer tone = sine(SampleType::Int16, 1, 22050, 2000, 440.0);
     const Bytes wav = encoded(tone, {AudioFileFormat::Wav});

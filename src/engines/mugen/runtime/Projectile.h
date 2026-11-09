@@ -18,7 +18,7 @@ struct Projectile
     {
         Active,
         Hit,
-        Cancelled,
+        Canceled,
         Removed,
     };
 

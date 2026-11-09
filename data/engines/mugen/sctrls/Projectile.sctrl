@@ -7,7 +7,7 @@ attr = S, SP                    ; state type, attack class
 ;projanim = 0                   ; flight animation
 ;projhitanim = -1               ; animation on hit
 ;projremanim = -1               ; animation on removal
-;projcancelanim = -1            ; animation when cancelled
+;projcancelanim = -1            ; animation when canceled
 ;projscale = 1, 1               ; x, y scale
 ;projremove = 1                 ; 0 = keep after hitting
 ;projremovetime = -1            ; ticks, -1 forever
@@ -31,7 +31,7 @@ attr = S, SP                    ; state type, attack class
 ;remappal = -1, 0               ; group, item of the palette to use (1.1+)
 ;afterimage.time = 1            ; duration in ticks
 ;afterimage.length = 20         ; frames kept (max 60)
-;afterimage.palcolor = 256      ; 0 grey .. 256 normal
+;afterimage.palcolor = 256      ; 0 gray .. 256 normal
 ;afterimage.palinvertall = 0    ; 1 = negative
 ;afterimage.palbright = 30, 30, 30 ; r, g, b added
 ;afterimage.palcontrast = 120, 120, 220 ; r, g, b multiplier
@@ -116,7 +116,7 @@ attr = S, SP                    ; state type, attack class
 ;palfx.add = 0, 0, 0            ; r, g, b added
 ;palfx.sinadd = 0, 0, 0, 1      ; r, g, b amplitude, period
 ;palfx.invertall = 0            ; 1 = negative
-;palfx.color = 256              ; 0 grey .. 256 normal
+;palfx.color = 256              ; 0 gray .. 256 normal
 ;envshake.time = 10             ; screen shake ticks
 ;envshake.freq = 60             ; shake speed
 ;envshake.ampl = -4             ; shake amplitude

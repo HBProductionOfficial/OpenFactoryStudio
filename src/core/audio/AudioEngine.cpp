@@ -92,7 +92,7 @@ AudioEngine::Impl::Impl(Backend backend)
     const ma_result result =
         ma_context_init(backends.data(), static_cast<ma_uint32>(backends.size()), &config, &context);
     if (result != MA_SUCCESS) {
-        error = describe("cannot initialise audio output", result);
+        error = describe("cannot initialize audio output", result);
         return;
     }
     contextReady = true;

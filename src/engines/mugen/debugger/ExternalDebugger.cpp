@@ -270,7 +270,7 @@ public:
             return Value::real(facing.i < 0 ? -x.f : x.f);
         }
         case Trigger::Pos:
-            // Pos X is measured from the screen's centre, which the map does not give.
+            // Pos X is measured from the screen's center, which the map does not give.
             return call.keyword == QLatin1String("y") ? real("player_pos_y") : Value::undefined();
         default:
             break;

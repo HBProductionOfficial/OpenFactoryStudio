@@ -391,7 +391,7 @@ void ThrowCreatorDialog::applyResolution()
     const QStringList size = m_resolution->currentText().split(QLatin1Char('x'));
     m_preview->setScreenSize(QSize(size.value(0).toInt(), size.value(1).toInt()));
     updatePreview();
-    const QPoint centre = geometry().center();
+    const QPoint center = geometry().center();
     QSize wanted = sizeHint().expandedTo(minimumSizeHint());
     const QRect available = screen() ? screen()->availableGeometry() : QRect();
     if (available.isValid())
@@ -399,7 +399,7 @@ void ThrowCreatorDialog::applyResolution()
     resize(wanted);
     if (isVisible() && available.isValid()) {
         QRect frame(QPoint(), frameGeometry().size());
-        frame.moveCenter(centre);
+        frame.moveCenter(center);
         frame.moveLeft(
             qBound(available.left(), frame.left(), qMax(available.left(), available.right() - frame.width())));
         frame.moveTop(qBound(available.top(), frame.top(), qMax(available.top(), available.bottom() - frame.height())));

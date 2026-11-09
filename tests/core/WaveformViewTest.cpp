@@ -73,9 +73,13 @@ private Q_SLOTS:
         QCOMPARE(view.selection().count, std::size_t(0));
         QCOMPARE(view.cursor(), qint64(600));
 
+        // Zoom in and out step like Fighter Factory's buttons: 0.25, 0.5, 0.75 and 1 pixel per frame here.
+        view.zoomIn();
+        QCOMPARE(view.framesPerPixel(), 1 / 0.75);
         view.zoomIn();
         QCOMPARE(view.framesPerPixel(), 1.0);
         QCOMPARE(view.firstFrame(), 0.0);
+        view.zoomOut();
         view.zoomOut();
         view.zoomOut();
         QCOMPARE(view.framesPerPixel(), 4.0);

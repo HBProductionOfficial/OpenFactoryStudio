@@ -50,6 +50,8 @@ public:
     // 0 fits the game's screen to the workspace, else whole times its size.
     int zoom() const { return m_zoom; }
     void setZoom(int zoom);
+    // The View > Zoom commands step like the wheel does.
+    void zoom(Zoom step) override;
     EmulatorRenderer::Options renderOptions() const;
 
     // Debugging: every match is a debug session.
@@ -88,6 +90,8 @@ protected:
 
 private:
     QWidget* m_surface = nullptr;
+    // Up or down a whole size per step. Below 1 the screen fits the workspace again.
+    void stepZoom(int steps);
     void advance();
     // Returns false when the workspace went away during the tick (a break's event loop).
     bool tick();

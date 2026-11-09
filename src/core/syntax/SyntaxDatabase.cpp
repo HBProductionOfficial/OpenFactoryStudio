@@ -23,7 +23,7 @@ int literalLength(const QString& pattern)
     return int(pattern.size() - pattern.count(QLatin1Char('*')));
 }
 
-// "[ja.Quotes]": localised sections carry a two-letter language prefix.
+// "[ja.Quotes]": localized sections carry a two-letter language prefix.
 QString withoutLanguage(const QString& header)
 {
     const QString h = header.trimmed();

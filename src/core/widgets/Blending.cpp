@@ -7,7 +7,7 @@ namespace OFS {
 
 namespace {
 
-// QPainter's Plus clips the sum before it applies the opacity, so weight the colours first.
+// QPainter's Plus clips the sum before it applies the opacity, so weight the colors first.
 QImage weighted(const QImage& image, double opacity)
 {
     QImage result(image.size(), QImage::Format_ARGB32_Premultiplied);

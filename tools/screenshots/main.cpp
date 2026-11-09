@@ -353,7 +353,7 @@ bool click(QWidget* root, const QString& name)
 } // namespace
 
 // One picture per icon set (icons-<set>.png): the icons the program shows for its main commands,
-// as the icon set and the engine's overlay give them, each with its caption, on the colours of the
+// as the icon set and the engine's overlay give them, each with its caption, on the colors of the
 // style the set goes with.
 void writeIconSheets(AppContext& context, const QString& out)
 {
@@ -428,16 +428,16 @@ void writeIconSheets(AppContext& context, const QString& out)
                               : name == QLatin1String("Classic")  ? QStringLiteral("Classic")
                               : name == QLatin1String("Ultimate") ? QStringLiteral("Ultimate")
                                                                   : QStringLiteral("Dark");
-        const QPalette colours = theme.paletteOf(style);
+        const QPalette colors = theme.paletteOf(style);
         QImage sheet(Columns * CellWidth, Title + rows * CellHeight, QImage::Format_ARGB32);
-        sheet.fill(colours.color(QPalette::Window));
+        sheet.fill(colors.color(QPalette::Window));
         QPainter p(&sheet);
         p.setRenderHint(QPainter::TextAntialiasing);
         QFont titleFont = QApplication::font();
         titleFont.setPixelSize(18);
         titleFont.setBold(true);
         p.setFont(titleFont);
-        p.setPen(colours.color(QPalette::WindowText));
+        p.setPen(colors.color(QPalette::WindowText));
         p.drawText(QRect(12, 0, sheet.width() - 24, Title), Qt::AlignVCenter | Qt::AlignLeft,
                    name + QStringLiteral(" icons (") + style + QStringLiteral(" style)"));
         QFont captionFont = QApplication::font();

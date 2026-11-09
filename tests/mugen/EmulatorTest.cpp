@@ -177,7 +177,7 @@ int litPixels(const QImage& image)
     return count;
 }
 
-// Palette 1,1 and 1,2 colours of the test character.
+// Palette 1,1 and 1,2 colors of the test character.
 constexpr QRgb kOwn = qRgb(100, 50, 200);
 constexpr QRgb kOther = qRgb(10, 200, 10);
 
@@ -538,6 +538,19 @@ private Q_SLOTS:
                          Qt::NoScrollPhase, false);
         for (int i = 0; i < 3; ++i)
             QCoreApplication::sendEvent(&emulator, &down);
+        QCOMPARE(emulator.zoom(), 0);
+        // View > Zoom steps the same way, and Actual size and Fit screen size work too.
+        EngineWorkspace& workspace = emulator;
+        workspace.zoom(EngineWorkspace::Zoom::In);
+        QCOMPARE(emulator.zoom(), 3);
+        workspace.zoom(EngineWorkspace::Zoom::Out);
+        QCOMPARE(emulator.zoom(), 2);
+        workspace.zoom(EngineWorkspace::Zoom::Actual);
+        QCOMPARE(emulator.zoom(), 1);
+        workspace.zoom(EngineWorkspace::Zoom::Out);
+        QCOMPARE(emulator.zoom(), 0);
+        workspace.zoom(EngineWorkspace::Zoom::Actual);
+        workspace.zoom(EngineWorkspace::Zoom::Fit);
         QCOMPARE(emulator.zoom(), 0);
         emulator.stop();
         QVERIFY(!emulator.isRunning());
@@ -945,7 +958,7 @@ private Q_SLOTS:
 
     void renderEffects()
     {
-        // Var(10) picks the effect the -1 states apply, over a grey EnvColor screen.
+        // Var(10) picks the effect the -1 states apply, over a gray EnvColor screen.
         EngineFolder engine;
         Formats::Test::FixtureFactory fixtures;
         SpriteDocument sprites = SpriteDocument::fromSff(fixtures.sff(Formats::SffVersion::V2, 1, 8));
@@ -998,9 +1011,9 @@ private Q_SLOTS:
             return QList<int>{qRed(c), qGreen(c), qBlue(c)};
         };
         QCOMPARE(rgb(sample(0)), QList<int>({100, 50, 200}));
-        // PalFX: (colour + add) * mul / 256.
+        // PalFX: (color + add) * mul / 256.
         QCOMPARE(rgb(sample(1)), QList<int>({150, 25, 200}));
-        // Subtraction from the grey, and A1: added to the grey darkened by half.
+        // Subtraction from the gray, and A1: added to the gray darkened by half.
         QCOMPARE(rgb(sample(2)), QList<int>({100, 150, 0}));
         QCOMPARE(rgb(sample(3)), QList<int>({200, 150, 255}));
         QCOMPARE(rgb(sample(4)), QList<int>({10, 200, 10}));
@@ -1225,7 +1238,7 @@ private Q_SLOTS:
         frame = frameWith(3);
         QVERIFY(near(frame.pixel(110, 209), qRgb(150, 150, 100)));
         QCOMPARE(frame.pixel(110, 201), ground);
-        // An explod's shadow takes away its own colour (shadow = 0,200,0).
+        // An explod's shadow takes away its own color (shadow = 0,200,0).
         frame = frameWith(4);
         QVERIFY(near(frame.pixel(150, 201), qRgb(100, 0, 100)));
         // projshadow r -1 uses the stage's shadow.

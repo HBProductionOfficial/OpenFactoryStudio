@@ -357,7 +357,7 @@ bool BackgroundsPage::eventFilter(QObject* watched, QEvent* event)
 void BackgroundsPage::applySettings(const Config& config)
 {
     m_view->applyGraphicsSettings(config);
-    // This workspace always uses the clear colour, and shows the player crosses for stages only.
+    // This workspace always uses the clear color, and shows the player crosses for stages only.
     m_view->setBackground(GraphicsView::Background::Color);
     m_view->setRulersVisible(config.boolValue(QStringLiteral("show_rulers"), true));
     m_view->setMainCrossVisible(config.boolValue(QStringLiteral("show_cross1"), true) && isStage());

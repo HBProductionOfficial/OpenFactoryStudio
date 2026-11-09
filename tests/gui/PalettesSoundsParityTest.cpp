@@ -911,6 +911,79 @@ private Q_SLOTS:
         actions.action("file_close")->trigger();
     }
 
+    void waveformZoom()
+    {
+        QTemporaryDir dir;
+        openSounds(dir);
+        MainWindow window(*m_context);
+        window.resize(1100, 800);
+        window.show();
+        QVERIFY(window.openProject(dir.filePath("p.def")));
+        ActionRegistry& actions = m_context->actions();
+        actions.action("editor_snd")->trigger();
+        auto* page = window.currentProjectView()->findChild<SoundPage*>();
+        QVERIFY(page);
+        WaveformView* wave = page->view();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+
+        // The first sound (2000 frames) fills the width of the view, also while the layout settles.
+        QTRY_COMPARE(wave->framesPerPixel(), 2000.0 / wave->width());
+        const double fitted = wave->framesPerPixel();
+
+        // Another sound keeps that zoom, and a resize doesn't fit it to the other sound.
+        page->setCurrent(2);
+        window.resize(1000, 800);
+        QTRY_COMPARE(wave->width() < int(2000.0 / fitted), true);
+        QCOMPARE(wave->framesPerPixel(), fitted);
+        window.resize(1100, 800);
+        QTRY_COMPARE(wave->width(), int(2000.0 / fitted + 0.5));
+        page->setCurrent(0);
+        QCOMPARE(wave->framesPerPixel(), fitted);
+
+        // The wheel doubles or halves the zoom. Zooming out stops at a third of the fitted zoom,
+        // and zooming in at 32 pixels per frame.
+        const QPoint middle(wave->width() / 2, wave->height() / 2);
+        turnWheel(wave, middle, 120);
+        QCOMPARE(wave->framesPerPixel(), fitted / 2);
+        turnWheel(wave, middle, -120);
+        QCOMPARE(wave->framesPerPixel(), fitted);
+        turnWheel(wave, middle, -120);
+        QCOMPARE(wave->framesPerPixel(), fitted * 2);
+        turnWheel(wave, middle, -120);
+        QCOMPARE(wave->framesPerPixel(), fitted * 3);
+        turnWheel(wave, middle, -120);
+        QCOMPARE(wave->framesPerPixel(), fitted * 3);
+        for (int i = 0; i < 12; ++i)
+            turnWheel(wave, middle, 120);
+        QCOMPARE(wave->framesPerPixel(), 1.0 / 32);
+
+        // View > Zoom: Actual size is one pixel per frame, and the buttons step 0.75, 0.5, 0.25 below it
+        // and whole pixels above it, keeping the first frame shown at the left.
+        actions.action("view_zoomreset")->trigger();
+        QCOMPARE(wave->framesPerPixel(), 1.0);
+        wave->setFirstFrame(300);
+        const QList<double> out{1 / 0.75, 2.0, 4.0};
+        for (double framesPerPixel : out) {
+            actions.action("view_zoomout")->trigger();
+            QCOMPARE(wave->framesPerPixel(), framesPerPixel);
+            QCOMPARE(wave->firstFrame(), 300.0);
+        }
+        const QList<double> in{2.0, 1 / 0.75, 1.0, 0.5, 1 / 3.0};
+        for (double framesPerPixel : in) {
+            actions.action("view_zoomin")->trigger();
+            QCOMPARE(wave->framesPerPixel(), framesPerPixel);
+        }
+        actions.action("view_zoomfit")->trigger();
+        QCOMPARE(wave->framesPerPixel(), 2000.0 / wave->width());
+        QCOMPARE(wave->firstFrame(), 0.0);
+
+        // The zoom stays the same for the other sounds of the file.
+        actions.action("view_zoomreset")->trigger();
+        page->setCurrent(2);
+        QCOMPARE(wave->framesPerPixel(), 1.0);
+        actions.action("file_close")->trigger();
+    }
+
     void soundCommands()
     {
         QTemporaryDir dir;

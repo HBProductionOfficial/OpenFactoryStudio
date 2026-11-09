@@ -3434,7 +3434,7 @@ private Q_SLOTS:
                 qPrintable(QStringLiteral("%1: %2 instead of %3").arg(theme.name, painted.name(), expected.name())));
             QCOMPARE(editor->palette().color(QPalette::Text),
                      m_context->theme().colorSet().color(QStringLiteral("foreground")));
-            // The widgets that draw themselves (rulers, timelines) get the style's colours.
+            // The widgets that draw themselves (rulers, timelines) get the style's colors.
             const bool darkStyle = theme.stylesheet == QLatin1String("Dark");
             QVERIFY2((QApplication::palette().color(QPalette::Window).lightness() < 128) == darkStyle,
                      qPrintable(theme.name));
@@ -3868,7 +3868,7 @@ private Q_SLOTS:
         QStringList before;
         for (const QString& key : keys)
             before << config.value(key);
-        // main.cpp uses this style on Windows, and it colours command links on its own.
+        // main.cpp uses this style on Windows, and it colors command links on its own.
         const QString style = QApplication::style()->name();
         const bool vista = QStyleFactory::keys().contains(QStringLiteral("windowsvista"), Qt::CaseInsensitive);
         if (vista)
@@ -3876,7 +3876,7 @@ private Q_SLOTS:
         MainWindow window(*m_context);
         window.resize(1000, 700);
         window.show();
-        // WCAG contrast ratio of two colours.
+        // WCAG contrast ratio of two colors.
         auto ratioOf = [](QRgb a, QRgb b) {
             auto luminance = [](QRgb rgb) {
                 auto channel = [](int v) {
@@ -3889,7 +3889,7 @@ private Q_SLOTS:
             const double lb = luminance(b);
             return (std::max(la, lb) + 0.05) / (std::min(la, lb) + 0.05);
         };
-        // Contrast of the most common colour (the background) against the farthest one (the text).
+        // Contrast of the most common color (the background) against the farthest one (the text).
         auto contrast = [&ratioOf](const QImage& image) {
             QHash<QRgb, int> counts;
             for (int y = 2; y < image.height() - 2; ++y) {
@@ -3919,13 +3919,13 @@ private Q_SLOTS:
             window.applyInterface();
             auto* button = window.findChild<QCommandLinkButton*>("recentProject1");
             QVERIFY2(button, qPrintable(theme.name));
-            // Measure the title alone. The path below uses the palette's colour anyway.
+            // Measure the title alone. The path below uses the palette's color anyway.
             const QString description = button->description();
             const QIcon icon = button->icon();
             button->setDescription(QString());
             button->setIcon(QIcon());
             double ratio = contrast(window.grab(QRect(button->mapTo(&window, QPoint(0, 0)), button->size())).toImage());
-            // Classic and Ultimate paint nothing on the test platform, so compare the palette colours there.
+            // Classic and Ultimate paint nothing on the test platform, so compare the palette colors there.
             if (ratio == 1.0)
                 ratio = ratioOf(button->palette().color(QPalette::ButtonText).rgb(),
                                 button->palette().color(QPalette::Window).rgb());

@@ -96,7 +96,7 @@ TEST_CASE("Channel conversion duplicates mono and averages to mono", "[audio][bu
     CHECK(convertChannels(mono, 0) == mono);
 }
 
-TEST_CASE("Quantising rounds to the grid of the target depth and clamps", "[audio][buffer]")
+TEST_CASE("Quantizing rounds to the grid of the target depth and clamps", "[audio][buffer]")
 {
     const SampleBuffer samples = int16Buffer({127, 128, -128, -129, 32767, -32768, 1000});
     auto eight = quantize(samples, 8);

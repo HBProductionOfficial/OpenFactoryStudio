@@ -32,7 +32,7 @@ private Q_SLOTS:
             QVERIFY(button);
             const QImage picture = button->icon().pixmap(FirstRunDialog::previewSize()).toImage();
             const bool darkStyle = themes[i].stylesheet == QLatin1String("Dark");
-            // A corner outside the sketch's panels shows the window colour.
+            // A corner outside the sketch's panels shows the window color.
             const QColor window = picture.pixelColor(picture.width() - 2, picture.height() - 2);
             QVERIFY2((window.lightness() < 128) == darkStyle, qPrintable(themes[i].name));
         }

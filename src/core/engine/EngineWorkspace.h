@@ -20,6 +20,16 @@ public:
     virtual void applySettings() {}
     virtual QStringList statusSections() const { return {}; }
 
+    // View > Zoom: Increase zoom, Decrease zoom, Actual size and Fit screen size.
+    enum class Zoom
+    {
+        In,
+        Out,
+        Actual,
+        Fit,
+    };
+    virtual void zoom(Zoom step) { Q_UNUSED(step); }
+
 Q_SIGNALS:
     void statusChanged();
     void debugStateChanged();

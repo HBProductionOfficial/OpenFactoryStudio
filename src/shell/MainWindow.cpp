@@ -114,6 +114,8 @@
 #include <QUrl>
 #include <QVBoxLayout>
 
+#include <optional>
+
 namespace OFS {
 
 namespace {
@@ -1070,35 +1072,51 @@ void MainWindow::connectEditActions()
         }
         view->showFileLine(first.data(Qt::UserRole).toString(), first.data(Qt::UserRole + 2).toInt() + 1);
     });
-    auto currentWorkspace = [this]() -> SpritePage* {
+    auto spritePage = [this]() -> SpritePage* {
         ProjectView* view = currentProjectView();
         QTabWidget* tabs = view ? view->fileTabs(view->currentEditor()) : nullptr;
         return tabs ? qobject_cast<SpritePage*>(tabs->currentWidget()) : nullptr;
     };
-    auto zoom = [this, currentWorkspace, animationPage, backgroundsPage](void (GraphicsView::*graphic)(),
-                                                                         void (ImageCanvas::*image)(),
-                                                                         std::function<void(CodeEditor*)> code) {
-        return [this, currentWorkspace, animationPage, backgroundsPage, graphic, image, code] {
-            if (AnimationPage* animation = animationPage(); animation && !animation->textMode()) {
-                (animation->view()->*graphic)();
-            } else if (BackgroundsPage* backgrounds = backgroundsPage()) {
-                (backgrounds->view()->*graphic)();
-            } else if (SpritePage* page = currentWorkspace()) {
-                if (!page->imageMode())
-                    (page->view()->*graphic)();
-                else if (image)
-                    (page->imageEditor()->canvas()->*image)();
-            } else if (code) {
-                if (ProjectView* view = currentProjectView(); view && view->currentCodeEditor())
+    // The Sounds editor and the emulator take Increase, Decrease, Actual size and Fit too, as in Fighter Factory.
+    auto zoom = [this, spritePage, animationPage, backgroundsPage,
+                 soundEditing](void (GraphicsView::*graphic)(), void (ImageCanvas::*image)(),
+                               std::function<void(CodeEditor*)> code, void (WaveformView::*wave)() = nullptr,
+                               std::optional<EngineWorkspace::Zoom> engineStep = std::nullopt) {
+        return
+            [this, spritePage, animationPage, backgroundsPage, soundEditing, graphic, image, code, wave, engineStep] {
+                ProjectView* view = currentProjectView();
+                if (SoundPage* sound = soundEditing()) {
+                    if (wave)
+                        (sound->view()->*wave)();
+                } else if (EngineWorkspace* engine = view ? view->currentWorkspace() : nullptr) {
+                    if (engineStep)
+                        engine->zoom(*engineStep);
+                } else if (AnimationPage* animation = animationPage(); animation && !animation->textMode()) {
+                    (animation->view()->*graphic)();
+                } else if (BackgroundsPage* backgrounds = backgroundsPage()) {
+                    (backgrounds->view()->*graphic)();
+                } else if (SpritePage* page = spritePage()) {
+                    if (!page->imageMode())
+                        (page->view()->*graphic)();
+                    else if (image)
+                        (page->imageEditor()->canvas()->*image)();
+                } else if (code && view && view->currentCodeEditor()) {
                     code(view->currentCodeEditor());
-            }
-        };
+                }
+            };
     };
-    on("view_zoomin", zoom(&GraphicsView::zoomIn, &ImageCanvas::zoomIn, [](CodeEditor* e) { e->zoomIn(); }));
-    on("view_zoomout", zoom(&GraphicsView::zoomOut, &ImageCanvas::zoomOut, [](CodeEditor* e) { e->zoomOut(); }));
-    on("view_zoomreset",
-       zoom(&GraphicsView::zoomReset, &ImageCanvas::zoomReset, [](CodeEditor* e) { e->resetZoom(); }));
-    on("view_zoomfit", zoom(&GraphicsView::zoomFit, &ImageCanvas::zoomFit, {}));
+    using EngineZoom = EngineWorkspace::Zoom;
+    on("view_zoomin", zoom(
+                          &GraphicsView::zoomIn, &ImageCanvas::zoomIn, [](CodeEditor* e) { e->zoomIn(); },
+                          &WaveformView::zoomIn, EngineZoom::In));
+    on("view_zoomout", zoom(
+                           &GraphicsView::zoomOut, &ImageCanvas::zoomOut, [](CodeEditor* e) { e->zoomOut(); },
+                           &WaveformView::zoomOut, EngineZoom::Out));
+    on("view_zoomreset", zoom(
+                             &GraphicsView::zoomReset, &ImageCanvas::zoomReset, [](CodeEditor* e) { e->resetZoom(); },
+                             &WaveformView::zoomReset, EngineZoom::Actual));
+    on("view_zoomfit",
+       zoom(&GraphicsView::zoomFit, &ImageCanvas::zoomFit, {}, &WaveformView::zoomFit, EngineZoom::Fit));
     on("view_center_origin", zoom(&GraphicsView::centerOrigin, nullptr, {}));
 
     // Saving

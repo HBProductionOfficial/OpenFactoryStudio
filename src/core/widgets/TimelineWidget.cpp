@@ -99,12 +99,12 @@ void TimelineWidget::paintEvent(QPaintEvent* event)
 {
     Q_UNUSED(event);
     QPainter p(this);
-    const Rulers::Colours colours = Rulers::Colours::from(palette());
+    const Rulers::Colors colors = Rulers::Colors::from(palette());
     p.fillRect(rect(), palette().color(QPalette::Base));
     const double unit = tickWidth();
     const int left = trackLeft();
-    p.fillRect(QRect(0, 0, width(), RulerHeight), colours.band);
-    p.setPen(colours.ink);
+    p.fillRect(QRect(0, 0, width(), RulerHeight), colors.band);
+    p.setPen(colors.ink);
     int step = 5;
     while (step * unit < 24)
         step += 5;

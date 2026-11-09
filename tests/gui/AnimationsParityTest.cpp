@@ -50,7 +50,7 @@ using namespace OFS::GuiTest;
 
 namespace {
 
-// 4x4 sprites, axis 2,4: 0,0 (colour 3), 0,1 (4), 5,0 (8) and 6,0 with a transparent left half.
+// 4x4 sprites, axis 2,4: 0,0 (color 3), 0,1 (4), 5,0 (8) and 6,0 with a transparent left half.
 QByteArray spriteFile()
 {
     SpriteDocument sprites;
@@ -160,7 +160,7 @@ private Q_SLOTS:
         config.setValue("pal_fit_space", false);
         config.setValue("onion_effect", 2);
         config.setValue("onion_opacity", "0.74");
-        config.setValue("background_type", 0); // plain colour for the pixel checks
+        config.setValue("background_type", 0); // plain color for the pixel checks
         config.setValue("crosshair_type", 0);
         config.setValue("showmsg_anim_clone", "0");
         config.setValue("showmsg_cbox_replicate", "0");
@@ -443,18 +443,18 @@ private Q_SLOTS:
         QVERIFY(behind.image.pixelColor(1, 1).red() > sprite.image.pixelColor(1, 1).red() + 100);
         onion->setChecked(false);
 
-        auto rowColours = [canvas](int y) {
+        auto rowColors = [canvas](int y) {
             const QImage image = canvas->grab().toImage();
-            QSet<QRgb> colours;
+            QSet<QRgb> colors;
             const int row = int(canvas->toWidget(QPointF(0, y)).y()) + 1;
             for (int x = int(canvas->toWidget(QPointF(-6, 0)).x()); x < int(canvas->toWidget(QPointF(-3, 0)).x()); ++x)
-                colours.insert(image.pixel(x, row));
-            return colours;
+                colors.insert(image.pixel(x, row));
+            return colors;
         };
-        QCOMPARE(rowColours(-10).size(), 1);
+        QCOMPARE(rowColors(-10).size(), 1);
         page->setSelectedBox({0, 0});
         QVERIFY(canvas->boxes().first().selected);
-        QVERIFY(rowColours(-10).size() > 1);
+        QVERIFY(rowColors(-10).size() > 1);
         const QImage selected = canvas->grab().toImage();
         const QRectF r(canvas->toWidget(QPointF(-8, -12)), canvas->toWidget(QPointF(8, 0)));
         const QPointF handles[] = {
@@ -465,7 +465,7 @@ private Q_SLOTS:
         page->setSelectedBox({});
 
         TimelineWidget* timeline = page->timeline();
-        auto blockColour = [timeline](int frame) {
+        auto blockColor = [timeline](int frame) {
             const QImage image = timeline->grab().toImage();
             int first = -1;
             int last = -1;
@@ -478,9 +478,9 @@ private Q_SLOTS:
             }
             return image.pixelColor((first + last) / 2, 39);
         };
-        QCOMPARE(blockColour(0), QColor(120, 100, 30));
-        QCOMPARE(blockColour(1), QColor(150, 128, 40));
-        QCOMPARE(blockColour(2), QColor(70, 150, 70));
+        QCOMPARE(blockColor(0), QColor(120, 100, 30));
+        QCOMPARE(blockColor(1), QColor(150, 128, 40));
+        QCOMPARE(blockColor(2), QColor(70, 150, 70));
         QCOMPARE(timeline->playhead(), 0);
         page->setCurrentFrame(2);
         QCOMPARE(timeline->playhead(), 7);

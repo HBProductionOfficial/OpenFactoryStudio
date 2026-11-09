@@ -39,9 +39,12 @@ public:
 
     double framesPerPixel() const { return m_framesPerPixel; }
     void setFramesPerPixel(double frames);
+    // The zoom buttons: the next of Fighter Factory's steps, keeping the first frame shown at the left.
+    // The wheel doubles or halves the zoom instead.
     void zoomIn();
     void zoomOut();
     void zoomFit();
+    // One pixel per frame (Actual size).
     void zoomReset();
     double firstFrame() const { return m_firstFrame; }
     void setFirstFrame(double frame);
@@ -52,7 +55,7 @@ public:
     Formats::SampleRange selection() const { return m_selection; }
     void setSelection(Formats::SampleRange range);
     void setPlayPosition(qint64 frame);
-    // The colour set's sound_wave. An invalid colour restores the default.
+    // The color set's sound_wave. An invalid color restores the default.
     void setWaveColor(const QColor& color);
     QColor waveColor() const { return m_waveColor; }
     qint64 playPosition() const { return m_play; }
@@ -87,6 +90,8 @@ private:
     QRect waveArea() const;
     void updateScrollBar();
     double fitFramesPerPixel() const;
+    // Sets the zoom without ending the fit that follows the width.
+    void applyFramesPerPixel(double frames);
     // The mouse pointer for the tool, and for where the pointer is or the drag started.
     void updatePointer(int pointerX);
 
@@ -107,6 +112,8 @@ private:
     qint64 m_anchor = 0;
     double m_firstAtPress = 0;
     bool m_fitted = false;
+    qint64 m_fittedFrames = 0;
+    bool m_autoFit = true;
 };
 
 } // namespace OFS

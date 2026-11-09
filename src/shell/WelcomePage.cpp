@@ -46,7 +46,7 @@ QLabel* paragraph(const QString& text, QWidget* parent)
 }
 
 // Recent project button. QCommandLinkButton draws its text in a fixed dark blue under the Windows style, which is
-// unreadable on dark themes, so this one uses the theme's text colour.
+// unreadable on dark themes, so this one uses the theme's text color.
 class RecentButton : public QCommandLinkButton
 {
 public:
@@ -87,9 +87,9 @@ protected:
                            icon().pixmap(iconPixels, devicePixelRatioF(), isEnabled() ? QIcon::Normal : QIcon::Disabled,
                                          isChecked() ? QIcon::On : QIcon::Off));
 
-        // The style sheet's text colour. The Windows style only overrides the button text role.
-        QPalette colours = option.palette;
-        colours.setColor(QPalette::ButtonText, palette().color(QPalette::WindowText));
+        // The style sheet's text color. The Windows style only overrides the button text role.
+        QPalette colors = option.palette;
+        colors.setColor(QPalette::ButtonText, palette().color(QPalette::WindowText));
         const int textLeft = kLeftMargin + iconPixels.width() + kIconGap;
         QFont titleFont = font();
         titleFont.setBold(true);
@@ -98,13 +98,13 @@ protected:
         QRect titleRect = rect().adjusted(textLeft, kTopMargin, -kRightMargin, 0).translated(shiftX, shiftY);
         if (description().isEmpty())
             titleRect.setTop(titleRect.top() + std::max(0, (iconPixels.height() - titleHeight) / 2));
-        painter.drawItemText(titleRect, Qt::AlignLeft | Qt::AlignTop | Qt::TextSingleLine, colours, isEnabled(), text(),
+        painter.drawItemText(titleRect, Qt::AlignLeft | Qt::AlignTop | Qt::TextSingleLine, colors, isEnabled(), text(),
                              QPalette::ButtonText);
         painter.setFont(font());
         const QRect descriptionRect = rect()
                                           .adjusted(textLeft, kTopMargin + titleHeight, -kRightMargin, -kBottomMargin)
                                           .translated(shiftX, shiftY);
-        painter.drawItemText(descriptionRect, Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, colours, isEnabled(),
+        painter.drawItemText(descriptionRect, Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, colors, isEnabled(),
                              description(), QPalette::ButtonText);
     }
 };

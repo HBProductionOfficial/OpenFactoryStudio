@@ -2,6 +2,22 @@
 
 What changed in each version.
 
+## Version 1.1.2 (9 November 2026)
+
+### Added
+
+- The mouse wheel zooms the Offset viewer and the Throw creator, one step per notch, with the origin staying in place as in Fighter Factory.
+
+### Changed
+
+- The help pages, the state controller templates and the new character template use American spelling, like the rest of the program. MUGEN's own names keep Elecbyte's spelling, so DefenceMulSet stays as it is.
+
+### Fixed
+
+- When the Sounds editor opens, the first sound fills the width. Before, it often took up only a small part of it.
+- Increase zoom, Decrease zoom, Actual size and Fit screen size work in the Sounds editor and in the emulator. In the Sounds editor they step like Fighter Factory's: by hundredths up to 0.1 pixel per sample, then 0.15, 0.2, 0.25, 0.5, 0.75 and whole pixels from 1 to 32.
+- In the Sounds editor the wheel and the zoom buttons stop where Fighter Factory's do. Zooming in ends at 32 pixels per sample, and zooming out at a third of the fitted size (0.02 pixel per sample at the least).
+
 ## Version 1.1.1 (8 November 2026)
 
 ### Changed

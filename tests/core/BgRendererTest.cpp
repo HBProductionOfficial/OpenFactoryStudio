@@ -60,7 +60,7 @@ class BgRendererTest : public QObject
 private Q_SLOTS:
     void placement()
     {
-        // The axis at the start, x from the screen centre and y from the top.
+        // The axis at the start, x from the screen center and y from the top.
         QList<BgDrawItem> items = render("[BGdef]\n[BG a]\nspriteno = 0,0\nstart = 10, 20\n");
         QCOMPARE(items.size(), 1);
         QCOMPARE(items[0].topLeft, QPointF(160 + 10 - 2, 20));

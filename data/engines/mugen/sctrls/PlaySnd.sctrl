@@ -10,6 +10,6 @@ value = 0, 0                    ; group, item (F = common sounds)
 ;freqmul = 1.0                  ; pitch multiplier
 ;loop = 0                       ; 1 = loop
 ;pan = 0                        ; offset from the player
-;abspan = 0                     ; offset from the centre
+;abspan = 0                     ; offset from the center
 ;ignorehitpause = 0             ; 1 = also run during hit pauses
 ;persistent = 1                 ; 0 = once per state, n = every n-th time

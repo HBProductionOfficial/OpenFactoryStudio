@@ -884,7 +884,7 @@ void BackgroundsEditor::changeWindowMode(int mode)
         return;
     const QSizeF screen = m_page->screenSize();
     const int half = int(screen.width() / 2);
-    // "window" counts from the screen's top-left with x2, y2 included. "maskwindow" counts from the top centre with x2,
+    // "window" counts from the screen's top-left with x2, y2 included. "maskwindow" counts from the top center with x2,
     // y2 left out.
     int left = 0;
     int top = 0;

@@ -1,4 +1,4 @@
-; Commands: the button sequences the character recognises, and the states they lead to.
+; Commands: the button sequences the character recognizes, and the states they lead to.
 ;
 ; Buttons: a, b, c, x, y, z and s (start).
 ; Directions: B, DB, D, DF, F, UF, U, UB (back, down-back, down, down-forward, forward...), relative
@@ -9,7 +9,7 @@
 ; Modifiers:
 ;   /    held:      /D       down is held (with the next element: /F, a)
 ;   ~    released:  ~a       a is released; ~30a: released after being held for 30 ticks
-;   $    with its neighbours: $D also accepts DB and DF
+;   $    with its neighbors: $D also accepts DB and DF
 ;   +    together:  a+b      a and b pressed at the same time
 ;   >    at once:   a, >b    nothing else may be pressed between a and b
 ; time        ticks allowed to enter the whole command (command.time when left out)

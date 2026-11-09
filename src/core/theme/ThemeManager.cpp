@@ -210,16 +210,16 @@ std::optional<QPalette> ThemeManager::loadPalette(const QString& path, const QPa
         xml.skipCurrentElement();
         if (!known || rgb.size() != 3)
             continue;
-        const QColor colour(rgb[0].trimmed().toInt(), rgb[1].trimmed().toInt(), rgb[2].trimmed().toInt());
+        const QColor color(rgb[0].trimmed().toInt(), rgb[1].trimmed().toInt(), rgb[2].trimmed().toInt());
         const QString group = attributes.value(QLatin1String("group")).toString().toLower();
         if (group.isEmpty())
-            palette.setColor(QPalette::ColorRole(role), colour);
+            palette.setColor(QPalette::ColorRole(role), color);
         else if (group == QLatin1String("active"))
-            palette.setColor(QPalette::Active, QPalette::ColorRole(role), colour);
+            palette.setColor(QPalette::Active, QPalette::ColorRole(role), color);
         else if (group == QLatin1String("inactive"))
-            palette.setColor(QPalette::Inactive, QPalette::ColorRole(role), colour);
+            palette.setColor(QPalette::Inactive, QPalette::ColorRole(role), color);
         else if (group == QLatin1String("disabled"))
-            palette.setColor(QPalette::Disabled, QPalette::ColorRole(role), colour);
+            palette.setColor(QPalette::Disabled, QPalette::ColorRole(role), color);
     }
     if (xml.hasError())
         return std::nullopt;

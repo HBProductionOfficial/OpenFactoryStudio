@@ -183,9 +183,9 @@ void Character::updateProjectiles()
             }
             if (p.status != Projectile::Status::Active && !p.removeStarted) {
                 p.removeStarted = true;
-                const Projectile::Anim last = p.status == Projectile::Status::Hit         ? p.hitAnim
-                                              : p.status == Projectile::Status::Cancelled ? p.cancelAnim
-                                                                                          : p.remAnim;
+                const Projectile::Anim last = p.status == Projectile::Status::Hit        ? p.hitAnim
+                                              : p.status == Projectile::Status::Canceled ? p.cancelAnim
+                                                                                         : p.remAnim;
                 if (last.number != p.shown.number || last.common != p.shown.common)
                     showProjectileAnim(p, last);
                 p.vel = p.remVel;
@@ -220,7 +220,7 @@ void Character::cancelProjectiles(Character& other)
         else
             --p.hits;
         if (p.hits <= 0) {
-            p.status = Projectile::Status::Cancelled;
+            p.status = Projectile::Status::Canceled;
             owner.m_projContact = ProjContactKind::Cancel;
             owner.m_projContactTime = 0;
             owner.m_projContactId = p.id;

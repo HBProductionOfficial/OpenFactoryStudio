@@ -51,7 +51,7 @@ using namespace OFS::GuiTest;
 
 namespace {
 
-// 256 colours with slot 0 transparent. Slot i holds i in the given channel and 0 in the others.
+// 256 colors with slot 0 transparent. Slot i holds i in the given channel and 0 in the others.
 Formats::Palette ramp(int channel)
 {
     Formats::Palette colors(256);
@@ -601,7 +601,7 @@ private Q_SLOTS:
         QCOMPARE(at(image, -8, -5), QColor(0, 255, 255));
         workspace->setOrigin(QPoint(300, 25));
         image = shown();
-        const Rulers::Colours rulers = Rulers::Colours::from(workspace->palette());
+        const Rulers::Colors rulers = Rulers::Colors::from(workspace->palette());
         QCOMPARE(image.pixelColor(295, 10).rgb(), rulers.band.rgb());
         QCOMPARE(image.pixelColor(295, 30), QColor(255, 0, 0));
         QCOMPARE(image.pixelColor(300, 19).rgb(), rulers.ink.rgb());
@@ -1208,8 +1208,8 @@ private Q_SLOTS:
         actions.action("file_close")->trigger();
     }
 
-    // The Remap pen takes its colours from the palette on the right: a left click sets the colour to replace, a right
-    // click the colour that replaces it. Several pairs apply at once.
+    // The Remap pen takes its colors from the palette on the right: a left click sets the color to replace, a right
+    // click the color that replaces it. Several pairs apply at once.
     void remapPenFromPalette()
     {
         QTemporaryDir dir;
@@ -1266,7 +1266,7 @@ private Q_SLOTS:
         // The right button paints the other way round.
         QTest::mouseClick(canvas, Qt::RightButton, {}, start);
         QCOMPARE(row(), (QList<int>{1, 2, 1, 2}));
-        // A slot with only the colour to replace makes it transparent. It comes after slot 0, so it wins.
+        // A slot with only the color to replace makes it transparent. It comes after slot 0, so it wins.
         editor->setCurrentSlot(2);
         clickColor(1, Qt::LeftButton);
         QTest::mouseClick(canvas, Qt::LeftButton, {}, start);

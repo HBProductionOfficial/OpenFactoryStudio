@@ -35,7 +35,7 @@ struct OFS_CORE_EXPORT BgView
     QRectF cover;            // area endless tiles fill, in screen units. Empty: the screen
     bool windows = true;
     int layer = -1;
-    // MUGEN 1.1 camera zoom, applied by each element's zoomdelta about the screen centre and ground line.
+    // MUGEN 1.1 camera zoom, applied by each element's zoomdelta about the screen center and ground line.
     double zoom = 1;
     double ground = 0;
 };

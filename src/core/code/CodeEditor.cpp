@@ -112,7 +112,7 @@ CodeEditor::CodeEditor(QWidget* parent)
     m_baseFontSize = DefaultFontSize;
     setTabStopDistance(fontMetrics().horizontalAdvance(QLatin1Char(' ')) * 4);
 
-    // Sections are recognised (for folding) even without a syntax database.
+    // Sections are recognized (for folding) even without a syntax database.
     setSyntax(nullptr, QString());
 
     connect(this, &QPlainTextEdit::blockCountChanged, this, &CodeEditor::updateGutterWidth);
@@ -199,7 +199,7 @@ void CodeEditor::setColorSet(const ColorSet& colors)
         p.setColor(QPalette::Text, colors.color(QStringLiteral("foreground")));
         rules << QStringLiteral("color: %1;").arg(colors.color(QStringLiteral("foreground")).name());
     }
-    // The interface style colours text boxes too; the code colours (Options > Colors) take
+    // The interface style colors text boxes too; the code colors (Options > Colors) take
     // precedence in the code editor, whatever style is chosen later.
     setStyleSheet(rules.isEmpty() ? QString()
                                   : QStringLiteral("QPlainTextEdit { %1 }").arg(rules.join(QLatin1Char(' '))));

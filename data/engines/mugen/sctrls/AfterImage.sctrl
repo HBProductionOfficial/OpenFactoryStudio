@@ -4,7 +4,7 @@ type = AfterImage
 trigger1 =
 ;time = 1                       ; duration in ticks
 ;length = 20                    ; frames kept (max 60)
-;palcolor = 256                 ; 0 grey .. 256 normal
+;palcolor = 256                 ; 0 gray .. 256 normal
 ;palinvertall = 0               ; 1 = negative
 ;palbright = 30, 30, 30         ; r, g, b added
 ;palcontrast = 120, 120, 220    ; r, g, b multiplier

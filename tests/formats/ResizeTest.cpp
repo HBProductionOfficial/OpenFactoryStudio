@@ -34,13 +34,13 @@ TEST_CASE("Scale3x follows its rules on a known pattern", "[resize][epx]")
     REQUIRE(out.width() == 9);
     REQUIRE(out.height() == 9);
     REQUIRE(out.isIndexed());
-    // The centre pixel has 1 above and to the left: its top-left corner and the edges next to it
+    // The center pixel has 1 above and to the left: its top-left corner and the edges next to it
     // take that color, the rest stays 0.
-    const std::vector<std::uint8_t> centre = {
+    const std::vector<std::uint8_t> center = {
         out.indexAt(3, 3), out.indexAt(4, 3), out.indexAt(5, 3), out.indexAt(3, 4), out.indexAt(4, 4),
         out.indexAt(5, 4), out.indexAt(3, 5), out.indexAt(4, 5), out.indexAt(5, 5),
     };
-    CHECK(centre == std::vector<std::uint8_t>{1, 0, 0, 0, 0, 0, 0, 0, 0});
+    CHECK(center == std::vector<std::uint8_t>{1, 0, 0, 0, 0, 0, 0, 0, 0});
     for (int y = 0; y < 3; ++y) {
         for (int x = 0; x < 3; ++x)
             CHECK(out.indexAt(x, y) == 1);
@@ -225,7 +225,7 @@ TEST_CASE("the Resize dialog's filters produce the requested size", "[resize]")
             CHECK(out.isIndexed());
             CHECK(out.palette() == sprite.palette());
 
-            // Without keepPalette, results computed in RGBA stay RGBA. Nearest neighbour and EPX
+            // Without keepPalette, results computed in RGBA stay RGBA. Nearest neighbor and EPX
             // (and any filter whose pixel-art step already gives the exact size) stay indexed.
             options.keepPalette = false;
             const Image raw = resizeImage(sprite, size.w, size.h, options);

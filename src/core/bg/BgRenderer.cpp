@@ -163,7 +163,7 @@ QList<BgDrawItem> BgRenderer::render(const BgSimulator& simulator, const BgView&
         const double ys = std::abs(100.0 / yPercent * e.scaleStart.y() + e.scaleDelta.y() * camY * e.delta.y());
         const double xs = std::abs(e.scaleStart.x() + e.scaleDelta.x() * camX * e.delta.x());
 
-        // Where the axis goes, relative to the screen centre (x) and top (y).
+        // Where the axis goes, relative to the screen center (x) and top (y).
         const QPointF position = simulator.position(i);
         double x = position.x() - camX * e.delta.x() + frameOffset.x() * xs;
         const double y = position.y() - camY * e.delta.y() + frameOffset.y() * ys;
@@ -215,7 +215,7 @@ QList<BgDrawItem> BgRenderer::render(const BgSimulator& simulator, const BgView&
                                                             view.ground + (cover.bottom() - view.ground) / zoom.y()))
                                            : cover;
 
-        // "window" counts from the screen top-left and is inclusive, "maskwindow" from the top centre and
+        // "window" counts from the screen top-left and is inclusive, "maskwindow" from the top center and
         // exclusive. Both follow the camera by the window delta.
         std::optional<QRectF> clip;
         if (e.hasWindow && view.windows) {

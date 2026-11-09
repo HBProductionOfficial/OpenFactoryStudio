@@ -163,7 +163,7 @@ AudioMixer::AudioMixer(AudioEngine::Backend backend)
     }
     const ma_context_config contextConfig = ma_context_config_init();
     if (ma_context_init(backends.data(), ma_uint32(backends.size()), &contextConfig, &d->context) != MA_SUCCESS) {
-        d->error = "cannot initialise audio output";
+        d->error = "cannot initialize audio output";
         return;
     }
     d->contextReady = true;

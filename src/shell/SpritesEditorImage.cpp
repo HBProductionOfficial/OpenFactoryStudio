@@ -1,4 +1,4 @@
-// Image editor mode of the Sprites editor: its panel controls, layers list, colour swatches and actions.
+// Image editor mode of the Sprites editor: its panel controls, layers list, color swatches and actions.
 
 #include "core/sprites/QtImages.h"
 #include "shell/SpritesEditor.h"

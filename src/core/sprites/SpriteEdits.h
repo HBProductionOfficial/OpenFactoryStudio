@@ -18,7 +18,7 @@ OFS_CORE_EXPORT void setAxis(SpriteDocument& doc, int index, int x, int y);
 OFS_CORE_EXPORT void moveAxes(SpriteDocument& doc, const QList<int>& indexes, int dx, int dy);
 
 // Moves the axis so a point of the image sits where the guide lines cross (guides is in units
-// from the axis). horizontal: 0 left, 1 centre, 2 right. vertical: 0 top, 1 centre, 2 bottom.
+// from the axis). horizontal: 0 left, 1 center, 2 right. vertical: 0 top, 1 center, 2 bottom.
 OFS_CORE_EXPORT void alignToGuides(SpriteDocument& doc, int index, int horizontal, int vertical, const QPoint& guides);
 
 OFS_CORE_EXPORT void remove(SpriteDocument& doc, QList<int> indexes);

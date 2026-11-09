@@ -175,8 +175,8 @@ private Q_SLOTS:
         view.setImages({screen, away});
         view.setFitArea(QRectF(-160, 0, 320, 240));
         view.zoomFit();
-        const QPointF centre = view.toWidget(QPointF(0, 120));
-        QVERIFY(std::abs(centre.x() - 200) <= 2 && std::abs(centre.y() - 150) <= 2);
+        const QPointF center = view.toWidget(QPointF(0, 120));
+        QVERIFY(std::abs(center.x() - 200) <= 2 && std::abs(center.y() - 150) <= 2);
         QVERIFY(view.zoom() >= 1.0);
     }
 
@@ -209,7 +209,7 @@ private Q_SLOTS:
             const QImage shown = view.grab().toImage();
             const QColor band = shown.pixelColor(125, 3);
             QCOMPARE(band.lightness() < 128, window.lightness() < 128);
-            QCOMPARE(band.rgb(), Rulers::Colours::from(palette).band.rgb());
+            QCOMPARE(band.rgb(), Rulers::Colors::from(palette).band.rgb());
             QCOMPARE(shown.pixelColor(3, 125), band);
         }
     }
@@ -435,8 +435,8 @@ private Q_SLOTS:
         view.setImages({{block(100, 50), QPoint(-50, -50), 1.0, false, {}, {}, {}}});
         view.zoomFit();
         QCOMPARE(view.zoom(), 3.0); // 4x would not fit 400 px across
-        const QPointF centre = view.toWidget(QPointF(0, -25));
-        QVERIFY(std::abs(centre.x() - (20 + 400 / 2.0)) <= 2);
+        const QPointF center = view.toWidget(QPointF(0, -25));
+        QVERIFY(std::abs(center.x() - (20 + 400 / 2.0)) <= 2);
         view.setImages({});
         view.zoomFit();
         QCOMPARE(view.zoom(), 3.0);

@@ -72,7 +72,7 @@ Value Character::trigger(const TriggerCall& call)
         return special(Ops::compare(remainder, arg(1), call.hasSecond ? call.second : Compare::Equal).toBool());
     }
     case Trigger::Pos:
-        // X from the centre of the screen.
+        // X from the center of the screen.
         return Value::real(call.keyword == QLatin1String("y") ? m_pos.y
                                                               : (gameX - (m_match ? m_match->cameraX() : 0)) / unit);
     case Trigger::ScreenPos: {

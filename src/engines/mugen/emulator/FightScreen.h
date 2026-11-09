@@ -36,7 +36,7 @@ class FightScreen
 public:
     struct Font
     {
-        // FNT v1 (one image of all glyphs), or FNT v2: a bitmap font (glyphs are sprites 0,<code>, colour
+        // FNT v1 (one image of all glyphs), or FNT v2: a bitmap font (glyphs are sprites 0,<code>, color
         // banks are palettes 0,<bank>) or a TrueType font.
         enum class Kind
         {
@@ -56,7 +56,7 @@ public:
         Formats::Palette palette(int bank) const;
         static std::optional<Font> load(const QString& path);
         QImage render(int bank) const;
-        // align 1 starts at `pos`, 0 centres on it, -1 ends there.
+        // align 1 starts at `pos`, 0 centers on it, -1 ends there.
         void draw(QPainter& painter, const QImage& image, QPointF pos, int align, QPointF scale, const QString& text,
                   int bank = 0) const;
     };

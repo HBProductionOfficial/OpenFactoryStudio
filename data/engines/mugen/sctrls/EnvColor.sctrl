@@ -1,4 +1,4 @@
-; EnvColor: Fills the screen with a solid colour
+; EnvColor: Fills the screen with a solid color
 [State 0, EnvColor]
 type = EnvColor
 trigger1 =

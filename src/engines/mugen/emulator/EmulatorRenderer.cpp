@@ -74,7 +74,7 @@ struct ColorFx
     std::array<float, 3> add{0, 0, 0};
 };
 
-// PalFX: (colour + add + sinadd's wave) * mul / 256, after the colour level and the inversion.
+// PalFX: (color + add + sinadd's wave) * mul / 256, after the color level and the inversion.
 void addFx(QList<ColorFx>& list, const PalFx& p)
 {
     if (!p.active())
@@ -90,8 +90,8 @@ void addFx(QList<ColorFx>& list, const PalFx& p)
     list << fx;
 }
 
-// The k-th after-image: (colour + palbright) * palcontrast / 256 + palpostbright, then k times
-// (colour + paladd) * palmul.
+// The k-th after-image: (color + palbright) * palcontrast / 256 + palpostbright, then k times
+// (color + paladd) * palmul.
 ColorFx afterImageFx(const AfterImage& a, int k)
 {
     ColorFx fx;
@@ -122,9 +122,9 @@ QImage withFx(const QImage& source, const QList<ColorFx>& effects)
             float c[3] = {float(qRed(px)), float(qGreen(px)), float(qBlue(px))};
             for (const ColorFx& fx : effects) {
                 if (fx.color < 1) {
-                    const float grey = 0.299f * c[0] + 0.587f * c[1] + 0.114f * c[2];
+                    const float gray = 0.299f * c[0] + 0.587f * c[1] + 0.114f * c[2];
                     for (float& v : c)
-                        v = grey + (v - grey) * fx.color;
+                        v = gray + (v - gray) * fx.color;
                 }
                 for (std::size_t i = 0; i < 3; ++i) {
                     float v = fx.invert ? 255 - c[i] : c[i];
@@ -303,7 +303,7 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
     auto toScreen = [&world](Vec2 pos) {
         return world.map(QPointF(pos.x, pos.y));
     };
-    // AllPalFX colours everything. BGPalFX colours the stage too.
+    // AllPalFX colors everything. BGPalFX colors the stage too.
     QList<ColorFx> allFx;
     addFx(allFx, match.allPalFx());
     QList<ColorFx> stageFx;
@@ -388,7 +388,7 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
             placed.transform = flat * QTransform::fromTranslate(at.x(), at.y()) * space;
             return placed;
         }
-        // The engine's fixed perspective looks from 2048 pixels in front of the screen's centre, so corners
+        // The engine's fixed perspective looks from 2048 pixels in front of the screen's center, so corners
         // turned nearer grow.
         const double yAngle = qDegreesToRadians(look.yAngle) * ((look.facing < 0) != (look.vfacing < 0) ? -1 : 1);
         const double xAngle = qDegreesToRadians(look.xAngle);
@@ -632,7 +632,7 @@ QImage EmulatorRenderer::render(const EmulatorSession& session, const Options& o
     if (color.time != 0 && !color.under)
         p.fillRect(QRect(QPoint(), Screen), fill);
 
-    // The fight screen ignores the shake and the zoom, but AllPalFX colours it too.
+    // The fight screen ignores the shake and the zoom, but AllPalFX colors it too.
     canvas.setBase(QTransform());
     const QList<FightScreen::Item> screenItems = match.isAsserted(QStringLiteral("nobardisplay"))
                                                      ? QList<FightScreen::Item>()
